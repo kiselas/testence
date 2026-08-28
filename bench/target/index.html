@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Testence bench target</title></head>
+<body>
+  <h1>bench target</h1>
+  <button id="inc">inc</button> <span id="count">0</span>
+  <div>
+    <input id="name" placeholder="name">
+    <button id="add">add</button>
+    <ul id="list"></ul>
+  </div>
+  <button id="load">load async</button>
+  <div id="asyncout">idle</div>
+  <script>
+    let n = 0, k = 0;
+    document.getElementById("inc").onclick = () => {
+      n += 1;
+      document.getElementById("count").textContent = String(n);
+    };
+    document.getElementById("add").onclick = () => {
+      const li = document.createElement("li");
+      li.textContent = "row-" + document.getElementById("name").value;
+      document.getElementById("list").appendChild(li);
+    };
+    document.getElementById("load").onclick = () => {
+      k += 1;
+      const mine = k;
+      document.getElementById("asyncout").textContent = "loading";
+      setTimeout(() => {
+        document.getElementById("asyncout").textContent = "loaded-" + mine;
+      }, 250);
+    };
+  </script>
+</body>
+</html>

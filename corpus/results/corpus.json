@@ -1,0 +1,190 @@
+{
+ "summary": {
+  "items": 9,
+  "outcome_accuracy": 1.0,
+  "false_green_rate": 0.0,
+  "false_red_rate": 0.0,
+  "heal_recall": 1.0,
+  "heal_precision": 1.0,
+  "disappearance_discrimination": 1.0,
+  "failures": []
+ },
+ "records": [
+  {
+   "item": "ui_change_button_renamed",
+   "verdict_truth": "ui_change",
+   "note": "the add button's accessible name changed; the feature still works",
+   "checks": {
+    "failed_as_expected": true,
+    "observed": "fail",
+    "expected": "fail",
+    "heal_proposed": true,
+    "heal_correct": true,
+    "heal_hint": [
+     "ui_change"
+    ],
+    "heal_targets": [
+     {
+      "kind": "role",
+      "value": "button",
+      "name": "append"
+     }
+    ],
+    "heal_scores": [
+     0.899
+    ],
+    "packs": 1,
+    "pack_tokens": [
+     249
+    ],
+    "baseline_green": true
+   }
+  },
+  {
+   "item": "ui_change_placeholder_renamed",
+   "verdict_truth": "ui_change",
+   "note": "the name field's placeholder changed; addressing by placeholder breaks",
+   "checks": {
+    "failed_as_expected": true,
+    "observed": "fail",
+    "expected": "fail",
+    "heal_proposed": true,
+    "heal_correct": true,
+    "heal_hint": [
+     "ui_change"
+    ],
+    "heal_targets": [
+     {
+      "kind": "role",
+      "value": "textbox",
+      "name": "full name"
+     }
+    ],
+    "heal_scores": [
+     1.0
+    ],
+    "packs": 1,
+    "pack_tokens": [
+     235
+    ],
+    "baseline_green": true
+   }
+  },
+  {
+   "item": "ui_change_wrapped_in_container",
+   "verdict_truth": "ui_change",
+   "note": "element moved into a wrapper and gained a class; semantics unchanged",
+   "checks": {
+    "failed_as_expected": true,
+    "observed": "pass",
+    "expected": "pass",
+    "packs": 0,
+    "pack_tokens": [],
+    "baseline_green": true
+   }
+  },
+  {
+   "item": "real_bug_element_removed",
+   "verdict_truth": "real_bug",
+   "note": "the add button is gone; healing around this would hide a broken feature",
+   "checks": {
+    "failed_as_expected": true,
+    "observed": "fail",
+    "expected": "fail",
+    "refused_to_heal": true,
+    "heal_hint": [
+     "real_bug",
+     "real_bug"
+    ],
+    "heal_scores": [
+     0.5105,
+     0.0808
+    ],
+    "packs": 2,
+    "pack_tokens": [
+     227,
+     225
+    ],
+    "baseline_green": true
+   }
+  },
+  {
+   "item": "real_bug_wrong_value",
+   "verdict_truth": "real_bug",
+   "note": "counter increments by 2; element is present, the behaviour is wrong",
+   "checks": {
+    "failed_as_expected": true,
+    "observed": "fail",
+    "expected": "fail",
+    "refused_to_heal": true,
+    "heal_hint": [
+     "real_bug"
+    ],
+    "heal_scores": [
+     0.0
+    ],
+    "packs": 1,
+    "pack_tokens": [
+     228
+    ],
+    "baseline_green": true
+   }
+  },
+  {
+   "item": "real_bug_action_does_nothing",
+   "verdict_truth": "real_bug",
+   "note": "add button no longer appends a row; the button itself is fine",
+   "checks": {
+    "failed_as_expected": true,
+    "observed": "fail",
+    "expected": "fail",
+    "packs": 1,
+    "pack_tokens": [
+     237
+    ],
+    "baseline_green": true
+   }
+  },
+  {
+   "item": "flaky_timing_slow_async",
+   "verdict_truth": "flaky_timing",
+   "note": "async result arrives after the step timeout but does arrive",
+   "checks": {
+    "failed_as_expected": true,
+    "observed": "fail",
+    "expected": "fail",
+    "packs": 1,
+    "pack_tokens": [
+     235
+    ],
+    "baseline_green": true
+   }
+  },
+  {
+   "item": "control_reordered",
+   "verdict_truth": "none",
+   "note": "pure reordering: reading this as a failure would make the tool unusable",
+   "checks": {
+    "failed_as_expected": true,
+    "observed": "pass",
+    "expected": "pass",
+    "packs": 0,
+    "pack_tokens": [],
+    "baseline_green": true
+   }
+  },
+  {
+   "item": "control_restyled",
+   "verdict_truth": "none",
+   "note": "classes changed only",
+   "checks": {
+    "failed_as_expected": true,
+    "observed": "pass",
+    "expected": "pass",
+    "packs": 0,
+    "pack_tokens": [],
+    "baseline_green": true
+   }
+  }
+ ]
+}

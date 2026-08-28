@@ -1,0 +1,16 @@
+{
+ "scenario": "6 steps on the synthetic bench page (open, click, assert, type, click, assert)",
+ "mcp_arm": {
+  "tool": "in-app browser MCP",
+  "wall_clock_s": 70.6,
+  "ms_per_step": 11760,
+  "tool_calls": 9,
+  "note": "includes two read_page calls, a viewport resize and two failed clicks caused by a 0x0 viewport - all normal friction of the interactive path"
+ },
+ "script_arm": {
+  "tool": "testence runner",
+  "wall_clock_s": 0.353,
+  "ms_per_step": 59
+ },
+ "ratio": 200
+}

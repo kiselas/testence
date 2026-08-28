@@ -1,0 +1,14 @@
+{
+ "arm": "script",
+ "steps": {
+  "open the page": 213.3,
+  "click inc": 71.8,
+  "assert counter shows 1": 7.3,
+  "type a name": 10.1,
+  "click add": 46.0,
+  "assert the row appeared": 4.6
+ },
+ "total_ms": 353.1,
+ "session_setup_ms": 0.0,
+ "note": "browser launch excluded; it is paid once per suite, not per case"
+}

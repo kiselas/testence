@@ -1,0 +1,72 @@
+{
+ "attachments": [
+  {
+   "name": "pack.json",
+   "source": "39e98049-0309-5365-8b50-a3959facf6c6-attachment.json",
+   "type": "application/json"
+  },
+  {
+   "name": "TRIAGE.md",
+   "source": "1b06db92-bee6-5e20-9377-c673ae7c02f1-attachment.md",
+   "type": "text/markdown"
+  },
+  {
+   "name": "aria.txt",
+   "source": "7c4b109d-b18f-55fb-8464-707088089751-attachment.txt",
+   "type": "text/plain"
+  },
+  {
+   "name": "network.jsonl",
+   "source": "74e5ed66-9ba3-5b78-9aa2-ac5961af6c0b-attachment.jsonl",
+   "type": "text/plain"
+  },
+  {
+   "name": "console.txt",
+   "source": "7422639d-3208-5081-a299-14b80f7cecf8-attachment.txt",
+   "type": "text/plain"
+  },
+  {
+   "name": "oracles.json",
+   "source": "a114cf8d-bb58-51c9-a28c-3ff4271d7064-attachment.json",
+   "type": "application/json"
+  }
+ ],
+ "fullName": "tests/test_hosts.py::test_hosts",
+ "historyId": "e19a3059f3d3dbe2d2ca1a3df64e10d61da012e6bcff372bec322aa0eb44669b",
+ "labels": [
+  {
+   "name": "framework",
+   "value": "testence"
+  },
+  {
+   "name": "suite",
+   "value": "test_hosts"
+  },
+  {
+   "name": "tag",
+   "value": "Regression"
+  }
+ ],
+ "name": "test_hosts",
+ "stage": "finished",
+ "start": 1767268800600,
+ "status": "failed",
+ "statusDetails": {
+  "message": "AssertionError: expected 4 hosts, saw 3",
+  "trace": "AssertionError: expected 4 hosts, saw 3"
+ },
+ "steps": [
+  {
+   "name": "create a host",
+   "stage": "finished",
+   "start": 1767268800650,
+   "status": "failed",
+   "statusDetails": {
+    "message": "locator resolved to 0 elements"
+   },
+   "stop": 1767268801550
+  }
+ ],
+ "stop": 1767268801800,
+ "uuid": "16ff1326-3601-53e6-ab52-2773385cf634"
+}

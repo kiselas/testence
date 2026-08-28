@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "testence"
+version = "0.1.0.dev0"
+description = "Agent-first browser test framework: agents author tests as code, a deterministic runner executes them and turns failures into evidence packs for agent triage."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Testence contributors" }]
+keywords = ["testing", "e2e", "browser", "llm", "agents", "playwright", "cdp"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Testing",
+]
+# Dependency policy (ADR-0007): permissive licenses only (MIT/Apache/BSD),
+# no cloud-mandatory services, no LLM SDKs in the runner (ADR-0006).
+dependencies = [
+    "playwright>=1.49",
+    "pytest>=8.0",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6", "mypy>=1.10"]
+# Reserved for the optional native wheel described by ADR-0009. Keep the extra
+# installable while that separately published distribution is not available yet.
+# Testence is fully functional with the pure-Python reference kernels.
+native = []
+# Parallel execution (ADR-0012). Optional on purpose: a suite whose fixtures are
+# not shard-safe must not acquire workers by accident, and serial stays the
+# supported default.
+parallel = ["pytest-xdist>=3.6"]
+
+[project.scripts]
+testence = "testence.cli:main"
+
+[project.entry-points.pytest11]
+testence = "testence.pytest_plugin"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

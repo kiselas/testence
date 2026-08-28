@@ -1,0 +1,14 @@
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":1,"ts":"2026-01-01T12:00:00.000Z","kind":"run.start","testence":"0.1.0.dev0","fingerprint":{"os":"Linux 6.1","python":"3.12.4","base_url":"https://app.example","attach":false,"profile":"staging"}}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":2,"ts":"2026-01-01T12:00:00.100Z","kind":"test.start","test":"test_login","file":"tests/test_login.py","nodeid":"tests/test_login.py::test_login","markers":["Login","Smoke"]}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":3,"ts":"2026-01-01T12:00:00.150Z","kind":"step.start","test":"test_login","step":"s1","intent":"log in as admin","depth":0}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":4,"ts":"2026-01-01T12:00:00.200Z","kind":"step.start","test":"test_login","step":"s2","intent":"fill the password field","target":"textbox 'Password'","depth":1}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":5,"ts":"2026-01-01T12:00:00.260Z","kind":"step.end","test":"test_login","step":"s2","status":"ok","duration_ms":60.0,"depth":1,"children":0}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":6,"ts":"2026-01-01T12:00:00.400Z","kind":"step.end","test":"test_login","step":"s1","status":"ok","duration_ms":250.0,"depth":0,"children":1}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":7,"ts":"2026-01-01T12:00:00.500Z","kind":"test.end","test":"test_login","status":"pass","duration_ms":400.0}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":8,"ts":"2026-01-01T12:00:00.600Z","kind":"test.start","test":"test_hosts","file":"tests/test_hosts.py","nodeid":"tests/test_hosts.py::test_hosts","markers":["Regression"]}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":9,"ts":"2026-01-01T12:00:00.650Z","kind":"step.start","test":"test_hosts","step":"s1","intent":"create a host","depth":0}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":10,"ts":"2026-01-01T12:00:01.550Z","kind":"step.end","test":"test_hosts","step":"s1","status":"fail","duration_ms":900.0,"depth":0,"children":0,"error":"locator resolved to 0 elements"}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":11,"ts":"2026-01-01T12:00:01.600Z","kind":"oracle","test":"test_hosts","name":"host count","ok":false,"diff":[{"field":"count","ui":3,"api":4}]}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":12,"ts":"2026-01-01T12:00:01.700Z","kind":"pack","test":"test_hosts","dir":"test_hosts/pack","sections_est_tokens":{"aria":10,"network":8,"console":2,"oracle":3},"error":"AssertionError: expected 4 hosts, saw 3"}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":13,"ts":"2026-01-01T12:00:01.800Z","kind":"test.end","test":"test_hosts","status":"fail","duration_ms":1200.0,"pack":"test_hosts/pack"}
+{"v":"testence/1","run":"r-20260101-120000-golden","seq":14,"ts":"2026-01-01T12:00:02.000Z","kind":"run.end","duration_ms":2000.0,"passed":1,"failed":1}

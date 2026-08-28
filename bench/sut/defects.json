@@ -1,0 +1,169 @@
+{
+  "version": 1,
+  "note": "Single source of truth for injectable behaviours. Read by server.py and imported by the app. Ids match docs/en/benchmark/corpus.md.",
+  "defects": {
+    "C-08-reorder": {
+      "kind": "control",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "client"
+      ],
+      "title": "toolbar controls are reordered"
+    },
+    "C-08-restyle": {
+      "kind": "control",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "client"
+      ],
+      "title": "classes change only"
+    },
+    "C-08-wrap": {
+      "kind": "control",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "client"
+      ],
+      "title": "a control gains a wrapper element"
+    },
+    "C-10": {
+      "kind": "control",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "server"
+      ],
+      "title": "300 ms is added to every response"
+    },
+    "C-12": {
+      "kind": "control",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "client"
+      ],
+      "title": "a permanent console error that affects no scenario"
+    },
+    "C-13": {
+      "kind": "control",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "client"
+      ],
+      "title": "search commits only on Enter; typing alone is inert by design"
+    },
+    "D-13": {
+      "kind": "defect",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "client"
+      ],
+      "title": "the view does not catch up after a write; a reload fixes it",
+      "retry_hides_it": true
+    },
+    "D-15": {
+      "kind": "defect",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "client"
+      ],
+      "title": "placeholders stay forever; a presence check passes against them"
+    },
+    "D-17": {
+      "kind": "defect",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "server"
+      ],
+      "title": "a deleted row is still listed"
+    },
+    "D-34": {
+      "kind": "defect",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "client"
+      ],
+      "title": "a filter in the URL is not applied when the route is opened fresh"
+    },
+    "D-40": {
+      "kind": "defect",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "client"
+      ],
+      "title": "the first parameter change after a page load is silently discarded",
+      "retry_hides_it": true
+    },
+    "D-43-counter": {
+      "kind": "defect",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "server"
+      ],
+      "title": "the reported total disagrees with the real one"
+    },
+    "D-43-short-page": {
+      "kind": "defect",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "server"
+      ],
+      "title": "the page returns fewer rows than it reports"
+    },
+    "D-44": {
+      "kind": "defect",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "server"
+      ],
+      "title": "search matches by prefix where substring is expected"
+    },
+    "D-45": {
+      "kind": "defect",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "server"
+      ],
+      "title": "the filter reaches the server and does not shape the result"
+    },
+    "U-01-renamed-control": {
+      "kind": "drift",
+      "screens": [
+        "collection"
+      ],
+      "halves": [
+        "client"
+      ],
+      "title": "the submit control is renamed; the feature is unchanged",
+      "note": "not a control: a renamed accessible name legitimately breaks addressing. The correct outcome is a red run carrying a heal proposal (ui_change), not a green one."
+    }
+  }
+}

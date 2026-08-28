@@ -1,0 +1,9 @@
+{
+  "name": "testence-bench-node",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "playwright": "^1.54.0",
+    "@playwright/test": "^1.54.0"
+  }
+}

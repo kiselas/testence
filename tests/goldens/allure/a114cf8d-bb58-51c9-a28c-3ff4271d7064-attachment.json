@@ -1,0 +1,15 @@
+[
+ {
+  "diff": [
+   {
+    "api": 4,
+    "field": "count",
+    "ui": 3
+   }
+  ],
+  "name": "host count",
+  "ok": false,
+  "test": "test_hosts",
+  "ts": "2026-01-01T12:00:01.600Z"
+ }
+]

@@ -1,0 +1,52 @@
+{
+ "fullName": "tests/test_login.py::test_login",
+ "historyId": "9817ba5837851b9abc31d8024a1742761a3efb4c0b1f5d7b829a79a4caeff4c1",
+ "labels": [
+  {
+   "name": "framework",
+   "value": "testence"
+  },
+  {
+   "name": "suite",
+   "value": "test_login"
+  },
+  {
+   "name": "tag",
+   "value": "Login"
+  },
+  {
+   "name": "tag",
+   "value": "Smoke"
+  }
+ ],
+ "name": "test_login",
+ "stage": "finished",
+ "start": 1767268800100,
+ "status": "passed",
+ "steps": [
+  {
+   "name": "log in as admin",
+   "stage": "finished",
+   "start": 1767268800150,
+   "status": "passed",
+   "steps": [
+    {
+     "name": "fill the password field",
+     "parameters": [
+      {
+       "name": "target",
+       "value": "textbox 'Password'"
+      }
+     ],
+     "stage": "finished",
+     "start": 1767268800200,
+     "status": "passed",
+     "stop": 1767268800260
+    }
+   ],
+   "stop": 1767268800400
+  }
+ ],
+ "stop": 1767268800500,
+ "uuid": "b52c39ba-4a7c-5aa1-a2ac-0e52a4f80a1c"
+}

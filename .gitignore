@@ -1,0 +1,26 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+node_modules/
+runs/
+bench/results/local-*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.uv-cache/
+.tmp/
+.codegraph/
+*.local.json
+# Credentials and target URLs live here and must never be committed.
+.env
+.env.local
+.testence/
+# Local MCP/tool wiring; not part of the framework.
+.mcp.json
+# Built bundle: produced by `npm run build` in bench/sut/app.
+bench/sut/static/
+# Claude Code worktrees: local scratch, and each one is its own git checkout.
+.claude/worktrees/

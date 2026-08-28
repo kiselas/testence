@@ -1,0 +1,37 @@
+{
+ "backend": {
+  "name": "reference",
+  "abi": 1
+ },
+ "python": "3.10.12",
+ "kernels": {
+  "parse_ledger": {
+   "ms_median": 530.32,
+   "ms_min": 488.28,
+   "workload": "80000 events / 22687 KiB",
+   "per_unit_us": 6.63
+  },
+  "diff_aria": {
+   "ms_median": 315.78,
+   "ms_min": 304.59,
+   "workload": "200 diffs of 500-node snapshots",
+   "per_unit_us": 1578.9
+  },
+  "score_candidates": {
+   "ms_median": 346.43,
+   "ms_min": 322.8,
+   "workload": "100 rankings x 300 candidates",
+   "per_unit_us": 3464.3
+  },
+  "percentiles": {
+   "ms_median": 1.55,
+   "ms_min": 1.33,
+   "workload": "80k samples, 2 pcts"
+  },
+  "estimate_tokens": {
+   "ms_median": 0.24,
+   "ms_min": 0.21,
+   "workload": "4 MiB text"
+  }
+ }
+}
