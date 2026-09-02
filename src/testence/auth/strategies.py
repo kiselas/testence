@@ -33,8 +33,7 @@ _DEFAULT_SUCCESS_TIMEOUT_MS = 15_000
 
 #: Scheme names accepted in configuration (aliases included).
 _KNOWN_SCHEMES = frozenset(
-    {"", "none", "form", "api-session", "session", "bearer", "jwt", "token",
-     "basic", "attached"}
+    {"", "none", "form", "api-session", "session", "bearer", "jwt", "token", "basic", "attached"}
 )
 
 
@@ -59,9 +58,13 @@ class FormLoginAuth:
         self.login_path = login_path
         # Defaults follow the accessibility of a conventional login form; projects
         # override with their own addressing when the app is less conventional.
-        self.username_target = username_target or Target("css", "input[type=email], input[name=email], input[name=username]")
+        self.username_target = username_target or Target(
+            "css", "input[type=email], input[name=email], input[name=username]"
+        )
         self.password_target = password_target or Target("css", "input[type=password]")
-        self.submit_target = submit_target or Target("css", "button[type=submit], input[type=submit]")
+        self.submit_target = submit_target or Target(
+            "css", "button[type=submit], input[type=submit]"
+        )
         self.success_url_contains = success_url_contains
         self.success_target = success_target
         self.timeout_ms = timeout_ms
@@ -113,8 +116,13 @@ class ApiSessionAuth:
     def authenticate(self, engine: Engine) -> AuthContext:
         from testence.api import http_json
 
-        response = http_json("POST", self.login_url, body=self.payload(self.credentials),
-                             verify_tls=self.verify_tls, ca_bundle=self.ca_bundle)
+        response = http_json(
+            "POST",
+            self.login_url,
+            body=self.payload(self.credentials),
+            verify_tls=self.verify_tls,
+            ca_bundle=self.ca_bundle,
+        )
         cookies = [
             {
                 "name": name,
@@ -168,8 +176,13 @@ class BearerTokenAuth:
     def authenticate(self, engine: Engine) -> AuthContext:
         from testence.api import http_json
 
-        response = http_json("POST", self.token_url, body=self.payload(self.credentials),
-                             verify_tls=self.verify_tls, ca_bundle=self.ca_bundle)
+        response = http_json(
+            "POST",
+            self.token_url,
+            body=self.payload(self.credentials),
+            verify_tls=self.verify_tls,
+            ca_bundle=self.ca_bundle,
+        )
         document = response.json if isinstance(response.json, dict) else {}
         token = document.get(self.token_field)
         if not token:
@@ -221,8 +234,7 @@ class AttachedSessionAuth:
                 f"attached browser has no {self.require_cookie!r} cookie — "
                 "log in in that browser window, or switch to another auth scheme"
             )
-        return AuthContext(cookies=cookies, storage=engine.storage_snapshot(),
-                           scheme=self.scheme)
+        return AuthContext(cookies=cookies, storage=engine.storage_snapshot(), scheme=self.scheme)
 
 
 class CachedSessionAuth:
@@ -275,9 +287,11 @@ class CachedSessionAuth:
         header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
         try:
             response = http_json(
-                "GET", self.base_url + self.probe_path,
+                "GET",
+                self.base_url + self.probe_path,
                 headers={"Cookie": header},
-                verify_tls=self.verify_tls, ca_bundle=self.ca_bundle,
+                verify_tls=self.verify_tls,
+                ca_bundle=self.ca_bundle,
             )
         except Exception:
             return False
@@ -330,8 +344,8 @@ def from_settings(settings: Any, engine_base_url: str = "") -> Any:
         return AttachedSessionAuth(require_cookie=settings.extra.get("session_cookie"))
 
     credentials = settings.credentials()
-    tls = {"verify_tls": getattr(settings, "verify_tls", True),
-           "ca_bundle": getattr(settings, "ca_bundle", "")}
+    verify_tls = bool(getattr(settings, "verify_tls", True))
+    ca_bundle = str(getattr(settings, "ca_bundle", ""))
     adapter: Any
     if scheme == "form":
         adapter = FormLoginAuth(
@@ -344,7 +358,8 @@ def from_settings(settings: Any, engine_base_url: str = "") -> Any:
         adapter = ApiSessionAuth(
             credentials,
             login_url=base + (settings.api_login_path or "/api/v1/auth/login"),
-            **tls,
+            verify_tls=verify_tls,
+            ca_bundle=ca_bundle,
         )
     elif scheme in ("bearer", "jwt", "token"):
         adapter = BearerTokenAuth(
@@ -352,7 +367,8 @@ def from_settings(settings: Any, engine_base_url: str = "") -> Any:
             token_url=base + (settings.api_login_path or "/api/v1/auth/token"),
             token_field=settings.extra.get("token_field", "access_token"),
             storage_key=settings.extra.get("token_storage_key"),
-            **tls,
+            verify_tls=verify_tls,
+            ca_bundle=ca_bundle,
         )
     else:
         adapter = BasicAuth(credentials)
@@ -368,7 +384,8 @@ def from_settings(settings: Any, engine_base_url: str = "") -> Any:
             base_url=base,
             probe_path=probe_path,
             cache_file=Path(settings.runs_root) / f".session-{host}.json",
-            **tls,
+            verify_tls=verify_tls,
+            ca_bundle=ca_bundle,
         )
     return adapter
 

@@ -26,7 +26,6 @@ from typing import Any, TextIO
 
 from .events import Event
 
-
 #: Environment variable carrying the run id to every xdist worker, so all of them
 #: write into one run directory instead of inventing a directory each.
 RUN_ID_ENV = "TESTENCE_RUN_ID"

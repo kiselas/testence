@@ -50,10 +50,32 @@ PAGE_SIZE = 10
 #: a corpus item has to mean the same thing on every run, and `Math.random` in a
 #: fixture is how a benchmark acquires its own flake rate.
 _NAMES = [
-    "alpha", "beacon", "cascade", "delta", "ember", "fathom", "gantry", "harbor",
-    "indigo", "jetty", "kestrel", "lantern", "marlin", "nimbus", "onyx", "pillar",
-    "quarry", "ravine", "summit", "tundra", "umber", "vessel", "willow", "xenon",
-    "yarrow", "zephyr",
+    "alpha",
+    "beacon",
+    "cascade",
+    "delta",
+    "ember",
+    "fathom",
+    "gantry",
+    "harbor",
+    "indigo",
+    "jetty",
+    "kestrel",
+    "lantern",
+    "marlin",
+    "nimbus",
+    "onyx",
+    "pillar",
+    "quarry",
+    "ravine",
+    "summit",
+    "tundra",
+    "umber",
+    "vessel",
+    "willow",
+    "xenon",
+    "yarrow",
+    "zephyr",
 ]
 _OWNERS = ["ap", "bd", "cf", "dh", "ek"]
 _STATUSES = ["draft", "published", "archived"]
@@ -70,14 +92,16 @@ def _seed_rows() -> list[dict]:
     """
     rows = []
     for index in range(47):
-        rows.append({
-            "id": f"row-{index:03d}",
-            "name": f"{_NAMES[index % len(_NAMES)]}-{index:02d}",
-            "owner": _OWNERS[index % len(_OWNERS)],
-            "status": _STATUSES[index % len(_STATUSES)],
-            "updatedAt": (_EPOCH + timedelta(hours=index * 7)).isoformat(),
-            "deleted": index in (7, 23),
-        })
+        rows.append(
+            {
+                "id": f"row-{index:03d}",
+                "name": f"{_NAMES[index % len(_NAMES)]}-{index:02d}",
+                "owner": _OWNERS[index % len(_OWNERS)],
+                "status": _STATUSES[index % len(_STATUSES)],
+                "updatedAt": (_EPOCH + timedelta(hours=index * 7)).isoformat(),
+                "deleted": index in (7, 23),
+            }
+        )
     return rows
 
 
@@ -181,7 +205,7 @@ def collection(store: Store, params: dict[str, list[str]], on: set[str]) -> dict
     total = len(rows)
     page = max(1, int((params.get("page") or ["1"])[0] or 1))
     start = (page - 1) * PAGE_SIZE
-    window = rows[start:start + PAGE_SIZE]
+    window = rows[start : start + PAGE_SIZE]
 
     # D-43-short-page: one row is dropped from the window and the total still counts
     # it. An assertion on the first row passes; only comparing the window against
@@ -251,8 +275,9 @@ class Handler(BaseHTTPRequestHandler):
         if not name:
             self._json(422, {"error": "NAME_REQUIRED", "field": "name"})
             return
-        row = self._store().add(name, str(payload.get("owner") or "ap"),
-                                str(payload.get("status") or "draft"))
+        row = self._store().add(
+            name, str(payload.get("owner") or "ap"), str(payload.get("status") or "draft")
+        )
         self._json(201, row)
 
     def _api_get(self, path: str, params: dict[str, list[str]]) -> None:
@@ -280,13 +305,22 @@ class Handler(BaseHTTPRequestHandler):
         if not candidate.is_file():
             candidate = STATIC / "index.html"
         if not candidate.is_file():
-            self._send(503, b"bundle not built: run `npm ci && npm run build` in bench/sut/app",
-                       "text/plain; charset=utf-8")
+            self._send(
+                503,
+                b"bundle not built: run `npm ci && npm run build` in bench/sut/app",
+                "text/plain; charset=utf-8",
+            )
             return
-        types = {".html": "text/html; charset=utf-8", ".js": "text/javascript",
-                 ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json"}
-        self._send(200, candidate.read_bytes(),
-                   types.get(candidate.suffix, "application/octet-stream"))
+        types = {
+            ".html": "text/html; charset=utf-8",
+            ".js": "text/javascript",
+            ".css": "text/css",
+            ".svg": "image/svg+xml",
+            ".json": "application/json",
+        }
+        self._send(
+            200, candidate.read_bytes(), types.get(candidate.suffix, "application/octet-stream")
+        )
 
 
 def main() -> None:
@@ -296,8 +330,9 @@ def main() -> None:
     args = parser.parse_args()
 
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"sut on http://{args.host}:{args.port}  ({len(KNOWN)} injectable behaviours)",
-          flush=True)
+    print(
+        f"sut on http://{args.host}:{args.port}  ({len(KNOWN)} injectable behaviours)", flush=True
+    )
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

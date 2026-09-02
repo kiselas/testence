@@ -47,8 +47,7 @@ def _load_backend() -> Any:
     declared = getattr(native, "abi", None)
     if declared != KERNEL_ABI:
         message = (
-            f"{_NATIVE_MODULE} implements kernel ABI {declared!r}, "
-            f"this Testence needs {KERNEL_ABI}"
+            f"{_NATIVE_MODULE} implements kernel ABI {declared!r}, this Testence needs {KERNEL_ABI}"
         )
         if mode == "native":
             raise RuntimeError(message)

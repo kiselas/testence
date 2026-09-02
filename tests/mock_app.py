@@ -75,7 +75,7 @@ function submitWidget(event) {
   const cidr = document.getElementById('cidr').value;
   // Deliberately naive client validation: a copy of the server rule, which is
   // exactly how the two drift apart in real applications.
-  if (!/^\d+\.\d+\.\d+\.\d+\/\d+$/.test(cidr)) {
+  if (!/^\\d+\\.\\d+\\.\\d+\\.\\d+\\/\\d+$/.test(cidr)) {
     document.getElementById('error').textContent = 'CIDR looks wrong';
     return false;
   }
@@ -102,8 +102,9 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
     # -- helpers ---------------------------------------------------------
-    def _send(self, status: int, body: str, content_type: str,
-              extra: list[tuple[str, str]] | None = None) -> None:
+    def _send(
+        self, status: int, body: str, content_type: str, extra: list[tuple[str, str]] | None = None
+    ) -> None:
         payload = body.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", content_type)
@@ -131,7 +132,7 @@ class _Handler(BaseHTTPRequestHandler):
         if authorization == f"Bearer {TOKEN_VALUE}":
             return True
         if authorization.startswith("Basic "):
-            raw = base64.b64decode(authorization[len("Basic "):]).decode()
+            raw = base64.b64decode(authorization[len("Basic ") :]).decode()
             return raw == f"{USER}:{PASSWORD}"
         return False
 
@@ -187,8 +188,11 @@ class _Handler(BaseHTTPRequestHandler):
             document = {}
         if path == "/api/v1/auth/login":
             if document.get("email") == USER and document.get("password") == PASSWORD:
-                self._json(200, {"user": {"email": USER}},
-                           extra=[("Set-Cookie", f"{SESSION_COOKIE}={SESSION_VALUE}; Path=/")])
+                self._json(
+                    200,
+                    {"user": {"email": USER}},
+                    extra=[("Set-Cookie", f"{SESSION_COOKIE}={SESSION_VALUE}; Path=/")],
+                )
             else:
                 self._json(401, {"detail": "invalid credentials"})
         elif path == "/api/v1/widgets":
@@ -196,8 +200,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(401, {"detail": "not authenticated"})
                 return
             widget_id = f"w{len(WIDGETS) + 1}"
-            stored = {"id": widget_id, "name": document.get("name"),
-                      "cidr": document.get("cidr")}
+            stored = {"id": widget_id, "name": document.get("name"), "cidr": document.get("cidr")}
             WIDGETS[widget_id] = stored
             self._json(201, stored)
         elif path == "/api/v1/auth/token":

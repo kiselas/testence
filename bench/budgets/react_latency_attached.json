@@ -1,0 +1,16 @@
+{
+  "schema": "testence/performance-budget/1",
+  "scenario": "real React with a shared CDP browser",
+  "minimum_repeats": 3,
+  "limits": {
+    "fresh_process_ms.p95": {"max": 5000, "min_samples": 3},
+    "bootstrap_ms.p95": {"max": 3000, "min_samples": 3},
+    "test_ms.p95": {"max": 2500, "min_samples": 3},
+    "steps.controlled_fill_safe_ms.p95": {"max": 100, "min_samples": 20},
+    "steps.controlled_fill_fast_ms.p95": {"max": 100, "min_samples": 20},
+    "steps.mutation_round_trip_ms.p95": {"max": 1000, "min_samples": 3},
+    "engine.goto_ms.p95": {"max": 1000, "min_samples": 3},
+    "engine.wait_until_rendered_ms.p95": {"max": 750, "min_samples": 3},
+    "engine.wait_for_response_ms.p95": {"max": 250, "min_samples": 3}
+  }
+}

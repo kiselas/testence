@@ -47,28 +47,38 @@ def main() -> None:
 
         for i in range(1, ITERATIONS + 1):
             timed("click_instant", lambda: page.click("#inc"))
-            timed("assert_instant",
-                  lambda: expect(page.locator("#count")).to_have_text(str(i)))
+            timed("assert_instant", lambda: expect(page.locator("#count")).to_have_text(str(i)))
             timed("fill_instant", lambda: page.fill("#name", f"user-{i}"))
             timed("click_add", lambda: page.click("#add"))
-            timed("assert_row",
-                  lambda: expect(page.locator("#list li").last).to_have_text(f"row-user-{i}"))
+            timed(
+                "assert_row",
+                lambda: expect(page.locator("#list li").last).to_have_text(f"row-user-{i}"),
+            )
             timed("click_async", lambda: page.click("#load"))
-            timed("assert_async",
-                  lambda: expect(page.locator("#asyncout")).to_have_text(f"loaded-{i}",
-                                                                         timeout=5000))
+            timed(
+                "assert_async",
+                lambda: expect(page.locator("#asyncout")).to_have_text(f"loaded-{i}", timeout=5000),
+            )
         browser.close()
 
-    instant_labels = ["click_instant", "assert_instant", "fill_instant", "click_add",
-                      "assert_row", "click_async"]
+    instant_labels = [
+        "click_instant",
+        "assert_instant",
+        "fill_instant",
+        "click_add",
+        "assert_row",
+        "click_async",
+    ]
     instant = [v for label in instant_labels for v in samples[label]]
     result = {
         "arm": "python",
         "python": sys.version.split()[0],
         "iterations": ITERATIONS,
         "launch_ms": launch_ms,
-        "per_step": {label: {"p50": pctl(vals, 50), "p95": pctl(vals, 95), "n": len(vals)}
-                     for label, vals in samples.items()},
+        "per_step": {
+            label: {"p50": pctl(vals, 50), "p95": pctl(vals, 95), "n": len(vals)}
+            for label, vals in samples.items()
+        },
         "instant_all": {"p50": pctl(instant, 50), "p95": pctl(instant, 95), "n": len(instant)},
     }
     out = Path(__file__).parent / "results" / "e1_python.json"

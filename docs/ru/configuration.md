@@ -89,6 +89,28 @@ TESTENCE_VERIFY_TLS=false                        # только изолиров
 | `TESTENCE_CDP_URL` | подключение к запущенному Chrome вместо нового |
 | `TESTENCE_RUN_ID` | имя каталога запуска; plugin задаёт его общим для всех xdist workers ([ADR-0012](adr/0012-parallel-execution.md)) |
 
+Для повторяющегося agent-authoring loop один раз запустите и аутентифицируйте browser,
+после чего подключайте к нему короткие pytest processes через attached profile:
+
+```bash
+python -m testence.dev_browser --profile staging
+pytest tests_e2e/ -k current_case --testence-profile staging-attached
+```
+
+Persistent context принадлежит launcher'у. Attached pytest runs переиспользуют cookies,
+storage и текущую page, сбрасывают capture buffers Testence на каждом test и отключаются,
+не закрывая этот context. Это оптимизация повторных runs: одиночная команда всё равно
+оплачивает старт launcher'а.
+
+Добавляйте `--warm` к `testence watch` только во время authoring. Каждый каталог `-w`
+становится границей module reload: импортированные из этих roots проектные модули
+выгружаются перед следующей pytest session, а Testence остаётся загруженным. Для CI и
+release evidence сохраняйте обычную subprocess isolation.
+
+Warm mode также сохраняет Playwright/CDP engine между sessions. Engine key содержит все
+settings browser connection: изменение любой из них закрывает старый client и создаёт
+новый. Остановка warm runner освобождает сохранённый client.
+
 `TESTENCE_RUN_ID` задаётся через `setdefault` в `pytest_configure` до запуска xdist
 и наследуется workers. Устанавливайте его вручную только если внешнему инструменту
 нужно писать в известный каталог. Два независимых параллельных запуска с одним

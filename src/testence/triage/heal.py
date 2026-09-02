@@ -63,8 +63,8 @@ class HealProposal:
 def _target_expression(target: dict[str, Any]) -> str:
     kind, value, name = target.get("kind"), target.get("value"), target.get("name")
     if name:
-        return f'Target({kind!r}, {value!r}, name={name!r})'
-    return f'Target({kind!r}, {value!r})'
+        return f"Target({kind!r}, {value!r}, name={name!r})"
+    return f"Target({kind!r}, {value!r})"
 
 
 def _explain(known: dict[str, Any], candidate: dict[str, Any]) -> str:
@@ -114,9 +114,7 @@ def propose(
     ranked = sorted(zip(scores, candidates), key=lambda pair: pair[0], reverse=True)
     best_score, best = ranked[0]
     runner_up = ranked[1][0] if len(ranked) > 1 else None
-    considered = [
-        {"score": score, "target": item.get("target")} for score, item in ranked[:5]
-    ]
+    considered = [{"score": score, "target": item.get("target")} for score, item in ranked[:5]]
 
     if best_score < MIN_SCORE:
         return HealProposal(
@@ -151,9 +149,7 @@ def propose(
         ambiguous=ambiguous,
         rationale=rationale,
         suggested_edit=(
-            f"# step: {intent}\n"
-            f"- {failed_target.describe()}\n"
-            f"+ {_target_expression(new_target)}"
+            f"# step: {intent}\n- {failed_target.describe()}\n+ {_target_expression(new_target)}"
         ),
         considered=considered,
     )

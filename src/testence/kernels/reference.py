@@ -113,9 +113,7 @@ def _text_similarity(a: str, b: str) -> float:
     return SequenceMatcher(a=a, b=b, autojunk=False).ratio()
 
 
-def score_candidates(
-    target: dict[str, Any], candidates: list[dict[str, Any]]
-) -> list[float]:
+def score_candidates(target: dict[str, Any], candidates: list[dict[str, Any]]) -> list[float]:
     scores: list[float] = []
     wanted_testid = target.get("testid")
     for candidate in candidates:

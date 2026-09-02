@@ -44,7 +44,7 @@ def _parse_env_file(path: Path) -> dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         if line.startswith("export "):
-            line = line[len("export "):]
+            line = line[len("export ") :]
         key, _, value = line.partition("=")
         value = value.strip().strip('"').strip("'")
         values[key.strip()] = value
@@ -112,8 +112,11 @@ class Settings:
         env: dict[str, str] = dict(file_env)
         env.update({k: v for k, v in os.environ.items() if k.startswith(ENV_PREFIX)})
 
-        profile = overrides.get("profile") or env.get(f"{ENV_PREFIX}PROFILE") or \
-            file_config.get("profile", "")
+        profile = (
+            overrides.get("profile")
+            or env.get(f"{ENV_PREFIX}PROFILE")
+            or file_config.get("profile", "")
+        )
         merged: dict[str, Any] = {k: v for k, v in file_config.items() if k != "profile"}
         if profile:
             if profile not in profiles:
@@ -129,7 +132,7 @@ class Settings:
                 extra[key] = merged.pop(key)
 
         for key, value in env.items():
-            field_name = key[len(ENV_PREFIX):].lower()
+            field_name = key[len(ENV_PREFIX) :].lower()
             if field_name in known_fields:
                 merged[field_name] = value
 

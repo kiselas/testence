@@ -14,8 +14,9 @@ from __future__ import annotations
 
 import re
 import time
-from contextlib import contextmanager
-from typing import Any, Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
+from typing import Any
 
 from playwright.sync_api import (
     Browser,
@@ -30,15 +31,16 @@ from playwright.sync_api import expect as pw_expect
 from .protocol import Engine, NetRecord, Target
 
 _DEFAULT_TIMEOUT_MS = 10_000
+_RENDER_TIMEOUT_MS = 2_000
 _BODY_CAP_BYTES = 64 * 1024
 _WS_FRAME_CAP_BYTES = 8 * 1024
-#: Poll interval for the capture-buffer waits. It is a floor on how late an
-#: answer can be observed, so it is paid on every such wait — keep it small.
-_POLL_MS = 50
+#: Poll interval for capture-buffer waits. Playwright events are dispatched while
+#: ``wait_for_timeout`` yields to its message loop, so this is not a busy Python
+#: poll. It is still a floor on how late an already completed mutation is observed:
+#: 50 ms was visible on fast React APIs, while 10 ms stays cheap and responsive.
+_POLL_MS = 10
 #: Verbs that must never be accepted as a URL fragment: see wait_for_request.
-_HTTP_VERBS = frozenset(
-    {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
-)
+_HTTP_VERBS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"})
 
 #: Injected into every document when ``reduce_motion`` is on. CSS transitions and
 #: entry animations add 150–300 ms to every modal/panel open — pure wait for a
@@ -106,11 +108,20 @@ class PlaywrightCdpEngine(Engine):
         #: here, not in a profiler. Cleared per test with the other taps.
         self._waits: list[dict[str, Any]] = []
         self._launched_here = False
+        # A CDP client normally borrows the launcher's default context. Closing
+        # that context from pytest can discard the logged-in session the launcher
+        # exists to preserve. The exceptional no-context attach creates one and
+        # therefore owns it; locally launched and persistent contexts are owned too.
+        self._owns_context = False
         self._extra_headers: dict[str, str] = {}
 
     # -- lifecycle -------------------------------------------------------
 
     def start(self) -> None:
+        # Keep ownership correct if an embedding application deliberately reuses
+        # one engine object for more than one start/stop cycle.
+        self._launched_here = False
+        self._owns_context = False
         playwright = sync_playwright().start()
         self._pw = playwright
         if self.test_id_attribute:
@@ -122,7 +133,11 @@ class PlaywrightCdpEngine(Engine):
             # cookie jar is empty, which surfaces as "attached browser has no
             # session cookie" while the real session sits in the next context over.
             contexts = sorted(self._browser.contexts, key=lambda c: -len(c.pages))
-            self._context = contexts[0] if contexts else self._browser.new_context()
+            if contexts:
+                self._context = contexts[0]
+            else:
+                self._context = self._browser.new_context()
+                self._owns_context = True
         elif self.user_data_dir:
             # Persistent profile. Required for the long-lived dev browser: a
             # context created with new_context() is invisible to a later
@@ -139,6 +154,7 @@ class PlaywrightCdpEngine(Engine):
             )
             self._browser = self._context.browser
             self._launched_here = True
+            self._owns_context = True
         else:
             self._browser = playwright.chromium.launch(
                 channel=self.browser_channel,
@@ -146,9 +162,8 @@ class PlaywrightCdpEngine(Engine):
                 args=[f"--remote-debugging-port={self.debug_port}"],
             )
             self._launched_here = True
-            self._context = self._browser.new_context(
-                ignore_https_errors=self.ignore_https_errors
-            )
+            self._context = self._browser.new_context(ignore_https_errors=self.ignore_https_errors)
+            self._owns_context = True
         self._context.set_default_timeout(self.timeout_ms)
         if self.reduce_motion:
             # Both hints, because apps honour either: the media feature for
@@ -170,14 +185,22 @@ class PlaywrightCdpEngine(Engine):
         if keep_browser:
             # Leave the crime scene intact; only detach our client if we attached.
             if self._pw and not self._launched_here:
-                self._pw.stop()
+                with suppress(Exception):
+                    self._pw.stop()
             return
-        if self._context:
-            self._context.close()
+        if self._context and self._owns_context:
+            # Ctrl+C can reach Chromium's driver before Python enters cleanup. At
+            # that point close() reports a dead transport, but the desired state
+            # (the owned context is gone) already holds. Continue best-effort so a
+            # dev-browser shutdown never ends in a misleading stack trace.
+            with suppress(Exception):
+                self._context.close()
         if self._browser and self._launched_here:
-            self._browser.close()
+            with suppress(Exception):
+                self._browser.close()
         if self._pw:
-            self._pw.stop()
+            with suppress(Exception):
+                self._pw.stop()
 
     # -- taps --------------------------------------------------------------
 
@@ -209,7 +232,7 @@ class PlaywrightCdpEngine(Engine):
             if (response.status >= 400) or rec.method != "GET":
                 try:
                     rec.response_body = response.text()[:_BODY_CAP_BYTES]
-                except Exception:
+                except Exception:  # noqa: BLE001 - evidence capture is best-effort
                     rec.response_body = "<body unavailable>"
             # Status LAST, deliberately: wait_for_response keys on it, so setting it
             # before the body is captured hands the caller a record whose body is
@@ -240,11 +263,14 @@ class PlaywrightCdpEngine(Engine):
         def on_websocket(ws: Any) -> None:
             def on_frame(payload: Any) -> None:
                 text = payload if isinstance(payload, str) else "<binary frame>"
-                self._ws.append({
-                    "url": ws.url,
-                    "at_ms": time.monotonic() * 1000,
-                    "payload": text[:_WS_FRAME_CAP_BYTES],
-                })
+                self._ws.append(
+                    {
+                        "url": ws.url,
+                        "at_ms": time.monotonic() * 1000,
+                        "payload": text[:_WS_FRAME_CAP_BYTES],
+                    }
+                )
+
             ws.on("framereceived", on_frame)
 
         page.on("request", on_request)
@@ -268,10 +294,14 @@ class PlaywrightCdpEngine(Engine):
             ok = False
             raise
         finally:
-            self._waits.append({
-                "op": op, "detail": detail,
-                "ms": round((time.monotonic() - started) * 1000, 1), "ok": ok,
-            })
+            self._waits.append(
+                {
+                    "op": op,
+                    "detail": detail,
+                    "ms": round((time.monotonic() - started) * 1000, 1),
+                    "ok": ok,
+                }
+            )
 
     # -- targets -----------------------------------------------------------
 
@@ -338,7 +368,7 @@ class PlaywrightCdpEngine(Engine):
         if not same_origin:
             self.goto(url)
             return False
-        path = full[len(self.base_url):] or "/"
+        path = full[len(self.base_url) :] or "/"
         with self._timed("navigate(spa)", path):
             page.evaluate(
                 """(target) => {
@@ -349,24 +379,38 @@ class PlaywrightCdpEngine(Engine):
             )
         return True
 
-    def wait_until_rendered(self, timeout_ms: int = 5_000) -> bool:
+    def wait_until_rendered(self, timeout_ms: int = _RENDER_TIMEOUT_MS) -> bool:
         """Wait for a single-page app to actually paint something.
 
         ``load`` fires when the bundle arrives, which for an SPA is before the app
-        has rendered anything: a snapshot taken then is empty, and an empty snapshot
-        is indistinguishable from the genuine evidence "the page was blank". So we
-        wait for visible content — a heuristic, deliberately not an assertion:
-        timing out here is not a failure (the next action auto-waits anyway), it is
-        just the end of waiting. Returns whether content appeared.
+        has rendered anything. Text alone is not a readiness signal: a React root
+        may validly render only inputs, icons, canvas or another semantic control.
+        Prefer a known SPA root when present and accept either text or meaningful
+        non-text UI inside it. This remains a best-effort heuristic rather than an
+        assertion; the next locator action owns its precise readiness wait.
         """
         with self._timed("wait_until_rendered"):
             try:
                 self._require_page().wait_for_function(
-                    "() => !!document.body && document.body.innerText.trim().length > 0",
+                    """() => {
+                        const body = document.body;
+                        if (!body) return false;
+                        const roots = [...document.querySelectorAll(
+                            '#root, #app, [data-reactroot], [data-react-app]'
+                        )];
+                        const scopes = roots.length ? roots : [body];
+                        return scopes.some(scope => {
+                            if ((scope.innerText || '').trim().length) return true;
+                            return !!scope.querySelector(
+                                'input, textarea, select, button, a[href], img, svg,'
+                                + ' canvas, video, [role], [aria-label], [contenteditable]'
+                            );
+                        });
+                    }""",
                     timeout=timeout_ms,
                 )
                 return True
-            except Exception:
+            except Exception:  # noqa: BLE001 - readiness probes fail closed
                 return False
 
     def settle(self, timeout_ms: int = 1_500) -> bool:
@@ -376,7 +420,7 @@ class PlaywrightCdpEngine(Engine):
             try:
                 self._require_page().wait_for_load_state("networkidle", timeout=timeout_ms)
                 return True
-            except Exception:
+            except Exception:  # noqa: BLE001 - readiness probes fail closed
                 return False
 
     def click(self, target: Target, *, fast: bool = False) -> None:
@@ -393,9 +437,16 @@ class PlaywrightCdpEngine(Engine):
         with self._timed("click(fast)" if fast else "click", target.describe()):
             self._locate(target).click(force=fast)
 
-    def fill(self, target: Target, value: str) -> None:
-        with self._timed("fill", target.describe()):
-            self._locate(target).fill(value)
+    def fill(self, target: Target, value: str, *, fast: bool = False) -> None:
+        """Fill through Playwright so controlled inputs receive an input event.
+
+        Directly assigning ``element.value`` is a tempting micro-optimization but
+        can bypass React's value tracker and application handlers. ``force=True``
+        keeps Playwright's event-correct fill path while skipping actionability
+        checks for callers that already established readiness.
+        """
+        with self._timed("fill(fast)" if fast else "fill", target.describe()):
+            self._locate(target).fill(value, force=fast)
 
     def select(self, target: Target, value: str) -> None:
         self._locate(target).select_option(value)
@@ -405,8 +456,9 @@ class PlaywrightCdpEngine(Engine):
 
     # -- observation -----------------------------------------------------------
 
-    def expect_text(self, target: Target, text: str, timeout_ms: int | None = None,
-                    *, exact: bool = True) -> None:
+    def expect_text(
+        self, target: Target, text: str, timeout_ms: int | None = None, *, exact: bool = True
+    ) -> None:
         # Exact by default, for the reason already written into `Target`: loose
         # matching on an identity value is a silent hazard. Here it is worse than on
         # a locator, because the failure mode is a *passing* assertion — "the
@@ -414,8 +466,7 @@ class PlaywrightCdpEngine(Engine):
         # caught it racing a transient value on its way to the right one. Pass
         # exact=False where the element genuinely carries surrounding text.
         matcher: Any = re.compile(rf"^\s*{re.escape(text)}\s*$") if exact else text
-        with self._timed("expect_text",
-                         f"{target.describe()} {'==' if exact else '~'} {text!r}"):
+        with self._timed("expect_text", f"{target.describe()} {'==' if exact else '~'} {text!r}"):
             self._locate(target).filter(has_text=matcher).first.wait_for(
                 state="visible", timeout=timeout_ms or self.timeout_ms
             )
@@ -472,14 +523,18 @@ class PlaywrightCdpEngine(Engine):
         if page.url in ("about:blank", ""):
             return {}
         try:
-            return page.evaluate(
-                "() => Object.fromEntries(Object.entries(localStorage))"
-            )
-        except Exception:
+            return page.evaluate("() => Object.fromEntries(Object.entries(localStorage))")
+        except Exception:  # noqa: BLE001 - browser evidence is best-effort
             return {}
 
-    def wait_for_request(self, url_contains: str, *, method: str | None = None,
-                         since: int = 0, timeout_ms: int | None = None) -> bool:
+    def wait_for_request(
+        self,
+        url_contains: str,
+        *,
+        method: str | None = None,
+        since: int = 0,
+        timeout_ms: int | None = None,
+    ) -> bool:
         """Poll the capture buffer, which already records every API call from the
         first moment of the test — so a request that fired before this call was
         made still counts.
@@ -503,14 +558,12 @@ class PlaywrightCdpEngine(Engine):
         with self._timed("wait_for_request", f"{method or 'ANY'} {url_contains}"):
             while True:
                 for record in self._net[since:]:
-                    if url_contains in record.url and (
-                        wanted is None or record.method == wanted
-                    ):
+                    if url_contains in record.url and (wanted is None or record.method == wanted):
                         return True
                 if remaining <= 0:
                     return False
-                # 50 ms, matching wait_for_response: the poll interval is a floor
-                # on how late an answer can arrive, and it is paid on every wait.
+                # Matching wait_for_response: the poll interval is a floor on how
+                # late an answer can arrive, and it is paid on every wait.
                 step = min(_POLL_MS, remaining)
                 page.wait_for_timeout(step)
                 remaining -= step
@@ -518,9 +571,14 @@ class PlaywrightCdpEngine(Engine):
     def net_mark(self) -> int:
         return len(self._net)
 
-    def wait_for_response(self, url_contains: str, *, method: str | None = None,
-                          since: int = 0,
-                          timeout_ms: int | None = None) -> NetRecord | None:
+    def wait_for_response(
+        self,
+        url_contains: str,
+        *,
+        method: str | None = None,
+        since: int = 0,
+        timeout_ms: int | None = None,
+    ) -> NetRecord | None:
         """Wait for a completed response — see the protocol docstring.
 
         Scans the same capture buffer as ``wait_for_request`` (so a response that
@@ -550,20 +608,26 @@ class PlaywrightCdpEngine(Engine):
                         aborted = record.failure
                 if aborted or remaining <= 0:
                     break
-                page.wait_for_timeout(_POLL_MS)
-                remaining -= _POLL_MS
+                step = min(_POLL_MS, remaining)
+                page.wait_for_timeout(step)
+                remaining -= step
         if aborted:
-            self._waits.append({
-                "op": "wait_for_response", "ok": False, "ms": 0.0,
-                "detail": f"{method or 'ANY'} {url_contains} aborted: {aborted}",
-            })
+            self._waits.append(
+                {
+                    "op": "wait_for_response",
+                    "ok": False,
+                    "ms": 0.0,
+                    "detail": f"{method or 'ANY'} {url_contains} aborted: {aborted}",
+                }
+            )
         return None
 
     def ws_mark(self) -> int:
         return len(self._ws)
 
-    def wait_for_ws(self, payload_contains: str, *, since: int = 0,
-                    timeout_ms: int | None = None) -> dict[str, Any] | None:
+    def wait_for_ws(
+        self, payload_contains: str, *, since: int = 0, timeout_ms: int | None = None
+    ) -> dict[str, Any] | None:
         """Wait for a WebSocket frame whose payload contains the fragment.
 
         Live-update apps announce mutations over WS (``...Updated`` events); for a
@@ -579,8 +643,9 @@ class PlaywrightCdpEngine(Engine):
                         return frame
                 if remaining <= 0:
                     return None
-                page.wait_for_timeout(50)
-                remaining -= 50
+                step = min(_POLL_MS, remaining)
+                page.wait_for_timeout(step)
+                remaining -= step
 
     def wait_for_value(self, target: Target, timeout_ms: int | None = None) -> str:
         """Wait until an input carries a non-empty value — the form-control
@@ -591,8 +656,7 @@ class PlaywrightCdpEngine(Engine):
             )
             return self._locate(target).first.input_value()
 
-    def wait_for_predicate_js(self, expression: str,
-                              timeout_ms: int | None = None) -> bool:
+    def wait_for_predicate_js(self, expression: str, timeout_ms: int | None = None) -> bool:
         """Wait until a JS predicate holds; returns whether it did.
 
         For readiness conditions no locator can express ("every row matches the
@@ -605,11 +669,12 @@ class PlaywrightCdpEngine(Engine):
                     expression, timeout=timeout_ms or self.timeout_ms
                 )
                 return True
-            except Exception:
+            except Exception:  # noqa: BLE001 - readiness probes fail closed
                 return False
 
-    def wait_for_content(self, target: Target, minimum: int = 1,
-                         timeout_ms: int | None = None) -> int:
+    def wait_for_content(
+        self, target: Target, minimum: int = 1, timeout_ms: int | None = None
+    ) -> int:
         locator = self._locate(target).filter(has_text=re.compile(r"\S"))
         locator.nth(max(0, minimum - 1)).wait_for(
             state="visible", timeout=(timeout_ms or self.timeout_ms)
@@ -619,8 +684,9 @@ class PlaywrightCdpEngine(Engine):
     def count(self, target: Target) -> int:
         return self._locate(target).count()
 
-    def wait_for_count(self, target: Target, minimum: int = 1,
-                       timeout_ms: int | None = None) -> int:
+    def wait_for_count(
+        self, target: Target, minimum: int = 1, timeout_ms: int | None = None
+    ) -> int:
         deadline = (timeout_ms or self.timeout_ms) / 1000
         locator = self._locate(target)
         # nth(minimum-1) resolves only once that many elements exist, so this is an
@@ -646,7 +712,7 @@ class PlaywrightCdpEngine(Engine):
         for attempt in (0, 1):
             try:
                 snapshot = page.locator("body").aria_snapshot(timeout=2_000)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - browser evidence is best-effort
                 snapshot = f"<aria snapshot failed: {type(exc).__name__}>"
             if snapshot.strip() and not snapshot.startswith("<aria"):
                 return snapshot
@@ -682,26 +748,21 @@ class PlaywrightCdpEngine(Engine):
         };
     }"""
 
-    #: Fingerprinting is opportunistic: it feeds future heal proposals and must never
-    #: cost the run anything. With the default timeout it silently waited the full
-    #: 10 s on every step whose element is *expected* to be gone (expect_hidden),
-    #: which was roughly half the wall-clock of a green suite.
-    _FINGERPRINT_TIMEOUT_MS = 500
-
     def element_fingerprint(self, target: Target) -> dict[str, Any]:
         """Multi-attribute fingerprint captured on green runs; heal-diff fuel.
 
         Returns ``{}`` when the element is absent — an expected outcome after a step
         that waited for something to disappear, not an error worth waiting for.
+        ``evaluate_all`` snapshots the current match set without auto-waiting and
+        avoids the old count-then-evaluate pair of browser round-trips.
         """
         try:
-            locator = self._locate(target)
-            if locator.count() == 0:
-                return {}
-            return locator.evaluate(
-                self._FINGERPRINT_FN, timeout=self._FINGERPRINT_TIMEOUT_MS
+            fingerprint = self._locate(target).evaluate_all(
+                "(elements, source) => elements.length ? eval(source)(elements[0]) : null",
+                self._FINGERPRINT_FN,
             )
-        except Exception:
+            return fingerprint or {}
+        except Exception:  # noqa: BLE001 - browser evidence is best-effort
             return {}
 
     def candidate_elements(self) -> list[dict[str, Any]]:
@@ -727,7 +788,7 @@ class PlaywrightCdpEngine(Engine):
         }"""
         try:
             return self._require_page().evaluate(script, self._FINGERPRINT_FN)
-        except Exception:
+        except Exception:  # noqa: BLE001 - browser evidence is best-effort
             return []
 
     # -- evidence taps -----------------------------------------------------------

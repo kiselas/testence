@@ -57,7 +57,6 @@ ITEMS: list[Item] = [
         expect_failure=False,
         note="nothing seeded; this is the run's false-red floor",
     ),
-
     # -- defects -----------------------------------------------------------
     Item(
         id="D-40-first-interaction-swallowed",
@@ -139,7 +138,6 @@ ITEMS: list[Item] = [
         stratum="O",
         note="the request in the network log carries the filter the server ignored",
     ),
-
     # -- drift: red, with a proposal ---------------------------------------
     Item(
         id="U-01-renamed-control",
@@ -150,7 +148,6 @@ ITEMS: list[Item] = [
         expect_heal=True,
         note="a renamed accessible name must fail loudly AND carry a heal proposal",
     ),
-
     # -- controls: must stay green -----------------------------------------
     Item(
         id="C-08-restyle",
@@ -186,7 +183,7 @@ ITEMS: list[Item] = [
         verdict="none",
         expect_failure=False,
         note="a permanent console error that affects nothing — must reach the pack, "
-             "must not fail the run",
+        "must not fail the run",
     ),
     Item(
         id="C-13-commit-on-enter-only",

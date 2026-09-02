@@ -87,6 +87,28 @@ def test_created_widget_is_visible(ex, testence_api, widget_seed):
 Избегайте произвольных sleeps. Ждите значимое состояние: request, response, видимое
 значение, количество строк или специфичный сигнал готовности приложения.
 
+Для React/SPA не добавляйте глобальный `networkidle` после каждого действия. Polling и
+streams могут расходовать весь timeout, хотя результат уже готов. При использовании
+oracle helper объявляйте mutation signal: Testence привяжет completed response к этому
+save click и затем прочитает независимый oracle:
+
+```python
+save_and_verify(
+    ex,
+    SAVE_BUTTON,
+    name="widget",
+    ui_view=read_widget_from_ui,
+    api_view=read_widget_from_api,
+    expect_request="/api/widgets",
+)
+```
+
+`ex.fill(...)` по умолчанию сохраняет проверки visibility/editability Playwright.
+`ex.fill(..., fast=True)` пропускает их, но сохраняет нормальный `input` event; используйте
+режим только после readiness assertion, уже доказавшего actionability контрола. Wait
+ledger в `test.waits` показывает, уходит ли время на navigation, actionability, response
+synchronization, assertions или evidence capture.
+
 ## 5. Докажите, что тест правильно падает
 
 Зелёный тест ещё не доказывает полезность assertion. Перед принятием сценария:
@@ -117,6 +139,31 @@ testence verdict validate runs/<run>/<test>/pack/verdict.json \
 python -m testence.dev_browser --profile staging
 pytest tests_e2e/test_widgets.py -k created_widget --testence-profile staging-attached
 ```
+
+Attached runs берут logged-in context launcher'а взаймы и не закрывают его после
+завершения. На поддерживаемом real-React профиле это снизило p50 fresh process с
+3,21 до 2,02 s; одноразовый старт browser окупается со второго повторного run.
+
+Для тесного authoring loop сохраняйте тёплыми также Python и pytest:
+
+```bash
+testence watch --warm -w tests_e2e -w src -- \
+  python -m pytest tests_e2e/test_widgets.py -k created_widget \
+  --testence-profile staging-attached -q
+```
+
+Warm mode принимает только прямые команды `pytest` или `python -m pytest`. На каждой
+итерации он создаёт новую pytest session, run id, engine attachment, writer и fixtures,
+а перед повторным запуском выгружает импортированные проектные модули из выбранных
+`-w` roots. Сам Testence остаётся загруженным, поэтому startup runner'а не оплачивается
+снова.
+
+Playwright/CDP engine connection также сохраняется между warm sessions. Изменение
+settings заменяет его, а остановка watch закрывает. На поддерживаемом React-профиле это
+снизило p50 steady bootstrap до 447 ms, а p50 всего run — до 1,13 s.
+
+Для release и CI validation, а также suites с недокументированным process-global
+state в сторонних plugins используйте обычный subprocess mode.
 
 Перед merge несколько раз выполните полный suite на неизменном коде. Сравните:
 

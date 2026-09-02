@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a reproducible framework defect or incorrect verdict.
+title: "[Bug]: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping make Testence trustworthy. Never attach credentials, session cookies, tokens, or an unredacted production evidence pack.
+  - type: input
+    id: version
+    attributes:
+      label: Testence version or commit
+      placeholder: 0.1.0.dev0 or commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [Windows, Linux, macOS, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the command, smallest test, expected result, and actual result.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Paste only redacted event excerpts or link a synthetic reproduction.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed credentials, tokens, cookies, private URLs, and personal data.
+          required: true

@@ -13,6 +13,7 @@ import hashlib
 import os
 import platform
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,48 @@ from testence.evidence import RUN_ID_ENV, EvidenceWriter, new_run_id
 from testence.fingerprints import DEFAULT_STORE, FingerprintStore
 from testence.triage import assemble_pack
 from testence.triage.heal import propose
+
+_WARM_ENGINE: Engine | None = None
+_WARM_ENGINE_KEY: tuple[Any, ...] | None = None
+_WARM_ENGINE_ANY_FAILED = False
+
+
+def _engine_key(settings: Settings) -> tuple[Any, ...]:
+    """Fields that change the browser connection or context contract."""
+    return (
+        settings.base_url,
+        settings.api_prefix,
+        settings.cdp_url,
+        settings.browser_channel,
+        settings.headed,
+        settings.timeout_ms,
+        settings.verify_tls,
+        settings.ca_bundle,
+        tuple(sorted((str(key), repr(value)) for key, value in settings.extra.items())),
+    )
+
+
+def _acquire_warm_engine(settings: Settings) -> Engine:
+    global _WARM_ENGINE, _WARM_ENGINE_KEY, _WARM_ENGINE_ANY_FAILED
+    key = _engine_key(settings)
+    if _WARM_ENGINE is not None and _WARM_ENGINE_KEY != key:
+        close_warm_engine()
+    if _WARM_ENGINE is None:
+        _WARM_ENGINE = create_engine(settings)
+        _WARM_ENGINE.start()
+        _WARM_ENGINE_KEY = key
+        _WARM_ENGINE_ANY_FAILED = False
+    return _WARM_ENGINE
+
+
+def close_warm_engine() -> None:
+    """Close the engine retained by an opt-in warm CLI process, if any."""
+    global _WARM_ENGINE, _WARM_ENGINE_KEY, _WARM_ENGINE_ANY_FAILED
+    if _WARM_ENGINE is not None:
+        _WARM_ENGINE.stop(keep_browser=_WARM_ENGINE_ANY_FAILED)
+    _WARM_ENGINE = None
+    _WARM_ENGINE_KEY = None
+    _WARM_ENGINE_ANY_FAILED = False
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -161,6 +204,11 @@ _REPORTS_KEY = pytest.StashKey[dict]()
 _RUN_WAITS: list[dict[str, Any]] = []
 
 
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """A process may host several warm pytest sessions; their summaries may not mix."""
+    _RUN_WAITS.clear()
+
+
 def pytest_terminal_summary(terminalreporter: Any) -> None:
     """One table answering "where did the time go" — the wait ledger, aggregated."""
     if not _RUN_WAITS:
@@ -190,7 +238,7 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
         )
 
     for row in sorted(_RUN_WAITS, key=lambda r: -r["waited_ms"])[:10]:
-        worst = row["top"][0] if row["top"] else {"op": "-", "detail": "", "ms": 0}
+        worst: dict[str, Any] = row["top"][0] if row["top"] else {"op": "-", "detail": "", "ms": 0}
         write(
             f"  {row['test']}: waited {row['waited_ms'] / 1000:.1f}s "
             f"of {row['wall_ms'] / 1000:.1f}s "
@@ -216,7 +264,7 @@ def testence_settings(request: pytest.FixtureRequest) -> Settings:
 
 
 @pytest.fixture(scope="session")
-def testence_writer(testence_settings: Settings):
+def testence_writer(testence_settings: Settings) -> Iterator[EvidenceWriter]:
     writer = EvidenceWriter(testence_settings.runs_root)
     writer.emit(
         "run.start",
@@ -237,19 +285,28 @@ def testence_writer(testence_settings: Settings):
     writer.emit(
         "run.end",
         duration_ms=round((time.perf_counter() - started) * 1000, 1),
-        **counts,
+        passed=counts["passed"],
+        failed=counts["failed"],
     )
     writer.close()
 
 
 @pytest.fixture(scope="session")
-def testence_engine(testence_settings: Settings):
-    engine = create_engine(testence_settings)
-    engine.start()
+def testence_engine(testence_settings: Settings) -> Iterator[Engine]:
+    global _WARM_ENGINE_ANY_FAILED
+    warm = os.environ.get("TESTENCE_WARM_ENGINE") == "1"
+    engine = _acquire_warm_engine(testence_settings) if warm else create_engine(testence_settings)
+    if not warm:
+        engine.start()
     state = {"any_failed": False}
     engine._testence_state = state  # type: ignore[attr-defined]
-    yield engine
-    engine.stop(keep_browser=state["any_failed"])
+    try:
+        yield engine
+    finally:
+        if warm:
+            _WARM_ENGINE_ANY_FAILED = _WARM_ENGINE_ANY_FAILED or state["any_failed"]
+        else:
+            engine.stop(keep_browser=state["any_failed"])
 
 
 @pytest.fixture(scope="session")
@@ -282,7 +339,7 @@ def testence_api(testence_settings: Settings, testence_auth: AuthContext) -> Api
 
 
 @pytest.fixture(scope="session")
-def testence_fingerprints(request: pytest.FixtureRequest) -> FingerprintStore:
+def testence_fingerprints(request: pytest.FixtureRequest) -> Iterator[FingerprintStore]:
     """Memory of the last green run, for heal proposals. Lives in the project repo
     so a proposed edit can be read against what the element used to be."""
     store = FingerprintStore(Path(request.config.rootpath) / DEFAULT_STORE)

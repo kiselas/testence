@@ -88,6 +88,28 @@ def test_created_widget_is_visible(ex, testence_api, widget_seed):
 Avoid arbitrary sleeps. Wait for the state that matters: a request, response,
 visible value, row count or application-specific readiness signal.
 
+For React/SPAs, do not add a global `networkidle` wait after every action. Polling and
+streams may make it consume the full timeout even when the outcome is ready. Declare the
+mutation signal when using the oracle helper; Testence scopes the completed response to
+the save click and then reads the independent oracle:
+
+```python
+save_and_verify(
+    ex,
+    SAVE_BUTTON,
+    name="widget",
+    ui_view=read_widget_from_ui,
+    api_view=read_widget_from_api,
+    expect_request="/api/widgets",
+)
+```
+
+`ex.fill(...)` keeps Playwright's visibility/editability checks and is the default.
+`ex.fill(..., fast=True)` skips those checks but preserves the normal `input` event; use
+it only after a readiness assertion has already proved the control actionable. The wait
+ledger in `test.waits` shows whether time is being spent in navigation, actionability,
+response synchronization, assertions or evidence capture.
+
 ## 5. Prove the test can fail correctly
 
 A green test is not evidence that the assertion is useful. Before accepting a case:
@@ -118,6 +140,30 @@ During authoring, run one test with a long-lived attached browser:
 python -m testence.dev_browser --profile staging
 pytest tests_e2e/test_widgets.py -k created_widget --testence-profile staging-attached
 ```
+
+Attached runs borrow the launcher's logged-in context and do not close it when they
+finish. On the maintained real-React profile this reduced fresh-process p50 from
+3.21 s to 2.02 s; the one-time browser launch breaks even on the second repeated run.
+
+For the tight authoring loop, keep Python and pytest warm as well:
+
+```bash
+testence watch --warm -w tests_e2e -w src -- \
+  python -m pytest tests_e2e/test_widgets.py -k created_widget \
+  --testence-profile staging-attached -q
+```
+
+Warm mode accepts only direct `pytest` or `python -m pytest` commands. It creates a
+new pytest session, run id, engine attachment, writer and fixtures on every iteration,
+and evicts imported project modules under the selected `-w` roots before rerunning.
+Testence itself stays loaded so runner startup is not paid repeatedly.
+
+The Playwright/CDP engine connection also survives between warm sessions. A settings
+change replaces it; stopping watch closes it. On the maintained React profile this
+reduced steady bootstrap p50 to 447 ms and whole-run p50 to 1.13 s.
+
+Use normal subprocess mode for release and CI validation, and for suites whose
+third-party plugins keep undocumented process-global state.
 
 Before merging, run the full suite repeatedly on unchanged code. Compare:
 

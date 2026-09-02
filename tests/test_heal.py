@@ -11,8 +11,15 @@ from typing import Any
 from testence.engine import Target
 from testence.triage.heal import MIN_SCORE, propose
 
-SAVE_FP = {"tag": "button", "role": "button", "ariaLabel": None, "testid": None,
-           "text": "Save", "id": "save", "classes": ["btn"]}
+SAVE_FP = {
+    "tag": "button",
+    "role": "button",
+    "ariaLabel": None,
+    "testid": None,
+    "text": "Save",
+    "id": "save",
+    "classes": ["btn"],
+}
 
 
 class FakeEngine:
@@ -31,11 +38,15 @@ def _candidate(fingerprint: dict[str, Any], target: dict[str, Any]) -> dict[str,
 
 def test_renamed_element_is_a_drift_with_a_new_address():
     renamed = dict(SAVE_FP, text="Store")
-    engine = FakeEngine([
-        _candidate(renamed, {"kind": "role", "value": "button", "name": "Store"}),
-        _candidate({"tag": "a", "role": "link", "text": "Help", "id": "help",
-                    "classes": []}, {"kind": "role", "value": "link", "name": "Help"}),
-    ])
+    engine = FakeEngine(
+        [
+            _candidate(renamed, {"kind": "role", "value": "button", "name": "Store"}),
+            _candidate(
+                {"tag": "a", "role": "link", "text": "Help", "id": "help", "classes": []},
+                {"kind": "role", "value": "link", "name": "Help"},
+            ),
+        ]
+    )
     proposal = propose(engine, "save the form", Target("role", "button", name="Save"), SAVE_FP)
 
     assert proposal is not None
@@ -48,14 +59,34 @@ def test_renamed_element_is_a_drift_with_a_new_address():
 
 def test_deleted_element_is_a_bug_and_gets_no_address():
     """The guardrail: healing around a removed control would hide a broken feature."""
-    engine = FakeEngine([
-        _candidate({"tag": "a", "role": "link", "ariaLabel": None, "testid": None,
-                    "text": "Help", "id": "help", "classes": []},
-                   {"kind": "role", "value": "link", "name": "Help"}),
-        _candidate({"tag": "input", "role": "textbox", "ariaLabel": None,
-                    "testid": None, "text": "", "id": "query", "classes": []},
-                   {"kind": "role", "value": "textbox", "name": "query"}),
-    ])
+    engine = FakeEngine(
+        [
+            _candidate(
+                {
+                    "tag": "a",
+                    "role": "link",
+                    "ariaLabel": None,
+                    "testid": None,
+                    "text": "Help",
+                    "id": "help",
+                    "classes": [],
+                },
+                {"kind": "role", "value": "link", "name": "Help"},
+            ),
+            _candidate(
+                {
+                    "tag": "input",
+                    "role": "textbox",
+                    "ariaLabel": None,
+                    "testid": None,
+                    "text": "",
+                    "id": "query",
+                    "classes": [],
+                },
+                {"kind": "role", "value": "textbox", "name": "query"},
+            ),
+        ]
+    )
     proposal = propose(engine, "save the form", Target("role", "button", name="Save"), SAVE_FP)
 
     assert proposal is not None
@@ -80,13 +111,23 @@ def test_no_baseline_means_no_opinion():
 def test_ambiguous_match_is_flagged_for_review():
     """Two candidates that agree on every weighted attribute: the proposer must
     still pick one, but a reviewer has to be told it was a coin flip."""
-    unlabelled = {"tag": "button", "role": "button", "ariaLabel": None,
-                  "testid": None, "text": "Save", "id": None, "classes": []}
-    engine = FakeEngine([
-        _candidate(dict(unlabelled), {"kind": "role", "value": "button", "name": "Save"}),
-        _candidate(dict(unlabelled), {"kind": "role", "value": "button", "name": "Save",
-                                      "nth": 1}),
-    ])
+    unlabelled = {
+        "tag": "button",
+        "role": "button",
+        "ariaLabel": None,
+        "testid": None,
+        "text": "Save",
+        "id": None,
+        "classes": [],
+    }
+    engine = FakeEngine(
+        [
+            _candidate(dict(unlabelled), {"kind": "role", "value": "button", "name": "Save"}),
+            _candidate(
+                dict(unlabelled), {"kind": "role", "value": "button", "name": "Save", "nth": 1}
+            ),
+        ]
+    )
     proposal = propose(engine, "save", Target("role", "button", name="Save"), unlabelled)
 
     assert proposal is not None and proposal.new_target is not None
@@ -97,8 +138,15 @@ def test_ambiguous_match_is_flagged_for_review():
 def test_testid_survives_a_full_rename():
     """A test id is the strongest identity signal: everything else may change."""
     known = dict(SAVE_FP, testid="save-btn")
-    moved = {"tag": "a", "role": "link", "ariaLabel": "Persist", "testid": "save-btn",
-             "text": "Persist", "id": "totally-different", "classes": ["x"]}
+    moved = {
+        "tag": "a",
+        "role": "link",
+        "ariaLabel": "Persist",
+        "testid": "save-btn",
+        "text": "Persist",
+        "id": "totally-different",
+        "classes": ["x"],
+    }
     engine = FakeEngine([_candidate(moved, {"kind": "testid", "value": "save-btn"})])
     proposal = propose(engine, "save", Target("testid", "save-btn"), known)
 
@@ -107,9 +155,17 @@ def test_testid_survives_a_full_rename():
 
 
 def test_proposal_json_is_evidence_safe():
-    engine = FakeEngine([_candidate(dict(SAVE_FP, text="Store"),
-                                    {"kind": "css", "value": "#save"})])
+    engine = FakeEngine(
+        [_candidate(dict(SAVE_FP, text="Store"), {"kind": "css", "value": "#save"})]
+    )
     document = propose(engine, "save", Target("css", "#save"), SAVE_FP).to_json()
-    assert set(document) >= {"intent", "old_target", "verdict_hint", "score",
-                             "new_target", "rationale", "suggested_edit"}
+    assert set(document) >= {
+        "intent",
+        "old_target",
+        "verdict_hint",
+        "score",
+        "new_target",
+        "rationale",
+        "suggested_edit",
+    }
     assert len(document["considered"]) <= 5

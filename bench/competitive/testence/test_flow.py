@@ -1,6 +1,5 @@
 from testence.engine import Target
 
-
 INCREMENT = Target("role", "button", name="inc")
 COUNTER = Target("css", "#count")
 NAME = Target("placeholder", "name")

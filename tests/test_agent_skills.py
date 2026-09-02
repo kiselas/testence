@@ -52,7 +52,7 @@ def test_every_manifest_skill_is_complete_and_self_identifying():
         assert description and 40 <= len(description.group(1)) <= 500
 
         metadata = _read(root, "agents/openai.yaml")
-        assert f'${name}' in metadata
+        assert f"${name}" in metadata
         assert "allow_implicit_invocation: true" in metadata
         assert 'display_name: "Testence ' in metadata
 

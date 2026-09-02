@@ -14,8 +14,15 @@ from testence.evidence import RUN_ID_ENV, WORKER_ENV, EvidenceWriter, ledger_pat
 from testence.fingerprints import FingerprintStore
 from testence.metrics import aggregate, load_run
 
-FP = {"tag": "tr", "role": "row", "ariaLabel": None, "testid": "k1",
-      "text": "row", "id": None, "classes": []}
+FP = {
+    "tag": "tr",
+    "role": "row",
+    "ariaLabel": None,
+    "testid": "k1",
+    "text": "row",
+    "id": None,
+    "classes": [],
+}
 
 
 # -- one ledger per process, merged on read ----------------------------------
@@ -44,7 +51,9 @@ def test_load_run_merges_controller_and_worker_ledgers_in_time_order(tmp_path):
         writer.close()
 
     assert [p.name for p in ledger_paths(controller.run_dir)] == [
-        "run.jsonl", "run-gw0.jsonl", "run-gw1.jsonl"
+        "run.jsonl",
+        "run-gw0.jsonl",
+        "run-gw1.jsonl",
     ]
     events = load_run(controller.run_dir)
     # Nothing lost, and readable as one story: `seq` restarts per process, so a
@@ -53,9 +62,7 @@ def test_load_run_merges_controller_and_worker_ledgers_in_time_order(tmp_path):
     assert [e["ts"] for e in events] == sorted(e["ts"] for e in events)
 
 
-def test_run_id_comes_from_the_environment_so_workers_share_a_directory(
-    tmp_path, monkeypatch
-):
+def test_run_id_comes_from_the_environment_so_workers_share_a_directory(tmp_path, monkeypatch):
     monkeypatch.setenv(RUN_ID_ENV, "r-from-env")
     monkeypatch.delenv(WORKER_ENV, raising=False)
     writer = EvidenceWriter(tmp_path)
@@ -66,14 +73,21 @@ def test_run_id_comes_from_the_environment_so_workers_share_a_directory(
 # -- the metrics those ledgers feed ------------------------------------------
 
 
-def _emit_case(writer, test, code, *, status="pass", leaf_ms=(40.0, 60.0),
-               composite_ms=500.0):
+def _emit_case(writer, test, code, *, status="pass", leaf_ms=(40.0, 60.0), composite_ms=500.0):
     writer.emit("test.start", test=test, code=code)
-    writer.emit("step.end", test=test, step="s1", status="ok",
-                duration_ms=composite_ms, depth=0, children=len(leaf_ms))
+    writer.emit(
+        "step.end",
+        test=test,
+        step="s1",
+        status="ok",
+        duration_ms=composite_ms,
+        depth=0,
+        children=len(leaf_ms),
+    )
     for i, ms in enumerate(leaf_ms, start=2):
-        writer.emit("step.end", test=test, step=f"s{i}", status="ok",
-                    duration_ms=ms, depth=1, children=0)
+        writer.emit(
+            "step.end", test=test, step=f"s{i}", status="ok", duration_ms=ms, depth=1, children=0
+        )
     writer.emit("test.end", test=test, status=status, duration_ms=900.0)
 
 
@@ -169,13 +183,21 @@ def test_a_serial_run_folds_the_shards_back_into_one_reviewable_file(tmp_path):
     assert base.exists()
     assert not (tmp_path / "fp.gw0.json").exists()
     assert set(FingerprintStore(base, worker="")._data) == {
-        "case_a::click the row", "case_b::click the row"
+        "case_a::click the row",
+        "case_b::click the row",
     }
 
 
-@pytest.mark.parametrize("worker,expected", [
-    ("", 0), ("gw0", 0), ("gw1", 1), ("gw11", 11), ("master", 0),
-])
+@pytest.mark.parametrize(
+    "worker,expected",
+    [
+        ("", 0),
+        ("gw0", 0),
+        ("gw1", 1),
+        ("gw11", 11),
+        ("master", 0),
+    ],
+)
 def test_debug_port_offset_follows_the_worker_id(monkeypatch, worker, expected):
     """The debug port is machine-wide. Four workers asking for 9222 meant one
     bound it and the rest died on "Cannot start http server for devtools" —

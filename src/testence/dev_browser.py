@@ -26,7 +26,8 @@ from testence.engine.playwright_cdp import PlaywrightCdpEngine
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="launch a logged-in Chrome with a CDP port and keep it alive")
+        description="launch a logged-in Chrome with a CDP port and keep it alive"
+    )
     parser.add_argument("--profile", default=None, help="settings profile (e.g. staging)")
     parser.add_argument("--port", type=int, default=9222, help="CDP debug port")
     parser.add_argument("--headless", action="store_true")
@@ -53,8 +54,10 @@ def main(argv: list[str] | None = None) -> None:
     context = from_settings(settings).authenticate(engine)
     print(f"logged in to {settings.base_url} ({context.describe()['scheme']})")
     print(f"CDP endpoint: http://127.0.0.1:{args.port}")
-    print("attach runs with an *-attached profile or "
-          f"--testence-cdp http://127.0.0.1:{args.port} --testence-auth attached")
+    print(
+        "attach runs with an *-attached profile or "
+        f"--testence-cdp http://127.0.0.1:{args.port} --testence-auth attached"
+    )
     print("Ctrl+C to close.")
     try:
         while True:

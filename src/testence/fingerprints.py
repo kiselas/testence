@@ -30,13 +30,13 @@ DEFAULT_STORE = Path(".testence") / "fingerprints.json"
 
 
 class FingerprintStore:
-    def __init__(self, path: Path | str = DEFAULT_STORE,
-                 worker: str | None = None) -> None:
+    def __init__(self, path: Path | str = DEFAULT_STORE, worker: str | None = None) -> None:
         self.path = Path(path)
         self.worker = worker if worker is not None else os.environ.get(WORKER_ENV, "")
         self.write_path = (
             self.path.with_name(f"{self.path.stem}.{self.worker}{self.path.suffix}")
-            if self.worker else self.path
+            if self.worker
+            else self.path
         )
         self._data: dict[str, Any] = {}
         for source in self._shards():
@@ -57,9 +57,7 @@ class FingerprintStore:
         entry = self._data.get(self.key(test_id, intent))
         return entry.get("fingerprint") if entry else None
 
-    def record(
-        self, test_id: str, intent: str, target: str, fingerprint: dict[str, Any]
-    ) -> None:
+    def record(self, test_id: str, intent: str, target: str, fingerprint: dict[str, Any]) -> None:
         if not fingerprint:
             return
         self._data[self.key(test_id, intent)] = {
@@ -80,9 +78,7 @@ class FingerprintStore:
         if not self.worker:
             # A serial run has read every shard already, so its own write is the
             # union: fold the shards away rather than leaving them to rot.
-            for shard in self.path.parent.glob(
-                f"{self.path.stem}.*{self.path.suffix}"
-            ):
+            for shard in self.path.parent.glob(f"{self.path.stem}.*{self.path.suffix}"):
                 shard.unlink(missing_ok=True)
         self._dirty = False
 

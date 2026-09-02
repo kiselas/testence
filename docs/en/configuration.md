@@ -89,6 +89,28 @@ UI and the API see the same thing.
 | `TESTENCE_CDP_URL` | attach to a running Chrome instead of launching one |
 | `TESTENCE_RUN_ID` | names the run directory; set by the plugin so every xdist worker shares one ([ADR-0012](adr/0012-parallel-execution.md)) |
 
+For a repeated agent-authoring loop, launch and authenticate the browser once, then
+run any number of short pytest processes through an attached profile:
+
+```bash
+python -m testence.dev_browser --profile staging
+pytest tests_e2e/ -k current_case --testence-profile staging-attached
+```
+
+The launcher owns the persistent context. Attached pytest runs reuse its cookies,
+storage and current page, reset Testence's capture buffers per test, and detach without
+closing that context. This is a repeated-run optimization: a one-off command still has
+to pay the launcher cost.
+
+Add `--warm` to `testence watch` only during authoring. Every `-w` directory becomes a
+module-reload boundary: project modules imported from those roots are evicted before
+the next pytest session, while Testence remains loaded. Keep normal subprocess
+isolation for CI and release evidence.
+
+Warm mode also retains its Playwright/CDP engine between sessions. The engine key
+contains every browser-connection setting; changing one closes the old client and
+creates a new one. Stopping the warm runner releases the retained client.
+
 `TESTENCE_RUN_ID` is set (with `setdefault`) in `pytest_configure`, before xdist
 spawns anything, and inherited by the workers. Set it yourself only to make an
 external tool write into a known directory; two concurrent, unrelated runs sharing

@@ -147,6 +147,7 @@ class Engine(Protocol):
         component state of an already-mounted route.
         """
         ...
+
     def click(self, target: Target, *, fast: bool = False) -> None:
         """Click the target. ``fast=True`` skips the actionability checks.
 
@@ -156,7 +157,16 @@ class Engine(Protocol):
         is present and hittable.
         """
         ...
-    def fill(self, target: Target, value: str) -> None: ...
+
+    def fill(self, target: Target, value: str, *, fast: bool = False) -> None:
+        """Fill a form control and dispatch its normal input event.
+
+        ``fast=True`` bypasses actionability checks, like fast click. Keep the
+        checked default unless a preceding readiness assertion already proved the
+        control visible and editable.
+        """
+        ...
+
     def select(self, target: Target, value: str) -> None: ...
     def press(self, key: str) -> None: ...
 
@@ -168,15 +178,17 @@ class Engine(Protocol):
     def storage_snapshot(self) -> dict[str, str]: ...
 
     # -- observation ------------------------------------------------------
-    def expect_text(self, target: Target, text: str, timeout_ms: int | None = None,
-                    *, exact: bool = True) -> None:
+    def expect_text(
+        self, target: Target, text: str, timeout_ms: int | None = None, *, exact: bool = True
+    ) -> None:
         """Wait until the target reads `text`. Exact by default — substring
         matching on a value is a silent hazard (see the note in `Target`)."""
         ...
+
     def expect_visible(self, target: Target, timeout_ms: int | None = None) -> None: ...
     def wait_while_visible(self, target: Target, timeout_ms: int | None = None) -> None: ...
     def wait_for_url_contains(self, fragment: str, timeout_ms: int | None = None) -> None: ...
-    def wait_until_rendered(self, timeout_ms: int = 5_000) -> bool: ...
+    def wait_until_rendered(self, timeout_ms: int = 2_000) -> bool: ...
     def settle(self, timeout_ms: int = 1_500) -> bool:
         """Best-effort wait for in-flight requests to finish.
 
@@ -186,9 +198,11 @@ class Engine(Protocol):
         whether the page went quiet; never raises.
         """
         ...
+
     def count(self, target: Target) -> int: ...
-    def wait_for_count(self, target: Target, minimum: int = 1,
-                       timeout_ms: int | None = None) -> int:
+    def wait_for_count(
+        self, target: Target, minimum: int = 1, timeout_ms: int | None = None
+    ) -> int:
         """Wait until at least ``minimum`` elements match, then return the count.
 
         Visibility of one element is not the same as a loaded collection: a data
@@ -197,8 +211,10 @@ class Engine(Protocol):
         collection instead of for a container, without sleeping.
         """
         ...
-    def wait_for_content(self, target: Target, minimum: int = 1,
-                         timeout_ms: int | None = None) -> int:
+
+    def wait_for_content(
+        self, target: Target, minimum: int = 1, timeout_ms: int | None = None
+    ) -> int:
         """Wait until at least ``minimum`` matching elements carry actual text.
 
         The strictest of the three collection waits, and usually the right one. A
@@ -207,6 +223,7 @@ class Engine(Protocol):
         readiness check waits for content.
         """
         ...
+
     def read_text(self, target: Target) -> str: ...
     def read_all_texts(self, target: Target) -> list[str]:
         """Texts of every element matching the target.
@@ -218,6 +235,7 @@ class Engine(Protocol):
         clearly shows the element.
         """
         ...
+
     def aria_snapshot(self) -> str: ...
     def screenshot(self, path: str) -> None: ...
     def current_url(self) -> str: ...
@@ -233,8 +251,14 @@ class Engine(Protocol):
         """
         ...
 
-    def wait_for_request(self, url_contains: str, *, method: str | None = None,
-                         since: int = 0, timeout_ms: int | None = None) -> bool:
+    def wait_for_request(
+        self,
+        url_contains: str,
+        *,
+        method: str | None = None,
+        since: int = 0,
+        timeout_ms: int | None = None,
+    ) -> bool:
         """Wait until the application sends a request matching URL and method.
 
         Debounced inputs make "typed the query" and "searched" different events, and
@@ -259,9 +283,14 @@ class Engine(Protocol):
         """
         ...
 
-    def wait_for_response(self, url_contains: str, *, method: str | None = None,
-                          since: int = 0,
-                          timeout_ms: int | None = None) -> NetRecord | None:
+    def wait_for_response(
+        self,
+        url_contains: str,
+        *,
+        method: str | None = None,
+        since: int = 0,
+        timeout_ms: int | None = None,
+    ) -> NetRecord | None:
         """Wait for a *completed* response matching the fragment (and method).
 
         The network tap is the synchronization primitive for UI mutations: every
@@ -287,8 +316,9 @@ class Engine(Protocol):
         """Position marker in the WebSocket frame buffer (see ``net_mark``)."""
         ...
 
-    def wait_for_ws(self, payload_contains: str, *, since: int = 0,
-                    timeout_ms: int | None = None) -> dict[str, Any] | None:
+    def wait_for_ws(
+        self, payload_contains: str, *, since: int = 0, timeout_ms: int | None = None
+    ) -> dict[str, Any] | None:
         """Wait for a WebSocket frame whose payload contains the fragment.
 
         Live-update events (``...Created``/``...Updated`` pushed by the server) are
@@ -297,8 +327,7 @@ class Engine(Protocol):
         """
         ...
 
-    def wait_for_predicate_js(self, expression: str,
-                              timeout_ms: int | None = None) -> bool:
+    def wait_for_predicate_js(self, expression: str, timeout_ms: int | None = None) -> bool:
         """Wait until a JS predicate holds (rAF-driven); returns whether it did.
 
         The escape hatch for readiness no locator expresses — "every visible row
@@ -312,6 +341,7 @@ class Engine(Protocol):
     def ws_log(self) -> list[dict[str, Any]]:
         """Captured WebSocket frames: ``{url, at_ms, payload}``."""
         ...
+
     def wait_ledger(self) -> list[dict[str, Any]]:
         """Every timed action/wait this test performed: ``{op, detail, ms, ok}``.
 
@@ -319,6 +349,7 @@ class Engine(Protocol):
         which waits burned the time, on what, and whether they even succeeded.
         """
         ...
+
     def reset_taps(self) -> None:
         """Clear per-test capture buffers (called between tests by the runner)."""
         ...

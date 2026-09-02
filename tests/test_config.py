@@ -25,13 +25,18 @@ def test_browser_channel_can_be_overridden(tmp_path, monkeypatch):
 
 
 def test_settings_file_and_profile_selection(tmp_path):
-    (tmp_path / "testence.json").write_text(json.dumps({
-        "api_prefix": "/api/",
-        "profiles": {
-            "dev1": {"base_url": "https://dev1.example.test/", "auth": "form"},
-            "local": {"base_url": "http://localhost:4200", "auth": "api-session"},
-        },
-    }), encoding="utf-8")
+    (tmp_path / "testence.json").write_text(
+        json.dumps(
+            {
+                "api_prefix": "/api/",
+                "profiles": {
+                    "dev1": {"base_url": "https://dev1.example.test/", "auth": "form"},
+                    "local": {"base_url": "http://localhost:4200", "auth": "api-session"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     dev1 = Settings.load(tmp_path, profile="dev1")
     assert dev1.base_url == "https://dev1.example.test"  # trailing slash normalized
@@ -44,7 +49,8 @@ def test_settings_file_and_profile_selection(tmp_path):
 
 def test_unknown_profile_lists_known_ones(tmp_path):
     (tmp_path / "testence.json").write_text(
-        json.dumps({"profiles": {"dev1": {}, "dev2": {}}}), encoding="utf-8")
+        json.dumps({"profiles": {"dev1": {}, "dev2": {}}}), encoding="utf-8"
+    )
     with pytest.raises(ValueError, match="dev1, dev2"):
         Settings.load(tmp_path, profile="nope")
 
@@ -74,9 +80,14 @@ def test_explicit_override_beats_everything(tmp_path):
 
 
 def test_unknown_keys_land_in_extra(tmp_path):
-    (tmp_path / "testence.json").write_text(json.dumps({
-        "profiles": {"dev1": {"base_url": "http://x", "session_cookie": "session_id"}},
-    }), encoding="utf-8")
+    (tmp_path / "testence.json").write_text(
+        json.dumps(
+            {
+                "profiles": {"dev1": {"base_url": "http://x", "session_cookie": "session_id"}},
+            }
+        ),
+        encoding="utf-8",
+    )
     settings = Settings.load(tmp_path, profile="dev1")
     assert settings.extra["session_cookie"] == "session_id"
 
@@ -95,8 +106,12 @@ def test_from_settings_builds_each_scheme(tmp_path, monkeypatch):
     monkeypatch.setenv("TESTENCE_USER", "u@example.test")
     monkeypatch.setenv("TESTENCE_PASSWORD", "p")
     for scheme, expected in [
-        ("none", "none"), ("form", "form"), ("api-session", "api-session"),
-        ("bearer", "bearer"), ("jwt", "bearer"), ("basic", "basic"),
+        ("none", "none"),
+        ("form", "form"),
+        ("api-session", "api-session"),
+        ("bearer", "bearer"),
+        ("jwt", "bearer"),
+        ("basic", "basic"),
         ("attached", "attached"),
     ]:
         settings = Settings.load(tmp_path, base_url="http://x", auth=scheme)

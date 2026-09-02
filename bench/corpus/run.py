@@ -62,7 +62,9 @@ def start_target(port: int) -> subprocess.Popen | None:
         )
     process = subprocess.Popen(
         [sys.executable, str(SUT / "server.py"), "--port", str(port)],
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
     for _ in range(50):
         if _listening(port):
@@ -97,20 +99,39 @@ def run_item(item: Item, port: int, runs_root: Path, attempt: int, session: str)
         "PYTHONPATH": str(ROOT / "src"),
     }
     process = subprocess.run(
-        [sys.executable, "-m", "pytest", str(HERE / "spec_collection.py"),
-         "--testence-headless", "-q", "-p", "no:cacheprovider",
-         "--rootdir", str(HERE), "-c", str(HERE / "pytest.ini")],
-        cwd=str(HERE), env=env, capture_output=True, text=True, timeout=900,
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            str(HERE / "spec_collection.py"),
+            "--testence-headless",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            "--rootdir",
+            str(HERE),
+            "-c",
+            str(HERE / "pytest.ini"),
+        ],
+        cwd=str(HERE),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=900,
     )
     outcomes: dict[str, str] = {}
     if run_dir.exists():
         for event in load_run(run_dir):
             if event["kind"] == "test.end":
                 outcomes[event["test"]] = event["status"]
-    failed = sorted(CLAIM_OF_TEST.get(test, test)
-                    for test, status in outcomes.items() if status != "pass")
-    heals = sorted(path.parent.parent.name for path in run_dir.glob("*/pack/heal.json")) \
-        if run_dir.exists() else []
+    failed = sorted(
+        CLAIM_OF_TEST.get(test, test) for test, status in outcomes.items() if status != "pass"
+    )
+    heals = (
+        sorted(path.parent.parent.name for path in run_dir.glob("*/pack/heal.json"))
+        if run_dir.exists()
+        else []
+    )
     return {
         "run": run_id,
         "exit_code": process.returncode,
@@ -140,9 +161,7 @@ def evaluate(item: Item, result: dict) -> dict:
     if item.expect_heal:
         checks["heal_proposed"] = bool(result["heal_proposals"])
     if result["claims_seen"] != len(CLAIMS):
-        checks["warning"] = (
-            f"{result['claims_seen']} of {len(CLAIMS)} claims reported an outcome"
-        )
+        checks["warning"] = f"{result['claims_seen']} of {len(CLAIMS)} claims reported an outcome"
     return checks
 
 
@@ -173,8 +192,9 @@ def summarize(records: list[dict]) -> dict:
         "right_reason_rate": ratio(right, caught),
         "heal_recall": ratio(heal_got, heal_expected),
         "detection_by_stratum": by_stratum,
-        "collateral": {r["item"]: r["collateral_claims"] for r in caught
-                       if r.get("collateral_claims")},
+        "collateral": {
+            r["item"]: r["collateral_claims"] for r in caught if r.get("collateral_claims")
+        },
         "misses": [r["item"] for r in records if not r["outcome_ok"]],
         "wrong_reason": [r["item"] for r in caught if not r.get("right_reason")],
     }
@@ -184,8 +204,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--only", action="append", default=None)
     parser.add_argument("--port", type=int, default=8800)
-    parser.add_argument("--repeats", type=int, default=1,
-                        help="runs per item; timing items are not decided by one sample")
+    parser.add_argument(
+        "--repeats",
+        type=int,
+        default=1,
+        help="runs per item; timing items are not decided by one sample",
+    )
     args = parser.parse_args()
 
     items = [i for i in ITEMS if not args.only or i.id in args.only]
@@ -202,10 +226,17 @@ def main() -> None:
                 print(f"[{index}/{len(items)}] {label}", flush=True)
                 result = run_item(item, args.port, runs_root, attempt, session)
                 checks = evaluate(item, result)
-                records.append({"item": item.id, "attempt": attempt,
-                                "verdict_truth": item.verdict, "stratum": item.stratum,
-                                "note": item.note, **checks,
-                                "run_dir": result["run"]})
+                records.append(
+                    {
+                        "item": item.id,
+                        "attempt": attempt,
+                        "verdict_truth": item.verdict,
+                        "stratum": item.stratum,
+                        "note": item.note,
+                        **checks,
+                        "run_dir": result["run"],
+                    }
+                )
                 mark = "ok  " if checks["outcome_ok"] else "MISS"
                 detail = f"{checks['observed']} (expected {checks['expected']})"
                 if checks.get("failed_claims"):
@@ -221,12 +252,19 @@ def main() -> None:
     RESULTS.mkdir(exist_ok=True)
     (RESULTS / "collection.json").write_text(
         json.dumps({"summary": summary, "records": records}, indent=1, ensure_ascii=False),
-        encoding="utf-8", newline="\n")
+        encoding="utf-8",
+        newline="\n",
+    )
     print("\n" + json.dumps(summary, indent=1, ensure_ascii=False))
 
     flakes = Counter((r["item"], r["observed"]) for r in records)
-    unstable = sorted({item for (item, _), _ in flakes.items()
-                       if len({obs for (i, obs), _ in flakes.items() if i == item}) > 1})
+    unstable = sorted(
+        {
+            item
+            for (item, _), _ in flakes.items()
+            if len({obs for (i, obs), _ in flakes.items() if i == item}) > 1
+        }
+    )
     if unstable:
         print(f"\nunstable across repeats: {unstable}")
 

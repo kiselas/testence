@@ -118,8 +118,7 @@ class Actions:
         with self.step(intent or f"open {url}"):
             self.engine.goto(url)
 
-    def navigate(self, url: str, intent: str | None = None, *,
-                 hard: bool = False) -> bool:
+    def navigate(self, url: str, intent: str | None = None, *, hard: bool = False) -> bool:
         """Reach a route the fast way (client-side routing) — see Engine.navigate.
 
         Prefer this over ``goto`` for in-app navigation: a full reload costs
@@ -129,8 +128,7 @@ class Actions:
         with self.step(intent or f"go to {url}"):
             return self.engine.navigate(url, hard=hard)
 
-    def click(self, target: Target, intent: str | None = None, *,
-              fast: bool = False) -> None:
+    def click(self, target: Target, intent: str | None = None, *, fast: bool = False) -> None:
         """Click. ``fast=True`` drops the actionability checks — see Engine.click.
 
         Worth it in a loop over rows that a readiness wait has already proved are
@@ -140,16 +138,30 @@ class Actions:
         with self.step(intent or f"click {target.describe()}", target):
             self.engine.click(target, fast=fast)
 
-    def fill(self, target: Target, value: str, intent: str | None = None) -> None:
+    def fill(
+        self, target: Target, value: str, intent: str | None = None, *, fast: bool = False
+    ) -> None:
+        """Fill a control, preserving application input events.
+
+        ``fast=True`` skips actionability checks only. Use it for repeated fields
+        after a readiness assertion, never as a way around a disabled or covered
+        control.
+        """
         with self.step(intent or f"fill {target.describe()}", target):
-            self.engine.fill(target, value)
+            if fast:
+                self.engine.fill(target, value, fast=True)
+            else:
+                # Keep the default call compatible with existing Engine adapters
+                # whose pre-fast signature accepted only target and value.
+                self.engine.fill(target, value)
 
     def select(self, target: Target, value: str, intent: str | None = None) -> None:
         with self.step(intent or f"select {value!r} in {target.describe()}", target):
             self.engine.select(target, value)
 
-    def expect_text(self, target: Target, text: str, intent: str | None = None, *,
-                    exact: bool = True) -> None:
+    def expect_text(
+        self, target: Target, text: str, intent: str | None = None, *, exact: bool = True
+    ) -> None:
         with self.step(intent or f"expect {text!r} at {target.describe()}", target):
             self.engine.expect_text(target, text, exact=exact)
 

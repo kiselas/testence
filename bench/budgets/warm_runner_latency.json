@@ -1,0 +1,10 @@
+{
+  "schema": "testence/performance-budget/1",
+  "scenario": "warm pytest sessions with one retained CDP client",
+  "minimum_repeats": 5,
+  "limits": {
+    "warm_steady_bootstrap_ms.p50": {"max": 1200, "min_samples": 4},
+    "comparison.bootstrap_reduction_percent": {"min": 20},
+    "comparison.run_reduction_percent": {"min": 20}
+  }
+}

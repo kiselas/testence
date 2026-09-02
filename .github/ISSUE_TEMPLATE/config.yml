@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/kiselas/testence/tree/main/docs/en
+    about: Read the architecture, workflows, ADRs, and benchmark protocol first.

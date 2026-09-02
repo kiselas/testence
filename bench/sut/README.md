@@ -11,6 +11,39 @@ npm ci --prefix app && npm run build --prefix app   # once: builds ../static
 .venv/Scripts/python bench/sut/verify.py            # 21 checks on the fixture itself
 ```
 
+## Real-React latency gate
+
+The production bundle is also the maintained speed target. From the repository root:
+
+```bash
+.venv/Scripts/python bench/react_latency.py
+.venv/Scripts/python bench/react_latency.py --repeats 5 --check
+.venv/Scripts/python bench/react_latency.py --shared-browser --repeats 5 --check
+.venv/Scripts/python bench/warm_runner_latency.py --repeats 5 --check
+```
+
+The first command is a quick local profile. The second starts five fresh pytest
+processes and applies the broad ceilings in `bench/budgets/react_latency.json`.
+It separates browser/bootstrap cost, navigation and render readiness, controlled
+input, exact mutation-response waiting, React commit and the full mutation round
+trip. The ceilings are intentionally large enough for different CI hosts: they catch
+timeout-shaped regressions, not harmless millisecond noise.
+
+The third command keeps one persistent browser context and makes every fresh pytest
+process attach over CDP. It uses a separate budget so launch and attach samples cannot
+be mixed accidentally. The launcher cost is reported once and kept outside each run;
+this profile represents a repeated agent-authoring loop, not a one-off CI invocation.
+
+The fourth command holds that browser constant and compares fresh pytest processes with
+warm pytest sessions that retain their Playwright/CDP engine connection. Its gate covers
+runner bootstrap and relative savings only; application latency remains reported but
+cannot turn the runner gate red.
+
+The checked-in snapshots are `bench/results/react_latency.json` and
+`bench/results/react_latency_attached.json`, plus
+`bench/results/warm_runner_latency.json`; local diagnostic outputs should use the
+ignored `bench/results/local-*` prefix.
+
 ## How a defect is injected
 
 Open the page with the behaviours you want:

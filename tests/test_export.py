@@ -59,16 +59,30 @@ def build_ledger(tmp_path: Path, run_id: str = "r-export-1") -> Path:
     )
     writer.emit("step.start", test="test_login", step="s1", intent="log in as admin", depth=0)
     writer.emit(
-        "step.start", test="test_login", step="s2", intent="fill the password field",
-        target="textbox 'Password'", depth=1,
+        "step.start",
+        test="test_login",
+        step="s2",
+        intent="fill the password field",
+        target="textbox 'Password'",
+        depth=1,
     )
     writer.emit(
-        "step.end", test="test_login", step="s2", status="ok", duration_ms=12.0,
-        depth=1, children=0,
+        "step.end",
+        test="test_login",
+        step="s2",
+        status="ok",
+        duration_ms=12.0,
+        depth=1,
+        children=0,
     )
     writer.emit(
-        "step.end", test="test_login", step="s1", status="ok", duration_ms=40.0,
-        depth=0, children=1,
+        "step.end",
+        test="test_login",
+        step="s1",
+        status="ok",
+        duration_ms=40.0,
+        depth=0,
+        children=1,
     )
     writer.emit("test.end", test="test_login", status="pass", duration_ms=120.0)
 
@@ -87,19 +101,35 @@ def build_ledger(tmp_path: Path, run_id: str = "r-export-1") -> Path:
     )
     writer.emit("step.start", test="test_hosts", step="s1", intent="create a host", depth=0)
     writer.emit(
-        "step.end", test="test_hosts", step="s1", status="fail", duration_ms=900.0,
-        depth=0, children=0, error="locator resolved to 0 elements",
+        "step.end",
+        test="test_hosts",
+        step="s1",
+        status="fail",
+        duration_ms=900.0,
+        depth=0,
+        children=0,
+        error="locator resolved to 0 elements",
     )
     writer.emit(
-        "oracle", test="test_hosts", name="host count", ok=False,
+        "oracle",
+        test="test_hosts",
+        name="host count",
+        ok=False,
         diff=[{"field": "count", "ui": 3, "api": 4}],
     )
     writer.emit(
-        "pack", test="test_hosts", dir="test_hosts/pack",
-        sections_est_tokens={"aria": 10, "network": 8}, error="AssertionError: boom",
+        "pack",
+        test="test_hosts",
+        dir="test_hosts/pack",
+        sections_est_tokens={"aria": 10, "network": 8},
+        error="AssertionError: boom",
     )
     writer.emit(
-        "test.end", test="test_hosts", status="fail", duration_ms=1500.0, pack="test_hosts/pack",
+        "test.end",
+        test="test_hosts",
+        status="fail",
+        duration_ms=1500.0,
+        pack="test_hosts/pack",
     )
     writer.emit("run.end", duration_ms=1700.0, passed=1, failed=1)
     writer.close()

@@ -18,7 +18,11 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
 ]
 # Dependency policy (ADR-0007): permissive licenses only (MIT/Apache/BSD),
 # no cloud-mandatory services, no LLM SDKs in the runner (ADR-0006).
@@ -26,6 +30,13 @@ dependencies = [
     "playwright>=1.49",
     "pytest>=8.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/kiselas/testence"
+Documentation = "https://github.com/kiselas/testence/tree/main/docs/en"
+Repository = "https://github.com/kiselas/testence.git"
+Issues = "https://github.com/kiselas/testence/issues"
+Changelog = "https://github.com/kiselas/testence/blob/main/docs/en/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["ruff>=0.6", "mypy>=1.10"]
@@ -48,7 +59,7 @@ testence = "testence.pytest_plugin"
 where = ["src"]
 
 [tool.setuptools.package-data]
-testence = ["contracts/schemas/*.json"]
+testence = ["contracts/schemas/*.json", "py.typed"]
 "testence.agent" = [
     "skill-pack.json",
     "skills/*/SKILL.md",
@@ -62,3 +73,9 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint]
+# A deliberately stable baseline for contributors and CI. Add stricter families only
+# when the existing tree is clean for them so upgrading Ruff cannot activate new rules
+# by surprise.
+select = ["E4", "E7", "E9", "F", "I"]

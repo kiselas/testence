@@ -30,11 +30,13 @@ def test_backend_declares_matching_abi(backend):
 
 
 def test_parse_ledger_roundtrip(backend):
-    data = b'\n'.join([
-        json.dumps({"v": "testence/1", "kind": "run.start", "seq": 1}).encode(),
-        b"",  # blank lines are skipped, not an error
-        json.dumps({"v": "testence/1", "kind": "note", "seq": 2, "text": "кир"}).encode(),
-    ])
+    data = b"\n".join(
+        [
+            json.dumps({"v": "testence/1", "kind": "run.start", "seq": 1}).encode(),
+            b"",  # blank lines are skipped, not an error
+            json.dumps({"v": "testence/1", "kind": "note", "seq": 2, "text": "кир"}).encode(),
+        ]
+    )
     events = kernels.parse_ledger(data)
     assert [e["seq"] for e in events] == [1, 2]
     assert events[1]["text"] == "кир"
@@ -86,14 +88,35 @@ def test_diff_aria_reorder_is_moved_not_disappeared(backend):
 
 
 def test_score_candidates_ranks_exact_match_first(backend):
-    target = {"tag": "button", "role": "button", "ariaLabel": "save",
-              "testid": "save-btn", "text": "Save", "id": "save", "classes": ["btn"]}
+    target = {
+        "tag": "button",
+        "role": "button",
+        "ariaLabel": "save",
+        "testid": "save-btn",
+        "text": "Save",
+        "id": "save",
+        "classes": ["btn"],
+    }
     candidates = [
-        {"tag": "div", "role": None, "ariaLabel": None, "testid": None,
-         "text": "unrelated", "id": "x", "classes": ["card"]},
+        {
+            "tag": "div",
+            "role": None,
+            "ariaLabel": None,
+            "testid": None,
+            "text": "unrelated",
+            "id": "x",
+            "classes": ["card"],
+        },
         dict(target),
-        {"tag": "button", "role": "button", "ariaLabel": "save",
-         "testid": None, "text": "Save", "id": "save2", "classes": ["btn"]},
+        {
+            "tag": "button",
+            "role": "button",
+            "ariaLabel": "save",
+            "testid": None,
+            "text": "Save",
+            "id": "save2",
+            "classes": ["btn"],
+        },
     ]
     scores = kernels.score_candidates(target, candidates)
     assert scores[1] == max(scores)

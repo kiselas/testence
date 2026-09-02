@@ -63,8 +63,7 @@ class Exporter(Protocol):
 
     name: str
 
-    def export(self, run: LoadedRun, out_dir: Path) -> list[Path]:
-        ...
+    def export(self, run: LoadedRun, out_dir: Path) -> list[Path]: ...
 
 
 class ExporterError(RuntimeError):

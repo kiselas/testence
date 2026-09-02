@@ -1,136 +1,200 @@
-# Testence
+<p align="center">
+  <img src="docs/assets/testence-mark.svg" width="96" alt="Testence logo">
+</p>
 
-[English documentation](docs/en/README.md) · [Русская документация](docs/ru/README.md)
+<h1 align="center">Testence</h1>
 
-**Agent-native UI verification for web applications.** Give a coding agent a feature,
-pull request or product risk. Testence is designed to turn it into a reviewable plan,
-deterministic browser tests and evidence-backed verdicts.
+<p align="center">
+  <strong>Agent-first browser testing with evidence-backed verdicts.</strong><br>
+  Agents author and investigate. A deterministic runner proves what happened.
+</p>
 
-The agent plans, authors and maintains the tests. A deterministic runner executes them
-at machine speed with no LLM in the default run path. Every failure becomes an
-**evidence pack** — a bounded, structured bundle of UI state, network and console
-signals, and API-oracle results that an agent can judge.
+<p align="center">
+  <a href="https://github.com/kiselas/testence/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/kiselas/testence/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&amp;logoColor=white">
+  <a href="LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/License-Apache--2.0-6C63FF"></a>
+  <img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-F59E0B">
+</p>
 
-> The name combines **test** and **evidence**: the runner records evidence, the agent
-> returns a *verdict* (`real_bug / test_bug / behaviour_change / ui_change /
-> flaky_timing / environment`) or declares what is missing, and self-healing stays a
-> reviewable diff, never runtime magic.
+<p align="center">
+  <a href="docs/en/README.md">English docs</a> ·
+  <a href="docs/ru/README.md">Документация на русском</a> ·
+  <a href="docs/en/demo-spec.md">Demo contract</a> ·
+  <a href="docs/en/benchmark/launch-protocol.md">Benchmark protocol</a>
+</p>
+
+---
+
+Testence turns a product claim into a reviewable `PlanSpec`, deterministic browser
+test, structured evidence pack and typed verdict. Routine replay contains no LLM call
+and no provider lock-in. The agent does the work that benefits from reasoning; the
+runner does the work that must be fast and reproducible.
+
+```text
+feature or risk
+      │
+      ▼
+agent plans ──► writes ordinary pytest ──► deterministic replay
+                                                   │
+                                                   ▼
+human/policy ◄── reviewable repair ◄── evidence pack + verdict
+```
 
 ## Why Testence
 
-- Interactive agent clicking is useful for discovery, but repeated model-driven steps
-  are slow, costly and difficult to reproduce.
-- Classic e2e frameworks execute fast but humans pay for authoring and red-run triage.
-- AI testing platforms often make execution, healing or model choice opaque.
-- Testence splits the loop: **agent plans and writes → machine runs → agent judges →
-  human or policy approves change.** Accepted tests remain ordinary code and routine
-  CI is LLM-free by construction.
+| | Traditional E2E | Interactive browser agent | Testence |
+|---|---|---|---|
+| Authoring | Human-heavy | Agent-driven | Agent-driven |
+| Routine replay | Deterministic | Model-driven | Deterministic |
+| Failure output | Logs and screenshots | Conversation | Versioned evidence pack |
+| Healing | Manual or opaque | Session-local | Reviewable proposed diff |
+| Model dependency in CI | None | Usually required | None |
+| Verdict contract | Ad hoc | Prose | Typed and evidence-bound |
 
-Testence is **agent-native, not agent-specific**. It ships one portable skill pack for
-Claude Code, ChatGPT/Codex, OpenCode and other Agent Skills clients. Repository
-bootstrap and the future CLI/MCP surface remain thin client adapters around the same
-workflow contracts.
+The key distinction is not “AI writes tests.” Many tools can do that. Testence makes
+the complete agent workflow auditable: plan, claim, evidence, verdict and repair are
+explicit contracts that another agent, a reviewer or policy can verify.
 
-See the [product positioning](docs/en/product-positioning.md) and the transparent
+## Quick start
+
+```bash
+git clone git@github.com:kiselas/testence.git
+cd testence
+uv sync --locked --extra dev
+uv run playwright install chromium
+
+uv run testence plan validate examples/specs/target-page.md --json
+uv run pytest examples -q --testence-headless
+```
+
+Every failed test produces a bounded evidence pack containing the relevant UI state,
+network and console signals, intent-bearing steps, independent oracle observations and
+a verdict template. Render a standalone report with:
+
+```bash
+uv run testence report runs/<run-id>
+```
+
+To integrate a real application, define a target profile in `testence.json`, keep
+credentials in environment variables or `.env.local`, and run ordinary pytest:
+
+```bash
+TESTENCE_PROFILE=staging uv run pytest tests_e2e -q
+```
+
+Follow [Testing a UI feature](docs/en/testing-a-feature.md) for the full workflow.
+
+## Fast agent authoring
+
+Keep the authenticated browser alive and attach short runs over CDP:
+
+```bash
+# terminal 1
+uv run python -m testence.dev_browser --profile staging
+
+# terminal 2: rerun on save without restarting Python or pytest
+uv run testence watch --warm \
+  -w tests_e2e -w src -- \
+  python -m pytest tests_e2e/test_widget.py -k created_widget \
+  --testence-profile staging-attached -q
+```
+
+Warm mode retains the Playwright/CDP engine connection while creating a new pytest
+session, fixtures, auth context, run id and evidence writer on every iteration. Fresh
+processes remain the required path for CI and release validation.
+
+On the maintained production-built React profile, warm engine reuse reduced bootstrap
+p50 from **2,808 ms to 447 ms** (−84.1%) and whole-run p50 from **3,447 ms to
+1,133 ms** (−67.1%). See the
+[result snapshot](bench/results/warm_runner_latency.md),
+[machine-readable budget](bench/budgets/warm_runner_latency.json) and
+[ADR-0018](docs/en/adr/0018-warm-authoring-runner.md). Numbers are local engineering
+evidence, not a cross-machine performance promise.
+
+## Evidence, not runtime magic
+
+A verdict is a versioned document bound to the plan, claims and captured run:
+
+```json
+{
+  "schema": "testence/verdict/1",
+  "verdict": "real_bug",
+  "test_id": "test_created_widget_is_visible",
+  "summary": "POST succeeded, but the new row never appeared in the UI",
+  "claim_results": [
+    {"claim": "widgets.create.persisted", "status": "failed"}
+  ]
+}
+```
+
+When evidence is insufficient, the agent must abstain and state what is missing.
+Locator healing follows the same rule: it creates a proposed patch with provenance and
+confidence; it never silently changes the selector during execution.
+
+## Agent-native by design
+
+The package ships portable skills for four bounded jobs:
+
+- `testence-plan` — turn a feature or risk into claims and a PlanSpec;
+- `testence-author` — create deterministic tests and independent oracles;
+- `testence-triage` — classify failures from bounded evidence;
+- `testence-repair` — propose a reviewable change and prove it safely.
+
+The same versioned skill pack is designed for Codex/ChatGPT, Claude Code, OpenCode and
+other Agent Skills clients. Client adapters stay thin; the contracts remain portable.
+See [Agent Skills](docs/en/agent-skills.md) and the
 [agent workflow](docs/en/agent-workflow.md).
 
-Launch execution is governed by the [Launch Thesis](docs/en/launch-thesis.md), the
-[killer-demo contract](docs/en/demo-spec.md), and the frozen
-[benchmark protocol](docs/en/benchmark/launch-protocol.md).
+## Architecture
 
-## Product architecture
-
-```
-agent control plane       plan · author · triage · propose
-        │                 skills · project instructions · CLI/MCP
-        ▼
-verification plane       deterministic pytest/DSL/Playwright runner
-        │                 no model dependency during ordinary replay
-        ▼
-trust plane              run.jsonl · evidence pack · verdict · approval
-                          redaction · provenance · policy
+```mermaid
+flowchart LR
+    A[Agent control plane<br/>plan · author · triage · repair]
+    V[Verification plane<br/>pytest · DSL · Playwright/CDP]
+    T[Trust plane<br/>ledger · evidence · verdict · policy]
+    A -->|versioned contracts| V
+    V -->|append-only events| T
+    T -->|reviewable proposal| A
 ```
 
-- `src/testence/engine/` — engine facade; Playwright is an implementation detail
-  behind a protocol, never part of the public API (ADR-0001).
-- `src/testence/evidence/` — append-only `run.jsonl`, versioned schema `testence/1`
-  (ADR-0003), per-section token budgets.
-- `src/testence/dsl/` — step primitives carrying *intent* and element *fingerprints*
-  (fuel for future heal-diffs and intent caching).
-- `src/testence/auth/` — pluggable login strategies (form, api-session, bearer/JWT,
-  basic, attached) producing one scheme-agnostic session (ADR-0010).
-- `src/testence/config.py` — targets, profiles and credentials from settings/env,
-  never from code ([configuration](docs/en/configuration.md)).
-- `src/testence/api.py` — stdlib JSON client that shares the browser's session, so
-  oracles read the API as the same user the UI is logged in as.
-- `src/testence/triage/` — evidence-pack assembly, the verdict taxonomy contract, and
-  heal proposals (a reviewable diff, never a runtime rebind — ADR-0011).
-- `src/testence/contracts/` — versioned PlanSpec and verdict contracts, public JSON
-  Schemas, strict validation and claim-to-evidence traceability (ADR-0016).
-- `src/testence/agent/` — packaged `plan`, `author`, `triage` and `repair` skills plus
-  their versioned manifest and client-neutral references
-  ([portable skills](docs/en/agent-skills.md)).
-- `corpus/` — failure corpus: seeded defects with ground-truth labels, so "healing
-  works" and "we don't report false failures" are measured, not asserted.
-- `src/testence/report/` — self-contained single-file HTML report (ADR-0005).
-- `src/testence/export/` — reporting sinks rendered from the ledger (Allure results,
-  CTRF); no reporting SDK is imported anywhere, and a third party registers its own
-  exporter through an entry point ([reporting](docs/en/reporting.md), ADR-0013).
-- `src/testence/kernels/` — pure CPU functions behind a versioned ABI, swappable for
-  an optional native (Rust) backend without touching callers (ADR-0009).
-- `src/testence/pytest_plugin.py` — pytest integration: per-test evidence, failure hooks.
-- `docs/en/adr/` and `docs/ru/adr/` — every significant choice with the
-  comparisons that justified it, in both languages.
-- `bench/` — decision experiments (E1…) and the synthetic target page.
+- `src/testence/contracts` — PlanSpec and verdict schemas with claim traceability;
+- `src/testence/engine` — replaceable execution protocol and Playwright/CDP backend;
+- `src/testence/dsl` — intent-bearing actions and exact-by-default assertions;
+- `src/testence/evidence` — append-only `testence/1` ledger and bounded artifacts;
+- `src/testence/triage` — evidence packs, verdicts and reviewable healing proposals;
+- `src/testence/agent` — packaged, versioned, client-neutral skills;
+- `bench` and `corpus` — real-React latency gates and seeded correctness defects.
 
-## Current developer preview
+Important decisions are recorded as bilingual ADRs with measurable tripwires:
+[English](docs/en/adr/README.md) · [Русский](docs/ru/adr/README.md).
 
-```bash
-pip install -e .
-python -m playwright install chromium            # browser paired with Playwright
-testence plan validate examples/specs/target-page.md --json
-pytest tests/                                    # framework's own suite
-pytest examples/ --testence-headless              # end-to-end demo, no external app required
-testence report runs/<run-id>                     # render the HTML report
-testence metrics runs/<run-id> ...                # aggregate metrics.json
-```
+## Proof before claims
 
-Point it at an application by copying `.env.example` → `.env.local` and
-`testence.example.json` → `testence.json`, then:
+Testence keeps benchmark inputs, budgets and raw result snapshots in the repository.
+The current proof surface includes:
 
-```bash
-TESTENCE_PROFILE=staging pytest tests_e2e/
-```
+- a production-built React latency gate for navigation, controlled inputs and mutation
+  synchronization;
+- a shared-browser and warm-runner benchmark for the authoring loop;
+- a seeded mutation corpus for false-green, false-red and healing quality;
+- a competitive replay protocol with frozen scenarios and environment disclosure.
 
-To cover a feature with a suite, follow
-[docs/en/testing-a-feature.md](docs/en/testing-a-feature.md) —
-the working order, the seeding discipline for a shared environment, and common traps.
+Start with the [launch protocol](docs/en/benchmark/launch-protocol.md) and
+[benchmark corpus](docs/en/benchmark/corpus.md). A number without its command,
+environment and failure criteria is deliberately not treated as a product claim.
 
-PlanSpec/claim propagation, typed verdict validation and the portable skill pack are
-implemented. Agent bootstrap, controlled authoring and managed verdict submission remain
-public-alpha work. The exact lifecycle and current/target capability boundary are documented in
-[docs/en/agent-workflow.md](docs/en/agent-workflow.md).
+## Project status
 
-For the current engineering assessment, market comparison and release sequence, see the
-[project audit](docs/en/project-audit.md),
-[competitive landscape](docs/en/competitive-landscape.md),
-[product positioning](docs/en/product-positioning.md) and [roadmap](docs/en/roadmap.md).
+Testence is a **pre-alpha developer preview**. PlanSpec propagation, verdict validation,
+portable skills, deterministic execution and evidence packs are implemented. Public
+agent bootstrap and managed verdict submission are still alpha work; APIs may change.
 
-Project integration is three things: an auth scheme (config, not code — see
-[docs/en/auth.md](docs/en/auth.md)), a `SeedAdapter` for deterministic data, and a project
-`ActionMap` built on `testence.dsl.Actions`.
-
-## Status
-
-Pre-alpha, foundation stage. Design decisions and measurable acceptance criteria live
-in the ADRs (`docs/en/adr/`, mirrored in `docs/ru/adr/`). The public API,
-configuration schema and evidence schema may
-still change before the first stable release.
-
-Do not run the current pre-alpha against sensitive production data: systematic evidence
-redaction and session-cache hardening are P0 release gates.
+Do not use the current preview against sensitive production data. Systematic evidence
+redaction and session-cache hardening remain release gates. See
+[SECURITY.md](SECURITY.md), [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[roadmap](docs/en/roadmap.md).
 
 ## License
 
-Apache-2.0. Runtime dependencies are restricted to permissive licenses; the runner
-contains no LLM SDKs and makes no network calls to model providers (ADR-0006, ADR-0007).
+[Apache-2.0](LICENSE). Runtime dependencies are restricted to permissive licenses. The
+runner contains no LLM SDK and makes no call to a model provider during ordinary replay.

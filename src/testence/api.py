@@ -94,11 +94,13 @@ def http_json(
     context = tls_context(verify_tls, ca_bundle)
     try:
         with urllib.request.urlopen(request, timeout=timeout_s, context=context) as raw:
-            response = Response(raw.status, list(raw.headers.items()),
-                                raw.read().decode("utf-8", "replace"))
+            response = Response(
+                raw.status, list(raw.headers.items()), raw.read().decode("utf-8", "replace")
+            )
     except urllib.error.HTTPError as exc:  # 4xx/5xx are data, not exceptions
-        response = Response(exc.code, list(exc.headers.items()),
-                            exc.read().decode("utf-8", "replace"))
+        response = Response(
+            exc.code, list(exc.headers.items()), exc.read().decode("utf-8", "replace")
+        )
     response.cookies = parse_set_cookie(response.headers)
     return response
 
@@ -123,20 +125,28 @@ class ApiClient:
 
     @classmethod
     def from_settings(cls, settings: Any, auth: AuthContext | None = None) -> "ApiClient":
-        return cls(settings.base_url, auth, verify_tls=settings.verify_tls,
-                   ca_bundle=settings.ca_bundle)
+        return cls(
+            settings.base_url, auth, verify_tls=settings.verify_tls, ca_bundle=settings.ca_bundle
+        )
 
-    def request(self, method: str, path: str, body: Any = None,
-                headers: dict[str, str] | None = None) -> Response:
+    def request(
+        self, method: str, path: str, body: Any = None, headers: dict[str, str] | None = None
+    ) -> Response:
         merged = dict(self.auth.headers)
         cookie_header = self.auth.cookie_header()
         if cookie_header:
             merged["Cookie"] = cookie_header
         merged.update(headers or {})
         url = path if path.startswith("http") else f"{self.base_url}{path}"
-        return http_json(method, url, body=body, headers=merged,
-                         timeout_s=self.timeout_s, verify_tls=self.verify_tls,
-                         ca_bundle=self.ca_bundle)
+        return http_json(
+            method,
+            url,
+            body=body,
+            headers=merged,
+            timeout_s=self.timeout_s,
+            verify_tls=self.verify_tls,
+            ca_bundle=self.ca_bundle,
+        )
 
     def get(self, path: str, **kw: Any) -> Response:
         return self.request("GET", path, **kw)
@@ -177,6 +187,4 @@ class ApiClient:
         'delete returned 200' — the discipline that keeps shared stands clean."""
         response = self.get(path)
         if response.status != 404:
-            raise AssertionError(
-                f"expected 404 after delete at {path}, got {response.status}"
-            )
+            raise AssertionError(f"expected 404 after delete at {path}, got {response.status}")

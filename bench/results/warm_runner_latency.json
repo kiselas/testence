@@ -1,0 +1,70 @@
+{
+  "schema": "testence/warm-runner-latency/2",
+  "scenario": "fresh process versus warm pytest sessions with retained CDP client",
+  "environment": {
+    "os": "nt",
+    "python": "3.12.13"
+  },
+  "repeats": 5,
+  "shared_browser_start_ms": 3471.7,
+  "fresh_attached_run_ms": {
+    "p50": 3446.94,
+    "p95": 13362.26,
+    "min": 2017.6,
+    "max": 13362.26,
+    "n": 5
+  },
+  "fresh_attached_bootstrap_ms": {
+    "p50": 2807.64,
+    "p95": 12469.66,
+    "min": 1470.2,
+    "max": 12469.66,
+    "n": 5
+  },
+  "warm_cold_run_ms": {
+    "p50": 2408.04,
+    "p95": 2408.04,
+    "min": 2408.04,
+    "max": 2408.04,
+    "n": 1
+  },
+  "warm_steady_run_ms": {
+    "p50": 1132.93,
+    "p95": 1496.58,
+    "min": 1033.77,
+    "max": 1496.58,
+    "n": 4
+  },
+  "warm_steady_bootstrap_ms": {
+    "p50": 447.18,
+    "p95": 622.78,
+    "min": 422.27,
+    "max": 622.78,
+    "n": 4
+  },
+  "warm_steady_session_ms": {
+    "p50": 685.75,
+    "p95": 873.8,
+    "min": 611.5,
+    "max": 873.8,
+    "n": 4
+  },
+  "warm_steady_test_ms": {
+    "p50": 679.1,
+    "p95": 855.7,
+    "min": 606.1,
+    "max": 855.7,
+    "n": 4
+  },
+  "comparison": {
+    "run_reduction_percent": 67.13,
+    "bootstrap_reduction_percent": 84.07
+  },
+  "note": "The cold warm call is excluded. Project modules, pytest sessions, fixtures, run ids and writers are renewed; only the Playwright/CDP engine is retained.",
+  "budget": {
+    "checked": true,
+    "source": "bench/budgets/warm_runner_latency.json",
+    "passed": true,
+    "violations": []
+  }
+}

@@ -43,9 +43,9 @@ def session(app, tmp_path):
         debug_port=9222 + worker_port_offset(),
     )
     engine.start()
-    context = ApiSessionAuth(
-        CREDS, login_url=f"{app.base_url}/api/v1/auth/login"
-    ).authenticate(engine)
+    context = ApiSessionAuth(CREDS, login_url=f"{app.base_url}/api/v1/auth/login").authenticate(
+        engine
+    )
     writer = EvidenceWriter(tmp_path, worker="")
     actions = Actions(engine, writer, "oracle_case")
     yield actions, ApiClient(app.base_url, context)
@@ -77,8 +77,14 @@ def test_consistent_save_passes(session):
         widget_id = _saved_view(actions)["id"]
         return api.get(f"/api/v1/widgets/{widget_id}").raise_for_status().json
 
-    diffs = save_and_verify(actions, SAVE, name="widget", ui_view=ui_view,
-                            api_view=api_view, expect_request="/api/v1/widgets")
+    diffs = save_and_verify(
+        actions,
+        SAVE,
+        name="widget",
+        ui_view=ui_view,
+        api_view=api_view,
+        expect_request="/api/v1/widgets",
+    )
     assert diffs == []
 
 
@@ -98,8 +104,14 @@ def test_ui_showing_a_value_the_server_never_stored_is_caught(session):
         return api.get(f"/api/v1/widgets/{widget_id}").raise_for_status().json
 
     with pytest.raises(OracleFailed, match="cidr"):
-        save_and_verify(actions, SAVE, name="widget", ui_view=ui_view,
-                        api_view=api_view, expect_request="/api/v1/widgets")
+        save_and_verify(
+            actions,
+            SAVE,
+            name="widget",
+            ui_view=ui_view,
+            api_view=api_view,
+            expect_request="/api/v1/widgets",
+        )
 
 
 def test_client_validation_blocking_the_request_is_reported(session):
@@ -111,9 +123,14 @@ def test_client_validation_blocking_the_request_is_reported(session):
     actions.fill(CIDR, "not-a-cidr", intent="enter an invalid CIDR")
 
     with pytest.raises(AssertionError, match="nothing reached the server"):
-        save_and_verify(actions, SAVE, name="widget",
-                        ui_view=lambda: {}, api_view=lambda: {},
-                        expect_request="/api/v1/widgets")
+        save_and_verify(
+            actions,
+            SAVE,
+            name="widget",
+            ui_view=lambda: {},
+            api_view=lambda: {},
+            expect_request="/api/v1/widgets",
+        )
     assert "CIDR looks wrong" in actions.engine.read_text(ERROR)
 
 

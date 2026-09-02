@@ -1,0 +1,30 @@
+name: Feature proposal
+description: Propose an agent workflow, runner capability, or evidence contract.
+title: "[Proposal]: "
+labels: [enhancement, needs-triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What agent or testing workflow is painful today? Avoid starting with a solution.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: State the observable user value and who receives it.
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Proof and acceptance criteria
+      description: How can the benefit and regression risk be measured?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

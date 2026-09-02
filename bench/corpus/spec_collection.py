@@ -141,8 +141,10 @@ def test_paging_advances_on_the_first_click(ex, sut, oracle):
     # Not the pager: it renders the page that was *requested*, straight from local
     # state, so it says "page 2" while the table still shows page one's rows. The
     # honest synchronisation point is a row that only the second page contains.
-    ex.expect_visible(Target("css", f"tbody tr[data-key='{second[0]['id']}']"),
-                      intent="a row belonging to the second page is on screen")
+    ex.expect_visible(
+        Target("css", f"tbody tr[data-key='{second[0]['id']}']"),
+        intent="a row belonging to the second page is on screen",
+    )
 
     after = ex.engine.read_all_texts(NAMES)
     expected = [row["name"] for row in second]
@@ -215,5 +217,6 @@ def test_a_created_row_appears_without_a_reload(ex):
     before = int(ex.engine.read_text(TOTAL))
     ex.fill(NEW_ROW, "zzz-probe", intent="name a new row")
     ex.click(CREATE, intent="create it")
-    ex.expect_text(TOTAL, str(before + 1),
-                   intent="the collection the user is looking at grew by one")
+    ex.expect_text(
+        TOTAL, str(before + 1), intent="the collection the user is looking at grew by one"
+    )

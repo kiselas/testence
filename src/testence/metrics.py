@@ -96,8 +96,10 @@ def aggregate(run_dirs: list[Path]) -> dict[str, Any]:
         "suite_duration_min": {"p50": percentile(suite_min, 50), "n": len(suite_min)},
         "interaction_flake_rate": (round(len(flaky) / len(tests), 4) if tests else None),
         "flaky_tests": flaky,
-        "evidence_pack_tokens": {"p95": percentile([float(t) for t in pack_tokens], 95),
-                                 "n": len(pack_tokens)},
+        "evidence_pack_tokens": {
+            "p95": percentile([float(t) for t in pack_tokens], 95),
+            "n": len(pack_tokens),
+        },
     }
 
 

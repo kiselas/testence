@@ -37,7 +37,8 @@ def main() -> None:
     server = subprocess.Popen(
         [sys.executable, "-m", "http.server", str(PORT), "--bind", "127.0.0.1"],
         cwd=str(ROOT / "bench" / "target"),
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     time.sleep(1.5)
     timings: dict[str, float] = {}
@@ -46,6 +47,7 @@ def main() -> None:
         engine.start()
         launch_done = time.perf_counter()
         try:
+
             def timed(label: str, action) -> None:
                 start = time.perf_counter()
                 action()
@@ -56,8 +58,7 @@ def main() -> None:
             timed(STEPS[2], lambda: engine.expect_text(Target("css", "#count"), "1"))
             timed(STEPS[3], lambda: engine.fill(Target("placeholder", "name"), "alice"))
             timed(STEPS[4], lambda: engine.click(Target("role", "button", name="add")))
-            timed(STEPS[5], lambda: engine.expect_text(Target("css", "#list li"),
-                                                       "row-alice"))
+            timed(STEPS[5], lambda: engine.expect_text(Target("css", "#list li"), "row-alice"))
             total = round(sum(timings.values()), 1)
         finally:
             engine.stop()

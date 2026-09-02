@@ -80,7 +80,8 @@ def _summary(samples: list[float]) -> dict[str, float | int | list[float]]:
 def _source_stats(path: Path) -> dict[str, int | str]:
     text = path.read_text(encoding="utf-8")
     meaningful = [
-        line for line in text.splitlines()
+        line
+        for line in text.splitlines()
         if line.strip() and not line.lstrip().startswith(("#", "//"))
     ]
     return {
@@ -226,12 +227,13 @@ def main() -> None:
             "logical_cpu_count": os.cpu_count(),
             "python": platform.python_version(),
             "node": subprocess.check_output([str(NODE), "--version"], text=True).strip(),
-            "browser": f"Playwright Chromium { _browser_version() }",
+            "browser": f"Playwright Chromium {_browser_version()}",
             "python_playwright": importlib.metadata.version("playwright"),
             "pytest": importlib.metadata.version("pytest"),
             "node_playwright_test": json.loads(
-                (NODE_ROOT / "node_modules" / "@playwright" / "test" / "package.json")
-                .read_text(encoding="utf-8")
+                (NODE_ROOT / "node_modules" / "@playwright" / "test" / "package.json").read_text(
+                    encoding="utf-8"
+                )
             )["version"],
             "benchmark_revision": _fingerprint(
                 [Path(__file__), testence_source, playwright_source, config_source, sut_source]

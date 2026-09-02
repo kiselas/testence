@@ -110,8 +110,11 @@ def test_api_session_auth_injects_cookie_into_browser(engine, app):
 
 def test_api_session_auth_explains_token_only_apis(engine, app):
     """A login endpoint that returns a token instead of a cookie must say so."""
-    auth = ApiSessionAuth(CREDS, login_url=f"{app.base_url}/api/v1/auth/token",
-                          payload=lambda c: {"username": c.username, "password": c.password})
+    auth = ApiSessionAuth(
+        CREDS,
+        login_url=f"{app.base_url}/api/v1/auth/token",
+        payload=lambda c: {"username": c.username, "password": c.password},
+    )
     with pytest.raises(RuntimeError, match="BearerTokenAuth"):
         auth.authenticate(engine)
 
@@ -132,8 +135,9 @@ def test_bearer_token_auth_sets_header_and_storage(engine, app):
 
 
 def test_bearer_token_auth_reports_missing_field(engine, app):
-    auth = BearerTokenAuth(CREDS, token_url=f"{app.base_url}/api/v1/auth/token",
-                           token_field="id_token")
+    auth = BearerTokenAuth(
+        CREDS, token_url=f"{app.base_url}/api/v1/auth/token", token_field="id_token"
+    )
     with pytest.raises(RuntimeError, match="id_token"):
         auth.authenticate(engine)
 
@@ -164,8 +168,9 @@ def test_no_auth_is_inert(engine):
 
 def test_api_client_inherits_browser_session(engine, app):
     """The oracle must read the API as the same user the UI is logged in as."""
-    context = FormLoginAuth(CREDS, login_path="/login",
-                            success_target=Target("css", "#whoami")).authenticate(engine)
+    context = FormLoginAuth(
+        CREDS, login_path="/login", success_target=Target("css", "#whoami")
+    ).authenticate(engine)
     client = ApiClient(app.base_url, context)
 
     me = client.get("/api/v1/auth/me").raise_for_status().json
@@ -177,13 +182,16 @@ def test_api_client_without_session_gets_401(app):
 
 
 def test_api_client_bearer_session(engine, app):
-    context = BearerTokenAuth(CREDS, token_url=f"{app.base_url}/api/v1/auth/token").authenticate(engine)
+    context = BearerTokenAuth(CREDS, token_url=f"{app.base_url}/api/v1/auth/token").authenticate(
+        engine
+    )
     assert ApiClient(app.base_url, context).get("/api/v1/auth/me").ok
 
 
 def test_http_json_treats_4xx_as_data(app):
-    response = http_json("POST", f"{app.base_url}/api/v1/auth/login",
-                         body={"email": USER, "password": "nope"})
+    response = http_json(
+        "POST", f"{app.base_url}/api/v1/auth/login", body={"email": USER, "password": "nope"}
+    )
     assert response.status == 401 and not response.ok
     assert response.json["detail"] == "invalid credentials"
 
@@ -197,7 +205,9 @@ def test_assert_absent_checks_for_404(engine, app):
 
 
 def test_auth_context_describe_hides_values(engine, app):
-    context = BearerTokenAuth(CREDS, token_url=f"{app.base_url}/api/v1/auth/token").authenticate(engine)
+    context = BearerTokenAuth(CREDS, token_url=f"{app.base_url}/api/v1/auth/token").authenticate(
+        engine
+    )
     described = context.describe()
     assert described["headers"] == ["Authorization"]
     assert "Bearer" not in str(described)

@@ -1,7 +1,14 @@
 from testence.fingerprints import FingerprintStore
 
-FP = {"tag": "button", "role": "button", "ariaLabel": "save", "testid": None,
-      "text": "Save", "id": "save", "classes": ["btn"]}
+FP = {
+    "tag": "button",
+    "role": "button",
+    "ariaLabel": "save",
+    "testid": None,
+    "text": "Save",
+    "id": "save",
+    "classes": ["btn"],
+}
 
 
 def test_records_and_reads_back_by_intent(tmp_path):
