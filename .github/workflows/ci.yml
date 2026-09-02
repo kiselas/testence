@@ -60,5 +60,11 @@ jobs:
           enable-cache: true
       - name: Install locked dependencies
         run: uv sync --locked --extra dev --extra parallel
+      - name: Install Chromium and system dependencies
+        if: runner.os == 'Linux'
+        run: uv run playwright install --with-deps chromium
+      - name: Install Chromium
+        if: runner.os != 'Linux'
+        run: uv run playwright install chromium
       - name: Run test suite
         run: uv run pytest -q

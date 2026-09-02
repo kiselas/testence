@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import json
 from importlib.resources import files
-from importlib.resources.abc import Traversable
 from pathlib import PurePosixPath
 from typing import Any
+
+try:
+    from importlib.resources.abc import Traversable
+except ImportError:  # Python 3.10
+    from importlib.abc import Traversable
 
 SKILL_PACK_SCHEMA = "testence/skill-pack/1"
 
