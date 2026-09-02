@@ -36,7 +36,7 @@ class Item:
     id: str
     defects: list[str]
     verdict: str
-    """Ground truth for the triage pass: real_bug | behaviour_change | ui_change |
+    """Ground truth for the triage pass: real_bug | test_bug | behaviour_change | ui_change |
     flaky_timing | environment | none (ADR-0014)."""
     expect_failure: bool
     expect_claims: list[str] = field(default_factory=list)

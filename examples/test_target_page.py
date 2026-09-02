@@ -20,12 +20,20 @@ ASYNC_OUT = Target("css", "#asyncout")
 LOAD = Target("role", "button", name="load async")
 
 
+@pytest.mark.testence(
+    plan="examples/specs/target-page.md",
+    claims=["target.counter.incremented"],
+)
 def test_counter_increments(ex):
     ex.goto(TARGET_URL, intent="open the target page")
     ex.click(INC, intent="increment the counter")
     ex.expect_text(COUNT, "1", intent="counter shows 1")
 
 
+@pytest.mark.testence(
+    plan="examples/specs/target-page.md",
+    claims=["target.row.visible", "target.async.loaded"],
+)
 def test_row_added_and_async_load(ex):
     ex.goto(TARGET_URL, intent="open the target page")
     ex.fill(NAME, "alice", intent="type a name")
@@ -36,6 +44,10 @@ def test_row_added_and_async_load(ex):
 
 
 @pytest.mark.demo_failure
+@pytest.mark.testence(
+    plan="examples/specs/target-page.md",
+    claims=["target.counter.incremented"],
+)
 def test_pack_assembly_demo(ex):
     """Fails on purpose: asserts an element that never appears -> evidence pack."""
     ex.goto(TARGET_URL, intent="open the target page")

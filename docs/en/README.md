@@ -4,10 +4,19 @@
 
 - [Product positioning](product-positioning.md)
 - [Agent workflow](agent-workflow.md)
+- [Portable Agent Skills](agent-skills.md)
 - [Architecture](architecture.md)
 - [Roadmap](roadmap.md)
 - [Project audit](project-audit.md)
 - [Competitive landscape](competitive-landscape.md)
+
+## Launch artifacts
+
+- [Launch Thesis](launch-thesis.md) — user, wedge, advantages, gates, and safe agent-skill
+  updates
+- [DemoSpec](demo-spec.md) — the reproducible “green UI, data not saved” killer demo
+- [Launch Benchmark Protocol](benchmark/launch-protocol.md) — correctness-first
+  comparison, frozen corpus, and rules for public claims
 
 ## User and contributor guides
 

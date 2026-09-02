@@ -39,3 +39,26 @@ def test_oracle_diff_helper():
     assert diff_views({"cidr": "10.0.0.0/24"}, {"cidr": "10.0.0.0/24", "id": 5}) == []
     diffs = diff_views({"cidr": "10.0.0.0/24"}, {"cidr": "10.0.1.0/24"})
     assert diffs == [{"field": "cidr", "ui": "10.0.0.0/24", "api": "10.0.1.0/24"}]
+
+
+def test_report_surfaces_the_plan_and_claims(tmp_path):
+    writer = EvidenceWriter(tmp_path, run_id="r-trace", worker="")
+    writer.bind_test(
+        "create_blocker",
+        plan={
+            "schema": "testence/planspec/1",
+            "id": "release-board.create-blocker",
+            "path": "specs/create-blocker.md",
+        },
+        claims=["blocker.create.persisted"],
+    )
+    writer.emit("run.start")
+    writer.emit("test.start", test="create_blocker")
+    writer.emit("test.end", test="create_blocker", status="pass", duration_ms=1.0)
+    writer.emit("run.end", duration_ms=1.0, passed=1, failed=0)
+    writer.close()
+
+    page = render_report(writer.run_dir, tmp_path / "trace.html").read_text(encoding="utf-8")
+    assert "Proof contract:" in page
+    assert "release-board.create-blocker" in page
+    assert "blocker.create.persisted" in page

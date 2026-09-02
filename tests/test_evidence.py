@@ -43,3 +43,37 @@ def test_utf8_and_lf_line_endings(tmp_path):
 
 def test_token_estimate_monotonic():
     assert estimate_tokens("word " * 100) > estimate_tokens("word")
+
+
+def test_writer_propagates_plan_claims_and_remembers_failed_oracle(tmp_path):
+    with EvidenceWriter(tmp_path, worker="") as writer:
+        writer.bind_test(
+            "test_create",
+            plan={
+                "schema": "testence/planspec/1",
+                "id": "feature.create",
+                "path": "specs/create.md",
+            },
+            claims=["feature.create.persisted"],
+        )
+        writer.emit("test.start", test="test_create")
+        writer.emit("step.start", test="test_create", step="s1", intent="create")
+        writer.emit(
+            "oracle",
+            test="test_create",
+            name="persistence",
+            ok=False,
+            diff=[{"field": "id", "ui": "42", "api": "<missing>"}],
+        )
+
+        assert writer.context_for("test_create")["claims"] == ["feature.create.persisted"]
+        assert writer.last_oracle_diff("test_create") == [
+            {"field": "id", "ui": "42", "api": "<missing>"}
+        ]
+
+    docs = [
+        json.loads(line)
+        for line in (writer.run_dir / "run.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert all(doc["plan"]["id"] == "feature.create" for doc in docs)
+    assert all(doc["claims"] == ["feature.create.persisted"] for doc in docs)

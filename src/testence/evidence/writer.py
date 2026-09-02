@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import secrets
 import threading
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TextIO
@@ -54,8 +55,9 @@ def ledger_paths(run_dir: Path | str) -> list[Path]:
 class EvidenceWriter:
     """One writer per process; safe to call from callbacks on other threads."""
 
-    def __init__(self, runs_root: Path | str, run_id: str | None = None,
-                 worker: str | None = None) -> None:
+    def __init__(
+        self, runs_root: Path | str, run_id: str | None = None, worker: str | None = None
+    ) -> None:
         self.run_id = run_id or os.environ.get(RUN_ID_ENV) or new_run_id()
         self.worker = worker if worker is not None else os.environ.get(WORKER_ENV, "")
         self.run_dir = Path(runs_root) / self.run_id
@@ -65,15 +67,65 @@ class EvidenceWriter:
         self._fh: TextIO = open(self.path, "a", encoding="utf-8", newline="\n")
         self._lock = threading.Lock()
         self._seq = 0
+        self._test_context: dict[str, dict[str, Any]] = {}
+        self._failed_oracle_diffs: dict[str, list[dict[str, Any]]] = {}
+
+    def bind_test(
+        self,
+        test_id: str,
+        *,
+        plan: Mapping[str, Any],
+        claims: list[str] | tuple[str, ...],
+    ) -> None:
+        """Attach the semantic contract to every event emitted for one test.
+
+        The binding is intentionally writer-side: DSL steps, network callbacks and
+        oracle helpers should not each need to remember traceability fields.
+        """
+        with self._lock:
+            self._test_context[test_id] = {
+                "plan": dict(plan),
+                "claims": list(claims),
+            }
+
+    def context_for(self, test_id: str) -> dict[str, Any]:
+        with self._lock:
+            context = self._test_context.get(test_id) or {}
+            result = dict(context)
+            if isinstance(result.get("plan"), dict):
+                result["plan"] = dict(result["plan"])
+            if isinstance(result.get("claims"), list):
+                result["claims"] = list(result["claims"])
+            return result
+
+    def last_oracle_diff(self, test_id: str) -> list[dict[str, Any]] | None:
+        with self._lock:
+            diffs = self._failed_oracle_diffs.get(test_id)
+            return [dict(row) for row in diffs] if diffs else None
+
+    def unbind_test(self, test_id: str) -> None:
+        with self._lock:
+            self._test_context.pop(test_id, None)
+            self._failed_oracle_diffs.pop(test_id, None)
 
     def emit(self, kind: str, test: str | None = None, **payload: Any) -> Event:
-        event = Event(kind=kind, run=self.run_id, test=test, payload=payload)
         with self._lock:
+            merged: dict[str, Any] = {}
+            if test is not None:
+                merged.update(self._test_context.get(test) or {})
+            merged.update(payload)
+            event = Event(kind=kind, run=self.run_id, test=test, payload=merged)
             self._seq += 1
             event.stamp(self._seq)
             self._fh.write(event.to_json() + "\n")
             self._fh.flush()
             os.fsync(self._fh.fileno())
+            if kind == "oracle" and test is not None and merged.get("ok") is False:
+                diffs = merged.get("diff")
+                if isinstance(diffs, list):
+                    self._failed_oracle_diffs[test] = [
+                        dict(row) for row in diffs if isinstance(row, dict)
+                    ]
         return event
 
     def test_dir(self, test_id: str) -> Path:

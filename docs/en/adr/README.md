@@ -21,8 +21,9 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 | [0011](0011-heal-as-proposal.md) | Self-healing as a reviewable proposal, never a runtime rebind | accepted (measured on the corpus) |
 | [0012](0012-parallel-execution.md) | Parallel execution by process shard, with shard-safe evidence and seeding | accepted |
 | [0013](0013-reporting-as-export.md) | Reporting integrations as exporters from the ledger (Allure, CTRF, JUnit) | accepted (seam implemented) |
-| [0014](0014-verdict-taxonomy.md) | A fifth verdict for intended behavioural change; `blocked_on` as the abstention channel | accepted |
+| [0014](0014-verdict-taxonomy.md) | Behaviour-change and test-bug verdicts; `blocked_on` as the abstention channel | accepted |
 | [0015](0015-agent-native-interface.md) | Portable agent control plane over a deterministic verification runner | proposed (golden path pending) |
+| [0016](0016-plan-verdict-contracts.md) | PlanSpec and verdict as versioned proof contracts | accepted |
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.

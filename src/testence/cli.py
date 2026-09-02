@@ -7,6 +7,7 @@ Cross-platform by construction: pure Python entry points, no shell wrappers
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -45,8 +46,10 @@ def _watch(watch_roots: list[Path], patterns: list[str], cmd: list[str]) -> int:
     profile) and the whole loop is the run itself.
     """
     print(f"[watch] {' '.join(cmd)}")
-    print(f"[watch] roots: {', '.join(str(r) for r in watch_roots)} "
-          f"({', '.join(patterns)}) — Ctrl+C to stop")
+    print(
+        f"[watch] roots: {', '.join(str(r) for r in watch_roots)} "
+        f"({', '.join(patterns)}) — Ctrl+C to stop"
+    )
     state = _snapshot(watch_roots, patterns)
     runs = 0
     try:
@@ -83,25 +86,55 @@ def main(argv: list[str] | None = None) -> int:
 
     p_export = sub.add_parser("export", help="render an integration format from a run")
     p_export.add_argument("run_dir", nargs="?", type=Path)
-    p_export.add_argument("--to", default=None, metavar="EXPORTER",
-                          help="exporter name (see --list)")
+    p_export.add_argument(
+        "--to", default=None, metavar="EXPORTER", help="exporter name (see --list)"
+    )
     p_export.add_argument("-o", "--out", type=Path, default=None)
-    p_export.add_argument("--list", dest="list_", action="store_true",
-                          help="list registered exporters and exit")
+    p_export.add_argument(
+        "--list", dest="list_", action="store_true", help="list registered exporters and exit"
+    )
 
     p_bench = sub.add_parser("bench", help="run a command N times, then aggregate")
     p_bench.add_argument("-n", "--iterations", type=int, default=10)
     p_bench.add_argument("--runs-root", type=Path, default=Path("runs"))
-    p_bench.add_argument("cmd", nargs=argparse.REMAINDER,
-                         help="command to repeat (prefix with --)")
+    p_bench.add_argument("cmd", nargs=argparse.REMAINDER, help="command to repeat (prefix with --)")
 
     p_watch = sub.add_parser("watch", help="re-run a command whenever a file changes")
-    p_watch.add_argument("-w", "--watch", type=Path, action="append", default=None,
-                         help="directory to watch (repeatable; default: src, tests, examples)")
-    p_watch.add_argument("-p", "--pattern", action="append", default=None,
-                         help="glob to watch (repeatable; default: *.py)")
-    p_watch.add_argument("cmd", nargs=argparse.REMAINDER,
-                         help="command to re-run (prefix with --)")
+    p_watch.add_argument(
+        "-w",
+        "--watch",
+        type=Path,
+        action="append",
+        default=None,
+        help="directory to watch (repeatable; default: src, tests, examples)",
+    )
+    p_watch.add_argument(
+        "-p",
+        "--pattern",
+        action="append",
+        default=None,
+        help="glob to watch (repeatable; default: *.py)",
+    )
+    p_watch.add_argument("cmd", nargs=argparse.REMAINDER, help="command to re-run (prefix with --)")
+
+    p_plan = sub.add_parser("plan", help="validate and inspect a PlanSpec")
+    plan_sub = p_plan.add_subparsers(dest="plan_command", required=True)
+    p_plan_validate = plan_sub.add_parser("validate", help="validate a PlanSpec")
+    p_plan_validate.add_argument("path", type=Path)
+    p_plan_validate.add_argument("--json", dest="json_output", action="store_true")
+
+    p_verdict = sub.add_parser("verdict", help="validate an evidence-backed verdict")
+    verdict_sub = p_verdict.add_subparsers(dest="verdict_command", required=True)
+    p_verdict_validate = verdict_sub.add_parser("validate", help="validate verdict.json")
+    p_verdict_validate.add_argument("path", type=Path)
+    p_verdict_validate.add_argument(
+        "--pack",
+        type=Path,
+        default=None,
+        help="evidence-pack directory (default: verdict file directory)",
+    )
+    p_verdict_validate.add_argument("--plan", type=Path, default=None)
+    p_verdict_validate.add_argument("--json", dest="json_output", action="store_true")
 
     args = parser.parse_args(argv)
 
@@ -165,6 +198,50 @@ def main(argv: list[str] | None = None) -> int:
         if not roots:
             parser.error("nothing to watch: pass -w with a directory that exists")
         return _watch(roots, args.pattern or ["*.py"], cmd)
+
+    if args.command == "plan" and args.plan_command == "validate":
+        from .contracts import load_plan
+        from .contracts._validation import ContractError
+
+        try:
+            plan = load_plan(args.path)
+        except ContractError as exc:
+            print(f"plan invalid: {exc}", file=sys.stderr)
+            return 2
+        summary = plan.summary()
+        if args.json_output:
+            print(json.dumps(summary, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(
+                f"plan valid: {plan.id} ({len(plan.claims)} claims, "
+                f"{len(plan.scenarios)} scenarios)"
+            )
+        return 0
+
+    if args.command == "verdict" and args.verdict_command == "validate":
+        from .contracts import load_plan, load_verdict
+        from .contracts._validation import ContractError
+
+        try:
+            plan = load_plan(args.plan) if args.plan else None
+            verdict = load_verdict(
+                args.path,
+                pack_dir=args.pack or args.path.parent,
+                plan=plan,
+            )
+        except ContractError as exc:
+            print(f"verdict invalid: {exc}", file=sys.stderr)
+            return 2
+        summary = verdict.summary_document()
+        if args.json_output:
+            print(json.dumps(summary, ensure_ascii=False, separators=(",", ":")))
+        else:
+            label = verdict.verdict or "blocked"
+            print(
+                f"verdict valid: {label} for {verdict.test_id} "
+                f"({len(verdict.claim_results)} claims)"
+            )
+        return 0
 
     return 1
 

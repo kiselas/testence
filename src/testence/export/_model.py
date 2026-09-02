@@ -20,6 +20,8 @@ from typing import Any
 PACK_FILES = (
     "pack.json",
     "TRIAGE.md",
+    "verdict.json",
+    "verdict.template.json",
     "aria.txt",
     "network.jsonl",
     "console.txt",
@@ -79,6 +81,9 @@ class Test:
     nodeid: str = ""
     file: str = ""
     markers: tuple[str, ...] = ()
+    plan_id: str = ""
+    plan_path: str = ""
+    claim_ids: tuple[str, ...] = ()
     status: str = "pass"
     duration_ms: float = 0.0
     start: datetime | None = None
@@ -165,6 +170,10 @@ class LoadedRun:
                 test.file = doc.get("file") or ""
                 test.nodeid = doc.get("nodeid") or test_id
                 test.markers = tuple(doc.get("markers") or ())
+                plan = doc.get("plan") or {}
+                test.plan_id = plan.get("id") or ""
+                test.plan_path = plan.get("path") or ""
+                test.claim_ids = tuple(doc.get("claims") or ())
                 test.start = parse_ts(doc.get("ts"))
             elif kind == "test.end":
                 test.status = doc.get("status") or "pass"

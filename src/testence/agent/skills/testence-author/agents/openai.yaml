@@ -1,0 +1,6 @@
+interface:
+  display_name: "Testence Author"
+  short_description: "Author and prove deterministic Testence tests"
+  default_prompt: "Use $testence-author to implement and prove the claims in this validated PlanSpec."
+policy:
+  allow_implicit_invocation: true

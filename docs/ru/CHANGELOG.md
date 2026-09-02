@@ -19,6 +19,10 @@
 - Экспортёры Allure и CTRF, рендерящиеся из ledger.
 - Синтетические mutation corpora для проверки false green, false red и качества healing.
 - Reference compute kernels за версионированным optional-native ABI.
+- Версионированные контракты PlanSpec и verdict с трассировкой claims через pytest,
+  ledger, evidence packs и отчёты.
+- Версионированный набор Agent Skills для `plan`, `author`, `triage` и `repair` с
+  метаданными Codex и безопасным контрактом cross-client обновления.
 
 ### Изменено
 

@@ -1,0 +1,45 @@
+{
+  "schema": "testence/skill-pack/1",
+  "version": "0.1.0",
+  "minimum_testence": "0.1.0.dev0",
+  "contracts": {
+    "plan": "testence/planspec/1",
+    "evidence": "testence/1",
+    "verdict": "testence/verdict/1"
+  },
+  "skills": [
+    {
+      "name": "testence-plan",
+      "phase": "plan",
+      "path": "skills/testence-plan",
+      "inputs": ["feature-intent", "risk-context"],
+      "outputs": ["testence/planspec/1"]
+    },
+    {
+      "name": "testence-author",
+      "phase": "author",
+      "path": "skills/testence-author",
+      "inputs": ["testence/planspec/1", "approved-target"],
+      "outputs": ["deterministic-test", "testence/1"]
+    },
+    {
+      "name": "testence-triage",
+      "phase": "triage",
+      "path": "skills/testence-triage",
+      "inputs": ["testence/1", "evidence-pack"],
+      "outputs": ["testence/verdict/1"]
+    },
+    {
+      "name": "testence-repair",
+      "phase": "repair",
+      "path": "skills/testence-repair",
+      "inputs": ["testence/verdict/1", "evidence-pack"],
+      "outputs": ["reviewable-repair", "targeted-rerun"]
+    }
+  ],
+  "install": {
+    "state_schema": "testence/agent-install/1",
+    "state_path": ".testence/agents.json",
+    "update_strategy": "replace-unmodified-preserve-modified"
+  }
+}

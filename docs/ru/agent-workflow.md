@@ -1,7 +1,9 @@
 # Рабочий процесс агента
 
-Этот документ определяет целевой публичный workflow Testence. Это контракт продукта, а
-не заявление о том, что каждая упомянутая команда уже существует в текущей pre-alpha.
+Этот документ определяет публичный workflow Testence. PlanSpec, привязка claim'ов к
+pytest, их перенос в ledger/evidence pack, валидация verdict и переносимый skill-pack
+уже работают. Bootstrap, controlled discovery и MCP остаются целевой частью текущей
+pre-alpha.
 
 ## Прозрачный конвейер
 
@@ -90,26 +92,56 @@ PlanSpec — понятный человеку Markdown с машиночита�
 - независимый oracle, когда он доступен;
 - исключения, неопределённость и требуемые согласования.
 
-Пример:
+В первой версии машиночитаемый блок стабилизирует только `id`, `title`, `source`,
+claims с типами oracle и scenarios с risk. Preconditions, seed/cleanup и approvals пока
+остаются в окружающем Markdown; расширять schema будем после проверки authoring corpus,
+а не заранее.
 
-```markdown
----
-id: checkout-discount
-risk: high
----
+Markdown-файл содержит ровно один JSON-блок `testence-planspec`; остальной текст
+остаётся свободным контекстом для человека и агента:
 
-## Утверждение C1
-Авторизованный покупатель видит итоговую цену со скидкой после применения
-подходящего промокода.
-
-- наблюдение в UI: итог заказа меняется до отправки
-- независимый oracle: cart API возвращает ту же сумму и идентификатор скидки
-- seed: изолированный покупатель, подходящий товар и одноразовый промокод
+```testence-planspec
+{
+  "schema": "testence/planspec/1",
+  "id": "checkout.discount",
+  "title": "Apply an eligible discount",
+  "claims": [
+    {
+      "id": "checkout.discount.total",
+      "statement": "The UI and cart API expose the same discounted total.",
+      "oracles": ["ui", "api"],
+      "required": true
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "eligible-code",
+      "title": "Apply an eligible code",
+      "claims": ["checkout.discount.total"],
+      "risk": "false green from an optimistic UI"
+    }
+  ]
+}
 ```
 
-План — семантический якорь. Сгенерированные тестовые функции и события журнала должны
-нести ID PlanSpec и утверждения, чтобы агент отвечал не только на вопрос «что упало?»,
-но и «какое продуктовое обещание больше не доказано?».
+План проверяется до запуска, а тест привязывается только к объявленным claim ID:
+
+```bash
+testence plan validate specs/checkout-discount.md --json
+```
+
+```python
+@pytest.mark.testence(
+    plan="specs/checkout-discount.md",
+    claims=["checkout.discount.total"],
+)
+def test_discount_total(ex):
+    ...
+```
+
+PlanSpec — семантический якорь. Pytest отклоняет неверный путь или неизвестный claim на
+collection, а Testence добавляет `plan` и `claims` ко всем событиям связанного теста,
+failure pack и HTML-отчёту.
 
 ## 3. Сначала исследование, затем компиляция
 
@@ -145,26 +177,41 @@ assertions. Затем результат компилируется в обыч
 
 ## 6. Вердикт по доказательствам
 
-При падении агент получает минимальный отредактированный pack, достаточный для решения.
-Целевой контракт вердикта:
+При падении агент получает минимальный отредактированный pack, достаточный для решения,
+и заполняет находящийся в нём `verdict.template.json`. Контракт вердикта:
 
 ```json
 {
   "schema": "testence/verdict/1",
-  "classification": "real_bug",
+  "plan_id": "checkout.discount",
+  "test_id": "tests/test_checkout.py::test_discount_total",
+  "verdict": "real_bug",
   "confidence": 0.91,
-  "claim_ids": ["checkout-discount:C1"],
-  "evidence_refs": ["step:7", "oracle:cart-total"],
-  "reason": "Итог в UI не изменился, хотя cart API применил скидку.",
-  "next_action": "проверить перерасчёт итоговой цены во frontend",
+  "summary": "UI показал скидку, но cart API вернул прежнюю сумму.",
+  "claim_results": [
+    {
+      "claim_id": "checkout.discount.total",
+      "status": "failed",
+      "reason": "UI и authoritative API расходятся.",
+      "evidence": ["oracle.json#/0", "network.jsonl"]
+    }
+  ],
   "blocked_on": []
 }
 ```
 
-Допустимые классификации: `real_bug`, `behaviour_change`, `ui_change`,
-`flaky_timing` и `environment`. `blocked_on` — явный канал воздержания: он
+Допустимые значения `verdict`: `real_bug`, `test_bug`, `behaviour_change`,
+`ui_change`, `flaky_timing` и `environment`. `test_bug` означает, что продукт и
+актуальный PlanSpec согласованы, а реализация теста противоречит им. `blocked_on` —
+явный канал воздержания: он
 называет недостающее доказательство вместо изобретения шестого класса причин. Вердикт
-без ссылок на доказательства или объявленного блокера недействителен.
+с `null` требует хотя бы один blocker; `passed`/`failed` claim требует ссылки на реально
+существующие файлы pack. Проверка связывает verdict с точными plan, test и claims:
+
+```bash
+testence verdict validate runs/<run>/<test>/pack/verdict.json \
+  --plan specs/checkout-discount.md --json
+```
 
 ## 7. Предлагать, но никогда не исправлять скрыто
 
@@ -236,9 +283,11 @@ permissions клиентского приложения. Testence не нуже�
 | API-oracles в той же сессии | реализовано |
 | таксономия вердиктов и проверяемые примитивы heal proposal | реализовано |
 | рендеринг HTML, Allure и CTRF из журнала | реализовано |
-| схема PlanSpec и сквозная трассируемость | предстоит реализовать |
-| переносимые agent skills и bootstrap-команда | предстоит реализовать |
-| хранение типизированного вердикта и CLI/MCP для агента | предстоит реализовать |
+| схема PlanSpec, pytest binding и трассируемость до ledger/pack/report | реализовано |
+| переносимые skills `plan`, `author`, `triage` и `repair` | реализованы и включены в пакет |
+| cross-client bootstrap и безопасное обновление skills | предстоит реализовать |
+| verdict schema, pack template и CLI-валидация | реализовано |
+| управляемое сохранение verdict и MCP для агента | предстоит реализовать |
 | систематическое редактирование и permission policy | блокер релиза P0 |
 
 Публичная альфа не является agent-native, пока хотя бы один поддерживаемый агент не

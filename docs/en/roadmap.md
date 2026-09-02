@@ -5,6 +5,12 @@ primary operator, while deterministic execution, inspectable artifacts and owner
 policy remain the trust boundary. AI should reduce authoring and triage cost without
 turning every CI action into a slow, non-deterministic model call.
 
+The immediate execution order is governed by three launch artifacts:
+[Launch Thesis](launch-thesis.md) → [DemoSpec](demo-spec.md) →
+[Launch Benchmark Protocol](benchmark/launch-protocol.md). Until their gates pass, a P0
+feature moves ahead only when it closes the Trustworthy Proof Loop, strengthens
+correctness/security, or makes the public proof more reproducible.
+
 ## P0 — safe public alpha foundation (2–4 weeks)
 
 ### Evidence security
@@ -30,14 +36,15 @@ turning every CI action into a slow, non-deterministic model call.
 
 ### Minimum agent product
 
-- Define versioned PlanSpec and verdict schemas with claim IDs that survive into test
-  source and ledger events.
+- **Implemented:** versioned PlanSpec/verdict schemas and claim IDs that survive through
+  pytest binding, ledger events, failure packs and the HTML report.
 - Ship one portable Agent Skills package covering plan, author, triage and repair; keep
   client-specific instructions as thin adapters.
 - Add `testence agent init` with a dry-run/file manifest, project instructions, a
   synthetic seed test and no secret copying.
-- Add structured CLI operations for plan validation, scoped execution, failure-pack
-  lookup and verdict validation. Their JSON contracts become the future MCP foundation.
+- **Partly implemented:** structured CLI operations for PlanSpec and verdict validation.
+  Scoped execution, pack lookup and managed verdict submission remain; the JSON contracts
+  become the future MCP foundation.
 - Define repository-owned permission policy for approved targets, seed mutations,
   evidence access and source-changing proposals.
 - Prove the complete golden path in at least one coding agent: request → reviewed plan →

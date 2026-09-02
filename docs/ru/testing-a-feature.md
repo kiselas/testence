@@ -24,6 +24,14 @@
 | мутация | создаёт или меняет тест общие данные? |
 | cleanup | как созданные данные идентифицируются и удаляются? |
 
+Зафиксируйте это в PlanSpec до открытия браузера. Файл содержит человеческий контекст и
+ровно один машиночитаемый блок `testence-planspec`; минимальный рабочий пример находится
+в `examples/specs/target-page.md`. Проверяйте контракт сразу:
+
+```bash
+testence plan validate specs/widgets-create.md --json
+```
+
 ## 2. Исследуйте поверхность
 
 Перед написанием селекторов проверьте routes, roles и accessible names через браузер и
@@ -59,6 +67,10 @@ accessibility tree. Предпочитайте в таком порядке:
 Тест должен быть коротким и читаемым:
 
 ```python
+@pytest.mark.testence(
+    plan="specs/widgets-create.md",
+    claims=["widgets.create.persisted"],
+)
 def test_created_widget_is_visible(ex, testence_api, widget_seed):
     widget = widget_seed.valid()
 
@@ -83,6 +95,16 @@ def test_created_widget_is_visible(ex, testence_api, widget_seed):
 2. внесите или временно сымитируйте поведение, которое он должен обнаружить;
 3. проверьте, что ожидаемый assertion падает по ожидаемой причине;
 4. восстановите target и снова получите зелёный тест.
+
+Marker проверяется во время pytest collection. Во время выполнения его plan и claims
+попадают в каждое событие теста, failure pack и HTML report. При ожидаемом падении
+заполните созданный в pack `verdict.template.json`, сохраните как `verdict.json` и
+проверьте связь с планом и доказательствами:
+
+```bash
+testence verdict validate runs/<run>/<test>/pack/verdict.json \
+  --plan specs/widgets-create.md --json
+```
 
 Синтетические корпусы в `corpus/` и `bench/corpus/` применяют эту дисциплину к
 самому фреймворку.

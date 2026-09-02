@@ -24,6 +24,15 @@ For each claim record:
 | mutation | does the test create or change shared data? |
 | cleanup | how is created data identified and removed? |
 
+Capture this in a PlanSpec before opening the browser. The file contains human context
+plus exactly one machine-readable `testence-planspec` block; see
+`examples/specs/target-page.md` for a minimal working example. Validate the contract
+immediately:
+
+```bash
+testence plan validate specs/widgets-create.md --json
+```
+
 ## 2. Discover the surface
 
 Use the browser and accessibility tree to verify routes, roles and accessible names
@@ -59,6 +68,10 @@ isolated tenant or ephemeral environment when possible.
 Keep the test small and readable:
 
 ```python
+@pytest.mark.testence(
+    plan="specs/widgets-create.md",
+    claims=["widgets.create.persisted"],
+)
 def test_created_widget_is_visible(ex, testence_api, widget_seed):
     widget = widget_seed.valid()
 
@@ -83,6 +96,16 @@ A green test is not evidence that the assertion is useful. Before accepting a ca
 2. inject or temporarily simulate the behaviour it claims to detect;
 3. verify the expected assertion fails for the expected reason;
 4. restore the target and verify the test is green again.
+
+The marker is validated during pytest collection. At runtime its plan and claims reach
+every test event, the failure pack and the HTML report. On the expected failure, complete
+the pack's `verdict.template.json`, save it as `verdict.json`, and validate its binding to
+the plan and evidence:
+
+```bash
+testence verdict validate runs/<run>/<test>/pack/verdict.json \
+  --plan specs/widgets-create.md --json
+```
 
 The synthetic corpora in `corpus/` and `bench/corpus/` apply this discipline to the
 framework itself.

@@ -27,7 +27,7 @@ from typing import Callable
 class CorpusItem:
     name: str
     verdict: str
-    """Ground truth: real_bug | behaviour_change | ui_change | flaky_timing |
+    """Ground truth: real_bug | test_bug | behaviour_change | ui_change | flaky_timing |
     environment | none (ADR-0014)."""
     mutate: Callable[[str], str]
     note: str

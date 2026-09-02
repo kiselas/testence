@@ -18,6 +18,10 @@ under `Unreleased`; compatibility is not guaranteed.
 - Allure and CTRF exporters rendered from the ledger.
 - Synthetic mutation corpora for false-green, false-red and heal-quality checks.
 - Reference compute kernels behind a versioned optional-native ABI.
+- Versioned PlanSpec and verdict contracts with claim traceability through pytest,
+  ledger, evidence packs and reports.
+- A packaged, versioned Agent Skills set for `plan`, `author`, `triage` and `repair`,
+  with Codex metadata and a safe cross-client update contract.
 
 ### Changed
 

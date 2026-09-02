@@ -128,7 +128,7 @@ testops = "acme_testops.exporter"
 | `tests` | список `Test` |
 | `pack_path(test, filename)` | абсолютный путь к файлу evidence pack либо `None` |
 | `events` | raw ledger как escape hatch |
-| `Test` | `name`, `nodeid`, `file`, `markers`, `status`, `duration_ms`, `start`/`stop`, `error`, `steps`, `oracles`, `pack_dir` |
+| `Test` | `name`, `nodeid`, `file`, `markers`, `plan_id`, `plan_path`, `claim_ids`, `status`, `duration_ms`, `start`/`stop`, `error`, `steps`, `oracles`, `pack_dir` |
 | `Step` | `intent`, `target`, `status`, `duration_ms`, `error`, `start`/`stop`, `substeps` |
 
 Перед форматированием важно знать два правила:

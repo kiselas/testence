@@ -1,0 +1,6 @@
+interface:
+  display_name: "Testence Triage"
+  short_description: "Classify failures from bounded Testence evidence"
+  default_prompt: "Use $testence-triage to classify this failed run and validate its claim-level verdict."
+policy:
+  allow_implicit_invocation: true

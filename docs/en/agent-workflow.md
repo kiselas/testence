@@ -1,7 +1,9 @@
 # Agent workflow
 
-This document defines the target public workflow for Testence. It is a product contract,
-not a claim that every command below exists in the current pre-alpha.
+This document defines the public Testence workflow. PlanSpec, pytest claim binding,
+ledger/evidence-pack propagation, verdict validation and the portable skill pack are
+implemented. Bootstrap, controlled discovery and MCP remain target parts of the current
+pre-alpha.
 
 ## The transparent pipeline
 
@@ -87,25 +89,55 @@ A PlanSpec is human-readable Markdown with machine-readable identifiers. It reco
 - an independent oracle where one is available;
 - exclusions, uncertainty and required approvals.
 
-Example:
+The first machine-readable version stabilizes only `id`, `title`, `source`, oracle-typed
+claims, and risk-bearing scenarios. Preconditions, seed/cleanup and approvals remain in
+the surrounding Markdown until the authoring corpus justifies additive schema fields.
 
-```markdown
----
-id: checkout-discount
-risk: high
----
+The Markdown file contains exactly one `testence-planspec` JSON block; surrounding prose
+remains free-form context for humans and agents:
 
-## Claim C1
-A signed-in customer sees the discounted total after applying an eligible code.
-
-- UI observation: order total changes before submission
-- independent oracle: cart API returns the same total and discount id
-- seed: isolated customer, eligible product and single-use code
+```testence-planspec
+{
+  "schema": "testence/planspec/1",
+  "id": "checkout.discount",
+  "title": "Apply an eligible discount",
+  "claims": [
+    {
+      "id": "checkout.discount.total",
+      "statement": "The UI and cart API expose the same discounted total.",
+      "oracles": ["ui", "api"],
+      "required": true
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "eligible-code",
+      "title": "Apply an eligible code",
+      "claims": ["checkout.discount.total"],
+      "risk": "false green from an optimistic UI"
+    }
+  ]
+}
 ```
 
-The plan is the semantic anchor. Generated test functions and ledger events should carry
-the PlanSpec and claim IDs so an agent can answer not only "what failed?" but "which
-product promise is no longer proven?"
+Validate the plan before execution and bind tests only to declared claim IDs:
+
+```bash
+testence plan validate specs/checkout-discount.md --json
+```
+
+```python
+@pytest.mark.testence(
+    plan="specs/checkout-discount.md",
+    claims=["checkout.discount.total"],
+)
+def test_discount_total(ex):
+    ...
+```
+
+The PlanSpec is the semantic anchor. Pytest rejects an invalid path or unknown claim at
+collection, and Testence adds `plan` plus `claims` to every bound-test event, its failure
+pack and the HTML report.
 
 ## 3. Discover, then compile
 
@@ -141,26 +173,42 @@ This separation is what makes the economics predictable and the result reproduci
 
 ## 6. Judge from evidence
 
-On failure, the agent receives the smallest redacted pack that can support a decision.
-The target verdict contract is:
+On failure, the agent receives the smallest redacted pack that can support a decision and
+fills in its `verdict.template.json`. The verdict contract is:
 
 ```json
 {
   "schema": "testence/verdict/1",
-  "classification": "real_bug",
+  "plan_id": "checkout.discount",
+  "test_id": "tests/test_checkout.py::test_discount_total",
+  "verdict": "real_bug",
   "confidence": 0.91,
-  "claim_ids": ["checkout-discount:C1"],
-  "evidence_refs": ["step:7", "oracle:cart-total"],
-  "reason": "The UI total remained unchanged while the cart API applied the discount.",
-  "next_action": "inspect frontend total recomputation",
+  "summary": "The UI showed the discount, but the cart API returned the old total.",
+  "claim_results": [
+    {
+      "claim_id": "checkout.discount.total",
+      "status": "failed",
+      "reason": "The UI and authoritative API disagree.",
+      "evidence": ["oracle.json#/0", "network.jsonl"]
+    }
+  ],
   "blocked_on": []
 }
 ```
 
-Allowed classifications are `real_bug`, `behaviour_change`, `ui_change`,
-`flaky_timing` and `environment`. `blocked_on` is the explicit abstention channel:
-it names missing evidence rather than inventing a sixth causal class. A verdict without
-evidence references or a declared block is invalid.
+Allowed `verdict` values are `real_bug`, `test_bug`, `behaviour_change`, `ui_change`,
+`flaky_timing` and `environment`. `test_bug` means that the product and current PlanSpec
+agree while the test implementation contradicts them. `blocked_on` is the explicit
+abstention channel:
+it names missing evidence rather than inventing a sixth causal class. A `null` verdict
+requires at least one blocker; a `passed`/`failed` claim requires references to files that
+actually exist in the pack. Validation binds the verdict to the exact plan, test and
+claims:
+
+```bash
+testence verdict validate runs/<run>/<test>/pack/verdict.json \
+  --plan specs/checkout-discount.md --json
+```
 
 ## 7. Propose; never silently heal
 
@@ -232,9 +280,11 @@ of agent client.
 | same-session API oracles | implemented |
 | verdict taxonomy and reviewable heal-proposal primitives | implemented |
 | HTML, Allure and CTRF rendering from the ledger | implemented |
-| PlanSpec schema and end-to-end traceability | to build |
-| portable agent skills and bootstrap command | to build |
-| typed verdict persistence and agent-facing CLI/MCP | to build |
+| PlanSpec schema, pytest binding and traceability through ledger/pack/report | implemented |
+| portable `plan`, `author`, `triage` and `repair` skills | implemented and packaged |
+| cross-client bootstrap and safe skill updates | to build |
+| verdict schema, pack template and CLI validation | implemented |
+| managed verdict persistence and agent-facing MCP | to build |
 | systematic redaction and permission policy | P0 release blocker |
 
 The public alpha is not agent-native until one supported agent can complete the entire

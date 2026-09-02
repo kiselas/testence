@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:verdict:1",
+  "title": "Testence Verdict v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "plan_id",
+    "test_id",
+    "verdict",
+    "confidence",
+    "summary",
+    "claim_results"
+  ],
+  "properties": {
+    "schema": {"const": "testence/verdict/1"},
+    "plan_id": {"$ref": "#/$defs/id"},
+    "test_id": {"type": "string", "minLength": 1, "maxLength": 500},
+    "verdict": {
+      "type": ["string", "null"],
+      "enum": [
+        "real_bug",
+        "test_bug",
+        "behaviour_change",
+        "ui_change",
+        "flaky_timing",
+        "environment",
+        null
+      ]
+    },
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "blocked_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "claim_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/claimResult"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"verdict": {"const": null}}},
+      "then": {"required": ["blocked_on"], "properties": {"blocked_on": {"minItems": 1}}}
+    },
+    {
+      "if": {"properties": {"verdict": {"const": "test_bug"}}},
+      "then": {
+        "properties": {
+          "claim_results": {"contains": {"properties": {"status": {"const": "passed"}}}}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "enum": ["real_bug", "behaviour_change", "ui_change", "flaky_timing", "environment"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "claim_results": {
+            "contains": {"properties": {"status": {"enum": ["failed", "blocked"]}}}
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"
+    },
+    "claimResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "status", "reason", "evidence"],
+      "properties": {
+        "claim_id": {"$ref": "#/$defs/id"},
+        "status": {"enum": ["passed", "failed", "blocked", "not_evaluated"]},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "evidence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"enum": ["passed", "failed"]}}},
+          "then": {"properties": {"evidence": {"minItems": 1}}}
+        }
+      ]
+    }
+  }
+}

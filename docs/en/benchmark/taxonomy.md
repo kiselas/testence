@@ -8,6 +8,7 @@ advance. The taxonomy is product-neutral and intentionally small enough to audit
 | class | expected runner outcome | expected triage verdict |
 |---|---|---|
 | behavioural defect | red | `real_bug` |
+| test implementation contradicts an agreeing product and PlanSpec | red | `test_bug` |
 | address drift | red plus a reviewable proposal | `ui_change` |
 | timing instability | red with timing evidence | `flaky_timing` |
 | harmless control | green | `none` |
@@ -56,6 +57,8 @@ actions that do nothing, delayed async results and harmless DOM restructuring.
    repeating an action.
 4. A heal proposal never changes the running test. It is evidence for review.
 5. Published scores must state the corpus revision, repeats, browser and hardware.
+6. A `test_bug` requires positive proof of the PlanSpec claim; merely observing that an
+   assertion edit would make the test green is insufficient.
 
 Source-of-truth item definitions live in `corpus/items.py` and
 `bench/corpus/items.py`; this document describes their stable categories rather than

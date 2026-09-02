@@ -95,8 +95,9 @@ path only, and only when `bench/kernels.py` says a threshold was crossed.
 | Allure and CTRF export from the ledger | implemented |
 | fingerprint-based heal proposal primitives | implemented |
 | portable agent skills and project bootstrap | to build |
-| PlanSpec and claim-to-run traceability | to build |
-| agent-facing typed verdict and CLI/MCP surface | to build |
+| PlanSpec and claim → pytest → ledger → pack/report traceability | implemented |
+| verdict schema, pack template and CLI validation | implemented |
+| managed verdict persistence and agent-facing MCP | to build |
 | systematic evidence redaction and repository permission policy | P0 blocker |
 | intent cache or model-driven authoring escape hatch | later, explicit opt-in |
 

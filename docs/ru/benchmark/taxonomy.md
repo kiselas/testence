@@ -8,6 +8,7 @@ Testence оценивает себя через seeded behaviours с заран�
 | Класс | Ожидаемый исход runner | Ожидаемый triage verdict |
 |---|---|---|
 | поведенческий дефект | red | `real_bug` |
+| ошибка реализации теста при согласованных продукте и PlanSpec | red | `test_bug` |
 | drift адреса | red плюс проверяемое предложение | `ui_change` |
 | нестабильность времени | red с timing evidence | `flaky_timing` |
 | безвредный control | green | `none` |
@@ -53,6 +54,8 @@ Controls не получают уровень: их задача — измер�
 3. Interaction retries отключены, потому что некоторые дефекты скрываются повтором.
 4. Heal proposal никогда не меняет выполняемый тест; это evidence для review.
 5. Публикуемые scores обязаны указывать revision корпуса, repeats, browser и hardware.
+6. `test_bug` требует положительного доказательства claim из PlanSpec; одного факта,
+   что изменение assertion сделает тест зелёным, недостаточно.
 
 Source-of-truth определения находятся в `corpus/items.py` и
 `bench/corpus/items.py`. Документ описывает стабильные категории, но не заявляет

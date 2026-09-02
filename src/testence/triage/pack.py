@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from testence.contracts import VERDICT_KINDS, VERDICT_SCHEMA
 from testence.engine import Engine, dump_net
 from testence.evidence import EvidenceWriter, budgets_for, estimate_tokens
 
@@ -22,23 +23,28 @@ from testence.evidence import EvidenceWriter, budgets_for, estimate_tokens
 #: ``behaviour_change`` distinguishes coherent current behaviour from a broken
 #: operation or locator drift. Intent still requires a specification, so the prompt
 #: pairs the verdict with the explicit ``blocked_on`` abstention channel.
-VERDICTS = ("real_bug", "behaviour_change", "ui_change", "flaky_timing", "environment")
+VERDICTS = VERDICT_KINDS
 
 _TRIAGE_PROMPT = """You are the judge for a failed browser test.
 Read the sections of this evidence pack (aria.txt, network.jsonl, console.txt,
 oracle.json if present) and return a verdict.
 
-Verdict taxonomy (choose exactly one, with confidence 0..1):
+Verdict taxonomy (choose one with confidence 0..1 when supported; otherwise return
+`verdict: null` with a non-empty `blocked_on`):
 - real_bug: the product misbehaves — the layers disagree with each other or with the
   product contract (a network response contradicts the page, an oracle diff, a 4xx/5xx
   on the action under test). Element GONE from the page is real_bug, not drift.
+- test_bug: the product evidence agrees with the current PlanSpec claim, but the test
+  implementation contradicts it (for example, the PlanSpec and page require `1` while
+  the assertion expects `999`). Mark the proved claim as passed and propose a source
+  correction; do not relabel a product defect just because changing the test makes it green.
 - behaviour_change: the product works coherently and does something different from
   what the test expects. The signature is agreement: the page, the network and the
   oracle all tell the same story, nothing errored, and the only disagreement is with
-  the test's expectation. Report what the product does now, and say plainly that
-  whether the change was intended cannot be read from this pack — the specification
-  is not in it. Use this only with positive evidence that the layers agree; otherwise
-  set `blocked_on` rather than inferring intent from the absence of an error.
+  the test's expectation. If pack.json names a PlanSpec, read that repository file
+  before deciding whether the change was intended. Use this only with positive evidence
+  that the layers agree; otherwise set `blocked_on` rather than inferring intent from
+  the absence of an error.
 - ui_change: the product works but the test's element addressing drifted
   (renamed label/role/text). Propose a minimal diff to the test as a motion.
   If heal.json is present it already contains a candidate edit and the framework's
@@ -103,7 +109,9 @@ def assemble_pack(
         "\n".join(f"[{m['level']}] {m['text']}" for m in engine.console_log()) or "<empty>",
     )
     if oracle_diff:
-        write_section("oracle", "oracle.json", json.dumps(oracle_diff, ensure_ascii=False, indent=1))
+        write_section(
+            "oracle", "oracle.json", json.dumps(oracle_diff, ensure_ascii=False, indent=1)
+        )
 
     try:
         engine.screenshot(str(pack_dir / "screenshot.png"))
@@ -125,13 +133,45 @@ def assemble_pack(
     )
     (pack_dir / "TRIAGE.md").write_text(_TRIAGE_PROMPT, encoding="utf-8", newline="\n")
 
+    context = writer.context_for(test_id)
+    plan = context.get("plan") or {}
+    claims = context.get("claims") or []
+    verdict_template = None
+    if plan.get("id") and claims:
+        verdict_template = {
+            "schema": VERDICT_SCHEMA,
+            "plan_id": plan["id"],
+            "test_id": test_id,
+            "verdict": None,
+            "confidence": 0.0,
+            "summary": "",
+            "claim_results": [
+                {
+                    "claim_id": claim_id,
+                    "status": "not_evaluated",
+                    "reason": "",
+                    "evidence": [],
+                }
+                for claim_id in claims
+            ],
+            "blocked_on": [],
+        }
+        (pack_dir / "verdict.template.json").write_text(
+            json.dumps(verdict_template, ensure_ascii=False, indent=1),
+            encoding="utf-8",
+            newline="\n",
+        )
     index = {
+        "test": test_id,
         "error": error,
         "page_url": manifest.get("page_url"),
         "page_settled": settled,
         "sections_est_tokens": sections,
         "verdicts": list(VERDICTS),
+        **context,
     }
+    if verdict_template is not None:
+        index["verdict_template"] = "verdict.template.json"
     if heal is not None:
         # Surfaced in the index so a triage agent sees the framework's own reading
         # of "moved vs gone" before it opens any section.

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Testence Repair"
+  short_description: "Propose and verify reviewable Testence repairs"
+  default_prompt: "Use $testence-repair to prepare and prove a reviewable repair from this validated verdict."
+policy:
+  allow_implicit_invocation: true

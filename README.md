@@ -12,9 +12,9 @@ at machine speed with no LLM in the default run path. Every failure becomes an
 signals, and API-oracle results that an agent can judge.
 
 > The name combines **test** and **evidence**: the runner records evidence, the agent
-> returns a *verdict* (`real_bug / behaviour_change / ui_change / flaky_timing /
-> environment`) or declares what is missing, and self-healing stays a reviewable diff,
-> never runtime magic.
+> returns a *verdict* (`real_bug / test_bug / behaviour_change / ui_change /
+> flaky_timing / environment`) or declares what is missing, and self-healing stays a
+> reviewable diff, never runtime magic.
 
 ## Why Testence
 
@@ -26,12 +26,17 @@ signals, and API-oracle results that an agent can judge.
   human or policy approves change.** Accepted tests remain ordinary code and routine
   CI is LLM-free by construction.
 
-Testence is **agent-native, not agent-specific**. The target integration uses portable
-skills, repository instructions, CLI and MCP so the same project can be operated from
-Claude Code, ChatGPT/Codex, OpenCode and other tool-capable agents.
+Testence is **agent-native, not agent-specific**. It ships one portable skill pack for
+Claude Code, ChatGPT/Codex, OpenCode and other Agent Skills clients. Repository
+bootstrap and the future CLI/MCP surface remain thin client adapters around the same
+workflow contracts.
 
 See the [product positioning](docs/en/product-positioning.md) and the transparent
 [agent workflow](docs/en/agent-workflow.md).
+
+Launch execution is governed by the [Launch Thesis](docs/en/launch-thesis.md), the
+[killer-demo contract](docs/en/demo-spec.md), and the frozen
+[benchmark protocol](docs/en/benchmark/launch-protocol.md).
 
 ## Product architecture
 
@@ -60,6 +65,11 @@ trust plane              run.jsonl · evidence pack · verdict · approval
   oracles read the API as the same user the UI is logged in as.
 - `src/testence/triage/` — evidence-pack assembly, the verdict taxonomy contract, and
   heal proposals (a reviewable diff, never a runtime rebind — ADR-0011).
+- `src/testence/contracts/` — versioned PlanSpec and verdict contracts, public JSON
+  Schemas, strict validation and claim-to-evidence traceability (ADR-0016).
+- `src/testence/agent/` — packaged `plan`, `author`, `triage` and `repair` skills plus
+  their versioned manifest and client-neutral references
+  ([portable skills](docs/en/agent-skills.md)).
 - `corpus/` — failure corpus: seeded defects with ground-truth labels, so "healing
   works" and "we don't report false failures" are measured, not asserted.
 - `src/testence/report/` — self-contained single-file HTML report (ADR-0005).
@@ -78,6 +88,7 @@ trust plane              run.jsonl · evidence pack · verdict · approval
 ```bash
 pip install -e .
 python -m playwright install chromium            # browser paired with Playwright
+testence plan validate examples/specs/target-page.md --json
 pytest tests/                                    # framework's own suite
 pytest examples/ --testence-headless              # end-to-end demo, no external app required
 testence report runs/<run-id>                     # render the HTML report
@@ -95,9 +106,9 @@ To cover a feature with a suite, follow
 [docs/en/testing-a-feature.md](docs/en/testing-a-feature.md) —
 the working order, the seeding discipline for a shared environment, and common traps.
 
-The full agent-operated bootstrap, PlanSpec and typed triage workflow are the target for
-the public alpha and are not all implemented yet. The exact proposed lifecycle and the
-current/target capability boundary are documented in
+PlanSpec/claim propagation, typed verdict validation and the portable skill pack are
+implemented. Agent bootstrap, controlled authoring and managed verdict submission remain
+public-alpha work. The exact lifecycle and current/target capability boundary are documented in
 [docs/en/agent-workflow.md](docs/en/agent-workflow.md).
 
 For the current engineering assessment, market comparison and release sequence, see the

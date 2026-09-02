@@ -129,7 +129,7 @@ what `--to allure` means in a pipeline that has been green for a year.
 | `tests` | list of `Test` |
 | `pack_path(test, filename)` | absolute path of one evidence-pack file, or `None` |
 | `events` | the raw ledger, as an escape hatch |
-| `Test` | `name`, `nodeid`, `file`, `markers`, `status`, `duration_ms`, `start`/`stop`, `error`, `steps`, `oracles`, `pack_dir` |
+| `Test` | `name`, `nodeid`, `file`, `markers`, `plan_id`, `plan_path`, `claim_ids`, `status`, `duration_ms`, `start`/`stop`, `error`, `steps`, `oracles`, `pack_dir` |
 | `Step` | `intent`, `target`, `status`, `duration_ms`, `error`, `start`/`stop`, `substeps` |
 
 Two rules worth knowing before you format anything:

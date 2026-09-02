@@ -46,6 +46,11 @@ in the fingerprint.
 | `pack` | `dir` (rel.), `sections_est_tokens` {aria, network, console, oracle}, `error` |
 | `note` | `text` + free fields |
 
+When a pytest test is bound to a PlanSpec through the `testence` marker, the writer
+additively attaches two optional fields to all of its events: `plan` (`schema`, `id`,
+repository-relative `path`) and `claims` (the exact claim IDs bound to that test). Older
+readers may ignore them, so the envelope remains `testence/1`.
+
 Two payload fields exist because a metric was wrong without them, and both must be
 honoured by anything aggregating a ledger:
 
@@ -73,8 +78,10 @@ Directory `runs/<run>/<test>/pack/`, plain files so any agent can read them:
 
 | file | content | token budget |
 |---|---|---|
-| `pack.json` | machine index: error, page_url, section sizes, verdict list | — |
+| `pack.json` | machine index: test, PlanSpec, claims, error, page_url, section sizes, taxonomy and verdict-template path | — |
 | `TRIAGE.md` | the judge contract: taxonomy + instructions | — |
+| `verdict.template.json` | `testence/verdict/1` starter with exact plan/test/claim IDs; the agent completes it as `verdict.json` | — |
+| `verdict.json` | typed agent verdict after successful validation; created by the agent, not the runner | — |
 | `aria.txt` | ARIA snapshot of the page at failure | 8 000 |
 | `network.jsonl` | full API request ledger since test start (bodies of non-2xx, plus `failure` on aborted requests) | 8 000 |
 | `console.txt` | errors/warnings/pageerrors | 2 000 |
@@ -90,12 +97,18 @@ are estimates (~4 bytes/token); byte sizes are recoverable from the files themse
 
 ## Verdict taxonomy (triage contract)
 
-`real_bug` · `behaviour_change` · `ui_change` · `flaky_timing` · `environment` —
+`real_bug` · `test_bug` · `behaviour_change` · `ui_change` · `flaky_timing` ·
+`environment` —
 definitions live in `TRIAGE.md` inside every pack (self-describing artifact).
 Three hard rules: an element *gone* from the page is `real_bug`, not drift; a
 proposed fix for `ui_change`/`flaky_timing` is a reviewable diff (motion), never a
 runtime patch; and when every layer agrees with itself and only the test disagrees,
-that is `behaviour_change`, not `real_bug` (ADR-0014).
+the PlanSpec distinguishes a `test_bug` from a real `behaviour_change` (ADR-0014).
 
 `blocked_on` names the one thing that would settle a verdict the pack cannot settle
 — usually the specification. A verdict carrying it is provisional and says so.
+
+`testence verdict validate <pack>/verdict.json --plan <planspec> --json` checks the
+schema version, exact plan/test/full-claim-set match, abstention rules, and that every
+evidence reference names an existing file inside the pack. External paths and URLs are
+rejected.

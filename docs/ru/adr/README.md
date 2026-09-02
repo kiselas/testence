@@ -22,8 +22,9 @@
 | [0011](0011-heal-as-proposal.md) | Self-healing как проверяемое предложение, но не runtime rebind | accepted (measured on corpus) |
 | [0012](0012-parallel-execution.md) | Параллельное исполнение process shards с безопасными evidence и seeding | accepted |
 | [0013](0013-reporting-as-export.md) | Reporting integrations как exporters из ledger | accepted (seam implemented) |
-| [0014](0014-verdict-taxonomy.md) | Пятый verdict для намеренного изменения поведения; `blocked_on` для abstention | accepted |
+| [0014](0014-verdict-taxonomy.md) | Verdict для изменения поведения и ошибки теста; `blocked_on` для abstention | accepted |
 | [0015](0015-agent-native-interface.md) | Переносимый agent control plane над детерминированным runner | proposed (golden path pending) |
+| [0016](0016-plan-verdict-contracts.md) | PlanSpec и verdict как версионированные proof-контракты | accepted |
 
 Формат: Контекст → Рассмотренные варианты → Решение → Последствия → Tripwire.
 Имена метрик определяются рядом с их реализацией и benchmark-документацией.

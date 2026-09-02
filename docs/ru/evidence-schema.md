@@ -46,6 +46,11 @@ fingerprint.
 | `pack` | `dir` (relative), `sections_est_tokens` {aria, network, console, oracle}, `error` |
 | `note` | `text` и произвольные поля |
 
+Когда pytest-тест связан с PlanSpec через marker `testence`, writer аддитивно добавляет
+ко всем его событиям два optional-поля: `plan` (`schema`, `id`, repository-relative
+`path`) и `claims` (точный список claim ID этого теста). Старые readers могут их
+игнорировать; поэтому версия envelope остаётся `testence/1`.
+
 Два payload fields появились потому, что без них метрики были неверны. Любой
 агрегатор ledger обязан учитывать оба:
 
@@ -73,8 +78,10 @@ fingerprint.
 
 | Файл | Содержимое | Token budget |
 |---|---|---|
-| `pack.json` | машинный индекс: error, page_url, размеры секций, список verdict | — |
+| `pack.json` | машинный индекс: test, PlanSpec, claims, error, page_url, размеры секций, taxonomy и путь к verdict template | — |
 | `TRIAGE.md` | контракт судьи: таксономия и инструкции | — |
+| `verdict.template.json` | заготовка `testence/verdict/1` с точными plan/test/claim ID; агент заполняет её как `verdict.json` | — |
+| `verdict.json` | типизированный verdict агента после успешной валидации; создаётся агентом, а не runner | — |
 | `aria.txt` | ARIA snapshot страницы в момент падения | 8 000 |
 | `network.jsonl` | полный журнал API requests с начала теста: body для non-2xx и `failure` для aborted requests | 8 000 |
 | `console.txt` | errors, warnings и pageerrors | 2 000 |
@@ -91,13 +98,18 @@ Budgets применяются обрезкой с явным marker
 
 ## Таксономия вердиктов
 
-`real_bug` · `behaviour_change` · `ui_change` · `flaky_timing` · `environment`.
+`real_bug` · `test_bug` · `behaviour_change` · `ui_change` · `flaky_timing` ·
+`environment`.
 Определения находятся в `TRIAGE.md` каждого pack, поэтому артефакт самодостаточен.
 Три жёстких правила: исчезнувший со страницы элемент — `real_bug`, а не drift;
 исправление `ui_change` или `flaky_timing` является проверяемым diff, но не runtime
 patch; если все наблюдаемые слои согласованы между собой и только тест расходится с
-ними, это `behaviour_change`, а не `real_bug` согласно ADR-0014.
+ними, PlanSpec отделяет `test_bug` от настоящего `behaviour_change` согласно ADR-0014.
 
 `blocked_on` называет единственный факт, которого не хватает для окончательного
 вердикта, обычно спецификацию. Вердикт с этим полем является provisional и явно это
 сообщает.
+
+`testence verdict validate <pack>/verdict.json --plan <planspec> --json` проверяет
+версию схемы, совпадение plan/test/полного набора claims, правила abstention и наличие
+каждого указанного evidence-файла внутри pack. Ссылки наружу и URL запрещены.

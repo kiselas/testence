@@ -5,6 +5,12 @@ Roadmap строит Testence как **agent-native UI verification**: coding ag
 владельца остаются границей доверия. AI должен снижать стоимость написания и триажа,
 не превращая каждое действие CI в медленный и недетерминированный вызов модели.
 
+Ближайший порядок исполнения задают три launch-артефакта:
+[Launch Thesis](launch-thesis.md) → [DemoSpec](demo-spec.md) →
+[Launch Benchmark Protocol](benchmark/launch-protocol.md). До прохождения их gates
+P0-функция получает приоритет только если замыкает Trustworthy Proof Loop, усиливает
+correctness/security или делает публичное доказательство воспроизводимее.
+
 ## P0 — безопасная основа публичной альфы (2–4 недели)
 
 ### Безопасность доказательств
@@ -33,14 +39,15 @@ Roadmap строит Testence как **agent-native UI verification**: coding ag
 
 ### Минимальный агентный продукт
 
-- Определить версионированные схемы PlanSpec и verdict с ID утверждений, сохраняющимися
-  в исходниках теста и событиях журнала.
+- **Реализовано:** версионированные схемы PlanSpec/verdict и claim ID, проходящие через
+  pytest binding, ledger, failure pack и HTML report.
 - Поставлять один переносимый пакет Agent Skills для plan, author, triage и repair;
   клиентские инструкции оставить тонкими адаптерами.
 - Добавить `testence agent init` с dry-run/manifest файлов, инструкциями проекта,
   синтетическим seed-тестом и без копирования секретов.
-- Добавить структурированные CLI-операции для проверки плана, ограниченного запуска,
-  поиска failure pack и валидации verdict. Их JSON-контракты станут основой MCP.
+- **Частично реализовано:** структурированные CLI-операции проверки PlanSpec и verdict.
+  Ограниченный запуск, поиск pack и управляемое сохранение verdict остаются; JSON-
+  контракты станут основой MCP.
 - Определить принадлежащую репозиторию permission policy для согласованных targets,
   seed mutations, доступа к evidence и предложений, меняющих исходники.
 - Доказать полный golden path хотя бы в одном coding agent: запрос → reviewed plan →

@@ -61,6 +61,11 @@ tr.fail td { background:var(--fail-bg); }
 .pack code { background:var(--bg); padding:1px 5px; border-radius:4px; }
 .pack .err { white-space:pre-wrap; overflow-wrap:anywhere; color:var(--fail);
              max-height:180px; overflow:auto; margin-top:8px; }
+.trace { margin:0; padding:10px 16px; border-top:1px solid var(--line);
+         background:var(--bg); font-size:13px; }
+.trace code { color:var(--accent); }
+.trace .claim { display:inline-block; margin:3px 4px 0 0; padding:1px 7px;
+                border:1px solid var(--line); border-radius:12px; background:var(--card); }
 .overflow { overflow-x:auto; }
 .heal { margin:0 16px 14px; padding:12px 14px; border:1px solid var(--accent);
         border-left-width:4px; border-radius:8px; font-size:13px; }
@@ -117,6 +122,7 @@ for (const [name, events] of byTest) {
   const starts = new Map(events.filter(e => e.kind === "step.start")
                                .map(e => [e.step, e]));
   const pack = events.find(e => e.kind === "pack");
+  const contract = events.find(e => e.plan?.id);
   const oracle = events.filter(e => e.kind === "oracle");
   const rows = steps.map(s => {
     const st = starts.get(s.step) || {};
@@ -140,6 +146,12 @@ for (const [name, events] of byTest) {
       ${Object.entries(pack.sections_est_tokens || {})
         .map(([k, v]) => `${esc(k)} ~${v} tok`).join(" · ")}
       <div class="err">${esc(pack.error)}</div></div>` : "";
+  const traceHtml = contract ? `<div class="trace">
+      <b>Proof contract:</b> <code>${esc(contract.plan.id)}</code>
+      ${contract.plan.path ? ` · ${esc(contract.plan.path)}` : ""}<br>
+      ${(contract.claims || []).map(claim =>
+        `<span class="claim">${esc(claim)}</span>`).join("")}
+    </div>` : "";
   // A heal proposal is the actionable half of a failure: show the verdict reading,
   // why it was reached, and the exact edit a reviewer is being asked to accept.
   const proposal = pack && pack.heal_hint ? pack : null;
@@ -155,6 +167,7 @@ for (const [name, events] of byTest) {
         <span class="tname">${esc(name)}</span>
         <span class="tdur">${end ? (end.duration_ms / 1000).toFixed(1) + " s" : ""}</span>
       </summary>
+      ${traceHtml}
       <div class="overflow"><table>
         <tr><th>intent</th><th>target</th><th>status</th><th>ms</th></tr>
         ${rows}${oracleRows}

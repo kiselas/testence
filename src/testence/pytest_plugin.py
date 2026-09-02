@@ -13,6 +13,7 @@ import hashlib
 import os
 import platform
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,8 @@ from testence import __version__, kernels
 from testence.api import ApiClient
 from testence.auth import AuthContext, from_settings
 from testence.config import Settings
+from testence.contracts import PlanSpec, load_plan
+from testence.contracts._validation import ContractError
 from testence.dsl import Actions
 from testence.engine import Engine, create_engine
 from testence.evidence import RUN_ID_ENV, EvidenceWriter, new_run_id
@@ -32,12 +35,17 @@ from testence.triage.heal import propose
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("testence")
-    group.addoption("--testence-base-url", default=None,
-                    help="target server; overrides settings/env")
-    group.addoption("--testence-profile", default=None,
-                    help="settings profile to use (e.g. staging, local)")
-    group.addoption("--testence-auth", default=None,
-                    help="auth scheme: none|form|api-session|bearer|basic|attached")
+    group.addoption(
+        "--testence-base-url", default=None, help="target server; overrides settings/env"
+    )
+    group.addoption(
+        "--testence-profile", default=None, help="settings profile to use (e.g. staging, local)"
+    )
+    group.addoption(
+        "--testence-auth",
+        default=None,
+        help="auth scheme: none|form|api-session|bearer|basic|attached",
+    )
     group.addoption(
         "--testence-cdp",
         default=None,
@@ -61,7 +69,70 @@ def pytest_configure(config: pytest.Config) -> None:
     directory instead of inventing a directory each. ``setdefault``: a worker runs
     this hook too and must keep the inherited value.
     """
+    config.addinivalue_line(
+        "markers",
+        "testence(plan, claims): bind a test to a PlanSpec file and declared claim IDs",
+    )
     os.environ.setdefault(RUN_ID_ENV, new_run_id())
+
+
+@dataclass(frozen=True)
+class _TestContract:
+    plan: PlanSpec
+    path: str
+    claims: tuple[str, ...]
+
+    def ledger_context(self) -> dict[str, Any]:
+        return {
+            "plan": {
+                "schema": self.plan.schema,
+                "id": self.plan.id,
+                "path": self.path,
+            },
+            "claims": list(self.claims),
+        }
+
+
+_CONTRACT_KEY = pytest.StashKey[_TestContract | None]()
+
+
+def _resolve_contract(item: pytest.Item, rootpath: Path) -> _TestContract | None:
+    marker = item.get_closest_marker("testence")
+    if marker is None:
+        return None
+    if marker.args:
+        raise ContractError("@pytest.mark.testence accepts keyword arguments only")
+    unknown = sorted(set(marker.kwargs) - {"plan", "claims"})
+    if unknown:
+        raise ContractError("unknown testence marker field(s): " + ", ".join(unknown))
+    plan_value = marker.kwargs.get("plan")
+    if not isinstance(plan_value, str) or not plan_value.strip():
+        raise ContractError("@pytest.mark.testence requires plan='specs/<feature>.md'")
+    raw_claims = marker.kwargs.get("claims")
+    if isinstance(raw_claims, str):
+        claims = (raw_claims,)
+    elif isinstance(raw_claims, (list, tuple)) and all(
+        isinstance(claim, str) for claim in raw_claims
+    ):
+        claims = tuple(raw_claims)
+    else:
+        raise ContractError("@pytest.mark.testence requires claims=['claim.id', ...]")
+
+    root = rootpath.resolve()
+    candidate = (root / plan_value).resolve()
+    if candidate != root and root not in candidate.parents:
+        raise ContractError("testence plan path must stay inside the repository")
+    plan = load_plan(candidate)
+    plan.require_claims(claims)
+    return _TestContract(plan, candidate.relative_to(root).as_posix(), claims)
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    for item in items:
+        try:
+            item.stash[_CONTRACT_KEY] = _resolve_contract(item, Path(config.rootpath))
+        except ContractError as exc:
+            raise pytest.UsageError(f"{item.nodeid}: invalid Testence contract: {exc}") from exc
 
 
 def _code_hash(path: Any) -> str:
@@ -98,8 +169,10 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
     total_wall = sum(row["wall_ms"] for row in _RUN_WAITS)
     total_wait = sum(row["waited_ms"] for row in _RUN_WAITS)
     write("")
-    write(f"testence wait budget: {total_wait / 1000:.1f}s waited of "
-          f"{total_wall / 1000:.1f}s test wall-clock")
+    write(
+        f"testence wait budget: {total_wait / 1000:.1f}s waited of "
+        f"{total_wall / 1000:.1f}s test wall-clock"
+    )
 
     # By operation first: this is the line that names the thing to fix. Per-test
     # rows say which case is slow; this says why, across the whole suite.
@@ -111,14 +184,18 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
             acc["n"] += stats["n"]
     for op, stats in sorted(rollup.items(), key=lambda kv: -kv[1]["ms"])[:8]:
         share = (stats["ms"] / total_wait * 100) if total_wait else 0
-        write(f"  {op:22s} {stats['ms'] / 1000:6.1f}s  x{int(stats['n']):<4d} "
-              f"{share:4.0f}%  avg {stats['ms'] / max(stats['n'], 1):5.0f}ms")
+        write(
+            f"  {op:22s} {stats['ms'] / 1000:6.1f}s  x{int(stats['n']):<4d} "
+            f"{share:4.0f}%  avg {stats['ms'] / max(stats['n'], 1):5.0f}ms"
+        )
 
     for row in sorted(_RUN_WAITS, key=lambda r: -r["waited_ms"])[:10]:
         worst = row["top"][0] if row["top"] else {"op": "-", "detail": "", "ms": 0}
-        write(f"  {row['test']}: waited {row['waited_ms'] / 1000:.1f}s "
-              f"of {row['wall_ms'] / 1000:.1f}s "
-              f"(worst: {worst['op']} {worst['detail'][:60]} {worst['ms']:.0f}ms)")
+        write(
+            f"  {row['test']}: waited {row['waited_ms'] / 1000:.1f}s "
+            f"of {row['wall_ms'] / 1000:.1f}s "
+            f"(worst: {worst['op']} {worst['detail'][:60]} {worst['ms']:.0f}ms)"
+        )
 
 
 @pytest.fixture(scope="session")
@@ -190,7 +267,9 @@ def testence_auth(
     started = time.perf_counter()
     context = adapter.authenticate(testence_engine)
     testence_writer.emit(
-        "note", text="authenticated", auth=context.describe(),
+        "note",
+        text="authenticated",
+        auth=context.describe(),
         duration_ms=round((time.perf_counter() - started) * 1000, 1),
     )
     return context
@@ -220,6 +299,14 @@ def ex(
 ):
     test_id = request.node.name
     node_path = getattr(request.node, "path", "")
+    contract = request.node.stash.get(_CONTRACT_KEY, None)
+    if contract is not None:
+        context = contract.ledger_context()
+        testence_writer.bind_test(
+            test_id,
+            plan=context["plan"],
+            claims=context["claims"],
+        )
     testence_engine.reset_taps()
     # `nodeid` and `markers` exist for the exporters (ADR-0013): a reporting format
     # needs the test's full address and the suite's own marker taxonomy. This is how
@@ -258,10 +345,18 @@ def ex(
             row = by_op.setdefault(entry["op"], {"ms": 0.0, "n": 0})
             row["ms"] = round(row["ms"] + entry["ms"], 1)
             row["n"] += 1
-        testence_writer.emit("test.waits", test=test_id, waited_ms=waited_ms,
-                            ops=len(ledger), by_op=by_op, top=top)
-        _RUN_WAITS.append({"test": test_id, "wall_ms": duration_ms,
-                           "waited_ms": waited_ms, "top": top, "by_op": by_op})
+        testence_writer.emit(
+            "test.waits", test=test_id, waited_ms=waited_ms, ops=len(ledger), by_op=by_op, top=top
+        )
+        _RUN_WAITS.append(
+            {
+                "test": test_id,
+                "wall_ms": duration_ms,
+                "waited_ms": waited_ms,
+                "top": top,
+                "by_op": by_op,
+            }
+        )
     if failed:
         testence_writer.counts["failed"] += 1  # type: ignore[attr-defined]
         testence_engine._testence_state["any_failed"] = True  # type: ignore[attr-defined]
@@ -275,12 +370,21 @@ def ex(
             known = testence_fingerprints.get(test_id, failure.intent)
             heal = propose(testence_engine, failure.intent, failure.target, known)
         pack_dir = assemble_pack(
-            testence_engine, testence_writer, test_id, error=error, heal=heal
+            testence_engine,
+            testence_writer,
+            test_id,
+            error=error,
+            oracle_diff=testence_writer.last_oracle_diff(test_id),
+            heal=heal,
         )
         testence_writer.emit(
-            "test.end", test=test_id, status="fail", duration_ms=duration_ms,
+            "test.end",
+            test=test_id,
+            status="fail",
+            duration_ms=duration_ms,
             pack=str(pack_dir.relative_to(testence_writer.run_dir)),
         )
     else:
         testence_writer.counts["passed"] += 1  # type: ignore[attr-defined]
         testence_writer.emit("test.end", test=test_id, status="pass", duration_ms=duration_ms)
+    testence_writer.unbind_test(test_id)

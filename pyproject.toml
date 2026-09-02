@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,14 +8,13 @@ version = "0.1.0.dev0"
 description = "Agent-first browser test framework: agents author tests as code, a deterministic runner executes them and turns failures into evidence packs for agent triage."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 authors = [{ name = "Testence contributors" }]
 keywords = ["testing", "e2e", "browser", "llm", "agents", "playwright", "cdp"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Framework :: Pytest",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
@@ -47,6 +46,15 @@ testence = "testence.pytest_plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+testence = ["contracts/schemas/*.json"]
+"testence.agent" = [
+    "skill-pack.json",
+    "skills/*/SKILL.md",
+    "skills/*/agents/*.yaml",
+    "skills/*/references/*.md",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

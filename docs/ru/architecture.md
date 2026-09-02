@@ -103,8 +103,9 @@ provenance. Вывод агента становится доверенным т
 | экспорт Allure и CTRF из журнала | реализовано |
 | примитивы heal proposal на fingerprints | реализовано |
 | переносимые agent skills и bootstrap проекта | предстоит реализовать |
-| PlanSpec и трассируемость от утверждения до запуска | предстоит реализовать |
-| типизированные verdict и CLI/MCP для агента | предстоит реализовать |
+| PlanSpec и трассируемость claim → pytest → ledger → pack/report | реализовано |
+| verdict schema, pack template и CLI-валидация | реализовано |
+| управляемое сохранение verdict и MCP для агента | предстоит реализовать |
 | систематическое редактирование evidence и permission policy репозитория | блокер P0 |
 | intent cache или escape hatch для model-driven authoring | позже, только opt-in |
 

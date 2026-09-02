@@ -4,10 +4,20 @@
 
 - [Позиционирование продукта](product-positioning.md)
 - [Рабочий процесс агента](agent-workflow.md)
+- [Переносимые Agent Skills](agent-skills.md)
 - [Архитектура](architecture.md)
 - [Дорожная карта](roadmap.md)
 - [Аудит проекта](project-audit.md)
 - [Конкурентный ландшафт](competitive-landscape.md)
+
+## Артефакты запуска
+
+- [Launch Thesis](launch-thesis.md) — пользователь, клин, преимущества, gates и
+  безопасное обновление agent skills
+- [DemoSpec](demo-spec.md) — воспроизводимое killer demo «UI зелёный, данные не
+  сохранились»
+- [Launch Benchmark Protocol](benchmark/launch-protocol.md) — correctness-first
+  сравнение, frozen corpus и правила публичных заявлений
 
 ## Руководства для пользователей и контрибьюторов
 

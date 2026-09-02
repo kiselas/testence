@@ -18,7 +18,7 @@ from testence.triage.heal import HealProposal
 
 
 class FakeEngine:
-    def __init__(self, *, aria: str = "- button \"Save\"", broken: bool = False) -> None:
+    def __init__(self, *, aria: str = '- button "Save"', broken: bool = False) -> None:
         self._aria = aria
         self._broken = broken
 
@@ -33,8 +33,15 @@ class FakeEngine:
     def network_log(self) -> list[NetRecord]:
         return [
             NetRecord("GET", "/api/v1/things", 200, 0.0, 12.0),
-            NetRecord("POST", "/api/v1/things", 500, 0.0, 40.0,
-                      request_body='{"name":"x"}', response_body='{"detail":"boom"}'),
+            NetRecord(
+                "POST",
+                "/api/v1/things",
+                500,
+                0.0,
+                40.0,
+                request_body='{"name":"x"}',
+                response_body='{"detail":"boom"}',
+            ),
         ]
 
     def console_log(self) -> list[dict[str, Any]]:
@@ -53,15 +60,27 @@ def test_pack_contains_every_section_an_agent_needs(tmp_path):
     writer = EvidenceWriter(tmp_path, worker="")
     pack = assemble_pack(FakeEngine(), writer, "test_thing", error="AssertionError: nope")
 
-    for name in ("pack.json", "TRIAGE.md", "aria.txt", "network.jsonl",
-                 "console.txt", "browser.json"):
+    for name in (
+        "pack.json",
+        "TRIAGE.md",
+        "aria.txt",
+        "network.jsonl",
+        "console.txt",
+        "browser.json",
+    ):
         assert (pack / name).exists(), f"missing {name}"
 
     index = json.loads((pack / "pack.json").read_text(encoding="utf-8"))
     assert index["error"].startswith("AssertionError")
     assert index["page_settled"] is True
-    assert set(index["verdicts"]) == {"real_bug", "behaviour_change", "ui_change",
-                                      "flaky_timing", "environment"}
+    assert set(index["verdicts"]) == {
+        "real_bug",
+        "test_bug",
+        "behaviour_change",
+        "ui_change",
+        "flaky_timing",
+        "environment",
+    }
     assert index["sections_est_tokens"]["aria"] > 0
 
     # The network ledger must carry the failing response body — that is usually the
@@ -83,9 +102,13 @@ def test_pack_survives_a_dead_page(tmp_path):
 
 def test_oracle_diff_is_written_when_present(tmp_path):
     writer = EvidenceWriter(tmp_path, worker="")
-    pack = assemble_pack(FakeEngine(), writer, "test_oracle", error="oracle failed",
-                         oracle_diff=[{"field": "cidr", "ui": "10.0.0.0/24",
-                                       "api": "10.0.1.0/24"}])
+    pack = assemble_pack(
+        FakeEngine(),
+        writer,
+        "test_oracle",
+        error="oracle failed",
+        oracle_diff=[{"field": "cidr", "ui": "10.0.0.0/24", "api": "10.0.1.0/24"}],
+    )
     document = json.loads((pack / "oracle.json").read_text(encoding="utf-8"))
     assert document[0]["field"] == "cidr"
 
@@ -93,10 +116,14 @@ def test_oracle_diff_is_written_when_present(tmp_path):
 def test_heal_proposal_is_surfaced_in_the_index(tmp_path):
     """A triage agent must see the moved-vs-gone reading before opening sections."""
     writer = EvidenceWriter(tmp_path, worker="")
-    proposal = HealProposal(intent="save the form", old_target="role='button'",
-                            verdict_hint="ui_change", score=0.91,
-                            new_target={"kind": "role", "value": "button", "name": "Store"},
-                            suggested_edit="- old\n+ new")
+    proposal = HealProposal(
+        intent="save the form",
+        old_target="role='button'",
+        verdict_hint="ui_change",
+        score=0.91,
+        new_target={"kind": "role", "value": "button", "name": "Store"},
+        suggested_edit="- old\n+ new",
+    )
     pack = assemble_pack(FakeEngine(), writer, "test_heal", error="not found", heal=proposal)
 
     index = json.loads((pack / "pack.json").read_text(encoding="utf-8"))
@@ -109,7 +136,7 @@ def test_oversized_section_is_truncated_with_a_pointer(tmp_path):
     """Budgets must clip loudly: an agent has to be able to tell "small" from
     "clipped", or it will reason about a page it only partly saw."""
     writer = EvidenceWriter(tmp_path, worker="")
-    huge = "- button \"x\"\n" * 20_000
+    huge = '- button "x"\n' * 20_000
     pack = assemble_pack(FakeEngine(aria=huge), writer, "test_big", error="boom")
 
     aria = (pack / "aria.txt").read_text(encoding="utf-8")
@@ -121,9 +148,48 @@ def test_oversized_section_is_truncated_with_a_pointer(tmp_path):
 def test_pack_event_lands_in_the_ledger(tmp_path):
     writer = EvidenceWriter(tmp_path, worker="")
     assemble_pack(FakeEngine(), writer, "test_ledger", error="boom")
-    events = [json.loads(line) for line in
-              (writer.run_dir / "run.jsonl").read_text(encoding="utf-8").splitlines()]
+    events = [
+        json.loads(line)
+        for line in (writer.run_dir / "run.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
     pack_events = [e for e in events if e["kind"] == "pack"]
     assert len(pack_events) == 1
     assert pack_events[0]["test"] == "test_ledger"
     assert "aria" in pack_events[0]["sections_est_tokens"]
+
+
+def test_pack_carries_the_plan_claims_and_failed_oracle(tmp_path):
+    writer = EvidenceWriter(tmp_path, worker="")
+    writer.bind_test(
+        "test_create",
+        plan={
+            "schema": "testence/planspec/1",
+            "id": "feature.create",
+            "path": "specs/create.md",
+        },
+        claims=["feature.create.persisted"],
+    )
+    writer.emit(
+        "oracle",
+        test="test_create",
+        name="persistence",
+        ok=False,
+        diff=[{"field": "id", "ui": "42", "api": "<missing>"}],
+    )
+    pack = assemble_pack(
+        FakeEngine(),
+        writer,
+        "test_create",
+        error="oracle failed",
+        oracle_diff=writer.last_oracle_diff("test_create"),
+    )
+
+    index = json.loads((pack / "pack.json").read_text(encoding="utf-8"))
+    assert index["test"] == "test_create"
+    assert index["plan"]["id"] == "feature.create"
+    assert index["claims"] == ["feature.create.persisted"]
+    assert index["verdict_template"] == "verdict.template.json"
+    template = json.loads((pack / "verdict.template.json").read_text(encoding="utf-8"))
+    assert template["plan_id"] == "feature.create"
+    assert template["claim_results"][0]["claim_id"] == "feature.create.persisted"
+    assert json.loads((pack / "oracle.json").read_text(encoding="utf-8"))[0]["field"] == "id"
