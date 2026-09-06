@@ -84,7 +84,8 @@ class Test:
     plan_id: str = ""
     plan_path: str = ""
     claim_ids: tuple[str, ...] = ()
-    status: str = "pass"
+    status: str = "passed"
+    phase: str = ""
     duration_ms: float = 0.0
     start: datetime | None = None
     stop: datetime | None = None
@@ -100,7 +101,7 @@ class Test:
 
     @property
     def failed(self) -> bool:
-        return self.status not in ("pass", "passed")
+        return self.status in ("fail", "failed", "broken", "aborted")
 
 
 @dataclass
@@ -123,11 +124,32 @@ class LoadedRun:
 
     @property
     def passed(self) -> int:
-        return sum(1 for test in self.tests if not test.failed)
+        return sum(1 for test in self.tests if test.status in ("pass", "passed"))
 
     @property
     def failed(self) -> int:
-        return sum(1 for test in self.tests if test.failed)
+        return sum(1 for test in self.tests if test.status in ("fail", "failed", "broken"))
+
+    @property
+    def skipped(self) -> int:
+        return sum(1 for test in self.tests if test.status == "skipped")
+
+    @property
+    def pending(self) -> int:
+        return sum(1 for test in self.tests if test.status == "not_run")
+
+    @property
+    def other(self) -> int:
+        known = {
+            "pass",
+            "passed",
+            "fail",
+            "failed",
+            "broken",
+            "skipped",
+            "not_run",
+        }
+        return sum(1 for test in self.tests if test.status not in known)
 
     def pack_path(self, test: Test, filename: str) -> Path | None:
         """Absolute path of one pack file, or None when it was not captured."""
@@ -176,9 +198,11 @@ class LoadedRun:
                 test.claim_ids = tuple(doc.get("claims") or ())
                 test.start = parse_ts(doc.get("ts"))
             elif kind == "test.end":
-                test.status = doc.get("status") or "pass"
+                test.status = doc.get("status") or "passed"
+                test.phase = doc.get("phase") or ""
                 test.duration_ms = float(doc.get("duration_ms") or 0.0)
                 test.stop = parse_ts(doc.get("ts"))
+                test.error = doc.get("error") or test.error
                 if doc.get("pack"):
                     test.pack_dir = doc["pack"]
             elif kind == "step.start":

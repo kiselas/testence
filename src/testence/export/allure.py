@@ -32,10 +32,19 @@ name = "allure"
 # Fixed namespace so uuids are a pure function of (run, test) — see module docstring.
 _NAMESPACE = uuid.UUID("6f2f2a5e-6c1a-4b3e-9a1e-2b6f6f9c1d21")
 
-# Allure statuses: "passed" | "failed" | "broken" | "skipped". The ledger records
-# pass/fail only; failed-vs-broken is a distinction the runner does not make, and
-# inventing one here would be a second source of truth.
-_STATUS = {"pass": "passed", "passed": "passed", "fail": "failed", "failed": "failed"}
+# Allure statuses: "passed" | "failed" | "broken" | "skipped". The lifecycle
+# ledger owns that distinction; this table only translates legacy spellings and
+# the two Testence states that Allure cannot represent directly.
+_STATUS = {
+    "pass": "passed",
+    "passed": "passed",
+    "fail": "failed",
+    "failed": "failed",
+    "broken": "broken",
+    "skipped": "skipped",
+    "aborted": "broken",
+    "not_run": "skipped",
+}
 
 _MIME = {
     ".txt": "text/plain",

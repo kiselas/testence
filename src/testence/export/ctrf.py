@@ -24,7 +24,16 @@ name = "ctrf"
 
 SPEC_VERSION = "0.0.0"
 
-_STATUS = {"pass": "passed", "passed": "passed", "fail": "failed", "failed": "failed"}
+_STATUS = {
+    "pass": "passed",
+    "passed": "passed",
+    "fail": "failed",
+    "failed": "failed",
+    "broken": "failed",
+    "skipped": "skipped",
+    "aborted": "other",
+    "not_run": "pending",
+}
 
 
 def export(run: LoadedRun, out_dir: Path) -> list[Path]:
@@ -49,11 +58,9 @@ def _summary(run: LoadedRun) -> dict[str, Any]:
         "tests": len(run.tests),
         "passed": run.passed,
         "failed": run.failed,
-        # Testence has no notion of pending/skipped/other in the ledger; reporting
-        # zeros is honest, whereas omitting the keys breaks consumers that sum them.
-        "pending": 0,
-        "skipped": 0,
-        "other": 0,
+        "pending": run.pending,
+        "skipped": run.skipped,
+        "other": run.other,
     }
     start, stop = epoch_ms(run.start), epoch_ms(run.stop)
     if start is not None:

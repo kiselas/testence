@@ -1,10 +1,8 @@
-"""Pytest integration: per-run ledger, per-test evidence, failure packs.
+"""Pytest integration: lifecycle ledger, per-test evidence, failure packs.
 
-Wiring: ``testence_writer`` (session) opens run.jsonl and stamps the environment
-fingerprint; ``ex`` (function) gives the test an :class:`~testence.dsl.Actions`
-bound to the shared engine, resets capture buffers, and on failure assembles the
-evidence pack. The browser is kept alive at session end if anything failed —
-the failure state is evidence (ADR-0008).
+The pytest hooks own result recording so a test exists even when it never requests
+``ex`` or fails before that fixture can be created. ``ex`` remains the author-facing
+Actions fixture and contributes browser evidence when it is present.
 """
 
 from __future__ import annotations
@@ -170,6 +168,7 @@ def _resolve_contract(item: pytest.Item, rootpath: Path) -> _TestContract | None
     return _TestContract(plan, candidate.relative_to(root).as_posix(), claims)
 
 
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     for item in items:
         try:
@@ -196,17 +195,369 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
     outcome = yield
     report = outcome.get_result()
     item.stash.setdefault(_REPORTS_KEY, {})[report.when] = report  # type: ignore[misc]
+    state = item.config.stash.get(_LIFECYCLE_KEY, None)
+    if state is None or state.closed:
+        return
+    payload: dict[str, Any] = {
+        "phase": report.when,
+        "status": report.outcome,
+        "duration_ms": round(float(report.duration) * 1000, 1),
+    }
+    wasxfail = getattr(report, "wasxfail", None)
+    if wasxfail:
+        payload["xfail_reason"] = str(wasxfail)
+        payload["xfail"] = bool(report.skipped)
+        payload["xpass"] = bool(report.passed or report.failed)
+    if report.failed or report.skipped:
+        payload["error"] = _report_error(report)
+    state.writer.emit("test.phase", test=_test_id(item), **payload)
+    if report.failed:
+        engine = item.stash.get(_ENGINE_KEY, None)
+        if engine is not None:
+            # The report exists before fixture teardown. Mark it here so a session
+            # engine knows to preserve the browser even when this is the last test.
+            engine._testence_state["any_failed"] = True  # type: ignore[attr-defined]
+        if report.when != "teardown" and not item.stash.get(_PACK_ATTEMPTED_KEY, False):
+            item.stash[_PACK_ATTEMPTED_KEY] = True
+            pack = _failure_pack(item, state, _test_id(item), _report_error(report))
+            if pack:
+                item.stash[_PACK_KEY] = pack
 
 
 _REPORTS_KEY = pytest.StashKey[dict]()
+
+
+@dataclass
+class _LifecycleState:
+    settings: Settings
+    writer: EvidenceWriter
+    started_at: float
+    started: dict[str, float]
+    items: dict[str, pytest.Item]
+    finished: set[str]
+    counts: dict[str, int]
+    deselected: int = 0
+    collection_errors: int = 0
+    closed: bool = False
+
+
+_LIFECYCLE_KEY = pytest.StashKey[_LifecycleState]()
+_ACTIONS_KEY = pytest.StashKey[Actions]()
+_ENGINE_KEY = pytest.StashKey[Engine]()
+_FINGERPRINTS_KEY = pytest.StashKey[FingerprintStore]()
+_PACK_KEY = pytest.StashKey[str]()
+_PACK_ATTEMPTED_KEY = pytest.StashKey[bool]()
+_ACTIVE_STATE: _LifecycleState | None = None
 
 #: Per-test wait budgets for the end-of-run summary (reset per pytest process).
 _RUN_WAITS: list[dict[str, Any]] = []
 
 
-def pytest_sessionstart(session: pytest.Session) -> None:
-    """A process may host several warm pytest sessions; their summaries may not mix."""
+def _settings_from_config(config: pytest.Config) -> Settings:
+    return Settings.load(
+        config.rootpath,
+        profile=config.getoption("--testence-profile"),
+        base_url=config.getoption("--testence-base-url"),
+        auth=config.getoption("--testence-auth"),
+        cdp_url=config.getoption("--testence-cdp"),
+        browser_channel=config.getoption("--testence-browser-channel"),
+        api_prefix=config.getoption("--testence-api-prefix"),
+        runs_root=config.getoption("--testence-runs-root"),
+        headed=False if config.getoption("--testence-headless") else None,
+    )
+
+
+def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
+    settings = _settings_from_config(config)
+    writer = EvidenceWriter(settings.runs_root)
+    writer.emit(
+        "run.start",
+        testence=__version__,
+        fingerprint={
+            "os": f"{platform.system()} {platform.release()}",
+            "python": platform.python_version(),
+            "kernels": kernels.active_backend(),
+            "worker": writer.worker or "(single)",
+            **settings.describe(),
+        },
+    )
+    writer.emit("collection.start")
+    return _LifecycleState(
+        settings=settings,
+        writer=writer,
+        started_at=time.perf_counter(),
+        started={},
+        items={},
+        finished=set(),
+        counts={
+            status: 0
+            for status in ("passed", "failed", "broken", "skipped", "aborted", "not_run")
+        },
+    )
+
+
+def pytest_sessionstart(session: pytest.Session | None) -> None:
+    """Start evidence before collection; warm pytest sessions remain isolated."""
+    global _ACTIVE_STATE
     _RUN_WAITS.clear()
+    # Kept as a harmless seam for embedders that only reset the warm-run summary.
+    if session is None:
+        return
+    state = _new_lifecycle(session.config)
+    session.config.stash[_LIFECYCLE_KEY] = state
+    _ACTIVE_STATE = state
+
+
+def pytest_collectreport(report: pytest.CollectReport) -> None:
+    state = _ACTIVE_STATE
+    if state is None or state.closed:
+        return
+    if report.failed:
+        state.collection_errors += 1
+        state.writer.emit(
+            "collection.error",
+            nodeid=report.nodeid,
+            error=_report_error(report),
+        )
+    elif report.skipped:
+        state.writer.emit(
+            "collection.skip",
+            nodeid=report.nodeid,
+            reason=_report_error(report),
+        )
+
+
+def pytest_deselected(items: list[pytest.Item]) -> None:
+    state = _ACTIVE_STATE
+    if state is None or state.closed or not items:
+        return
+    state.deselected += len(items)
+    state.writer.emit(
+        "collection.deselected",
+        count=len(items),
+        nodeids=[item.nodeid for item in items],
+    )
+
+
+def pytest_collection_finish(session: pytest.Session) -> None:
+    state = session.config.stash.get(_LIFECYCLE_KEY, None)
+    if state is None or state.closed:
+        return
+    state.writer.emit(
+        "collection.end",
+        selected=len(session.items),
+        deselected=state.deselected,
+        errors=state.collection_errors,
+        nodeids=[item.nodeid for item in session.items],
+    )
+
+
+def _test_id(item: pytest.Item) -> str:
+    # R02 introduces the stable logical case identity. Until then, retain the public
+    # display key while always carrying the full nodeid as the source locator.
+    return item.name
+
+
+def _report_error(report: pytest.TestReport | pytest.CollectReport) -> str:
+    crash = getattr(getattr(report, "longrepr", None), "reprcrash", None)
+    message = getattr(crash, "message", None)
+    if message:
+        return str(message)
+    longreprtext = getattr(report, "longreprtext", None)
+    if longreprtext:
+        return str(longreprtext)[-4000:]
+    return str(getattr(report, "longrepr", ""))[-4000:]
+
+
+def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
+    if item.nodeid in state.started:
+        return
+    test_id = _test_id(item)
+    contract = item.stash.get(_CONTRACT_KEY, None)
+    if contract is not None:
+        context = contract.ledger_context()
+        state.writer.bind_test(test_id, plan=context["plan"], claims=context["claims"])
+    node_path = getattr(item, "path", "")
+    state.started[item.nodeid] = time.perf_counter()
+    state.items[item.nodeid] = item
+    state.writer.emit(
+        "test.start",
+        test=test_id,
+        file=str(node_path),
+        code=_code_hash(node_path),
+        nodeid=item.nodeid,
+        markers=sorted({mark.name for mark in item.iter_markers()}),
+    )
+
+
+def _execution_outcome(reports: dict[str, pytest.TestReport]) -> tuple[str, str]:
+    for phase in ("setup", "teardown"):
+        report = reports.get(phase)
+        if report is not None and report.failed:
+            return "broken", phase
+
+    call = reports.get("call")
+    if call is not None and call.failed:
+        return "failed", "call"
+
+    for phase in ("setup", "call", "teardown"):
+        report = reports.get(phase)
+        if report is not None and report.skipped:
+            return "skipped", phase
+
+    if call is not None and call.passed and "teardown" in reports:
+        return "passed", "call"
+    return "aborted", next(
+        (phase for phase in ("setup", "call", "teardown") if phase not in reports),
+        "unknown",
+    )
+
+
+def _failure_pack(
+    item: pytest.Item,
+    state: _LifecycleState,
+    test_id: str,
+    error: str,
+) -> str | None:
+    engine = item.stash.get(_ENGINE_KEY, None)
+    actions = item.stash.get(_ACTIONS_KEY, None)
+    fingerprints = item.stash.get(_FINGERPRINTS_KEY, None)
+    if engine is None or actions is None or fingerprints is None:
+        return None
+    engine._testence_state["any_failed"] = True  # type: ignore[attr-defined]
+    try:
+        heal = None
+        failure = actions.last_failure
+        if failure is not None and failure.target is not None:
+            known = fingerprints.get(test_id, failure.intent)
+            heal = propose(engine, failure.intent, failure.target, known)
+        pack_dir = assemble_pack(
+            engine,
+            state.writer,
+            test_id,
+            error=error,
+            oracle_diff=state.writer.last_oracle_diff(test_id),
+            heal=heal,
+        )
+        return str(pack_dir.relative_to(state.writer.run_dir))
+    except Exception as exc:  # Evidence collection must never replace the pytest result.
+        state.writer.emit(
+            "note",
+            test=test_id,
+            text="failure pack capture failed",
+            error=f"{type(exc).__name__}: {exc}",
+        )
+        return None
+
+
+def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
+    if item.nodeid in state.finished or item.nodeid not in state.started:
+        return
+    test_id = _test_id(item)
+    reports = item.stash.get(_REPORTS_KEY, {})
+    status, phase = _execution_outcome(reports)
+    errors = [_report_error(report) for report in reports.values() if report.failed]
+    error = errors[0] if errors else ""
+    pack = item.stash.get(_PACK_KEY, None)
+    if status in ("failed", "broken") and not item.stash.get(_PACK_ATTEMPTED_KEY, False):
+        item.stash[_PACK_ATTEMPTED_KEY] = True
+        pack = _failure_pack(item, state, test_id, error)
+    duration_ms = round((time.perf_counter() - state.started[item.nodeid]) * 1000, 1)
+    xfail_reason = next(
+        (str(report.wasxfail) for report in reports.values() if getattr(report, "wasxfail", None)),
+        None,
+    )
+    payload: dict[str, Any] = {
+        "status": status,
+        "phase": phase,
+        "duration_ms": duration_ms,
+    }
+    if error:
+        payload["error"] = error
+    if pack:
+        payload["pack"] = pack
+    if xfail_reason:
+        payload["xfail_reason"] = xfail_reason
+        payload["xfail"] = any(
+            report.skipped and getattr(report, "wasxfail", None) for report in reports.values()
+        )
+        payload["xpass"] = any(
+            (report.passed or report.failed) and getattr(report, "wasxfail", None)
+            for report in reports.values()
+        )
+    state.writer.emit("test.end", test=test_id, **payload)
+    state.counts[status] += 1
+    state.finished.add(item.nodeid)
+    state.writer.unbind_test(test_id)
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
+    state = item.config.stash.get(_LIFECYCLE_KEY, None)
+    if state is None or state.closed:
+        yield
+        return
+    _start_test(item, state)
+    try:
+        yield
+    finally:
+        _finalize_test(item, state)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node: Any, error: object | None) -> None:
+    state = _ACTIVE_STATE
+    if state is None or state.closed or error is None:
+        return
+    state.writer.emit(
+        "worker.crash",
+        worker=getattr(getattr(node, "gateway", None), "id", "unknown"),
+        error=str(error),
+    )
+
+
+def _run_status(exitstatus: int | pytest.ExitCode) -> str:
+    value = int(exitstatus)
+    return {
+        int(pytest.ExitCode.OK): "passed",
+        int(pytest.ExitCode.TESTS_FAILED): "failed",
+        int(pytest.ExitCode.INTERRUPTED): "interrupted",
+        int(pytest.ExitCode.INTERNAL_ERROR): "internal_error",
+        int(pytest.ExitCode.USAGE_ERROR): "usage_error",
+        int(pytest.ExitCode.NO_TESTS_COLLECTED): "no_tests",
+    }.get(value, "unknown")
+
+
+def _close_lifecycle(state: _LifecycleState, exitstatus: int | pytest.ExitCode) -> None:
+    if state.closed:
+        return
+    for item in state.items.values():
+        _finalize_test(item, state)
+    state.writer.emit(
+        "run.end",
+        duration_ms=round((time.perf_counter() - state.started_at) * 1000, 1),
+        exit_code=int(exitstatus),
+        run_status=_run_status(exitstatus),
+        collection_errors=state.collection_errors,
+        deselected=state.deselected,
+        passed=state.counts["passed"],
+        failed=state.counts["failed"],
+        broken=state.counts["broken"],
+        skipped=state.counts["skipped"],
+        aborted=state.counts["aborted"],
+        not_run=state.counts["not_run"],
+    )
+    state.closed = True
+    state.writer.close()
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:
+    global _ACTIVE_STATE
+    state = session.config.stash.get(_LIFECYCLE_KEY, None)
+    if state is not None:
+        _close_lifecycle(state, exitstatus)
+    if _ACTIVE_STATE is state:
+        _ACTIVE_STATE = None
 
 
 def pytest_terminal_summary(terminalreporter: Any) -> None:
@@ -249,46 +600,16 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
 @pytest.fixture(scope="session")
 def testence_settings(request: pytest.FixtureRequest) -> Settings:
     """Resolved configuration: settings file → .env → env → CLI flags."""
-    config = request.config
-    return Settings.load(
-        config.rootpath,
-        profile=config.getoption("--testence-profile"),
-        base_url=config.getoption("--testence-base-url"),
-        auth=config.getoption("--testence-auth"),
-        cdp_url=config.getoption("--testence-cdp"),
-        browser_channel=config.getoption("--testence-browser-channel"),
-        api_prefix=config.getoption("--testence-api-prefix"),
-        runs_root=config.getoption("--testence-runs-root"),
-        headed=False if config.getoption("--testence-headless") else None,
-    )
+    state = request.config.stash.get(_LIFECYCLE_KEY, None)
+    return state.settings if state is not None else _settings_from_config(request.config)
 
 
 @pytest.fixture(scope="session")
-def testence_writer(testence_settings: Settings) -> Iterator[EvidenceWriter]:
-    writer = EvidenceWriter(testence_settings.runs_root)
-    writer.emit(
-        "run.start",
-        testence=__version__,
-        fingerprint={
-            "os": f"{platform.system()} {platform.release()}",
-            "python": platform.python_version(),
-            "kernels": kernels.active_backend(),
-            # Which worker wrote this ledger, so a merged run stays attributable.
-            "worker": writer.worker or "(single)",
-            **testence_settings.describe(),
-        },
-    )
-    started = time.perf_counter()
-    counts = {"passed": 0, "failed": 0}
-    writer.counts = counts  # type: ignore[attr-defined]
-    yield writer
-    writer.emit(
-        "run.end",
-        duration_ms=round((time.perf_counter() - started) * 1000, 1),
-        passed=counts["passed"],
-        failed=counts["failed"],
-    )
-    writer.close()
+def testence_writer(request: pytest.FixtureRequest) -> EvidenceWriter:
+    state = request.config.stash.get(_LIFECYCLE_KEY, None)
+    if state is None:
+        raise RuntimeError("Testence lifecycle writer was not initialized")
+    return state.writer
 
 
 @pytest.fixture(scope="session")
@@ -355,93 +676,45 @@ def ex(
     testence_fingerprints: FingerprintStore,
 ):
     test_id = request.node.name
-    node_path = getattr(request.node, "path", "")
-    contract = request.node.stash.get(_CONTRACT_KEY, None)
-    if contract is not None:
-        context = contract.ledger_context()
-        testence_writer.bind_test(
-            test_id,
-            plan=context["plan"],
-            claims=context["claims"],
-        )
-    testence_engine.reset_taps()
-    # `nodeid` and `markers` exist for the exporters (ADR-0013): a reporting format
-    # needs the test's full address and the suite's own marker taxonomy. This is how
-    # an integration gets data — by appending fields to the ledger, never by asking
-    # test authors to instrument their code.
-    testence_writer.emit(
-        "test.start",
-        test=test_id,
-        file=str(node_path),
-        code=_code_hash(node_path),
-        nodeid=request.node.nodeid,
-        markers=sorted({mark.name for mark in request.node.iter_markers()}),
+    request.node.stash[_ACTIONS_KEY] = actions = Actions(
+        testence_engine,
+        testence_writer,
+        test_id,
+        store=testence_fingerprints,
     )
+    request.node.stash[_ENGINE_KEY] = testence_engine
+    request.node.stash[_FINGERPRINTS_KEY] = testence_fingerprints
+    testence_engine.reset_taps()
     started = time.perf_counter()
-    actions = Actions(testence_engine, testence_writer, test_id, store=testence_fingerprints)
-
-    yield actions
-
-    reports = request.node.stash.get(_REPORTS_KEY, {})
-    call_report = reports.get("call")
-    failed = bool(call_report and call_report.failed)
-    duration_ms = round((time.perf_counter() - started) * 1000, 1)
-
-    # Wait budget: what this test actually spent its wall-clock on. Emitted into
-    # evidence AND accumulated for the terminal summary — a slow suite must show
-    # its receipts without anyone re-running it under a profiler.
-    ledger = testence_engine.wait_ledger() if hasattr(testence_engine, "wait_ledger") else []
-    if ledger:
-        waited_ms = round(sum(entry["ms"] for entry in ledger), 1)
-        top = sorted(ledger, key=lambda entry: -entry["ms"])[:5]
-        # Per-operation totals, not just the top five: a case with 59 waits showed
-        # five of them and hid the rest, so "where did the time go" still needed a
-        # re-run under a profiler. With this, the ledger answers it by itself.
-        by_op: dict[str, dict[str, float]] = {}
-        for entry in ledger:
-            row = by_op.setdefault(entry["op"], {"ms": 0.0, "n": 0})
-            row["ms"] = round(row["ms"] + entry["ms"], 1)
-            row["n"] += 1
-        testence_writer.emit(
-            "test.waits", test=test_id, waited_ms=waited_ms, ops=len(ledger), by_op=by_op, top=top
-        )
-        _RUN_WAITS.append(
-            {
-                "test": test_id,
-                "wall_ms": duration_ms,
-                "waited_ms": waited_ms,
-                "top": top,
-                "by_op": by_op,
-            }
-        )
-    if failed:
-        testence_writer.counts["failed"] += 1  # type: ignore[attr-defined]
-        testence_engine._testence_state["any_failed"] = True  # type: ignore[attr-defined]
-        crash = getattr(getattr(call_report, "longrepr", None), "reprcrash", None)
-        error = getattr(crash, "message", None) or (
-            str(call_report.longrepr)[-2000:] if call_report else "unknown"
-        )
-        heal = None
-        failure = actions.last_failure
-        if failure is not None and failure.target is not None:
-            known = testence_fingerprints.get(test_id, failure.intent)
-            heal = propose(testence_engine, failure.intent, failure.target, known)
-        pack_dir = assemble_pack(
-            testence_engine,
-            testence_writer,
-            test_id,
-            error=error,
-            oracle_diff=testence_writer.last_oracle_diff(test_id),
-            heal=heal,
-        )
-        testence_writer.emit(
-            "test.end",
-            test=test_id,
-            status="fail",
-            duration_ms=duration_ms,
-            pack=str(pack_dir.relative_to(testence_writer.run_dir)),
-        )
-    else:
-        testence_writer.counts["passed"] += 1  # type: ignore[attr-defined]
-        testence_writer.emit("test.end", test=test_id, status="pass", duration_ms=duration_ms)
-    testence_writer.unbind_test(test_id)
+    try:
+        yield actions
+    finally:
+        duration_ms = round((time.perf_counter() - started) * 1000, 1)
+        # Wait budget remains evidence supplied by the browser fixture; the terminal
+        # execution outcome is owned by pytest_runtest_protocol.
+        ledger = testence_engine.wait_ledger() if hasattr(testence_engine, "wait_ledger") else []
+        if ledger:
+            waited_ms = round(sum(entry["ms"] for entry in ledger), 1)
+            top = sorted(ledger, key=lambda entry: -entry["ms"])[:5]
+            by_op: dict[str, dict[str, float]] = {}
+            for entry in ledger:
+                row = by_op.setdefault(entry["op"], {"ms": 0.0, "n": 0})
+                row["ms"] = round(row["ms"] + entry["ms"], 1)
+                row["n"] += 1
+            testence_writer.emit(
+                "test.waits",
+                test=test_id,
+                waited_ms=waited_ms,
+                ops=len(ledger),
+                by_op=by_op,
+                top=top,
+            )
+            _RUN_WAITS.append(
+                {
+                    "test": test_id,
+                    "wall_ms": duration_ms,
+                    "waited_ms": waited_ms,
+                    "top": top,
+                    "by_op": by_op,
+                }
+            )

@@ -48,6 +48,7 @@ details.test > summary::-webkit-details-marker { display:none; }
 .chip { border-radius:20px; padding:2px 10px; font-size:12px; font-weight:600; }
 .chip.pass { color:var(--ok); background:var(--ok-bg); }
 .chip.fail { color:var(--fail); background:var(--fail-bg); }
+.chip.skip { color:var(--muted); background:var(--line); }
 .tname { font-weight:600; flex:1; overflow-wrap:anywhere; }
 .tdur { color:var(--muted); font-variant-numeric:tabular-nums; }
 table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -110,6 +111,9 @@ const stats = [
   ["tests", byTest.size],
   ["passed", runEnd?.passed ?? "—"],
   ["failed", runEnd?.failed ?? "—"],
+  ["broken", runEnd?.broken ?? 0],
+  ["skipped", runEnd?.skipped ?? 0],
+  ["aborted", runEnd?.aborted ?? 0],
   ["duration", runEnd ? (runEnd.duration_ms / 1000).toFixed(1) + " s" : "—"],
 ];
 document.getElementById("summary").innerHTML = stats.map(([label, value]) =>
@@ -117,7 +121,9 @@ document.getElementById("summary").innerHTML = stats.map(([label, value]) =>
 const container = document.getElementById("tests");
 for (const [name, events] of byTest) {
   const end = events.find(e => e.kind === "test.end");
-  const failed = end?.status === "fail";
+  const status = end?.status === "pass" ? "passed" : (end?.status ?? "not_run");
+  const failed = ["fail", "failed", "broken", "aborted"].includes(status);
+  const chip = failed ? "fail" : (status === "passed" ? "pass" : "skip");
   const steps = events.filter(e => e.kind === "step.end");
   const starts = new Map(events.filter(e => e.kind === "step.start")
                                .map(e => [e.step, e]));
@@ -163,7 +169,7 @@ for (const [name, events] of byTest) {
     </div>` : "";
   container.insertAdjacentHTML("beforeend", `
     <details class="test" ${failed ? "open" : ""}>
-      <summary><span class="chip ${failed ? "fail" : "pass"}">${failed ? "FAIL" : "PASS"}</span>
+      <summary><span class="chip ${chip}">${esc(status.toUpperCase())}</span>
         <span class="tname">${esc(name)}</span>
         <span class="tdur">${end ? (end.duration_ms / 1000).toFixed(1) + " s" : ""}</span>
       </summary>
