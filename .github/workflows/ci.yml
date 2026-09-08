@@ -102,7 +102,7 @@ jobs:
       - name: Install declared minimum dependencies
         run: |
           uv venv --python 3.10 .venv-min
-          uv pip install --python .venv-min/bin/python "playwright==1.49.0" "pytest==8.0.0" "pytest-xdist==3.6.1" .
+          uv pip install --python .venv-min/bin/python "jsonschema==4.23.0" "playwright==1.49.0" "pytest==8.0.0" "pytest-xdist==3.6.1" "spdx-tools==0.8.5" .
       - name: Install minimum Playwright Chromium
         run: .venv-min/bin/python -m playwright install --with-deps chromium
       - name: Run suite at dependency floor

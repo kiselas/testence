@@ -54,6 +54,7 @@ def _scaffold(project_id: str) -> dict[str, bytes]:
         "project_id": project_id,
         "base_url": "http://127.0.0.1:8000",
         "auth": "none",
+        "headed": False,
         "runs_root": "runs",
         "extra": {
             "capture_policy": {

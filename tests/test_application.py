@@ -39,6 +39,7 @@ def test_init_is_idempotent_and_conflict_safe(tmp_path):
 def test_scaffold_is_opt_in_and_default_run_produces_verified_proof(tmp_path):
     project = tmp_path / "consumer"
     init_project(project)
+    assert json.loads((project / "testence.json").read_text(encoding="utf-8"))["headed"] is False
     (project / "test_existing.py").write_text(
         "def test_existing(): assert True\n", encoding="utf-8"
     )

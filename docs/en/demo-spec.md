@@ -3,6 +3,10 @@
 Status: **implementation contract**. Version: `0.1`. Snapshot: 2026-08-28.
 Owner: Product Owner together with the demo-repository maintainer.
 
+Since 8 September 2026, `testence init` generates `headed: false` so the demo
+runs without a display on Linux CI. Set `headed: true` in a separate onboarding
+project when a visible browser is desired.
+
 This document defines one launch demo. Any scenario change must preserve the central
 causal chain and remain compatible with the [Launch Thesis](launch-thesis.md) and
 [Launch Benchmark Protocol](benchmark/launch-protocol.md).

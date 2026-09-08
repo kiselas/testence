@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
@@ -68,7 +69,7 @@ def _quality_lock(project: Path) -> Iterator[None]:
             handle.flush()
         handle.seek(0)
         try:
-            if os.name == "nt":
+            if sys.platform == "win32":
                 import msvcrt
 
                 msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
@@ -81,7 +82,7 @@ def _quality_lock(project: Path) -> Iterator[None]:
     finally:
         try:
             handle.seek(0)
-            if os.name == "nt":
+            if sys.platform == "win32":
                 import msvcrt
 
                 msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
