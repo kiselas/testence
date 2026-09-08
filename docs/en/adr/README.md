@@ -23,9 +23,13 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 | [0013](0013-reporting-as-export.md) | Reporting integrations as exporters from the ledger (Allure, CTRF, JUnit) | accepted (seam implemented) |
 | [0014](0014-verdict-taxonomy.md) | Behaviour-change and test-bug verdicts; `blocked_on` as the abstention channel | accepted |
 | [0015](0015-agent-native-interface.md) | Portable agent control plane over a deterministic verification runner | proposed (golden path pending) |
-| [0016](0016-plan-verdict-contracts.md) | PlanSpec and verdict as versioned proof contracts | accepted |
+| [0016](0016-plan-verdict-contracts.md) | PlanSpec and verdict as versioned proof contracts | superseded by 0019 |
 | [0017](0017-event-driven-spa-latency.md) | Event-driven SPA readiness, mutation waits and input fast path | accepted (measured) |
 | [0018](0018-warm-authoring-runner.md) | Warm pytest process for the authoring loop | accepted (measured, opt-in) |
+| [0019](0019-identity-and-schema-v2.md) | Stable identity and schema v2 migration | accepted |
+| [0020](0020-application-cli-contract.md) | Explicit, manifest-backed onboarding and submission CLI | accepted |
+| [0021](0021-isolated-runtime-ownership.md) | Per-test state isolation and explicit browser ownership | accepted |
+| [0022](0022-engine-capability-negotiation.md) | Versioned engine capabilities and strict action preflight | accepted |
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.

@@ -1,5 +1,7 @@
 # Project audit
 
+Historical snapshot. See the [2026-09-06 audit](../audits/2026-09-06/audit.md) for current verified findings and the [proposed release specification](../audits/2026-09-06/release-spec.md).
+
 Snapshot: 2026-08-28.
 
 ## Verdict

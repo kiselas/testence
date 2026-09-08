@@ -40,6 +40,7 @@ sys.path.insert(0, str(HERE))
 from items import CLAIMS, ITEMS, Item  # noqa: E402
 
 from testence.metrics import load_run  # noqa: E402
+from testence.status import execution_passed, normalize_execution_status  # noqa: E402
 
 CLAIM_OF_TEST = {test: claim for claim, test in CLAIMS.items()}
 
@@ -120,22 +121,53 @@ def run_item(item: Item, port: int, runs_root: Path, attempt: int, session: str)
         timeout=900,
     )
     outcomes: dict[str, str] = {}
+    run_ends: list[dict] = []
     if run_dir.exists():
         for event in load_run(run_dir):
             if event["kind"] == "test.end":
-                outcomes[event["test"]] = event["status"]
+                nodeid = str(event.get("nodeid") or event["test"])
+                test_name = nodeid.rsplit("::", 1)[-1].split("[", 1)[0]
+                outcomes[test_name] = normalize_execution_status(event.get("status"))
+            elif event["kind"] == "run.end":
+                run_ends.append(event)
     failed = sorted(
-        CLAIM_OF_TEST.get(test, test) for test, status in outcomes.items() if status != "pass"
+        CLAIM_OF_TEST.get(test, test)
+        for test, status in outcomes.items()
+        if not execution_passed(status)
     )
     heals = (
         sorted(path.parent.parent.name for path in run_dir.glob("*/pack/heal.json"))
         if run_dir.exists()
         else []
     )
+    expected_tests = set(CLAIM_OF_TEST)
+    observed_tests = set(outcomes)
+    incomplete_reasons: list[str] = []
+    if process.returncode not in (0, 1):
+        incomplete_reasons.append(f"pytest exit code {process.returncode}")
+    if observed_tests != expected_tests:
+        missing = sorted(expected_tests - observed_tests)
+        extra = sorted(observed_tests - expected_tests)
+        if missing:
+            incomplete_reasons.append("missing tests: " + ", ".join(missing))
+        if extra:
+            incomplete_reasons.append("unexpected tests: " + ", ".join(extra))
+    if len(run_ends) != 1:
+        incomplete_reasons.append(f"expected one logical run.end, got {len(run_ends)}")
+    elif run_ends[0].get("run_status") in {
+        "incomplete",
+        "interrupted",
+        "internal_error",
+        "usage_error",
+        "unknown",
+    }:
+        incomplete_reasons.append(f"run status {run_ends[0].get('run_status')}")
     return {
         "run": run_id,
         "exit_code": process.returncode,
         "claims_seen": len(outcomes),
+        "complete": not incomplete_reasons,
+        "incomplete_reasons": incomplete_reasons,
         "failed_claims": failed,
         "heal_proposals": heals,
         "stdout_tail": process.stdout[-400:] if process.returncode not in (0, 1) else "",
@@ -144,13 +176,15 @@ def run_item(item: Item, port: int, runs_root: Path, attempt: int, session: str)
 
 def evaluate(item: Item, result: dict) -> dict:
     went_red = bool(result["failed_claims"])
+    complete = bool(result.get("complete", False))
     expected = set(item.expect_claims)
     failed = set(result["failed_claims"])
     checks: dict[str, object] = {
-        "outcome_ok": went_red == item.expect_failure,
-        "observed": "red" if went_red else "green",
+        "outcome_ok": complete and went_red == item.expect_failure,
+        "observed": "incomplete" if not complete else ("red" if went_red else "green"),
         "expected": "red" if item.expect_failure else "green",
         "failed_claims": sorted(failed),
+        "complete": complete,
     }
     if item.expect_failure:
         # Red is not enough: the run has to break the claim the defect actually
@@ -160,8 +194,8 @@ def evaluate(item: Item, result: dict) -> dict:
         checks["collateral_claims"] = sorted(failed - expected)
     if item.expect_heal:
         checks["heal_proposed"] = bool(result["heal_proposals"])
-    if result["claims_seen"] != len(CLAIMS):
-        checks["warning"] = f"{result['claims_seen']} of {len(CLAIMS)} claims reported an outcome"
+    if not complete:
+        checks["incomplete_reasons"] = list(result.get("incomplete_reasons") or ())
     return checks
 
 

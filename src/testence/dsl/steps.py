@@ -12,11 +12,21 @@ from __future__ import annotations
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
-from testence.engine import Engine, Target
+from testence.engine import (
+    Capability,
+    Engine,
+    Target,
+    UnsupportedCapability,
+    require_capabilities,
+)
 from testence.evidence import EvidenceWriter
 from testence.fingerprints import FingerprintStore
+
+if TYPE_CHECKING:
+    from testence.api import Response
+    from testence.oracle import ExpectedState, OracleObservation
 
 
 class StepFailed(AssertionError):
@@ -64,7 +74,13 @@ class Actions:
     # -- core wrapper ------------------------------------------------------
 
     @contextmanager
-    def step(self, intent: str, target: Target | None = None) -> Iterator[None]:
+    def step(
+        self,
+        intent: str,
+        target: Target | None = None,
+        *,
+        weakenings: tuple[str, ...] = (),
+    ) -> Iterator[None]:
         self._step_no += 1
         step_id = f"s{self._step_no}"
         depth = len(self._children)
@@ -77,6 +93,7 @@ class Actions:
             step=step_id,
             intent=intent,
             target=target.describe() if target else None,
+            weakenings=list(weakenings),
             depth=depth,
         )
         started = time.perf_counter()
@@ -95,6 +112,8 @@ class Actions:
                 depth=depth,
                 children=self._children.pop(),
             )
+            if isinstance(exc, UnsupportedCapability):
+                raise
             raise StepFailed(intent, exc, target) from exc
         fingerprint = self.engine.element_fingerprint(target) if target else None
         if fingerprint and target is not None and self.store is not None:
@@ -116,6 +135,7 @@ class Actions:
 
     def goto(self, url: str, intent: str | None = None) -> None:
         with self.step(intent or f"open {url}"):
+            require_capabilities(self.engine, "goto", Capability.NAVIGATION)
             self.engine.goto(url)
 
     def navigate(self, url: str, intent: str | None = None, *, hard: bool = False) -> bool:
@@ -126,6 +146,7 @@ class Actions:
         only when the case is *about* a fresh page load.
         """
         with self.step(intent or f"go to {url}"):
+            require_capabilities(self.engine, "navigate", Capability.NAVIGATION)
             return self.engine.navigate(url, hard=hard)
 
     def click(self, target: Target, intent: str | None = None, *, fast: bool = False) -> None:
@@ -135,7 +156,9 @@ class Actions:
         rendered; never worth it on the first interaction with a screen, where the
         checks are the only thing that reports an overlay swallowing the click.
         """
-        with self.step(intent or f"click {target.describe()}", target):
+        weakening = ("fast-actionability",) if fast else ()
+        with self.step(intent or f"click {target.describe()}", target, weakenings=weakening):
+            require_capabilities(self.engine, "click", Capability.DOM)
             self.engine.click(target, fast=fast)
 
     def fill(
@@ -147,7 +170,9 @@ class Actions:
         after a readiness assertion, never as a way around a disabled or covered
         control.
         """
-        with self.step(intent or f"fill {target.describe()}", target):
+        weakening = ("fast-actionability",) if fast else ()
+        with self.step(intent or f"fill {target.describe()}", target, weakenings=weakening):
+            require_capabilities(self.engine, "fill", Capability.DOM)
             if fast:
                 self.engine.fill(target, value, fast=True)
             else:
@@ -157,25 +182,128 @@ class Actions:
 
     def select(self, target: Target, value: str, intent: str | None = None) -> None:
         with self.step(intent or f"select {value!r} in {target.describe()}", target):
+            require_capabilities(self.engine, "select", Capability.DOM)
             self.engine.select(target, value)
 
     def expect_text(
         self, target: Target, text: str, intent: str | None = None, *, exact: bool = True
     ) -> None:
         with self.step(intent or f"expect {text!r} at {target.describe()}", target):
+            require_capabilities(self.engine, "expect_text", Capability.DOM)
             self.engine.expect_text(target, text, exact=exact)
 
     def expect_visible(self, target: Target, intent: str | None = None) -> None:
         with self.step(intent or f"expect {target.describe()} visible", target):
+            require_capabilities(self.engine, "expect_visible", Capability.DOM)
             self.engine.expect_visible(target)
 
     def expect_hidden(self, target: Target, intent: str | None = None) -> None:
         with self.step(intent or f"expect {target.describe()} gone", target):
+            require_capabilities(self.engine, "expect_hidden", Capability.DOM)
             self.engine.wait_while_visible(target)
+
+    def focus(self, target: Target, intent: str | None = None) -> None:
+        with self.step(intent or f"focus {target.describe()}", target):
+            require_capabilities(self.engine, "focus", Capability.DOM, Capability.KEYBOARD)
+            self.engine.focus(target)
+
+    def scroll_into_view(self, target: Target, intent: str | None = None) -> None:
+        with self.step(intent or f"scroll to {target.describe()}", target):
+            require_capabilities(self.engine, "scroll_into_view", Capability.DOM)
+            self.engine.scroll_into_view(target)
+
+    def upload(self, target: Target, paths: list[str], intent: str | None = None) -> None:
+        with self.step(intent or f"upload file through {target.describe()}", target):
+            require_capabilities(self.engine, "upload", Capability.DOM, Capability.FILES)
+            self.engine.upload(target, paths)
+
+    def download(self, target: Target, path: str, intent: str | None = None) -> str:
+        with self.step(intent or f"download from {target.describe()}", target):
+            require_capabilities(self.engine, "download", Capability.DOM, Capability.FILES)
+            return self.engine.click_and_download(target, path)
+
+    def popup(self, target: Target, intent: str | None = None) -> None:
+        with self.step(intent or f"open popup from {target.describe()}", target):
+            require_capabilities(self.engine, "popup", Capability.DOM, Capability.POPUPS)
+            self.engine.click_and_popup(target)
+
+    def dialog(
+        self,
+        target: Target,
+        intent: str | None = None,
+        *,
+        accept: bool = True,
+        prompt: str | None = None,
+    ) -> str:
+        with self.step(intent or f"handle dialog from {target.describe()}", target):
+            require_capabilities(self.engine, "dialog", Capability.DOM, Capability.DIALOGS)
+            return self.engine.click_with_dialog(target, accept=accept, prompt=prompt)
+
+    @contextmanager
+    def frame(self, target: Target, intent: str | None = None) -> Iterator[None]:
+        with self.step(intent or f"enter frame {target.describe()}", target):
+            require_capabilities(self.engine, "frame", Capability.DOM, Capability.FRAMES)
+            with self.engine.frame(target):
+                yield
+
+    def verify(
+        self,
+        name: str,
+        expected: dict[str, Any],
+        actual: dict[str, Any],
+        *,
+        assertion_id: str | None = None,
+        claim_id: str | None = None,
+        oracle_kind: str = "api",
+    ) -> None:
+        """Compare two semantic views and optionally satisfy a PlanSpec assertion."""
+
+        from testence.oracle import _source_location, verify
+
+        verify(
+            self.writer,
+            self.test_id,
+            name,
+            expected,
+            actual,
+            assertion_id=assertion_id,
+            claim_id=claim_id,
+            oracle_kind=oracle_kind,
+            source=_source_location(),
+        )
+
+    def verify_state(
+        self,
+        name: str,
+        read: Callable[[], Response],
+        expected: ExpectedState,
+        *,
+        deadline_ms: int = 3_000,
+        poll_ms: int = 100,
+        assertion_id: str | None = None,
+        claim_id: str | None = None,
+    ) -> OracleObservation:
+        """Poll a fresh authoritative read until the declared state is stable."""
+
+        from testence.oracle import _source_location, verify_expected_state
+
+        return verify_expected_state(
+            self.writer,
+            self.test_id,
+            name,
+            read,
+            expected,
+            deadline_ms=deadline_ms,
+            poll_ms=poll_ms,
+            assertion_id=assertion_id,
+            claim_id=claim_id,
+            source=_source_location(),
+        )
 
     def settle(self, timeout_ms: int = 1_500) -> bool:
         """Wait for in-flight requests. Not a step: it records nothing and asserts
         nothing, it just stops the test from reading a half-loaded page."""
+        require_capabilities(self.engine, "settle", Capability.NETWORK)
         return self.engine.settle(timeout_ms)
 
     def note(self, text: str, **data: Any) -> None:

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:evidence-pack:2",
+  "title": "Testence evidence pack index v2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema", "project_id", "case_id", "variant_id", "attempt_id", "run_id",
+    "proof_id", "parameters", "test", "error", "sections_est_tokens", "verdicts", "manifest"
+  ],
+  "properties": {
+    "schema": {"const": "testence/evidence-pack/2"},
+    "project_id": {"$ref": "#/$defs/id"},
+    "case_id": {"$ref": "#/$defs/id"},
+    "variant_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "proof_id": {"$ref": "#/$defs/id"},
+    "parameters": {"type": "object", "additionalProperties": {"type": "string"}},
+    "test": {"type": "string", "minLength": 1, "maxLength": 500},
+    "error": {"type": "string"},
+    "sections_est_tokens": {"type": "object"},
+    "verdicts": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "manifest": {"const": "manifest.json"}
+  },
+  "$defs": {
+    "id": {
+      "type": "string", "minLength": 1, "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"
+    }
+  }
+}

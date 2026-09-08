@@ -82,7 +82,13 @@ def test_created_widget_is_visible(ex, testence_api, widget_seed):
 
     ex.expect_text(ROW_NAME, widget.name, intent="show the created widget")
     actual = testence_api.get(f"/api/widgets/{widget.id}").raise_for_status().json
-    ex.verify("created widget", {"name": widget.name}, {"name": actual["name"]})
+    ex.verify(
+        "created widget",
+        {"name": widget.name},
+        {"name": actual["name"]},
+        assertion_id="assert.widget.persisted",
+        claim_id="widgets.create.persisted",
+    )
 ```
 
 Avoid arbitrary sleeps. Wait for the state that matters: a request, response,
@@ -103,6 +109,44 @@ save_and_verify(
     expect_request="/api/widgets",
 )
 ```
+
+For a persisted business state, bind the mutation more narrowly and poll an
+authoritative cache-bypassing read. The mutation is executed once; only GET reads are
+repeated. `minimum_revision` rejects a stale value that happens to agree with the UI,
+and `stability_ms` catches a commit that is rolled back shortly afterwards:
+
+```python
+from testence.oracle import ExpectedState, RequestExpectation, save_and_verify_state
+
+save_and_verify_state(
+    ex,
+    SAVE_BUTTON,
+    name="widget",
+    request=RequestExpectation(
+        "/api/widgets",
+        "POST",
+        origin=settings.base_url,
+        correlation_id=widget.run_marker,
+    ),
+    read=lambda: testence_api.get_fresh(f"/api/widgets/{widget.id}"),
+    expected=ExpectedState(
+        "the created widget remains persisted",
+        lambda body: body["name"] == widget.name and body["state"] == "saved",
+        entity_id=widget.id,
+        correlation_id=widget.run_marker,
+        minimum_revision=widget.expected_revision,
+        stability_ms=500,
+    ),
+    assertion_id="assert.widget.persisted",
+    claim_id="widgets.create.persisted",
+)
+```
+
+The request expectation can additionally name a GraphQL operation or a custom record
+predicate. Empty/non-JSON/HTML and 401/403/404/500 oracle responses are
+`inconclusive`; a valid stale, wrong-entity, wrong-role or rolled-back state is a failed
+assertion. Negative claims use a negative predicate plus `stability_ms` as their
+observation window.
 
 `ex.fill(...)` keeps Playwright's visibility/editability checks and is the default.
 `ex.fill(..., fast=True)` skips those checks but preserves the normal `input` event; use

@@ -119,7 +119,7 @@ toast-проверкой. Plan review делает эту потерю види�
 ### Live demo — 5–7 минут
 
 1. Клонировать чистый demo repository и показать одну команду bootstrap.
-2. Выполнить `testence agent init --client <client>` и показать manifest созданных
+2. Выполнить `testence agent install --project . --client <client>` и показать manifest созданных
    файлов, не читая их вручную.
 3. Передать агенту requirement и согласовать короткий PlanSpec.
 4. Показать сгенерированный repo-owned test и claim IDs.
@@ -133,8 +133,8 @@ toast-проверкой. Plan review делает эту потерю види�
 ```bash
 uv sync --locked
 uv run testence doctor
-uv run testence agent init --client codex
-uv run testence demo run --scenario acknowledged-but-not-persisted
+uv run testence agent install --project . --client codex --json
+uv run testence demo run --project testence-demo --json
 ```
 
 Если launch package допускает более короткую безопасную команду, она может заменить

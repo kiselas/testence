@@ -1,0 +1,18 @@
+{
+  "schema": "testence/performance-budget/1",
+  "scenario": "10k deterministic CTRF export and bounded failure storm",
+  "minimum_repeats": 3,
+  "limits": {
+    "ten_thousand.warm.elapsed_ms.p95": {"max": 10000},
+    "ten_thousand.cold.elapsed_ms.p95": {"max": 10000},
+    "ten_thousand.warm.peak_memory_bytes.p95": {"max": 268435456},
+    "ten_thousand.cold.peak_memory_bytes.p95": {"max": 268435456},
+    "ten_thousand.warm.artifact_bytes.p95": {"max": 52428800},
+    "ten_thousand.warm.unique_output_digests": {"max": 1},
+    "ten_thousand.cold.unique_output_digests": {"max": 1},
+    "failure_storm.elapsed_ms.p95": {"max": 5000},
+    "failure_storm.peak_memory_bytes.p95": {"max": 134217728},
+    "failure_storm.artifact_bytes.p95": {"max": 10485760},
+    "failure_storm.unique_output_digests": {"max": 1}
+  }
+}

@@ -59,6 +59,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "healthy-1"
   },
   {
@@ -71,6 +72,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "healthy-2"
   },
   {
@@ -83,6 +85,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "healthy-3"
   },
   {
@@ -100,6 +103,7 @@
     "search",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -124,6 +128,7 @@
     "search",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -148,6 +153,7 @@
     "search",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -169,6 +175,7 @@
    "failed_claims": [
     "create"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -186,6 +193,7 @@
    "failed_claims": [
     "create"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -203,6 +211,7 @@
    "failed_claims": [
     "create"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -226,6 +235,7 @@
     "paging",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -256,6 +266,7 @@
     "paging",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -286,6 +297,7 @@
     "paging",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -310,6 +322,7 @@
    "failed_claims": [
     "deleted"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -327,6 +340,7 @@
    "failed_claims": [
     "deleted"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -344,6 +358,7 @@
    "failed_claims": [
     "deleted"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -361,6 +376,7 @@
    "failed_claims": [
     "deep-link"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -378,6 +394,7 @@
    "failed_claims": [
     "deep-link"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -395,6 +412,7 @@
    "failed_claims": [
     "deep-link"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -415,6 +433,7 @@
     "search",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -439,6 +458,7 @@
     "search",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -463,6 +483,7 @@
     "search",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -487,6 +508,7 @@
     "full-page",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -511,6 +533,7 @@
     "full-page",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -535,6 +558,7 @@
     "full-page",
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [
@@ -556,6 +580,7 @@
    "failed_claims": [
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -573,6 +598,7 @@
    "failed_claims": [
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -590,6 +616,7 @@
    "failed_claims": [
     "substring"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -607,6 +634,7 @@
    "failed_claims": [
     "filter"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -624,6 +652,7 @@
    "failed_claims": [
     "filter"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -641,6 +670,7 @@
    "failed_claims": [
     "filter"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -658,6 +688,7 @@
    "failed_claims": [
     "create"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -676,6 +707,7 @@
    "failed_claims": [
     "create"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -694,6 +726,7 @@
    "failed_claims": [
     "create"
    ],
+   "complete": true,
    "right_reason": true,
    "missing_claims": [],
    "collateral_claims": [],
@@ -710,6 +743,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-08-restyle-1"
   },
   {
@@ -722,6 +756,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-08-restyle-2"
   },
   {
@@ -734,6 +769,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-08-restyle-3"
   },
   {
@@ -746,6 +782,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-08-reorder-1"
   },
   {
@@ -758,6 +795,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-08-reorder-2"
   },
   {
@@ -770,6 +808,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-08-reorder-3"
   },
   {
@@ -782,6 +821,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-08-wrap-1"
   },
   {
@@ -794,6 +834,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-08-wrap-2"
   },
   {
@@ -806,6 +847,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-08-wrap-3"
   },
   {
@@ -818,6 +860,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-10-slow-responses-1"
   },
   {
@@ -830,6 +873,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-10-slow-responses-2"
   },
   {
@@ -842,6 +886,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-10-slow-responses-3"
   },
   {
@@ -854,6 +899,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-12-console-noise-1"
   },
   {
@@ -866,6 +912,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-12-console-noise-2"
   },
   {
@@ -878,6 +925,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-12-console-noise-3"
   },
   {
@@ -890,6 +938,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-13-commit-on-enter-only-1"
   },
   {
@@ -902,6 +951,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-13-commit-on-enter-only-2"
   },
   {
@@ -914,6 +964,7 @@
    "observed": "green",
    "expected": "green",
    "failed_claims": [],
+   "complete": true,
    "run_dir": "C-13-commit-on-enter-only-3"
   }
  ]

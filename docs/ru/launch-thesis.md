@@ -142,14 +142,11 @@ Skills следуют открытому Agent Skills format. Все значи�
 Целевой интерфейс:
 
 ```bash
-testence agent init --client codex --dry-run
-testence agent init --client codex
-testence agent status
-testence agent update --check
-testence agent update
+testence agent install --project . --client codex --json
+testence agent verify --project . --client codex --json
 ```
 
-`init` и `update` создают repo-owned lock manifest со следующими полями:
+`install` создаёт repo-owned lock manifest со следующими полями:
 
 - версия Testence, schema и agent-pack;
 - выбранный adapter и фактические target paths;

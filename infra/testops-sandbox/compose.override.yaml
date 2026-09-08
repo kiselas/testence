@@ -1,0 +1,33 @@
+# Overlay only; the official Qameta compose file remains byte-for-byte unchanged.
+services:
+  testops:
+    container_name: testence-testops-sandbox-app
+    restart: unless-stopped
+    ports: !override
+      - "127.0.0.1:18080:8080"
+  testops-db:
+    container_name: testence-testops-sandbox-db
+    restart: unless-stopped
+  redis:
+    container_name: testence-testops-sandbox-redis
+    restart: unless-stopped
+  rabbitmq:
+    container_name: testence-testops-sandbox-rabbitmq
+    restart: unless-stopped
+  minio-local:
+    container_name: testence-testops-sandbox-minio
+    restart: unless-stopped
+    ports: !reset []
+  minio-local-provisioning:
+    container_name: testence-testops-sandbox-minio-init
+  mailpit:
+    image: axllent/mailpit:v1.31.1
+    restart: unless-stopped
+    networks:
+      - testops-net
+    ports:
+      - "127.0.0.1:18025:8025"
+networks:
+  testops-net:
+    ipam:
+      config: !reset []

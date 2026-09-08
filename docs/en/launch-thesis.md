@@ -146,14 +146,11 @@ structured Testence CLI. Client adapters do not duplicate workflow logic.
 Target interface:
 
 ```bash
-testence agent init --client codex --dry-run
-testence agent init --client codex
-testence agent status
-testence agent update --check
-testence agent update
+testence agent install --project . --client codex --json
+testence agent verify --project . --client codex --json
 ```
 
-`init` and `update` create a repo-owned lock manifest containing:
+`install` creates a repo-owned lock manifest containing:
 
 - Testence, schema, and agent-pack versions;
 - the selected adapter and actual target paths;

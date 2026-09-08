@@ -1,0 +1,499 @@
+{
+  "schema": "testence/release-manifest/2",
+  "target_version": "0.1.0.dev0",
+  "candidate": {
+    "base_sha": "7be8d025f81d9116ab267c59d440e14b377cfce7",
+    "rc_sha": null,
+    "tag": null,
+    "dirty_worktree": true
+  },
+  "environment": {
+    "python": [
+      "3.10",
+      "3.12",
+      "3.13"
+    ],
+    "platforms": [
+      "windows-latest",
+      "ubuntu-latest"
+    ],
+    "tools": {
+      "pytest": "9.1.1 local; locked matrix >=8.0",
+      "playwright": "1.62.0 local; declared >=1.49",
+      "spdx-tools": "0.8.5",
+      "uv": "0.8.22"
+    }
+  },
+  "inputs": {
+    "dependency_inventory": {
+      "path": "outputs/stage3-local/dependency-inventory.json",
+      "bytes": 3238,
+      "sha256": "3f660b16bc1e75f8f4cedc8c6efa7be9f0b9e8f424ce673288ab6b19e802626a"
+    },
+    "corpus_registry": {
+      "path": "corpus/r1-correctness-v2.json",
+      "bytes": 15091,
+      "sha256": "dbf091eb94301fed6fa7926b81d8a1aa071611a4b90e48a16bafa9dd7238f9a0"
+    },
+    "corpus_digest": "sha256:8b25b39d09d26c639a77e2b3aa568df18c9ab09daac64f180940ba6f46dac4de"
+  },
+  "artifacts": [
+    {
+      "path": "outputs/stage3-release-dist/testence-0.1.0.dev0-py3-none-any.whl",
+      "bytes": 215126,
+      "sha256": "80e7f683981a6185e10d21bf87062999cd27f208cb45c9945dfd1eb0968a0473"
+    },
+    {
+      "path": "outputs/stage3-release-dist/testence-0.1.0.dev0.tar.gz",
+      "bytes": 248755,
+      "sha256": "94603be0e71af3d798418db1b42e388ef2a2eec67dab3f537d4956c685970808"
+    },
+    {
+      "path": "outputs/stage3-local/full-pytest.xml",
+      "bytes": 49203,
+      "sha256": "35aaef9fa77b27a3719fa709e459d4b3c1063ff2435b96ebc11abaf65df1a0f5"
+    },
+    {
+      "path": "outputs/stage3-local/reproducible-build.json",
+      "bytes": 865,
+      "sha256": "423163aa5965105b777fdb2dce5242e0aa03e5291e9bcf564d99de9fd5fcd402"
+    },
+    {
+      "path": "outputs/stage3-local/sdist-rebuild.json",
+      "bytes": 746,
+      "sha256": "543ff138d27a6ee5df8c278e39a8271dccbbd1e1fd1a3d25340bdab8b363b86e"
+    },
+    {
+      "path": "outputs/stage3-local/installed-wheel-smoke.json",
+      "bytes": 1306,
+      "sha256": "544fa5aa80d98d271c9f3039169629479edb132949c030fc923b9150576ad4fe"
+    },
+    {
+      "path": "outputs/stage3-local/dependency-inventory.json",
+      "bytes": 3238,
+      "sha256": "3f660b16bc1e75f8f4cedc8c6efa7be9f0b9e8f424ce673288ab6b19e802626a"
+    },
+    {
+      "path": "outputs/stage3-local/release-artifacts/checksums.sha256",
+      "bytes": 196,
+      "sha256": "df096ba107279f98b38dc0ad6fbfd31a84f8b4db234ff5e1d52ca3ee12b401f8"
+    },
+    {
+      "path": "outputs/stage3-local/release-artifacts/sbom.json",
+      "bytes": 11511,
+      "sha256": "50833431b87a5a6199ca294f3593044f16d807818406dbcd62e79de2b1ab22ba"
+    },
+    {
+      "path": "outputs/stage3-local/release-artifacts/provenance.json",
+      "bytes": 2216,
+      "sha256": "15a9e1371a3bb4cdbf4d5a617d2f115fa606834b839c621e02021cfb5f39361b"
+    },
+    {
+      "path": "outputs/stage3-local/scale-profile.json",
+      "bytes": 6128,
+      "sha256": "846468470c094243943193b0730197aed1192450471731e03a801b4f81029680"
+    },
+    {
+      "path": "corpus/r1-correctness-v2.freeze.json",
+      "bytes": 1439,
+      "sha256": "b83a6dea563283e298f4537a1f7a2038a6d94f4a65b5d26c5795bea0bd5b5fad"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R01",
+      "name": "lifecycle",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R02",
+      "name": "identity",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R03",
+      "name": "completeness",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R04",
+      "name": "claims",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R05",
+      "name": "oracle",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R06",
+      "name": "auth",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R07",
+      "name": "redaction and paths",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R08",
+      "name": "evidence budgets",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R09",
+      "name": "verdict and repair",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R10",
+      "name": "isolation",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R11",
+      "name": "browser primitives",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R12",
+      "name": "web surface",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R13",
+      "name": "Allure",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R14",
+      "name": "TestOps",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R15",
+      "name": "CI and export",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R16",
+      "name": "agents",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R17",
+      "name": "multi-project quality",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R18",
+      "name": "correctness corpus",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R19",
+      "name": "performance",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R20",
+      "name": "supply chain",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R21",
+      "name": "quality pack integrity",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R22",
+      "name": "documentation",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R23",
+      "name": "adoption",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    },
+    {
+      "id": "R24",
+      "name": "OSS release",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "id": "G1",
+      "name": "Truth",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "required clean RC and external acceptance profiles are incomplete"
+      ]
+    },
+    {
+      "id": "G2",
+      "name": "Safety",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "required clean RC and external acceptance profiles are incomplete"
+      ]
+    },
+    {
+      "id": "G3",
+      "name": "Web reliability",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "required clean RC and external acceptance profiles are incomplete"
+      ]
+    },
+    {
+      "id": "G4",
+      "name": "Integrations",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "required clean RC and external acceptance profiles are incomplete"
+      ]
+    },
+    {
+      "id": "G5",
+      "name": "Agent workflow",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "required clean RC and external acceptance profiles are incomplete"
+      ]
+    },
+    {
+      "id": "G6",
+      "name": "Measured quality",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "required clean RC and external acceptance profiles are incomplete"
+      ]
+    },
+    {
+      "id": "G7",
+      "name": "Adoption",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "required clean RC and external acceptance profiles are incomplete"
+      ]
+    },
+    {
+      "id": "G8",
+      "name": "Distribution",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "required clean RC and external acceptance profiles are incomplete"
+      ]
+    }
+  ],
+  "exemptions": [],
+  "limitations": [
+    "Local evidence is bound to a dirty materialized snapshot of base SHA 7be8d025f81d9116ab267c59d440e14b377cfce7 and cannot authorize an RC.",
+    "Hosted Windows/Linux CI, two OSS target runs, independent truth/security/rights reviews, live TestOps, real-client workflows, and pilot/week-return evidence remain pending.",
+    "The local performance receipt has five repeats on Windows 11/Python 3.13; it is not the 30-repeat reference-host RC profile."
+  ],
+  "machine_readiness": false,
+  "owner_decision": null,
+  "rollback": "Do not publish a tag or package. Preserve the prior accepted wheel and restore managed quality locks from their verified history snapshots."
+}

@@ -7,6 +7,8 @@ Public API surface (kept deliberately small; Playwright never leaks through it):
 - testence.oracle — API-oracle diff helpers
 """
 
+from .identity import EVIDENCE_SCHEMA
+
 __version__ = "0.1.0.dev0"
 
-SCHEMA_VERSION = "testence/1"
+SCHEMA_VERSION = EVIDENCE_SCHEMA

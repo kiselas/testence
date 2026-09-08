@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:ci-receipt:1",
+  "title": "Testence CI receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "run_id", "project_id", "run_status", "test", "quality", "delivery", "final_exit"],
+  "properties": {
+    "schema": {"const": "testence/ci-receipt/1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "run_status": {"type": "string", "minLength": 1},
+    "test": {"$ref": "#/$defs/outcome"},
+    "quality": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "exit_code", "errors"],
+      "properties": {
+        "mode": {"enum": ["execution", "assurance"]},
+        "exit_code": {"type": "integer"},
+        "errors": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "required": ["outcome", "exit_code"],
+      "properties": {
+        "outcome": {"type": "string"},
+        "exit_code": {"type": "integer"},
+        "receipt": {"type": "string"}
+      }
+    },
+    "final_exit": {"type": "integer"}
+  },
+  "$defs": {
+    "outcome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["exit_code"],
+      "properties": {"exit_code": {"type": "integer"}}
+    }
+  }
+}

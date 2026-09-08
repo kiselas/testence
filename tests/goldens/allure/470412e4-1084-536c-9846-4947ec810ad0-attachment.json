@@ -1,0 +1,26 @@
+[
+ {
+  "assurance": "unverified",
+  "attempt_id": "legacy-1",
+  "case_id": "case-e19a3059f3d3dbe2d2ca",
+  "diff": [
+   {
+    "api": 4,
+    "field": "count",
+    "ui": 3
+   }
+  ],
+  "event_id": "legacy:legacy:11",
+  "name": "host count",
+  "nodeid": "tests/test_hosts.py::test_hosts",
+  "ok": false,
+  "parameters": {},
+  "project_id": "legacy",
+  "proof_id": "unknown",
+  "run_id": "r-20260101-120000-golden",
+  "source_schema": "testence/1",
+  "test": "test_hosts",
+  "ts": "2026-01-01T12:00:01.600Z",
+  "variant_id": "default"
+ }
+]

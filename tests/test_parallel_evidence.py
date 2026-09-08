@@ -12,6 +12,7 @@ from testence.engine import worker_port_offset
 from testence.engine.playwright_cdp import PlaywrightCdpEngine
 from testence.evidence import RUN_ID_ENV, WORKER_ENV, EvidenceWriter, ledger_paths
 from testence.fingerprints import FingerprintStore
+from testence.identity import source_case_id
 from testence.metrics import aggregate, load_run
 
 FP = {
@@ -147,7 +148,7 @@ def test_the_same_code_flapping_is_still_a_flake(tmp_path):
         runs.append(writer.run_dir)
 
     doc = aggregate(runs)
-    assert doc["flaky_tests"] == ["case_a"]
+    assert doc["flaky_tests"] == [f"unconfigured/{source_case_id('case_a')}/default"]
     assert doc["interaction_flake_rate"] == 1.0
 
 

@@ -31,9 +31,9 @@ The supported development platforms are Windows and Linux with Python 3.10 or ne
 ## Required checks
 
 ```bash
-uv run ruff format --check src tests bench
-uv run ruff check src tests bench
-uv run mypy src/testence bench/react_latency.py bench/warm_runner_latency.py
+uv run ruff format --check src tests bench scripts
+uv run ruff check src tests bench scripts
+uv run mypy src/testence bench/react_latency.py bench/warm_runner_latency.py bench/scale_profile.py scripts/release_artifacts.py
 uv run pytest -q
 ```
 
@@ -55,3 +55,9 @@ oracle. Update the checked-in result, command and environment together.
 Keep commits reviewable and explain the outcome before implementation details. A pull
 request should include tests that demonstrate the failure mode, the verification
 commands actually run, and any compatibility or privacy consequences.
+
+All contributions are accepted under Apache-2.0. Contributors must have the right to
+submit every source file, fixture and dataset in their change, identify third-party
+material in the pull request, and add attribution or NOTICE text when its license
+requires it. Synthetic fixtures are preferred. The maintainer `@kiselas` owns release,
+security triage and final review until additional maintainers are named.

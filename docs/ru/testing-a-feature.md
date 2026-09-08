@@ -81,7 +81,13 @@ def test_created_widget_is_visible(ex, testence_api, widget_seed):
 
     ex.expect_text(ROW_NAME, widget.name, intent="show the created widget")
     actual = testence_api.get(f"/api/widgets/{widget.id}").raise_for_status().json
-    ex.verify("created widget", {"name": widget.name}, {"name": actual["name"]})
+    ex.verify(
+        "created widget",
+        {"name": widget.name},
+        {"name": actual["name"]},
+        assertion_id="assert.widget.persisted",
+        claim_id="widgets.create.persisted",
+    )
 ```
 
 Избегайте произвольных sleeps. Ждите значимое состояние: request, response, видимое
@@ -102,6 +108,44 @@ save_and_verify(
     expect_request="/api/widgets",
 )
 ```
+
+Для persisted business state связывайте mutation точнее и опрашивайте authoritative
+read с обходом HTTP cache. Mutation выполняется один раз; повторяются только GET reads.
+`minimum_revision` отвергает stale-значение, случайно совпавшее с UI, а `stability_ms`
+обнаруживает commit, который вскоре был откачен:
+
+```python
+from testence.oracle import ExpectedState, RequestExpectation, save_and_verify_state
+
+save_and_verify_state(
+    ex,
+    SAVE_BUTTON,
+    name="widget",
+    request=RequestExpectation(
+        "/api/widgets",
+        "POST",
+        origin=settings.base_url,
+        correlation_id=widget.run_marker,
+    ),
+    read=lambda: testence_api.get_fresh(f"/api/widgets/{widget.id}"),
+    expected=ExpectedState(
+        "created widget остаётся сохранённым",
+        lambda body: body["name"] == widget.name and body["state"] == "saved",
+        entity_id=widget.id,
+        correlation_id=widget.run_marker,
+        minimum_revision=widget.expected_revision,
+        stability_ms=500,
+    ),
+    assertion_id="assert.widget.persisted",
+    claim_id="widgets.create.persisted",
+)
+```
+
+Request expectation также может указывать GraphQL operation или custom predicate для
+network record. Пустой/non-JSON/HTML ответ и 401/403/404/500 от oracle дают
+`inconclusive`; валидное stale-состояние, неверная entity/role или rollback дают failed
+assertion. Для negative claims используйте отрицательный predicate и `stability_ms` как
+observation window.
 
 `ex.fill(...)` по умолчанию сохраняет проверки visibility/editability Playwright.
 `ex.fill(..., fast=True)` пропускает их, но сохраняет нормальный `input` event; используйте

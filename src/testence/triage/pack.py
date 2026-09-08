@@ -10,13 +10,21 @@ The verdict taxonomy is defined by ADR-0014.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
-from testence.contracts import VERDICT_KINDS, VERDICT_SCHEMA
+from testence.contracts import (
+    EVIDENCE_PACK_SCHEMA,
+    PACK_MANIFEST_SCHEMA,
+    VERDICT_KINDS,
+    VERDICT_SCHEMA,
+)
 from testence.engine import Engine, dump_net
 from testence.evidence import EvidenceWriter, budgets_for, estimate_tokens
+from testence.evidence.sanitize import FULL_SECTION_CHAR_LIMIT
+from testence.identity import proof_id, source_case_id
 
 #: The answers a judge is allowed to give (ADR-0014).
 #:
@@ -77,6 +85,49 @@ def _truncate(text: str, budget_tokens: int, full_path: Path) -> str:
     )
 
 
+def _write_manifest(pack_dir: Path, identity: dict[str, Any]) -> str:
+    artifacts = []
+    for path in sorted(pack_dir.iterdir(), key=lambda item: item.name):
+        if not path.is_file() or path.name == "manifest.json" or path.name.startswith("verdict."):
+            continue
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(64 * 1024), b""):
+                digest.update(chunk)
+        artifacts.append(
+            {
+                "path": path.name,
+                "bytes": path.stat().st_size,
+                "sha256": digest.hexdigest(),
+            }
+        )
+    manifest_path = pack_dir / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema": PACK_MANIFEST_SCHEMA,
+                **{
+                    field: identity[field]
+                    for field in (
+                        "project_id",
+                        "case_id",
+                        "variant_id",
+                        "attempt_id",
+                        "run_id",
+                        "proof_id",
+                    )
+                },
+                "artifacts": artifacts,
+            },
+            ensure_ascii=False,
+            indent=1,
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+    return "sha256:" + hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
+
 def assemble_pack(
     engine: Engine,
     writer: EvidenceWriter,
@@ -90,7 +141,8 @@ def assemble_pack(
     sections: dict[str, int] = {}
 
     def write_section(name: str, filename: str, content: str) -> None:
-        text = _truncate(content, budgets_for(name), pack_dir / f"full-{filename}")
+        safe_content = str(writer.sanitized(content, limit=FULL_SECTION_CHAR_LIMIT))
+        text = _truncate(safe_content, budgets_for(name), pack_dir / f"full-{filename}")
         (pack_dir / filename).write_text(text, encoding="utf-8", newline="\n")
         sections[name] = estimate_tokens(text)
 
@@ -110,16 +162,21 @@ def assemble_pack(
     )
     if oracle_diff:
         write_section(
-            "oracle", "oracle.json", json.dumps(oracle_diff, ensure_ascii=False, indent=1)
+            "oracle",
+            "oracle.json",
+            json.dumps(writer.sanitized(oracle_diff), ensure_ascii=False, indent=1),
         )
 
-    try:
-        engine.screenshot(str(pack_dir / "screenshot.png"))
-    except Exception:
-        pass  # screenshots are for humans; agents start from text
+    screenshot_status = "disabled"
+    if bool(getattr(engine, "capture_screenshots", False)):
+        try:
+            engine.screenshot(str(pack_dir / "screenshot.png"))
+            screenshot_status = "captured"
+        except Exception as exc:
+            screenshot_status = f"error: {type(exc).__name__}"
 
     if heal is not None:
-        document = heal.to_json()
+        document = writer.sanitized(heal.to_json())
         (pack_dir / "heal.json").write_text(
             json.dumps(document, ensure_ascii=False, indent=1),
             encoding="utf-8",
@@ -127,21 +184,86 @@ def assemble_pack(
         )
         sections["heal"] = estimate_tokens(json.dumps(document))
 
-    manifest = engine.browser_manifest()
+    manifest = writer.sanitized(engine.browser_manifest())
     (pack_dir / "browser.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n"
     )
     (pack_dir / "TRIAGE.md").write_text(_TRIAGE_PROMPT, encoding="utf-8", newline="\n")
 
     context = writer.context_for(test_id)
+    if not context.get("case_id"):
+        direct_attempt = "attempt-direct-1"
+        direct_case = source_case_id(test_id)
+        context.update(
+            {
+                "project_id": writer.project_id,
+                "case_id": direct_case,
+                "variant_id": "default",
+                "attempt_id": direct_attempt,
+                "run_id": writer.run_id,
+                "proof_id": proof_id(writer.run_id, direct_case, "default", direct_attempt),
+                "parameters": {},
+            }
+        )
     plan = context.get("plan") or {}
     claims = context.get("claims") or []
-    verdict_template = None
-    if plan.get("id") and claims:
+    proof_digests = {
+        "plan_digest": context.get("plan_digest") or plan.get("digest"),
+        "test_digest": context.get("test_digest"),
+        "policy_digest": context.get("policy_digest"),
+    }
+    has_verdict_template = bool(
+        plan.get("id")
+        and claims
+        and all(
+            isinstance(value, str) and value.startswith("sha256:") and len(value) == 71
+            for value in proof_digests.values()
+        )
+    )
+    index = writer.sanitized(
+        {
+            "schema": EVIDENCE_PACK_SCHEMA,
+            "test": test_id,
+            "error": error,
+            "page_url": manifest.get("page_url"),
+            "page_settled": settled,
+            "capture": {"screenshot": screenshot_status},
+            "sections_est_tokens": sections,
+            "verdicts": list(VERDICTS),
+            **context,
+        }
+    )
+    if has_verdict_template:
+        index["verdict_template"] = "verdict.template.json"
+    elif plan.get("id") and claims:
+        index["verdict_unavailable"] = "missing plan/test/policy proof digest"
+    index["manifest"] = "manifest.json"
+    if heal is not None:
+        # Surfaced in the index so a triage agent sees the framework's own reading
+        # of "moved vs gone" before it opens any section.
+        index["heal_hint"] = {"verdict_hint": heal.verdict_hint, "score": heal.score}
+    (pack_dir / "pack.json").write_text(
+        json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n"
+    )
+    pack_digest = _write_manifest(pack_dir, context)
+    if has_verdict_template:
         verdict_template = {
             "schema": VERDICT_SCHEMA,
+            **{
+                field: context[field]
+                for field in (
+                    "project_id",
+                    "case_id",
+                    "variant_id",
+                    "attempt_id",
+                    "run_id",
+                    "proof_id",
+                )
+            },
             "plan_id": plan["id"],
             "test_id": test_id,
+            **proof_digests,
+            "pack_digest": pack_digest,
             "verdict": None,
             "confidence": 0.0,
             "summary": "",
@@ -161,28 +283,10 @@ def assemble_pack(
             encoding="utf-8",
             newline="\n",
         )
-    index = {
-        "test": test_id,
-        "error": error,
-        "page_url": manifest.get("page_url"),
-        "page_settled": settled,
-        "sections_est_tokens": sections,
-        "verdicts": list(VERDICTS),
-        **context,
-    }
-    if verdict_template is not None:
-        index["verdict_template"] = "verdict.template.json"
-    if heal is not None:
-        # Surfaced in the index so a triage agent sees the framework's own reading
-        # of "moved vs gone" before it opens any section.
-        index["heal_hint"] = {"verdict_hint": heal.verdict_hint, "score": heal.score}
-    (pack_dir / "pack.json").write_text(
-        json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n"
-    )
     pack_event: dict[str, Any] = {
         "dir": str(pack_dir.relative_to(writer.run_dir)),
         "sections_est_tokens": sections,
-        "error": error,
+        "error": writer.sanitized(error),
     }
     if heal is not None:
         # Carried in the ledger too, so the HTML report can show the proposal

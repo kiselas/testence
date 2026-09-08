@@ -5,6 +5,7 @@
     "Credentials belong in .env.local or the real environment.",
     "Select an environment with TESTENCE_PROFILE or --testence-profile."
   ],
+  "project_id": "example-product",
   "api_prefix": "/api/",
   "timeout_ms": 10000,
   "browser_channel": "chromium",

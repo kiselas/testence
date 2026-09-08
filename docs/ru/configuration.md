@@ -26,11 +26,28 @@ pytest tests_e2e/ --testence-profile local
 в [`testence.example.json`](../../testence.example.json). Неизвестное имя профиля сразу
 приводит к ошибке со списком доступных профилей.
 
-Известные фреймворку keys: `base_url`, `api_prefix`, `auth`, `login_path`,
-`api_login_path`, `cdp_url`, `browser_channel`, `headed`, `timeout_ms`, `verify_tls`, `ca_bundle`,
+Известные фреймворку keys: `project_id`, `base_url`, `api_prefix`, `auth`, `login_path`,
+`api_login_path`, `cdp_url`, `execution_mode`, `browser_channel`, `debug_port`, `headed`,
+`timeout_ms`, `verify_tls`, `ca_bundle`,
 `runs_root`, `user_var`, `password_var`. Остальные попадают в `settings.extra`
 и доступны стратегиям и адаптерам проекта, например `session_cookie`,
 `token_storage_key`, `success_url_contains`.
+
+`project_id` — принадлежащий репозиторию namespace для ledger, packs, verdicts и
+истории отчётов. Укажите его явно в `testence.json`; package name из `pyproject.toml`
+служит только compatibility fallback для ещё не мигрировавших проектов.
+
+По умолчанию `execution_mode` равен `isolated`. Каждый тест получает новый собственный
+browser context, auth session и API client; принадлежащие runner процессы и порты
+закрываются после pass, failure и interrupt. Режим `warm` сохраняет принадлежащий
+runner процесс browser, но заменяет context перед каждым тестом. При `cdp_url`
+автоматически выбирается `attached`: Testence заимствует context и никогда не закрывает
+чужой browser. Warm и attached являются явными authoring-режимами, а не CI isolation.
+
+В project seed fixtures используйте `testence_namespace` или строку
+`testence_seed_marker`. Marker включает project, run, worker, case, role и attempt.
+Свяжите его с `SeedLifecycle(owner=...)`: ошибка cleanup остаётся видимой, а reverse-order
+и xdist runs не используют общий data namespace.
 
 Два значения `extra`, которые читает сам engine:
 
@@ -65,6 +82,34 @@ TESTENCE_PASSWORD=...
 headers и cookies, а `Settings.describe()`, записываемый в `run.jsonl`, никогда не
 содержит секрет. Найденное значение credential в evidence artifact — это баг.
 
+`ApiClient` передаёт унаследованный Authorization header только на нормализованный
+origin из `base_url` и из необязательного списка `api_allowed_origins`. Абсолютный URL
+с другим host или port, переход с HTTPS на HTTP и redirect на другой origin завершаются
+ошибкой до передачи credentials. Поэтому cross-origin API требует явной записи в
+profile. Для browser cookies дополнительно соблюдаются domain, path, secure и expiry.
+
+## Необязательный session cache
+
+Переиспользование session выключено, пока profile не задаёт identity probe. Безопасная
+конфигурация cache указывает ожидаемую role и конечный TTL:
+
+```json
+{
+  "session_probe_path": "/api/v1/auth/me",
+  "session_cache_ttl_s": 900,
+  "session_identity_field": "email",
+  "session_role_field": "role",
+  "session_expected_role": "qa-admin"
+}
+```
+
+Probe должен вернуть JSON object с настроенными identity и role. Перед каждым reuse
+Testence требует HTTP 2xx, совпадение account и role и непросроченную запись cache.
+Logout, повреждённый или старый формат cache, смена project, origin, account, profile,
+role или auth strategy приводят к настоящему login. Имя cache file зависит от scope,
+account хранится как hash, а файл получает доступ только владельцу там, где ОС
+поддерживает этот режим. Cache следует держать в исключённом из Git `runs_root`.
+
 ## TLS с частным центром сертификации
 
 Self-hosted тестовое окружение может использовать private CA, доверенный браузером
@@ -88,6 +133,8 @@ TESTENCE_VERIFY_TLS=false                        # только изолиров
 | `TESTENCE_BROWSER_CHANNEL` | `chromium` по умолчанию — свежий браузер, поставляемый установленной версией Playwright; `chrome` включает системный Google Chrome |
 | `TESTENCE_CDP_URL` | подключение к запущенному Chrome вместо нового |
 | `TESTENCE_RUN_ID` | имя каталога запуска; plugin задаёт его общим для всех xdist workers ([ADR-0012](adr/0012-parallel-execution.md)) |
+| `ALLURE_TESTPLAN_PATH` | стандартный selective plan Allure версии `1.0`; invalid/unresolved/empty scope отклоняется |
+| `TESTENCE_EMPTY_TESTPLAN` | `fail` по умолчанию или явный `noop`; CLI-эквивалент — `--testence-empty-testplan=noop` |
 
 Для повторяющегося agent-authoring loop один раз запустите и аутентифицируйте browser,
 после чего подключайте к нему короткие pytest processes через attached profile:
@@ -126,6 +173,29 @@ pytest examples/ -q --testence-headless
 Флаг `--testence-browser-channel chrome` оставляет возможность регрессионного запуска
 на системном Google Chrome. Обычный локальный и CI-путь использует bundled Chromium,
 поэтому версия браузера согласована с версией Playwright и не зависит от состояния ПК.
+
+## Политика сбора evidence
+
+Network bodies и screenshots отключены, пока проект явно их не разрешит. Текстовые
+ARIA-данные, ограниченный console buffer и очищенные URL остаются доступны. Для среды
+только с синтетическими данными каналы можно включить в `testence.json`:
+
+```json
+{
+  "extra": {
+    "capture_policy": {
+      "network_bodies": true,
+      "screenshots": true,
+      "body_content_types": ["application/json"],
+      "body_cap_bytes": 65536
+    }
+  }
+}
+```
+
+Жёсткий предел body — 64 KiB. При недопущенном content type, неизвестном размере или
+размере выше лимита Testence фиксирует omission и не просит Playwright материализовать
+body. Screenshot управляется отдельно: text redaction не очищает пиксели.
 
 ## Параллельный запуск
 

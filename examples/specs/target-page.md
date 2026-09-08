@@ -5,7 +5,8 @@ coding agent should create before authoring deterministic tests.
 
 ```testence-planspec
 {
-  "schema": "testence/planspec/1",
+  "schema": "testence/planspec/2",
+  "project_id": "testence",
   "id": "target-page.basic-behaviour",
   "title": "Verify the local target page",
   "source": "examples/test_target_page.py",
@@ -26,6 +27,26 @@ coding agent should create before authoring deterministic tests.
       "id": "target.async.loaded",
       "statement": "The asynchronous load eventually renders its result.",
       "oracles": ["ui", "network"],
+      "required": true
+    }
+  ],
+  "assertions": [
+    {
+      "id": "assert.counter.incremented",
+      "claim_id": "target.counter.incremented",
+      "oracle": "ui",
+      "required": true
+    },
+    {
+      "id": "assert.row.visible",
+      "claim_id": "target.row.visible",
+      "oracle": "ui",
+      "required": true
+    },
+    {
+      "id": "assert.async.response",
+      "claim_id": "target.async.loaded",
+      "oracle": "network",
       "required": true
     }
   ],

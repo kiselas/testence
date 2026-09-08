@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:pack-manifest:2",
+  "title": "Testence pack manifest v2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema", "project_id", "case_id", "variant_id", "attempt_id", "run_id", "proof_id", "artifacts"
+  ],
+  "properties": {
+    "schema": {"const": "testence/pack-manifest/2"},
+    "project_id": {"type": "string", "minLength": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "variant_id": {"type": "string", "minLength": 1},
+    "attempt_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "proof_id": {"type": "string", "minLength": 1},
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "bytes", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1, "pattern": "^[^/\\\\]+$"},
+          "bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    }
+  }
+}

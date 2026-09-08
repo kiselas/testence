@@ -1,0 +1,27 @@
+{
+  "schema": "testence/support/1",
+  "version": "0.1.0.dev0",
+  "status": "pre-alpha",
+  "python": {
+    "requires": ">=3.10",
+    "ci": ["3.10", "3.12"],
+    "local_additional": ["3.13"]
+  },
+  "platforms": {
+    "ci": ["ubuntu-latest", "windows-latest"],
+    "browser": "Playwright bundled Chromium",
+    "browser_fallback": "system Chrome by explicit option"
+  },
+  "dependency_floors": {
+    "jsonschema": "4.23",
+    "playwright": "1.49",
+    "pytest": "8.0",
+    "pytest-xdist": "3.6"
+  },
+  "support_policy": "SUPPORT.md",
+  "security_policy": "SECURITY.md",
+  "limitations": [
+    "Only the hosted matrix of an exact clean candidate establishes release support.",
+    "Attached and warm browser modes are authoring surfaces; release evidence uses isolated mode."
+  ]
+}

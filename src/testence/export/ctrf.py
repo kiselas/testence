@@ -61,6 +61,14 @@ def _summary(run: LoadedRun) -> dict[str, Any]:
         "pending": run.pending,
         "skipped": run.skipped,
         "other": run.other,
+        "extra": {
+            "testence": {
+                "run_id": run.run_id,
+                "project_id": run.project_id,
+                "run_status": run.run_status,
+                "integrity_errors": run.integrity_errors,
+            }
+        },
     }
     start, stop = epoch_ms(run.start), epoch_ms(run.stop)
     if start is not None:
@@ -85,6 +93,18 @@ def _test(test: Test) -> dict[str, Any]:
     # `extra` is where a format's blind spots go: the step intents keep a flat
     # consumer readable, and the pack path points at the real evidence.
     extra: dict[str, Any] = {}
+    extra["testence_identity"] = {
+        "project_id": test.project_id,
+        "case_id": test.case_id,
+        "variant_id": test.variant_id,
+        "attempt_id": test.attempt_id,
+        "proof_id": test.proof_id,
+        "parameters": test.parameters,
+    }
+    extra["testence_assurance"] = {
+        "status": test.assurance,
+        "reasons": list(test.assurance_reasons),
+    }
     if test.steps:
         extra["steps"] = _intents(test.steps)
     if test.pack_dir:

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:run-manifest:2",
+  "title": "Testence run manifest v2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema", "project_id", "run_id", "status", "ledgers"],
+  "properties": {
+    "schema": {"const": "testence/run-manifest/2"},
+    "project_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["running", "complete"]},
+    "run_status": {"type": "string", "minLength": 1},
+    "exit_code": {"type": ["integer", "null"]},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "selected_count": {"type": "integer", "minimum": 0},
+    "selected": {"type": "array", "items": {"type": "object"}},
+    "ledgers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "bytes", "sha256"],
+        "properties": {
+          "path": {"type": "string", "pattern": "^run(?:-[^/\\\\]+)?\\.jsonl$"},
+          "bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "complete"}}},
+      "then": {"required": ["run_status", "exit_code", "completed_at"]}
+    }
+  ]
+}

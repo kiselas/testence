@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:quality-pack-lock:1",
+  "title": "Testence quality pack lock v1",
+  "type": "object",
+  "required": ["schema", "name", "version", "digest", "source", "files", "policy", "status"],
+  "properties": {
+    "schema": {"const": "testence/quality-pack-lock/1"},
+    "name": {"type": "string"},
+    "version": {"type": "string"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "source": {"type": "string"},
+    "files": {"type": "array", "items": {"type": "object"}},
+    "policy": {"type": "object"},
+    "status": {"enum": ["applied", "conflict", "rolled_back"]}
+  }
+}

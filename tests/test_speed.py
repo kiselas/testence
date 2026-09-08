@@ -97,6 +97,27 @@ def test_network_response_wait_yields_in_ten_millisecond_quanta():
     assert page.delays == [10]
 
 
+def test_network_response_predicate_skips_unrelated_same_endpoint_traffic():
+    unrelated = NetRecord(
+        "POST", "https://example.test/api/widgets", 201, 0.0, 1.0, request_body='{"id":1}'
+    )
+    wanted = NetRecord(
+        "POST", "https://example.test/api/widgets", 201, 0.0, 1.0, request_body='{"id":2}'
+    )
+    instance = PlaywrightCdpEngine()
+    instance._page = SimpleNamespace(wait_for_timeout=lambda _ms: None)
+    instance._net = [unrelated, wanted]
+
+    found = instance.wait_for_response(
+        "/api/widgets",
+        method="POST",
+        timeout_ms=10,
+        predicate=lambda record: record.request_body == '{"id":2}',
+    )
+
+    assert found is wanted
+
+
 def test_attached_engine_does_not_close_the_launchers_context():
     class CloseProbe:
         def __init__(self) -> None:

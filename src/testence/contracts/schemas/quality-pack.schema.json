@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:quality-pack:1",
+  "title": "Testence quality pack v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "name", "version", "files", "policy"],
+  "properties": {
+    "schema": {"const": "testence/quality-pack/1"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 128},
+    "version": {"type": "string", "minLength": 1, "maxLength": 128},
+    "compatibility": {"type": "object"},
+    "files": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["owners", "risks", "selection"],
+      "properties": {
+        "owners": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "risks": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "selection": {"type": "object"}
+      }
+    }
+  }
+}

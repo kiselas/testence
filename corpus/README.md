@@ -13,6 +13,26 @@ python corpus/run.py --keep                           # keep workspaces to inspe
 
 Results land in `corpus/results/corpus.json` (summary + per-item records).
 
+`expected-state-v1.json` is the deterministic oracle classification corpus. Pytest runs
+its 13 healthy/adversarial cases directly through `observe_expected_state`; it covers
+optimistic and stale reads, delayed commit, rollback, wrong entity/role and unusable
+HTTP responses. It has no browser or external-service dependency and ships in the
+source distribution.
+
+`r1-correctness-v1.json` is the frozen R1 registry: 40 unique cases in the required
+20 product-defect / 10 healthy-control / 5 repairable-drift / 5 ambiguous-infrastructure
+strata, including eight holdouts. Validate its structure and adjacent SHA-256 freeze in
+CI with:
+
+```bash
+testence corpus validate corpus/r1-correctness-v1.json --structure-only --json
+```
+
+Omit `--structure-only` for the acceptance gate. It intentionally exits 3 until two
+licensed OSS targets record exact commits/reset recipes and two independent reviewers
+confirm the truth labels and deterministic reproduction. The structural freeze is
+complete; those external receipts are not synthesized by the project.
+
 ## How an item runs
 
 1. A workspace is created with a pristine copy of the target page.

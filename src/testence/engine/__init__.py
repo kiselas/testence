@@ -6,6 +6,17 @@ import os
 import re
 from typing import Any
 
+from .capabilities import (
+    CAPABILITY_SCHEMA,
+    Capability,
+    CapabilityProvider,
+    EvidenceEngine,
+    LifecycleEngine,
+    UnsupportedCapability,
+    capability_document,
+    engine_capabilities,
+    require_capabilities,
+)
 from .protocol import Engine, NetRecord, Target, dump_net
 
 #: Registered implementations. A new backend registers a name here and becomes
@@ -33,6 +44,12 @@ def create_engine(settings: Any, backend: str = "playwright-cdp") -> Engine:
         raise ValueError(f"unknown engine backend {backend!r}; known: {', '.join(BACKENDS)}")
     from .playwright_cdp import PlaywrightCdpEngine
 
+    capture = settings.extra.get("capture_policy", {})
+    if not isinstance(capture, dict):
+        raise ValueError("capture_policy must be an object")
+    admitted = capture.get("body_content_types", ["application/json"])
+    if not isinstance(admitted, list) or not all(isinstance(item, str) for item in admitted):
+        raise ValueError("capture_policy.body_content_types must be a list of strings")
     return PlaywrightCdpEngine(
         base_url=settings.base_url,
         cdp_url=settings.cdp_url,
@@ -52,15 +69,29 @@ def create_engine(settings: Any, backend: str = "playwright-cdp") -> Engine:
         # project in the settings file, because the stable attribute is a property
         # of the application, not of the framework.
         test_id_attribute=str(settings.extra.get("test_id_attribute", "")),
+        user_data_dir=str(settings.extra.get("user_data_dir") or "") or None,
+        capture_network_bodies=bool(capture.get("network_bodies", False)),
+        capture_screenshots=bool(capture.get("screenshots", False)),
+        admitted_body_content_types=tuple(admitted),
+        body_cap_bytes=int(capture.get("body_cap_bytes", 64 * 1024)),
     )
 
 
 __all__ = [
     "BACKENDS",
+    "Capability",
+    "CAPABILITY_SCHEMA",
+    "CapabilityProvider",
     "Engine",
+    "EvidenceEngine",
+    "LifecycleEngine",
     "NetRecord",
     "Target",
+    "UnsupportedCapability",
+    "capability_document",
     "create_engine",
     "dump_net",
+    "engine_capabilities",
+    "require_capabilities",
     "worker_port_offset",
 ]

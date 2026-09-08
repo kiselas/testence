@@ -14,10 +14,13 @@ Two ideas carry the whole design:
 
 from __future__ import annotations
 
+import math
 import os
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 from testence.engine import Engine
 
@@ -72,9 +75,45 @@ class AuthContext:
     user: dict[str, Any] | None = None
     scheme: str = "unknown"
 
-    def cookie_header(self) -> str:
-        """``Cookie:`` header value for plain HTTP clients."""
-        return "; ".join(f"{c['name']}={c['value']}" for c in self.cookies)
+    def cookie_header(self, url: str | None = None) -> str:
+        """Build a Cookie header, applying browser domain/path/secure scope.
+
+        ``url=None`` preserves the legacy serialization helper for callers that do
+        not perform a request. Credential-bearing clients always supply a URL.
+        """
+        if url is None:
+            selected = self.cookies
+        else:
+            parsed = urlsplit(url)
+            host = (parsed.hostname or "").lower()
+            request_path = parsed.path or "/"
+            now = time.time()
+            selected = []
+            for cookie in self.cookies:
+                domain = str(cookie.get("domain") or "").lower()
+                if domain:
+                    bare_domain = domain.lstrip(".")
+                    domain_matches = host == bare_domain
+                    if domain.startswith("."):
+                        domain_matches = domain_matches or host.endswith(f".{bare_domain}")
+                    if not domain_matches:
+                        continue
+                cookie_path = str(cookie.get("path") or "/")
+                if not _cookie_path_matches(request_path, cookie_path):
+                    continue
+                if cookie.get("secure") and parsed.scheme.lower() != "https":
+                    continue
+                try:
+                    expires = float(cookie.get("expires") or -1)
+                except (TypeError, ValueError):
+                    expires = -1
+                if not math.isfinite(expires):
+                    continue
+                if expires > 0 and expires <= now:
+                    continue
+                selected.append(cookie)
+            selected.sort(key=lambda cookie: len(str(cookie.get("path") or "/")), reverse=True)
+        return "; ".join(f"{c['name']}={c['value']}" for c in selected)
 
     def describe(self) -> dict[str, Any]:
         """Evidence-safe summary: names only, no values. A failed run must show
@@ -97,3 +136,13 @@ class AuthAdapter(Protocol):
     def authenticate(self, engine: Engine) -> AuthContext:
         """Leave ``engine``'s browser authenticated; return the reusable session."""
         ...
+
+
+def _cookie_path_matches(request_path: str, cookie_path: str) -> bool:
+    if not cookie_path.startswith("/"):
+        cookie_path = "/"
+    if request_path == cookie_path:
+        return True
+    if not request_path.startswith(cookie_path):
+        return False
+    return cookie_path.endswith("/") or request_path[len(cookie_path) :].startswith("/")

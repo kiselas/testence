@@ -1,10 +1,30 @@
 {
  "fullName": "tests/test_login.py::test_login",
- "historyId": "9817ba5837851b9abc31d8024a1742761a3efb4c0b1f5d7b829a79a4caeff4c1",
+ "historyId": "ce98c0474618610d740a628e7f6e6c3fe951efb6ac0e94691056e41dee3f1651",
  "labels": [
   {
    "name": "framework",
    "value": "testence"
+  },
+  {
+   "name": "project",
+   "value": "legacy"
+  },
+  {
+   "name": "case_id",
+   "value": "case-9817ba5837851b9abc31"
+  },
+  {
+   "name": "attempt_id",
+   "value": "legacy-1"
+  },
+  {
+   "name": "proof_id",
+   "value": "unknown"
+  },
+  {
+   "name": "assurance",
+   "value": "unverified"
   },
   {
    "name": "suite",
@@ -19,7 +39,14 @@
    "value": "Smoke"
   }
  ],
+ "links": [],
  "name": "test_login",
+ "parameters": [
+  {
+   "name": "variant_id",
+   "value": "default"
+  }
+ ],
  "stage": "finished",
  "start": 1767268800100,
  "status": "passed",
@@ -48,5 +75,6 @@
   }
  ],
  "stop": 1767268800500,
- "uuid": "b52c39ba-4a7c-5aa1-a2ac-0e52a4f80a1c"
+ "testCaseId": "0d75b826fb67da90bb11c10beebd93cddb79de41cd78111a579d9a4fb2c568ba",
+ "uuid": "2fdfdbff-d918-52bf-ac05-c1254ecbe4a3"
 }

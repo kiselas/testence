@@ -35,6 +35,8 @@ body { margin:0; background:var(--bg); color:var(--fg);
 main { max-width:960px; margin:0 auto; padding:24px 16px 64px; }
 h1 { font-size:20px; margin:0 0 4px; }
 .sub { color:var(--muted); margin-bottom:20px; }
+.integrity { color:var(--fail); background:var(--fail-bg); border:1px solid var(--fail);
+             border-radius:10px; padding:10px 14px; margin-bottom:18px; }
 .summary { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; }
 .stat { background:var(--card); border:1px solid var(--line); border-radius:10px;
         padding:10px 16px; min-width:110px; }
@@ -84,9 +86,10 @@ footer { color:var(--muted); font-size:12px; margin-top:32px; }
 <main>
   <h1>Testence run <code>__RUN_ID__</code></h1>
   <div class="sub" id="fingerprint"></div>
+  <div class="integrity" id="integrity" hidden></div>
   <div class="summary" id="summary"></div>
   <div id="tests"></div>
-  <footer>schema testence/1 · report is a view over run.jsonl — agents read the ledger,
+  <footer>schema testence/2 · report is a view over run.jsonl — agents read the ledger,
   humans read this page</footer>
 </main>
 <script>
@@ -99,14 +102,24 @@ for (const e of EVENTS) {
   if (e.kind === "run.start") runStart = e;
   else if (e.kind === "run.end") runEnd = e;
   else if (e.test) {
-    if (!byTest.has(e.test)) byTest.set(e.test, []);
-    byTest.get(e.test).push(e);
+    const identity = [e.project_id, e.case_id, e.variant_id, e.attempt_id];
+    const key = identity.every(Boolean) ? identity.join("|") : e.test;
+    if (!byTest.has(key)) byTest.set(key, []);
+    byTest.get(key).push(e);
   }
 }
 const fp = runStart?.fingerprint || {};
 document.getElementById("fingerprint").textContent =
   `${runStart?.ts ?? ""} · ${fp.os ?? ""} · python ${fp.python ?? ""}` +
   (fp.base_url ? ` · ${fp.base_url}` : "");
+if (runEnd?.run_status === "incomplete") {
+  const issues = (runEnd.integrity_errors || []).map(item =>
+    `${item.code}: ${item.error}${item.path ? ` (${item.path})` : ""}`
+  );
+  const warning = document.getElementById("integrity");
+  warning.hidden = false;
+  warning.textContent = `INCOMPLETE RUN${issues.length ? " · " + issues.join(" · ") : ""}`;
+}
 const stats = [
   ["tests", byTest.size],
   ["passed", runEnd?.passed ?? "—"],
@@ -122,6 +135,7 @@ const container = document.getElementById("tests");
 for (const [name, events] of byTest) {
   const end = events.find(e => e.kind === "test.end");
   const status = end?.status === "pass" ? "passed" : (end?.status ?? "not_run");
+  const assurance = end?.assurance ?? "unverified";
   const failed = ["fail", "failed", "broken", "aborted"].includes(status);
   const chip = failed ? "fail" : (status === "passed" ? "pass" : "skip");
   const steps = events.filter(e => e.kind === "step.end");
@@ -170,7 +184,9 @@ for (const [name, events] of byTest) {
   container.insertAdjacentHTML("beforeend", `
     <details class="test" ${failed ? "open" : ""}>
       <summary><span class="chip ${chip}">${esc(status.toUpperCase())}</span>
-        <span class="tname">${esc(name)}</span>
+        <span class="chip ${assurance === "verified" ? "pass" : (assurance === "violated" ? "fail" : "skip")}">
+          ${esc(assurance.toUpperCase())}</span>
+        <span class="tname">${esc(end?.nodeid ?? events[0]?.nodeid ?? name)}</span>
         <span class="tdur">${end ? (end.duration_ms / 1000).toFixed(1) + " s" : ""}</span>
       </summary>
       ${traceHtml}
@@ -190,7 +206,7 @@ for (const [name, events] of byTest) {
 
 def render_report(run_dir: Path, out: Path) -> Path:
     events = load_run(run_dir)
-    run_id = next((e["run"] for e in events), run_dir.name)
+    run_id = str(next((e.get("run_id") or e.get("run") for e in events), run_dir.name))
     page = _TEMPLATE.replace("__RUN_ID__", html.escape(run_id)).replace(
         "__EVENTS__", json.dumps(events, ensure_ascii=False)
     )

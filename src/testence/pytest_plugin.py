@@ -20,14 +20,24 @@ import pytest
 
 from testence import __version__, kernels
 from testence.api import ApiClient
+from testence.assurance import POLICY_DIGEST
 from testence.auth import AuthContext, from_settings
 from testence.config import Settings
 from testence.contracts import PlanSpec, load_plan
 from testence.contracts._validation import ContractError
 from testence.dsl import Actions
-from testence.engine import Engine, create_engine
+from testence.engine import Engine, create_engine, engine_capabilities
 from testence.evidence import RUN_ID_ENV, EvidenceWriter, new_run_id
 from testence.fingerprints import DEFAULT_STORE, FingerprintStore
+from testence.identity import TestIdentity, proof_id, source_case_id, variant_id
+from testence.isolation import TestNamespace
+from testence.testplan import (
+    ALLURE_TESTPLAN_ENV,
+    SelectionCandidate,
+    TestPlanError,
+    load_testplan,
+    select_candidates,
+)
 from testence.triage import assemble_pack
 from testence.triage.heal import propose
 
@@ -42,7 +52,9 @@ def _engine_key(settings: Settings) -> tuple[Any, ...]:
         settings.base_url,
         settings.api_prefix,
         settings.cdp_url,
+        getattr(settings, "execution_mode", "isolated"),
         settings.browser_channel,
+        getattr(settings, "debug_port", 9222),
         settings.headed,
         settings.timeout_ms,
         settings.verify_tls,
@@ -100,6 +112,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption("--testence-headless", action="store_true", default=False)
     group.addoption("--testence-runs-root", default=None)
     group.addoption("--testence-api-prefix", default=None)
+    group.addoption(
+        "--testence-empty-testplan",
+        choices=("fail", "noop"),
+        default=os.environ.get("TESTENCE_EMPTY_TESTPLAN", "fail"),
+        help="policy for an explicitly empty Allure test plan (default: fail)",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -112,7 +130,7 @@ def pytest_configure(config: pytest.Config) -> None:
     """
     config.addinivalue_line(
         "markers",
-        "testence(plan, claims): bind a test to a PlanSpec file and declared claim IDs",
+        "testence(plan, case_id, claims, allure_id): bind a test to a PlanSpec case",
     )
     os.environ.setdefault(RUN_ID_ENV, new_run_id())
 
@@ -122,28 +140,65 @@ class _TestContract:
     plan: PlanSpec
     path: str
     claims: tuple[str, ...]
+    case_id: str
+    allure_id: str | None = None
 
     def ledger_context(self) -> dict[str, Any]:
+        assertions = [
+            {
+                "id": assertion.id,
+                "claim_id": assertion.claim_id,
+                "oracle": assertion.oracle,
+                "required": assertion.required,
+                **({"expected": assertion.expected} if assertion.expected else {}),
+            }
+            for assertion in self.plan.assertions
+            if assertion.claim_id in self.claims
+        ]
+        scenario = next(item for item in self.plan.scenarios if item.id == self.case_id)
         return {
             "plan": {
                 "schema": self.plan.schema,
+                "project_id": self.plan.project_id,
                 "id": self.plan.id,
                 "path": self.path,
+                "digest": self.plan.digest,
             },
             "claims": list(self.claims),
+            "assertions": assertions,
+            "plan_digest": self.plan.digest,
+            "policy_digest": POLICY_DIGEST,
+            **({"owner": self.plan.owner} if self.plan.owner else {}),
+            **({"risk": scenario.risk} if scenario.risk else {}),
+            "capabilities": list(scenario.capabilities),
+            "requirements": [
+                {"id": item.id, **({"url": item.url} if item.url else {})}
+                for item in self.plan.requirements
+            ],
+            "issues": [
+                {"id": item.id, **({"url": item.url} if item.url else {})}
+                for item in self.plan.issues
+            ],
+            **({"allure_id": self.allure_id} if self.allure_id else {}),
         }
 
 
 _CONTRACT_KEY = pytest.StashKey[_TestContract | None]()
+_IDENTITY_KEY = pytest.StashKey[dict[str, Any]]()
+_TESTPLAN_NOOP_KEY = pytest.StashKey[bool]()
 
 
-def _resolve_contract(item: pytest.Item, rootpath: Path) -> _TestContract | None:
+def _resolve_contract(
+    item: pytest.Item,
+    rootpath: Path,
+    available_capabilities: frozenset[str] | None = None,
+) -> _TestContract | None:
     marker = item.get_closest_marker("testence")
     if marker is None:
         return None
     if marker.args:
         raise ContractError("@pytest.mark.testence accepts keyword arguments only")
-    unknown = sorted(set(marker.kwargs) - {"plan", "claims"})
+    unknown = sorted(set(marker.kwargs) - {"plan", "claims", "case_id", "allure_id"})
     if unknown:
         raise ContractError("unknown testence marker field(s): " + ", ".join(unknown))
     plan_value = marker.kwargs.get("plan")
@@ -165,16 +220,114 @@ def _resolve_contract(item: pytest.Item, rootpath: Path) -> _TestContract | None
         raise ContractError("testence plan path must stay inside the repository")
     plan = load_plan(candidate)
     plan.require_claims(claims)
-    return _TestContract(plan, candidate.relative_to(root).as_posix(), claims)
+    case_value = marker.kwargs.get("case_id")
+    if case_value is not None and not isinstance(case_value, str):
+        raise ContractError("@pytest.mark.testence case_id must be a string")
+    case_id = plan.resolve_case(case_value, claims)
+    scenario = next(candidate for candidate in plan.scenarios if candidate.id == case_id)
+    if available_capabilities is not None:
+        missing = sorted(set(scenario.capabilities) - available_capabilities)
+        if missing:
+            raise ContractError(
+                f"case {case_id!r} requires unsupported engine capability: {', '.join(missing)}"
+            )
+    raw_allure_id = marker.kwargs.get("allure_id")
+    if raw_allure_id is not None and (
+        isinstance(raw_allure_id, bool) or not isinstance(raw_allure_id, (str, int))
+    ):
+        raise ContractError("@pytest.mark.testence allure_id must be a string or integer")
+    allure_id = str(raw_allure_id).strip() if raw_allure_id is not None else None
+    if raw_allure_id is not None and not allure_id:
+        raise ContractError("@pytest.mark.testence allure_id must not be empty")
+    return _TestContract(
+        plan,
+        candidate.relative_to(root).as_posix(),
+        claims,
+        case_id,
+        allure_id,
+    )
 
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    state = config.stash.get(_LIFECYCLE_KEY, None)
+    available_capabilities = (
+        engine_capabilities(create_engine(state.settings)) if state is not None else None
+    )
     for item in items:
         try:
-            item.stash[_CONTRACT_KEY] = _resolve_contract(item, Path(config.rootpath))
+            contract = _resolve_contract(
+                item, Path(config.rootpath), available_capabilities=available_capabilities
+            )
+            item.stash[_CONTRACT_KEY] = contract
+            project_id = (
+                contract.plan.project_id
+                if contract is not None and contract.plan.project_id != "legacy"
+                else (state.settings.project_id if state is not None else "unconfigured")
+            )
+            raw_parameters = dict(getattr(getattr(item, "callspec", None), "params", {}) or {})
+            item_variant_id, parameters = variant_id(raw_parameters, nodeid=item.nodeid)
+            item.stash[_IDENTITY_KEY] = {
+                "project_id": project_id,
+                "case_id": contract.case_id
+                if contract is not None
+                else source_case_id(item.nodeid),
+                "variant_id": item_variant_id,
+                "parameters": parameters,
+            }
         except ContractError as exc:
             raise pytest.UsageError(f"{item.nodeid}: invalid Testence contract: {exc}") from exc
+    _apply_testplan(config, items)
+
+
+def _apply_testplan(config: pytest.Config, items: list[pytest.Item]) -> None:
+    raw_path = os.environ.get(ALLURE_TESTPLAN_ENV)
+    if raw_path is None:
+        return
+    if not raw_path.strip():
+        raise pytest.UsageError(f"{ALLURE_TESTPLAN_ENV} must not be empty")
+    try:
+        plan = load_testplan(raw_path)
+        if not plan.tests:
+            if config.getoption("--testence-empty-testplan") != "noop":
+                raise TestPlanError(
+                    "Allure test plan selected zero tests; pass "
+                    "--testence-empty-testplan=noop for an intentional no-op"
+                )
+            deselected = list(items)
+            items[:] = []
+            config.stash[_TESTPLAN_NOOP_KEY] = True
+            if deselected:
+                config.hook.pytest_deselected(items=deselected)
+            return
+        candidates: list[SelectionCandidate] = []
+        for item in items:
+            identity = item.stash[_IDENTITY_KEY]
+            contract = item.stash.get(_CONTRACT_KEY, None)
+            candidates.append(
+                SelectionCandidate(
+                    nodeid=item.nodeid,
+                    project_id=str(identity["project_id"]),
+                    case_id=str(identity["case_id"]),
+                    variant_id=str(identity["variant_id"]),
+                    allure_id=contract.allure_id if contract is not None else None,
+                )
+            )
+        selected_indices = select_candidates(plan, candidates)
+    except TestPlanError as exc:
+        raise pytest.UsageError(str(exc)) from exc
+    selected = [item for index, item in enumerate(items) if index in selected_indices]
+    deselected = [item for index, item in enumerate(items) if index not in selected_indices]
+    items[:] = selected
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+
+
+def _code_digest(path: Any) -> str:
+    try:
+        return hashlib.sha256(Path(str(path)).read_bytes()).hexdigest()
+    except OSError:
+        return ""
 
 
 def _code_hash(path: Any) -> str:
@@ -184,10 +337,7 @@ def _code_hash(path: Any) -> str:
     being authored has changed code, and calling that a flake made the suite's own
     metric read 44.4 % where nothing had ever flapped.
     """
-    try:
-        return hashlib.sha256(Path(str(path)).read_bytes()).hexdigest()[:12]
-    except OSError:
-        return ""
+    return _code_digest(path)[:12]
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -199,6 +349,8 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
     if state is None or state.closed:
         return
     payload: dict[str, Any] = {
+        "nodeid": item.nodeid,
+        "display_name": item.name,
         "phase": report.when,
         "status": report.outcome,
         "duration_ms": round(float(report.duration) * 1000, 1),
@@ -236,6 +388,7 @@ class _LifecycleState:
     items: dict[str, pytest.Item]
     finished: set[str]
     counts: dict[str, int]
+    attempts: dict[tuple[str, str, str], int]
     deselected: int = 0
     collection_errors: int = 0
     closed: bool = False
@@ -269,7 +422,16 @@ def _settings_from_config(config: pytest.Config) -> Settings:
 
 def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
     settings = _settings_from_config(config)
-    writer = EvidenceWriter(settings.runs_root)
+    redact_values = tuple(
+        value
+        for variable in (settings.user_var, settings.password_var)
+        if (value := os.environ.get(variable) or settings.env_values.get(variable))
+    )
+    writer = EvidenceWriter(
+        settings.runs_root,
+        project_id=settings.project_id,
+        redact_values=redact_values,
+    )
     writer.emit(
         "run.start",
         testence=__version__,
@@ -290,9 +452,9 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         items={},
         finished=set(),
         counts={
-            status: 0
-            for status in ("passed", "failed", "broken", "skipped", "aborted", "not_run")
+            status: 0 for status in ("passed", "failed", "broken", "skipped", "aborted", "not_run")
         },
+        attempts={},
     )
 
 
@@ -343,19 +505,38 @@ def pytest_collection_finish(session: pytest.Session) -> None:
     state = session.config.stash.get(_LIFECYCLE_KEY, None)
     if state is None or state.closed:
         return
+    cases: list[dict[str, Any]] = []
+    for item in session.items:
+        identity = dict(
+            item.stash.get(
+                _IDENTITY_KEY,
+                {
+                    "project_id": state.settings.project_id,
+                    "case_id": source_case_id(item.nodeid),
+                    "variant_id": variant_id({}, nodeid=item.nodeid)[0],
+                    "parameters": {},
+                },
+            )
+        )
+        identity.update(nodeid=item.nodeid, display_name=item.name)
+        contract = item.stash.get(_CONTRACT_KEY, None)
+        if contract is not None:
+            identity.update(contract.ledger_context())
+        cases.append(identity)
     state.writer.emit(
         "collection.end",
         selected=len(session.items),
         deselected=state.deselected,
         errors=state.collection_errors,
         nodeids=[item.nodeid for item in session.items],
+        cases=cases,
     )
 
 
 def _test_id(item: pytest.Item) -> str:
-    # R02 introduces the stable logical case identity. Until then, retain the public
-    # display key while always carrying the full nodeid as the source locator.
-    return item.name
+    # Full nodeid is the collision-free source identity until schema /2 introduces
+    # an explicit logical case_id.  Display names stay separate for reports.
+    return item.nodeid
 
 
 def _report_error(report: pytest.TestReport | pytest.CollectReport) -> str:
@@ -370,21 +551,72 @@ def _report_error(report: pytest.TestReport | pytest.CollectReport) -> str:
 
 
 def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
-    if item.nodeid in state.started:
+    if item.nodeid in state.started and item.nodeid not in state.finished:
         return
+    state.finished.discard(item.nodeid)
+    item.stash[_REPORTS_KEY] = {}
+    item.stash[_PACK_ATTEMPTED_KEY] = False
+    item.stash[_PACK_KEY] = ""
     test_id = _test_id(item)
     contract = item.stash.get(_CONTRACT_KEY, None)
-    if contract is not None:
-        context = contract.ledger_context()
-        state.writer.bind_test(test_id, plan=context["plan"], claims=context["claims"])
+    static_identity = item.stash.get(
+        _IDENTITY_KEY,
+        {
+            "project_id": state.settings.project_id,
+            "case_id": source_case_id(item.nodeid),
+            "variant_id": variant_id({}, nodeid=item.nodeid)[0],
+            "parameters": {},
+        },
+    )
+    attempt_key = (
+        str(static_identity["project_id"]),
+        str(static_identity["case_id"]),
+        str(static_identity["variant_id"]),
+    )
+    attempt_number = state.attempts.get(attempt_key, 0) + 1
+    state.attempts[attempt_key] = attempt_number
+    attempt_id = f"attempt-{state.writer.worker or 'controller'}-{attempt_number}"
+    raw_parameters = static_identity.get("parameters")
+    parameters = (
+        {str(key): str(value) for key, value in raw_parameters.items()}
+        if isinstance(raw_parameters, dict)
+        else {}
+    )
+    identity = TestIdentity(
+        project_id=attempt_key[0],
+        case_id=attempt_key[1],
+        variant_id=attempt_key[2],
+        attempt_id=attempt_id,
+        run_id=state.writer.run_id,
+        proof_id=proof_id(state.writer.run_id, attempt_key[1], attempt_key[2], attempt_id),
+        parameters=parameters,
+    )
+    context = contract.ledger_context() if contract is not None else {}
     node_path = getattr(item, "path", "")
+    test_digest_value = _code_digest(node_path)
+    test_digest = f"sha256:{test_digest_value}" if test_digest_value else "unknown"
+    bound_identity = identity.as_dict()
+    for field in ("owner", "risk", "requirements", "issues", "allure_id"):
+        if field in context:
+            bound_identity[field] = context[field]
+    state.writer.bind_test(
+        test_id,
+        identity=bound_identity,
+        plan=context.get("plan"),
+        claims=context.get("claims", ()),
+        assertions=context.get("assertions", ()),
+        plan_digest=context.get("plan_digest", "unknown"),
+        test_digest=test_digest,
+        policy_digest=context.get("policy_digest", POLICY_DIGEST),
+    )
     state.started[item.nodeid] = time.perf_counter()
     state.items[item.nodeid] = item
     state.writer.emit(
         "test.start",
         test=test_id,
+        display_name=item.name,
         file=str(node_path),
-        code=_code_hash(node_path),
+        code=test_digest_value[:12],
         nodeid=item.nodeid,
         markers=sorted({mark.name for mark in item.iter_markers()}),
     )
@@ -467,7 +699,19 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
         (str(report.wasxfail) for report in reports.values() if getattr(report, "wasxfail", None)),
         None,
     )
+    xfail_marker = item.get_closest_marker("xfail")
+    strict_xpass = bool(
+        xfail_marker is not None
+        and reports.get("call") is not None
+        and reports["call"].failed
+        and "XPASS(strict)" in _report_error(reports["call"])
+    )
+    if xfail_reason is None and xfail_marker is not None:
+        marker_reason = xfail_marker.kwargs.get("reason")
+        xfail_reason = str(marker_reason) if marker_reason else "xfail"
     payload: dict[str, Any] = {
+        "nodeid": item.nodeid,
+        "display_name": item.name,
         "status": status,
         "phase": phase,
         "duration_ms": duration_ms,
@@ -481,7 +725,7 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
         payload["xfail"] = any(
             report.skipped and getattr(report, "wasxfail", None) for report in reports.values()
         )
-        payload["xpass"] = any(
+        payload["xpass"] = strict_xpass or any(
             (report.passed or report.failed) and getattr(report, "wasxfail", None)
             for report in reports.values()
         )
@@ -511,7 +755,7 @@ def pytest_testnodedown(node: Any, error: object | None) -> None:
         return
     state.writer.emit(
         "worker.crash",
-        worker=getattr(getattr(node, "gateway", None), "id", "unknown"),
+        crashed_worker=getattr(getattr(node, "gateway", None), "id", "unknown"),
         error=str(error),
     )
 
@@ -553,6 +797,11 @@ def _close_lifecycle(state: _LifecycleState, exitstatus: int | pytest.ExitCode) 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:
     global _ACTIVE_STATE
+    if session.config.stash.get(_TESTPLAN_NOOP_KEY, False) and int(exitstatus) == int(
+        pytest.ExitCode.NO_TESTS_COLLECTED
+    ):
+        exitstatus = pytest.ExitCode.OK
+        session.exitstatus = pytest.ExitCode.OK
     state = session.config.stash.get(_LIFECYCLE_KEY, None)
     if state is not None:
         _close_lifecycle(state, exitstatus)
@@ -612,14 +861,24 @@ def testence_writer(request: pytest.FixtureRequest) -> EvidenceWriter:
     return state.writer
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def testence_engine(testence_settings: Settings) -> Iterator[Engine]:
     global _WARM_ENGINE_ANY_FAILED
-    warm = os.environ.get("TESTENCE_WARM_ENGINE") == "1"
+    mode = (
+        "warm"
+        if os.environ.get("TESTENCE_WARM_ENGINE") == "1"
+        else ("attached" if testence_settings.cdp_url else testence_settings.execution_mode)
+    )
+    warm = mode == "warm"
     engine = _acquire_warm_engine(testence_settings) if warm else create_engine(testence_settings)
-    if not warm:
+    if warm:
+        if hasattr(engine, "reset_session"):
+            engine.reset_session()
+        else:  # compatibility path for pre-R1 custom engines
+            engine.reset_taps()
+    else:
         engine.start()
-    state = {"any_failed": False}
+    state: dict[str, Any] = {"any_failed": False, "mode": mode}
     engine._testence_state = state  # type: ignore[attr-defined]
     try:
         yield engine
@@ -627,16 +886,18 @@ def testence_engine(testence_settings: Settings) -> Iterator[Engine]:
         if warm:
             _WARM_ENGINE_ANY_FAILED = _WARM_ENGINE_ANY_FAILED or state["any_failed"]
         else:
-            engine.stop(keep_browser=state["any_failed"])
+            # CI/default isolation owns and closes its browser even after failure.
+            # Attached mode only detaches; the launcher's browser is never ours.
+            engine.stop(keep_browser=mode == "attached" and state["any_failed"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def testence_auth(
     testence_settings: Settings,
     testence_engine: Engine,
     testence_writer: EvidenceWriter,
 ) -> AuthContext:
-    """Authenticated session, once per run, per the configured scheme.
+    """Authenticated session for one isolated test, using the configured scheme.
 
     Logged as an evidence event (scheme and names only) so a failed run always
     shows whether it was authenticated — a surprisingly common root cause.
@@ -653,17 +914,45 @@ def testence_auth(
     return context
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def testence_api(testence_settings: Settings, testence_auth: AuthContext) -> ApiClient:
     """API client sharing the browser's session — for oracles and seeding."""
     return ApiClient.from_settings(testence_settings, testence_auth)
 
 
+@pytest.fixture
+def testence_namespace(
+    request: pytest.FixtureRequest,
+    testence_settings: Settings,
+    testence_writer: EvidenceWriter,
+) -> TestNamespace:
+    """Stable per-attempt marker for project-owned seed and cleanup adapters."""
+    role = str(testence_settings.extra.get("session_expected_role") or "anonymous")
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "controller")
+    return TestNamespace(
+        project_id=testence_settings.project_id,
+        run_id=testence_writer.run_id,
+        worker_id=worker,
+        case_id=source_case_id(request.node.nodeid),
+        role=role,
+    )
+
+
+@pytest.fixture
+def testence_seed_marker(testence_namespace: TestNamespace) -> str:
+    return testence_namespace.marker
+
+
 @pytest.fixture(scope="session")
-def testence_fingerprints(request: pytest.FixtureRequest) -> Iterator[FingerprintStore]:
+def testence_fingerprints(
+    request: pytest.FixtureRequest, testence_writer: EvidenceWriter
+) -> Iterator[FingerprintStore]:
     """Memory of the last green run, for heal proposals. Lives in the project repo
     so a proposed edit can be read against what the element used to be."""
-    store = FingerprintStore(Path(request.config.rootpath) / DEFAULT_STORE)
+    store = FingerprintStore(
+        Path(request.config.rootpath) / DEFAULT_STORE,
+        redact_values=testence_writer.redact_values,
+    )
     yield store
     store.flush()
 
@@ -675,7 +964,7 @@ def ex(
     testence_writer: EvidenceWriter,
     testence_fingerprints: FingerprintStore,
 ):
-    test_id = request.node.name
+    test_id = _test_id(request.node)
     request.node.stash[_ACTIONS_KEY] = actions = Actions(
         testence_engine,
         testence_writer,

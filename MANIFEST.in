@@ -1,0 +1,2 @@
+recursive-include corpus *.json *.md *.py *.sha256
+include support.json

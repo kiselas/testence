@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,24 @@ from typing import Any
 ENV_PREFIX = "TESTENCE_"
 SETTINGS_FILES = ("testence.toml", "testence.json")
 ENV_FILES = (".env", ".env.local")
+
+
+def _default_project_id(root: Path) -> str:
+    """Best-effort stable namespace for projects that have not opted in explicitly."""
+
+    pyproject = root / "pyproject.toml"
+    if pyproject.is_file():
+        try:
+            section = pyproject.read_text(encoding="utf-8").split("[project]", 1)[1]
+            section = section.split("\n[", 1)[0]
+            match = re.search(r'^name\s*=\s*["\']([^"\']+)["\']', section, re.MULTILINE)
+            if match:
+                value = re.sub(r"[^a-z0-9._-]+", "-", match.group(1).lower()).strip("-._")
+                if value:
+                    return value[:128]
+        except (OSError, IndexError):
+            pass
+    return "unconfigured"
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:
@@ -73,15 +92,18 @@ class Settings:
     """Resolved configuration for one run."""
 
     base_url: str = ""
+    project_id: str = ""
     api_prefix: str = "/api/"
     auth: str = "none"
     login_path: str = "/login"
     api_login_path: str = ""
     cdp_url: str | None = None
+    execution_mode: str = "isolated"
     # Use the browser revision shipped with this Playwright release instead of a
     # machine-wide Chrome install. ``chromium`` also selects Playwright's regular
     # Chromium in headless mode, keeping headed and CI runs on the same engine.
     browser_channel: str = "chromium"
+    debug_port: int = 9222
     headed: bool = True
     timeout_ms: int = 10_000
     #: Self-hosted targets may use a private CA that the browser trusts through the
@@ -143,8 +165,21 @@ class Settings:
         merged["headed"] = _as_bool(merged.get("headed", True))
         merged["verify_tls"] = _as_bool(merged.get("verify_tls", True))
         merged["timeout_ms"] = int(merged.get("timeout_ms", 10_000))
+        merged["debug_port"] = int(merged.get("debug_port", 9222))
+        if not 1024 <= merged["debug_port"] <= 65535:
+            raise ValueError("debug_port must be between 1024 and 65535")
+        merged["execution_mode"] = str(merged.get("execution_mode", "isolated")).lower()
+        if merged["execution_mode"] not in {"isolated", "warm", "attached"}:
+            raise ValueError("execution_mode must be isolated, warm, or attached")
+        if merged.get("cdp_url"):
+            merged["execution_mode"] = "attached"
         if isinstance(merged.get("base_url"), str):
             merged["base_url"] = merged["base_url"].rstrip("/")
+        if not str(merged.get("project_id") or "").strip():
+            merged["project_id"] = _default_project_id(root.resolve())
+        from testence.identity import validate_identity
+
+        merged["project_id"] = validate_identity(str(merged["project_id"]), "project_id")
         return cls(**merged)
 
     def credentials(self):
@@ -157,11 +192,14 @@ class Settings:
     def describe(self) -> dict[str, Any]:
         """Evidence-safe view: no credential values, ever."""
         return {
+            "project_id": self.project_id,
             "profile": self.profile or "(default)",
             "base_url": self.base_url,
             "auth": self.auth,
             "attach": bool(self.cdp_url),
+            "execution_mode": self.execution_mode,
             "browser_channel": self.browser_channel,
+            "debug_port": self.debug_port,
             "headed": self.headed,
             "verify_tls": self.verify_tls,
         }

@@ -1,7 +1,7 @@
 # Reporting: exporters over the ledger
 
 Testence produces one artifact of record per run — `runs/<run-id>/run.jsonl`
-([schema `testence/1`](evidence-schema.md)). Everything a human or a platform reads is
+([schema `testence/2`](evidence-schema.md)). Everything a human or a platform reads is
 rendered *from* it: the [HTML report](adr/0005-html-report.md), `metrics.json`, and
 the reporting formats described here.
 
@@ -23,43 +23,93 @@ Without `-o`, output lands in `<run-dir>/<name>-results`.
 
 | exporter | writes | carries |
 |---|---|---|
-| `allure` | `<n>-result.json` per test, attachments, `environment.properties` | nested steps, markers as tags, evidence pack as attachments, environment fingerprint |
+| `allure` | `<n>-result.json` per attempt, fixture containers, attachments, `environment.properties` | case/history/result identities, parameters, owner/risk/requirement/issue links, nested steps and redacted evidence |
 | `ctrf` | one `ctrf-report.json` | summary counts, tags, flattened step intents, pack path |
 
 JUnit XML is deliberately **not** an exporter: `pytest --junitxml=…` already emits it
 correctly, including under `-n`, and GitLab/Jenkins/GitHub parse it natively.
 
-## Keeping an existing Allure TestOps pipeline
+## Uploading results to Allure TestOps
 
 `allure` writes the *results directory* format, not the SDK's in-process model, and
-`allurectl` uploads such a directory without caring what produced it. That is what
-makes a migration cheap: **the test command changes, the pipeline does not.** Endpoint,
-project id and token stay exactly as they are.
+`allurectl` can upload that directory. Preserve the pytest exit code explicitly: a
+successful export or upload must not turn a failed or incomplete test run green. Give
+the run an explicit id as well, so parallel jobs never select a stale directory.
 
 ```yaml
 run_tests:
   script:
-    # a red suite still has results worth uploading
-    - pytest tests_e2e/ -q || true
-    - RUN=$(ls -dt runs/r-* | head -1)
-    - testence export "$RUN" --to allure
-    - allurectl upload "$RUN/allure-results"
+    - |
+      export TESTENCE_RUN_ID="r-${CI_PIPELINE_ID}-${CI_JOB_ID}"
+      set +e
+      pytest tests_e2e/ -q
+      TEST_EXIT=$?
+      set -e
+      RUN="runs/${TESTENCE_RUN_ID}"
+      testence export "$RUN" --to allure
+      allurectl upload "$RUN/allure-results"
+      exit "$TEST_EXIT"
   artifacts:
     when: always
     paths: [runs/]
 ```
 
-Two things that survive the swap because they were designed to:
+For a retryable upload with a machine receipt, keep every identity explicit. Options
+for `delivery run` precede the run directory because the remaining arguments are the
+uploader command:
+
+```bash
+testence delivery run \
+  --run-id "$TESTENCE_RUN_ID" --project-id "$TESTENCE_PROJECT_ID" \
+  --launch-id "$ALLURE_LAUNCH_ID" --job-run-id "$ALLURE_JOB_RUN_ID" \
+  --artifact-dir "$RUN/allure-results" --receipt "$RUN/delivery-receipt.json" \
+  --retries 2 --timeout 60 "$RUN" -- allurectl upload "$RUN/allure-results"
+
+testence ci evaluate "$RUN" --run-id "$TESTENCE_RUN_ID" \
+  --test-exit "$TEST_EXIT" --quality-mode assurance \
+  --delivery-receipt "$RUN/delivery-receipt.json" \
+  --ctrf "$RUN/ctrf-results/ctrf-report.json" --junit "$RUN/junit.xml" \
+  -o "$RUN/ci-receipt.json"
+exit $?
+```
+
+The delivery receipt is idempotent for the run/project/launch/job-run plus the exact
+artifact digest. A successful receipt is reused; timeouts and nonzero uploader exits
+are retried within the stated cap. `ci evaluate` records test, quality and delivery
+exits separately and returns the first failing axis, so a successful upload cannot hide
+a failed or incomplete run. Missing attachments, wrong project, stale run identity and
+CTRF/JUnit inventory drift fail before the job becomes green.
+
+The exporter preserves these consumer identities and dimensions:
 
 - **Marker names.** Markers become Allure tags verbatim. Saved filters, dashboards and
-  scheduled selective runs key on those strings, so renaming them would quietly empty
-  someone's filter.
-- **History.** `historyId` is a hash of the test's nodeid and nothing else, so TestOps
-  trends follow the test across runs instead of showing unrelated one-shot results.
+  dashboards and saved filters key on those strings, so renaming them would quietly
+  empty someone's filter.
+- **Identity and retries.** `testCaseId` follows `(project, case)`; `historyId` adds the
+  variant; result UUID adds run and attempt. Every retry remains a separate result in
+  one history instead of replacing the earlier attempt.
+- **Plan metadata.** PlanSpec `owner`, scenario `risk`, requirements and issues become
+  labels and standard Allure `tms`/`issue` links. Digest-only parameters remain safe to
+  group without exporting raw secrets.
+- **Fixtures.** Pytest setup and teardown phases become deterministic Allure container
+  entries with their status, timing and error.
 
-One thing that does not: results appear at export time, not streamed during the run
+The T15 consumer check uses pinned Allure Report 3.14.3:
+
+```bash
+testence export <run-dir> --to allure -o allure-results
+npx --yes allure@3.14.3 awesome allure-results -o allure-report --single-file
+```
+
+Testence consumes the standard `ALLURE_TESTPLAN_PATH` format at collection time. The
+plan version must be `1.0`; entries select by exact pytest `fullName`, `allure_id`, or
+`testence://<project>/<case>/<variant>`. Invalid, unresolved, ambiguous and empty plans
+fail before test execution. An intentionally empty plan requires
+`--testence-empty-testplan=noop`, which produces a successful zero-test run manifest.
+The offline selector is verified; a real TestOps tenant select/upload/history round trip
+remains an external acceptance gate. Results appear at export time, not streamed during the run
 (`allurectl watch` has nothing to watch). For suites that finish in seconds to minutes
-this is a non-issue; if it ever blocks adoption, ADR-0013's tripwire calls for
+this may be acceptable; if it blocks adoption, ADR-0013's tripwire calls for
 incremental export on each `test.end` rather than for an SDK.
 
 ## Writing your own exporter
@@ -129,7 +179,8 @@ what `--to allure` means in a pipeline that has been green for a year.
 | `tests` | list of `Test` |
 | `pack_path(test, filename)` | absolute path of one evidence-pack file, or `None` |
 | `events` | the raw ledger, as an escape hatch |
-| `Test` | `name`, `nodeid`, `file`, `markers`, `plan_id`, `plan_path`, `claim_ids`, `status`, `duration_ms`, `start`/`stop`, `error`, `steps`, `oracles`, `pack_dir` |
+| `Test` | identity/parameters, owner/risk/requirements/issues, source/plan/claims, status/assurance, fixtures, steps, oracles and pack |
+| `FixturePhase` | setup/teardown name, status, duration, error and `start`/`stop` |
 | `Step` | `intent`, `target`, `status`, `duration_ms`, `error`, `start`/`stop`, `substeps` |
 
 Two rules worth knowing before you format anything:

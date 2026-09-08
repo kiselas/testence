@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:evidence:2",
+  "title": "Testence evidence event v2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["v", "project_id", "run_id", "event_id", "worker", "seq", "ts", "kind"],
+  "properties": {
+    "v": {"const": "testence/2"},
+    "project_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "run": {"$ref": "#/$defs/id"},
+    "event_id": {"type": "string", "minLength": 3, "maxLength": 200},
+    "worker": {"type": "string", "minLength": 1, "maxLength": 128},
+    "seq": {"type": "integer", "minimum": 1},
+    "ts": {"type": "string", "format": "date-time"},
+    "kind": {"type": "string", "minLength": 1, "maxLength": 64},
+    "test": {"type": "string", "minLength": 1, "maxLength": 500},
+    "case_id": {"$ref": "#/$defs/id"},
+    "variant_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "proof_id": {"$ref": "#/$defs/id"},
+    "parameters": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"required": ["test"]},
+      "then": {"required": ["case_id", "variant_id", "attempt_id", "proof_id", "parameters"]}
+    },
+    {
+      "if": {"properties": {"kind": {"const": "assertion"}}, "required": ["kind"]},
+      "then": {
+        "required": ["assertion_id", "claim_id", "oracle_kind", "outcome", "expected", "actual", "source"]
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"
+    }
+  }
+}

@@ -51,16 +51,27 @@ def _run_suite(page: Path, runs_root: Path, store_root: Path) -> dict:
     # The plugin loads via its pytest11 entry point; passing -p as well would be a
     # double registration and pytest refuses that outright.
     proc = subprocess.run(
-        [sys.executable, "-m", "pytest", str(Path(__file__).parent / "spec.py"),
-         "--testence-headless", "-q", "--rootdir", str(store_root),
-         "-p", "no:cacheprovider"],
-        cwd=store_root, env=env, capture_output=True, text=True, timeout=600,
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            str(Path(__file__).parent / "spec.py"),
+            "--testence-headless",
+            "-q",
+            "--rootdir",
+            str(store_root),
+            "-p",
+            "no:cacheprovider",
+        ],
+        cwd=store_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=600,
     )
-    new_runs = sorted(p for p in runs_root.glob("r-*")
-                      if p.name not in before and p.is_dir())
+    new_runs = sorted(p for p in runs_root.glob("r-*") if p.name not in before and p.is_dir())
     run_dir = new_runs[-1] if new_runs else None
-    return {"exit_code": proc.returncode, "run_dir": run_dir,
-            "stdout_tail": proc.stdout[-600:]}
+    return {"exit_code": proc.returncode, "run_dir": run_dir, "stdout_tail": proc.stdout[-600:]}
 
 
 def _read_packs(run_dir: Path | None) -> list[dict]:
@@ -87,6 +98,7 @@ def _evaluate(item: CorpusItem, result: dict, packs: list[dict]) -> dict:
 
     heals = [p["heal"] for p in packs if "heal" in p]
     if item.expect_heal:
+
         def acceptable(proposed: dict | None) -> bool:
             if not proposed:
                 return False
@@ -132,8 +144,12 @@ def run_item(item: CorpusItem, keep: bool = False) -> dict:
         evaluation["baseline_green"] = baseline["exit_code"] == 0
         if not evaluation["baseline_green"]:
             evaluation["warning"] = "baseline run was not green; item result is unreliable"
-        return {"item": item.name, "verdict_truth": item.verdict, "note": item.note,
-                "checks": evaluation}
+        return {
+            "item": item.name,
+            "verdict_truth": item.verdict,
+            "note": item.note,
+            "checks": evaluation,
+        }
     finally:
         if not keep:
             shutil.rmtree(workspace, ignore_errors=True)
@@ -181,16 +197,24 @@ def main() -> None:
         records.append(record)
         checks = record["checks"]
         mark = "ok " if checks["failed_as_expected"] else "MISS"
-        print(f"      {mark} observed={checks['observed']} expected={checks['expected']}"
-              + (f" heal_correct={checks.get('heal_correct')}" if "heal_correct" in checks else "")
-              + (f" refused_heal={checks.get('refused_to_heal')}" if "refused_to_heal" in checks else ""),
-              flush=True)
+        print(
+            f"      {mark} observed={checks['observed']} expected={checks['expected']}"
+            + (f" heal_correct={checks.get('heal_correct')}" if "heal_correct" in checks else "")
+            + (
+                f" refused_heal={checks.get('refused_to_heal')}"
+                if "refused_to_heal" in checks
+                else ""
+            ),
+            flush=True,
+        )
 
     summary = summarize(records)
     RESULTS.mkdir(exist_ok=True)
     (RESULTS / "corpus.json").write_text(
         json.dumps({"summary": summary, "records": records}, indent=1, ensure_ascii=False),
-        encoding="utf-8", newline="\n")
+        encoding="utf-8",
+        newline="\n",
+    )
     print("\n" + json.dumps(summary, indent=1))
 
 

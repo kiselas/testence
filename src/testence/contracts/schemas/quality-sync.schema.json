@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:quality-sync:1",
+  "title": "Testence quality sync result v1",
+  "type": "object",
+  "required": ["schema", "project_id", "pack", "status", "changed", "unchanged", "overrides", "conflicts"],
+  "properties": {
+    "schema": {"const": "testence/quality-sync/1"},
+    "project_id": {"type": "string"},
+    "pack": {"type": "object"},
+    "status": {"enum": ["applied", "conflict", "planned", "rolled_back"]},
+    "changed": {"type": "array", "items": {"type": "string"}},
+    "unchanged": {"type": "array", "items": {"type": "string"}},
+    "overrides": {"type": "array", "items": {"type": "object"}},
+    "conflicts": {"type": "array", "items": {"type": "object"}},
+    "plan": {"type": "object"}
+  }
+}

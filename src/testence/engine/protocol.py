@@ -12,7 +12,7 @@ CDP-specific abilities must be modeled as optional capabilities, not core method
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Callable, ContextManager, Protocol, runtime_checkable
 
 #: How a Target may address an element. Order reflects preference: semantics first,
 #: raw CSS last (heal-diffs and intent caching key off semantic addressing).
@@ -133,6 +133,15 @@ class Engine(Protocol):
     # -- lifecycle -------------------------------------------------------
     def start(self) -> None: ...
     def stop(self, *, keep_browser: bool = False) -> None: ...
+    def reset_session(self) -> None:
+        """Replace owned per-test state while retaining an owned browser process.
+
+        Engines attached to a foreign session may clear observation buffers but
+        must not close or replace the launcher's context.
+        """
+        ...
+
+    def capabilities(self) -> frozenset[str]: ...
 
     # -- navigation / actions -------------------------------------------
     def goto(self, url: str) -> None: ...
@@ -169,6 +178,16 @@ class Engine(Protocol):
 
     def select(self, target: Target, value: str) -> None: ...
     def press(self, key: str) -> None: ...
+    def focus(self, target: Target) -> None: ...
+    def scroll_into_view(self, target: Target) -> None: ...
+    def upload(self, target: Target, paths: list[str]) -> None: ...
+    def click_and_download(self, target: Target, path: str) -> str: ...
+    def click_and_popup(self, target: Target) -> None: ...
+    def switch_page(self, index: int) -> None: ...
+    def click_with_dialog(
+        self, target: Target, *, accept: bool = True, prompt: str | None = None
+    ) -> str: ...
+    def frame(self, target: Target) -> ContextManager[None]: ...
 
     # -- session ------------------------------------------------------------
     def cookies(self) -> list[dict[str, Any]]: ...
@@ -290,6 +309,7 @@ class Engine(Protocol):
         method: str | None = None,
         since: int = 0,
         timeout_ms: int | None = None,
+        predicate: Callable[[NetRecord], bool] | None = None,
     ) -> NetRecord | None:
         """Wait for a *completed* response matching the fragment (and method).
 
@@ -299,7 +319,9 @@ class Engine(Protocol):
         endpoint would show it. Waiting on anything else (network quiet, fixed
         sleeps, polling an oracle) is a race dressed up as a wait. Returns the
         record — its ``json_body()`` typically carries the created/updated entity —
-        or ``None`` on timeout.
+        or ``None`` on timeout. ``predicate`` binds same-endpoint traffic to an
+        entity, correlation id, or GraphQL operation instead of accepting the first
+        coincidental response.
         """
         ...
 

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:quality-summary:1",
+  "title": "Testence multi-project quality summary v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "projects", "actionable", "filters"],
+  "properties": {
+    "schema": {"const": "testence/quality-summary/1"},
+    "projects": {"type": "object"},
+    "actionable": {"type": "array", "items": {"type": "object"}},
+    "filters": {"type": "object"}
+  }
+}

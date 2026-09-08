@@ -2,41 +2,61 @@
  "attachments": [
   {
    "name": "pack.json",
-   "source": "39e98049-0309-5365-8b50-a3959facf6c6-attachment.json",
+   "source": "2f2b6d3c-5c9e-5f8b-9d13-68ad0ed42ac5-attachment.json",
    "type": "application/json"
   },
   {
    "name": "TRIAGE.md",
-   "source": "1b06db92-bee6-5e20-9377-c673ae7c02f1-attachment.md",
+   "source": "5715ca29-83aa-5329-b2fe-49c9f0ba5af5-attachment.md",
    "type": "text/markdown"
   },
   {
    "name": "aria.txt",
-   "source": "7c4b109d-b18f-55fb-8464-707088089751-attachment.txt",
+   "source": "054fed15-9552-55c8-8585-9e2316aa03dd-attachment.txt",
    "type": "text/plain"
   },
   {
    "name": "network.jsonl",
-   "source": "74e5ed66-9ba3-5b78-9aa2-ac5961af6c0b-attachment.jsonl",
+   "source": "859c600c-3099-511e-983c-5d16e1581b37-attachment.jsonl",
    "type": "text/plain"
   },
   {
    "name": "console.txt",
-   "source": "7422639d-3208-5081-a299-14b80f7cecf8-attachment.txt",
+   "source": "c34911e6-5f18-5c7b-8ee3-ea37535bd48e-attachment.txt",
    "type": "text/plain"
   },
   {
    "name": "oracles.json",
-   "source": "a114cf8d-bb58-51c9-a28c-3ff4271d7064-attachment.json",
+   "source": "470412e4-1084-536c-9846-4947ec810ad0-attachment.json",
    "type": "application/json"
   }
  ],
  "fullName": "tests/test_hosts.py::test_hosts",
- "historyId": "e19a3059f3d3dbe2d2ca1a3df64e10d61da012e6bcff372bec322aa0eb44669b",
+ "historyId": "7bcc1d621c2d23d5f949fea9505fc235de2c96e2f26f32044b1cfa643c1dd125",
  "labels": [
   {
    "name": "framework",
    "value": "testence"
+  },
+  {
+   "name": "project",
+   "value": "legacy"
+  },
+  {
+   "name": "case_id",
+   "value": "case-e19a3059f3d3dbe2d2ca"
+  },
+  {
+   "name": "attempt_id",
+   "value": "legacy-1"
+  },
+  {
+   "name": "proof_id",
+   "value": "unknown"
+  },
+  {
+   "name": "assurance",
+   "value": "inconclusive"
   },
   {
    "name": "suite",
@@ -47,7 +67,14 @@
    "value": "Regression"
   }
  ],
+ "links": [],
  "name": "test_hosts",
+ "parameters": [
+  {
+   "name": "variant_id",
+   "value": "default"
+  }
+ ],
  "stage": "finished",
  "start": 1767268800600,
  "status": "failed",
@@ -68,5 +95,6 @@
   }
  ],
  "stop": 1767268801800,
- "uuid": "16ff1326-3601-53e6-ab52-2773385cf634"
+ "testCaseId": "4ceb23888ffa657beae14a9a009a63fc0be73dd7cd34665b8f72eb542dfbd6a0",
+ "uuid": "3b45770f-f3d4-5607-9049-e03b9ad397b5"
 }

@@ -14,7 +14,7 @@ Create the semantic contract before creating test code or exploring the live UI.
 3. Give each claim a lowercase dotted ID. Record the observation sources that can prove it.
 4. Prefer at least one oracle independent of the rendered UI when the claim concerns persistence, permissions, money, delivery, or another durable side effect.
 5. Define positive, negative, permission, and failure scenarios only where the stated risk requires them. Every required claim must appear in a scenario.
-6. Write `specs/<feature>.md` with human context and exactly one `testence-planspec` JSON block. Follow [references/planspec-v1.md](references/planspec-v1.md).
+6. Write `specs/<feature>.md` with human context and exactly one `testence-planspec` JSON block. Follow [references/planspec-v2.md](references/planspec-v2.md).
 7. Validate the file with `testence plan validate <path> --json`. Fix every error before handing the plan to authoring.
 8. Report the claim-to-scenario map, assumptions, exclusions, uncertain product facts, and validation result.
 

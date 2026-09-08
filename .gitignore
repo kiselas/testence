@@ -4,6 +4,7 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+release-artifacts/
 node_modules/
 runs/
 bench/results/local-*
@@ -12,6 +13,7 @@ bench/results/local-*
 .ruff_cache/
 .uv-cache/
 .tmp/
+.tmp-pytest-*/
 .codegraph/
 *.local.json
 # Credentials and target URLs live here and must never be committed.
@@ -24,3 +26,8 @@ bench/results/local-*
 bench/sut/static/
 # Claude Code worktrees: local scratch, and each one is its own git checkout.
 .claude/worktrees/
+# Local acceptance runs, sandbox state and consumer environments.
+outputs/
+.wheel-venv/
+.venv-min/
+scale-profile.json

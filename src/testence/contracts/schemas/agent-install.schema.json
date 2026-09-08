@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://testence.dev/schemas/agent-install.schema.json",
+  "title": "Testence agent installation state",
+  "type": "object",
+  "required": ["schema", "pack_schema", "pack_version", "pack_digest", "clients"],
+  "properties": {
+    "schema": {"const": "testence/agent-install/1"},
+    "pack_schema": {"const": "testence/skill-pack/1"},
+    "pack_version": {"type": "string", "minLength": 1},
+    "pack_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "clients": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["root", "status", "pack_version", "pack_digest", "files", "conflicts"],
+        "properties": {
+          "root": {"type": "string", "minLength": 1},
+          "status": {"enum": ["installed", "conflict"]},
+          "pack_version": {"type": "string", "minLength": 1},
+          "pack_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "files": {"type": "array", "items": {"$ref": "#/$defs/file"}},
+          "conflicts": {"type": "array", "items": {"$ref": "#/$defs/conflict"}}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "conflict": {
+      "type": "object",
+      "required": ["path", "expected", "actual"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "expected": {"type": "string", "minLength": 1},
+        "actual": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

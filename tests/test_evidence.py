@@ -3,8 +3,9 @@ import json
 import pytest
 
 from testence import SCHEMA_VERSION
-from testence.evidence import EvidenceWriter, estimate_tokens
+from testence.evidence import REDACTED, EvidenceWriter, estimate_tokens
 from testence.evidence.events import Event
+from testence.evidence.sanitize import LEDGER_STRING_LIMIT
 
 
 def test_writer_produces_valid_jsonl(tmp_path):
@@ -33,6 +34,11 @@ def test_parse_rejects_foreign_schema():
         Event.parse(json.dumps({"v": "other/9", "kind": "note"}))
 
 
+def test_assertion_event_requires_the_public_proof_fields():
+    with pytest.raises(ValueError, match="invalid assertion event"):
+        Event(kind="assertion", run="r-proof", payload={"outcome": "passed"})
+
+
 def test_utf8_and_lf_line_endings(tmp_path):
     with EvidenceWriter(tmp_path, worker="") as writer:
         writer.emit("note", text="кириллица и → стрелки")
@@ -50,7 +56,8 @@ def test_writer_propagates_plan_claims_and_remembers_failed_oracle(tmp_path):
         writer.bind_test(
             "test_create",
             plan={
-                "schema": "testence/planspec/1",
+                "schema": "testence/planspec/2",
+                "project_id": "testence",
                 "id": "feature.create",
                 "path": "specs/create.md",
             },
@@ -77,3 +84,26 @@ def test_writer_propagates_plan_claims_and_remembers_failed_oracle(tmp_path):
     ]
     assert all(doc["plan"]["id"] == "feature.create" for doc in docs)
     assert all(doc["claims"] == ["feature.create.persisted"] for doc in docs)
+
+
+def test_writer_redacts_known_and_structured_secrets_before_persisting(tmp_path):
+    canary = "ledger-canary-secret"
+    with EvidenceWriter(tmp_path, worker="", redact_values=[canary]) as writer:
+        writer.emit(
+            "note",
+            test=f"case[{canary}]",
+            text=f"request failed with Bearer {canary}",
+            cookie_line="Cookie: session=not-registered",
+            headers={"Authorization": canary, "X-Trace": "safe"},
+            response={"access_token": canary, "nested": {"password": canary}},
+            oversized="x" * (LEDGER_STRING_LIMIT + 100),
+        )
+
+    raw = (writer.run_dir / "run.jsonl").read_text(encoding="utf-8")
+    document = json.loads(raw)
+    assert canary not in raw
+    assert REDACTED in raw
+    assert document["headers"]["Authorization"] == REDACTED
+    assert document["response"]["access_token"] == REDACTED
+    assert document["cookie_line"] == f"Cookie: {REDACTED}"
+    assert len(document["oversized"]) < LEDGER_STRING_LIMIT + 100

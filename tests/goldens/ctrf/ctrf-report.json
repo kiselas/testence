@@ -13,6 +13,14 @@
    "pending": 0,
    "skipped": 0,
    "other": 0,
+   "extra": {
+    "testence": {
+     "run_id": "r-20260101-120000-golden",
+     "project_id": "legacy",
+     "run_status": "unknown",
+     "integrity_errors": []
+    }
+   },
    "start": 1767268800000,
    "stop": 1767268802000
   },
@@ -27,6 +35,21 @@
      "Smoke"
     ],
     "extra": {
+     "testence_identity": {
+      "project_id": "legacy",
+      "case_id": "case-9817ba5837851b9abc31",
+      "variant_id": "default",
+      "attempt_id": "legacy-1",
+      "proof_id": "unknown",
+      "parameters": {}
+     },
+     "testence_assurance": {
+      "status": "unverified",
+      "reasons": [
+       "no required assertion inventory is bound",
+       "missing or stale proof digests: plan_digest, test_digest, policy_digest"
+      ]
+     },
      "steps": [
       "log in as admin",
       "  fill the password field"
@@ -43,6 +66,20 @@
     ],
     "message": "AssertionError: expected 4 hosts, saw 3",
     "extra": {
+     "testence_identity": {
+      "project_id": "legacy",
+      "case_id": "case-e19a3059f3d3dbe2d2ca",
+      "variant_id": "default",
+      "attempt_id": "legacy-1",
+      "proof_id": "unknown",
+      "parameters": {}
+     },
+     "testence_assurance": {
+      "status": "inconclusive",
+      "reasons": [
+       "execution failed without a decisive assertion"
+      ]
+     },
      "steps": [
       "create a host [FAILED]"
      ],
@@ -59,7 +96,18 @@
          "ui": 3,
          "api": 4
         }
-       ]
+       ],
+       "source_schema": "testence/1",
+       "project_id": "legacy",
+       "run_id": "r-20260101-120000-golden",
+       "event_id": "legacy:legacy:11",
+       "assurance": "unverified",
+       "case_id": "case-e19a3059f3d3dbe2d2ca",
+       "variant_id": "default",
+       "attempt_id": "legacy-1",
+       "proof_id": "unknown",
+       "parameters": {},
+       "nodeid": "tests/test_hosts.py::test_hosts"
       }
      ]
     }

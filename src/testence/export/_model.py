@@ -3,22 +3,25 @@
 Exporters receive this, never raw files: grouping, the step tree and timestamp
 arithmetic happen once here, so writing a new exporter is a formatting exercise.
 
-Every field is tolerant of absence. Schema ``testence/1`` grows by appending fields,
-never retroactively, so a ledger written by an older version of the framework must
-keep exporting — with less detail, not with a crash.
+Every field is tolerant of absence. The input adapter maps legacy ``testence/1``
+events into the ``testence/2`` reader model and marks missing proof unverified.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+from testence.evidence.reconcile import reconcile_events
+from testence.status import execution_failed, normalize_execution_status
 
 # Files an evidence pack may contain, in the order a reader should meet them:
 # the machine index first, then the triage contract, then the raw sections.
 PACK_FILES = (
     "pack.json",
+    "manifest.json",
     "TRIAGE.md",
     "verdict.json",
     "verdict.template.json",
@@ -74,23 +77,47 @@ class Step:
 
 
 @dataclass
+class FixturePhase:
+    name: str
+    status: str
+    duration_ms: float = 0.0
+    start: datetime | None = None
+    stop: datetime | None = None
+    error: str | None = None
+
+
+@dataclass
 class Test:
     """One test case as the ledger saw it."""
 
     name: str
+    project_id: str = ""
+    case_id: str = ""
+    variant_id: str = "default"
+    attempt_id: str = ""
+    proof_id: str = ""
+    parameters: dict[str, str] = field(default_factory=dict)
     nodeid: str = ""
     file: str = ""
     markers: tuple[str, ...] = ()
+    allure_id: str = ""
+    owner: str = ""
+    risk: str = ""
+    requirements: tuple[dict[str, str], ...] = ()
+    issues: tuple[dict[str, str], ...] = ()
     plan_id: str = ""
     plan_path: str = ""
     claim_ids: tuple[str, ...] = ()
-    status: str = "passed"
+    status: str = "not_run"
+    assurance: str = "unverified"
+    assurance_reasons: tuple[str, ...] = ()
     phase: str = ""
     duration_ms: float = 0.0
     start: datetime | None = None
     stop: datetime | None = None
     error: str | None = None
     steps: list[Step] = field(default_factory=list)
+    fixtures: list[FixturePhase] = field(default_factory=list)
     oracles: list[dict[str, Any]] = field(default_factory=list)
     pack_dir: str | None = None
     pack_sections: dict[str, int] = field(default_factory=dict)
@@ -101,7 +128,7 @@ class Test:
 
     @property
     def failed(self) -> bool:
-        return self.status in ("fail", "failed", "broken", "aborted")
+        return execution_failed(self.status)
 
 
 @dataclass
@@ -113,22 +140,26 @@ class LoadedRun:
     """
 
     run_id: str = ""
+    project_id: str = ""
+    schema: str = ""
     testence_version: str = ""
     fingerprint: dict[str, Any] = field(default_factory=dict)
     start: datetime | None = None
     stop: datetime | None = None
     duration_ms: float = 0.0
+    run_status: str = "unknown"
+    integrity_errors: list[dict[str, str]] = field(default_factory=list)
     tests: list[Test] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
     run_dir: Path = Path()
 
     @property
     def passed(self) -> int:
-        return sum(1 for test in self.tests if test.status in ("pass", "passed"))
+        return sum(1 for test in self.tests if test.status == "passed")
 
     @property
     def failed(self) -> int:
-        return sum(1 for test in self.tests if test.status in ("fail", "failed", "broken"))
+        return sum(1 for test in self.tests if execution_failed(test.status))
 
     @property
     def skipped(self) -> int:
@@ -141,35 +172,45 @@ class LoadedRun:
     @property
     def other(self) -> int:
         known = {
-            "pass",
             "passed",
-            "fail",
             "failed",
             "broken",
+            "aborted",
             "skipped",
             "not_run",
         }
         return sum(1 for test in self.tests if test.status not in known)
 
     def pack_path(self, test: Test, filename: str) -> Path | None:
-        """Absolute path of one pack file, or None when it was not captured."""
+        """Resolved in-run pack file, or None for missing/escaping paths."""
         if not test.pack_dir:
             return None
-        candidate = self.run_dir / test.pack_dir / filename
+        try:
+            run_root = self.run_dir.resolve()
+            pack_root = (self.run_dir / test.pack_dir).resolve()
+            candidate = (pack_root / filename).resolve()
+            pack_root.relative_to(run_root)
+            candidate.relative_to(pack_root)
+        except (OSError, RuntimeError, ValueError):
+            return None
         return candidate if candidate.is_file() else None
 
     @classmethod
     def from_events(cls, events: list[dict[str, Any]], run_dir: Path | str = "") -> LoadedRun:
+        events = reconcile_events(events)
         run = cls(events=events, run_dir=Path(run_dir))
         tests: dict[str, Test] = {}
         # One open-step stack per test: under -n the ledgers of several workers are
         # merged by timestamp, so events of different tests legitimately interleave.
         stacks: dict[str, list[Step]] = {}
+        aliases: dict[str, str] = {}
 
         for doc in events:
             kind = doc.get("kind")
             if kind == "run.start":
-                run.run_id = doc.get("run", run.run_id)
+                run.run_id = doc.get("run_id") or doc.get("run", run.run_id)
+                run.project_id = doc.get("project_id", run.project_id)
+                run.schema = doc.get("v", run.schema)
                 run.testence_version = doc.get("testence", "")
                 run.fingerprint = doc.get("fingerprint") or {}
                 run.start = run.start or parse_ts(doc.get("ts"))
@@ -177,28 +218,85 @@ class LoadedRun:
             if kind == "run.end":
                 run.stop = parse_ts(doc.get("ts"))
                 run.duration_ms = float(doc.get("duration_ms") or 0.0)
+                run.run_status = str(doc.get("run_status") or "unknown")
+                run.integrity_errors = [
+                    {str(key): str(value) for key, value in item.items()}
+                    for item in doc.get("integrity_errors") or ()
+                    if isinstance(item, dict)
+                ]
                 continue
 
-            test_id = doc.get("test")
-            if not test_id:
+            raw_test_id = doc.get("test")
+            if not raw_test_id:
                 continue
+            identity_parts = (
+                doc.get("project_id"),
+                doc.get("case_id"),
+                doc.get("variant_id"),
+                doc.get("attempt_id"),
+            )
+            identity_key = (
+                "|".join(str(part) for part in identity_parts) if all(identity_parts) else ""
+            )
+            if kind == "test.start":
+                test_id = identity_key or str(doc.get("nodeid") or raw_test_id)
+                aliases[str(raw_test_id)] = test_id
+            else:
+                test_id = identity_key or str(
+                    doc.get("nodeid") or aliases.get(str(raw_test_id)) or raw_test_id
+                )
             if test_id not in tests:
-                tests[test_id] = Test(name=test_id)
+                tests[test_id] = Test(name=str(doc.get("display_name") or raw_test_id))
                 stacks[test_id] = []
             test = tests[test_id]
             stack = stacks[test_id]
+            test.project_id = str(doc.get("project_id") or test.project_id)
+            test.case_id = str(doc.get("case_id") or test.case_id)
+            test.variant_id = str(doc.get("variant_id") or test.variant_id)
+            test.attempt_id = str(doc.get("attempt_id") or test.attempt_id)
+            test.proof_id = str(doc.get("proof_id") or test.proof_id)
+            if isinstance(doc.get("parameters"), dict):
+                test.parameters = {str(key): str(value) for key, value in doc["parameters"].items()}
 
             if kind == "test.start":
+                test.name = str(doc.get("display_name") or test.name)
                 test.file = doc.get("file") or ""
                 test.nodeid = doc.get("nodeid") or test_id
                 test.markers = tuple(doc.get("markers") or ())
+                test.allure_id = str(doc.get("allure_id") or "")
+                test.owner = str(doc.get("owner") or "")
+                test.risk = str(doc.get("risk") or "")
+                test.requirements = _links(doc.get("requirements"))
+                test.issues = _links(doc.get("issues"))
                 plan = doc.get("plan") or {}
                 test.plan_id = plan.get("id") or ""
                 test.plan_path = plan.get("path") or ""
                 test.claim_ids = tuple(doc.get("claims") or ())
                 test.start = parse_ts(doc.get("ts"))
+            elif kind == "test.phase":
+                phase = str(doc.get("phase") or "")
+                if phase in {"setup", "teardown"}:
+                    stop = parse_ts(doc.get("ts"))
+                    duration_ms = float(doc.get("duration_ms") or 0.0)
+                    start = stop - timedelta(milliseconds=duration_ms) if stop else None
+                    test.fixtures.append(
+                        FixturePhase(
+                            name=f"pytest {phase}",
+                            status=normalize_execution_status(doc.get("status")),
+                            duration_ms=duration_ms,
+                            start=start,
+                            stop=stop,
+                            error=str(doc.get("error") or "") or None,
+                        )
+                    )
             elif kind == "test.end":
-                test.status = doc.get("status") or "passed"
+                test.name = str(doc.get("display_name") or test.name)
+                test.nodeid = str(doc.get("nodeid") or test.nodeid or test_id)
+                test.status = normalize_execution_status(doc.get("status"))
+                test.assurance = str(doc.get("assurance") or "unverified")
+                test.assurance_reasons = tuple(
+                    str(reason) for reason in doc.get("assurance_reasons") or ()
+                )
                 test.phase = doc.get("phase") or ""
                 test.duration_ms = float(doc.get("duration_ms") or 0.0)
                 test.stop = parse_ts(doc.get("ts"))
@@ -231,6 +329,16 @@ class LoadedRun:
 
         run.tests = list(tests.values())
         return run
+
+
+def _links(value: Any) -> tuple[dict[str, str], ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(
+        {str(key): str(raw) for key, raw in item.items() if key in {"id", "url"}}
+        for item in value
+        if isinstance(item, dict) and item.get("id")
+    )
 
 
 def _pop_step(stack: list[Step], step_id: str) -> Step:

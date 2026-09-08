@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:scaffold-manifest:1",
+  "title": "Testence scaffold manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "testence_version", "project_id", "artifacts"],
+  "properties": {
+    "schema": {"const": "testence/scaffold-manifest/1"},
+    "testence_version": {"type": "string", "minLength": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "sha256", "bytes"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "bytes": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  }
+}

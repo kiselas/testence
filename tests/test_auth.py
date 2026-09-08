@@ -6,14 +6,20 @@ thing that must not be verified by inspection.
 
 from __future__ import annotations
 
+import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
 import pytest
 
-from testence.api import ApiClient, http_json
+from testence.api import ApiClient, Response, UnsafeRequestTarget, http_json
 from testence.auth import (
     ApiSessionAuth,
     AttachedSessionAuth,
+    AuthContext,
     BasicAuth,
     BearerTokenAuth,
+    CachedSessionAuth,
     Credentials,
     FormLoginAuth,
     MissingCredentials,
@@ -186,6 +192,265 @@ def test_api_client_bearer_session(engine, app):
         engine
     )
     assert ApiClient(app.base_url, context).get("/api/v1/auth/me").ok
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "https://other.example.test/api",
+        "//other.example.test/api",
+        "http://app.example.test/api",
+    ],
+)
+def test_api_client_rejects_cross_origin_and_https_downgrade_before_network(target, monkeypatch):
+    called = False
+
+    def fake_http_json(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        return Response(200, [], "{}")
+
+    monkeypatch.setattr("testence.api.http_json", fake_http_json)
+    client = ApiClient(
+        "https://app.example.test",
+        AuthContext(
+            headers={"Authorization": "Bearer secret"},
+            cookies=[{"name": "session", "value": "secret", "domain": "app.example.test"}],
+        ),
+    )
+
+    with pytest.raises(UnsafeRequestTarget):
+        client.get(target)
+    assert not called
+
+
+def test_api_client_accepts_equivalent_same_origin(monkeypatch):
+    captured = {}
+
+    def fake_http_json(method, url, **kwargs):
+        captured.update(method=method, url=url, **kwargs)
+        return Response(200, [], "{}")
+
+    monkeypatch.setattr("testence.api.http_json", fake_http_json)
+    client = ApiClient(
+        "http://example.test",
+        AuthContext(headers={"Authorization": "Bearer secret"}),
+    )
+
+    client.get("HTTP://EXAMPLE.TEST:80/api")
+    assert captured["url"] == "HTTP://EXAMPLE.TEST:80/api"
+    assert captured["headers"]["Authorization"] == "Bearer secret"
+
+
+def test_api_client_sends_auth_to_an_explicitly_allowed_api_origin(monkeypatch):
+    captured = {}
+
+    def fake_http_json(method, url, **kwargs):
+        captured.update(method=method, url=url, **kwargs)
+        return Response(200, [], "{}")
+
+    monkeypatch.setattr("testence.api.http_json", fake_http_json)
+    client = ApiClient(
+        "https://app.example.test",
+        AuthContext(headers={"Authorization": "Bearer secret"}),
+        allowed_origins=["https://api.example.test"],
+    )
+
+    client.get("https://api.example.test/v1/items")
+    assert captured["headers"]["Authorization"] == "Bearer secret"
+
+
+def test_api_client_filters_browser_cookies_for_the_request_url(monkeypatch):
+    captured = {}
+
+    def fake_http_json(method, url, **kwargs):
+        captured.update(method=method, url=url, **kwargs)
+        return Response(200, [], "{}")
+
+    monkeypatch.setattr("testence.api.http_json", fake_http_json)
+    context = AuthContext(
+        cookies=[
+            {"name": "host", "value": "1", "domain": "api.example.test", "path": "/"},
+            {"name": "parent", "value": "2", "domain": ".example.test", "path": "/api"},
+            {"name": "wrong_path", "value": "3", "domain": ".example.test", "path": "/admin"},
+            {"name": "wrong_host", "value": "4", "domain": "other.example", "path": "/"},
+            {
+                "name": "secure",
+                "value": "5",
+                "domain": "api.example.test",
+                "path": "/",
+                "secure": True,
+            },
+            {
+                "name": "expired",
+                "value": "6",
+                "domain": "api.example.test",
+                "path": "/",
+                "expires": 1,
+            },
+        ]
+    )
+
+    ApiClient("http://api.example.test", context).get("/api/items")
+    assert captured["headers"]["Cookie"] == "parent=2; host=1"
+
+
+def test_http_json_refuses_cross_origin_redirect_before_forwarding_credentials():
+    received: list[dict[str, str]] = []
+
+    class Sink(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            pass
+
+        def do_GET(self):  # noqa: N802
+            received.append(dict(self.headers.items()))
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    sink = ThreadingHTTPServer(("127.0.0.1", 0), Sink)
+    sink_thread = threading.Thread(target=sink.serve_forever, daemon=True)
+    sink_thread.start()
+    sink_url = f"http://127.0.0.1:{sink.server_address[1]}/collect"
+
+    class Source(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            pass
+
+        def do_GET(self):  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", sink_url)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    source = ThreadingHTTPServer(("127.0.0.1", 0), Source)
+    source_thread = threading.Thread(target=source.serve_forever, daemon=True)
+    source_thread.start()
+    source_url = f"http://127.0.0.1:{source.server_address[1]}/redirect"
+
+    try:
+        with pytest.raises(UnsafeRequestTarget, match="cross-origin redirect"):
+            http_json(
+                "GET",
+                source_url,
+                headers={"Authorization": "Bearer canary", "Cookie": "session=canary"},
+            )
+        assert received == []
+    finally:
+        source.shutdown()
+        source.server_close()
+        sink.shutdown()
+        sink.server_close()
+
+
+class _CookieEngine:
+    def __init__(self):
+        self.added = []
+
+    def add_cookies(self, cookies):
+        self.added.extend(cookies)
+
+
+class _CountingSessionAuth:
+    scheme = "api-session"
+
+    def __init__(self):
+        self.calls = 0
+
+    def authenticate(self, engine):
+        self.calls += 1
+        cookies = [
+            {
+                "name": "session",
+                "value": "cache-canary",
+                "domain": "app.example.test",
+                "path": "/",
+                "secure": True,
+            }
+        ]
+        engine.add_cookies(cookies)
+        return AuthContext(cookies=cookies, scheme=self.scheme)
+
+
+def _identity_response(role="admin", status=200):
+    body = f'{{"email":"{USER}","role":"{role}"}}' if status == 200 else "{}"
+    return Response(status, [], body)
+
+
+def _cached_auth(tmp_path, inner, **kwargs):
+    return CachedSessionAuth(
+        inner,
+        base_url="https://app.example.test",
+        probe_path="/api/v1/auth/me",
+        cache_file=tmp_path / "session.json",
+        cache_ttl_s=60,
+        scope={
+            "project": "testence",
+            "origin": "https://app.example.test",
+            "account": "hashed-account",
+            "role": "admin",
+            "strategy": "api-session",
+            "environment": "test",
+        },
+        expected_identity=USER,
+        expected_role="admin",
+        **kwargs,
+    )
+
+
+def test_session_cache_requires_fresh_matching_identity_and_hides_account(tmp_path, monkeypatch):
+    monkeypatch.setattr("testence.api.http_json", lambda *_args, **_kwargs: _identity_response())
+    inner = _CountingSessionAuth()
+    auth = _cached_auth(tmp_path, inner)
+
+    auth.authenticate(_CookieEngine())
+    cached = auth.authenticate(_CookieEngine())
+
+    assert inner.calls == 1
+    assert cached.scheme == "api-session+cached"
+    cache_text = (tmp_path / "session.json").read_text(encoding="utf-8")
+    assert USER not in cache_text and PASSWORD not in cache_text
+
+
+def test_expired_or_logged_out_session_cache_reauthenticates(tmp_path, monkeypatch):
+    responses = iter([_identity_response(), _identity_response(status=401), _identity_response()])
+    monkeypatch.setattr("testence.api.http_json", lambda *_args, **_kwargs: next(responses))
+    inner = _CountingSessionAuth()
+    auth = _cached_auth(tmp_path, inner)
+
+    auth.authenticate(_CookieEngine())
+    auth.authenticate(_CookieEngine())
+    assert inner.calls == 2
+
+    document = json.loads((tmp_path / "session.json").read_text(encoding="utf-8"))
+    document["created_at"] = 1
+    (tmp_path / "session.json").write_text(json.dumps(document), encoding="utf-8")
+    monkeypatch.setattr("testence.api.http_json", lambda *_args, **_kwargs: _identity_response())
+    auth.authenticate(_CookieEngine())
+    assert inner.calls == 3
+
+
+def test_session_cache_never_reuses_or_accepts_another_role(tmp_path, monkeypatch):
+    responses = iter(
+        [_identity_response(), _identity_response("viewer"), _identity_response("viewer")]
+    )
+    monkeypatch.setattr("testence.api.http_json", lambda *_args, **_kwargs: next(responses))
+    inner = _CountingSessionAuth()
+    auth = _cached_auth(tmp_path, inner)
+
+    auth.authenticate(_CookieEngine())
+    with pytest.raises(RuntimeError, match="role 'viewer', expected 'admin'"):
+        auth.authenticate(_CookieEngine())
+    assert inner.calls == 2
+
+
+def test_legacy_or_malformed_session_cache_is_a_miss(tmp_path, monkeypatch):
+    (tmp_path / "session.json").write_text('[{"name":"old"}]', encoding="utf-8")
+    monkeypatch.setattr("testence.api.http_json", lambda *_args, **_kwargs: _identity_response())
+    inner = _CountingSessionAuth()
+
+    _cached_auth(tmp_path, inner).authenticate(_CookieEngine())
+    assert inner.calls == 1
 
 
 def test_http_json_treats_4xx_as_data(app):

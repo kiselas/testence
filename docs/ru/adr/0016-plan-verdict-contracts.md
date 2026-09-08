@@ -1,6 +1,6 @@
 # ADR-0016: PlanSpec и verdict как версионированные proof-контракты
 
-Статус: accepted (первый vertical slice реализован, 2026-08-28)
+Статус: заменено ADR-0019 (контракт `/1` остаётся compatibility input)
 
 ## Контекст
 

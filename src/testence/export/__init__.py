@@ -13,7 +13,7 @@ else; an exporter is a module exposing exactly two symbols::
 
 It receives the parsed, merged ledger (never raw files) and returns the files it
 wrote. That is the whole contract, deliberately: an exporter that needs more
-framework API means the *ledger* is missing data — extend schema ``testence/1`` by
+framework API means the *ledger* is missing data — extend schema ``testence/2`` by
 appending a field, never by instrumenting test code.
 
 Two ways to register one:

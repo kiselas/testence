@@ -274,6 +274,133 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_verdict_validate.add_argument("--plan", type=Path, default=None)
     p_verdict_validate.add_argument("--json", dest="json_output", action="store_true")
+    p_verdict_submit = verdict_sub.add_parser("submit", help="validate and persist verdict.json")
+    p_verdict_submit.add_argument("path", type=Path)
+    p_verdict_submit.add_argument("--pack", type=Path, required=True)
+    p_verdict_submit.add_argument("--plan", type=Path, required=True)
+    p_verdict_submit.add_argument("--out", type=Path, default=None)
+    p_verdict_submit.add_argument("--json", dest="json_output", action="store_true")
+
+    p_repair = sub.add_parser("repair", help="validate a bound repair proposal")
+    repair_sub = p_repair.add_subparsers(dest="repair_command", required=True)
+    p_repair_validate = repair_sub.add_parser("validate", help="validate repair.json")
+    p_repair_validate.add_argument("path", type=Path)
+    p_repair_validate.add_argument("--verdict", type=Path, required=True)
+    p_repair_validate.add_argument("--plan", type=Path, required=True)
+    p_repair_validate.add_argument("--base", type=Path, required=True)
+    p_repair_validate.add_argument("--pack", type=Path, default=None)
+    p_repair_validate.add_argument("--evidence-root", type=Path, required=True)
+    p_repair_validate.add_argument("--json", dest="json_output", action="store_true")
+
+    p_ci = sub.add_parser("ci", help="produce a fail-closed CI outcome receipt")
+    ci_sub = p_ci.add_subparsers(dest="ci_command", required=True)
+    p_ci_evaluate = ci_sub.add_parser("evaluate", help="combine test, quality and delivery")
+    p_ci_evaluate.add_argument("run_dir", type=Path)
+    p_ci_evaluate.add_argument("--run-id", required=True)
+    p_ci_evaluate.add_argument("--test-exit", type=int, required=True)
+    p_ci_evaluate.add_argument(
+        "--quality-mode", choices=("execution", "assurance"), default="assurance"
+    )
+    p_ci_evaluate.add_argument("--delivery-receipt", type=Path, default=None)
+    p_ci_evaluate.add_argument("--ctrf", type=Path, default=None)
+    p_ci_evaluate.add_argument("--junit", type=Path, default=None)
+    p_ci_evaluate.add_argument("--allow-empty", action="store_true")
+    p_ci_evaluate.add_argument("-o", "--out", type=Path, required=True)
+    p_ci_evaluate.add_argument("--json", dest="json_output", action="store_true")
+
+    p_delivery = sub.add_parser("delivery", help="run an idempotent result delivery")
+    delivery_sub = p_delivery.add_subparsers(dest="delivery_command", required=True)
+    p_delivery_run = delivery_sub.add_parser("run", help="deliver one explicit run")
+    p_delivery_run.add_argument("run_dir", type=Path)
+    p_delivery_run.add_argument("--run-id", required=True)
+    p_delivery_run.add_argument("--project-id", required=True)
+    p_delivery_run.add_argument("--launch-id", required=True)
+    p_delivery_run.add_argument("--job-run-id", required=True)
+    p_delivery_run.add_argument("--artifact-dir", type=Path, required=True)
+    p_delivery_run.add_argument("--receipt", type=Path, required=True)
+    p_delivery_run.add_argument("--retries", type=int, default=2)
+    p_delivery_run.add_argument("--timeout", type=float, default=60.0)
+    p_delivery_run.add_argument("cmd", nargs=argparse.REMAINDER)
+
+    p_doctor = sub.add_parser("doctor", help="check the local Testence runtime")
+    p_doctor.add_argument("--root", type=Path, default=Path("."))
+    p_doctor.add_argument("--json", dest="json_output", action="store_true")
+
+    p_init = sub.add_parser("init", help="create a conflict-safe onboarding scaffold")
+    p_init.add_argument("path", type=Path, nargs="?", default=Path("."))
+    p_init.add_argument("--json", dest="json_output", action="store_true")
+
+    p_run = sub.add_parser("run", help="run the explicit Testence scope")
+    p_run.add_argument("--project", type=Path, default=Path("."))
+    p_run.add_argument("--run-id", default=None)
+    p_run.add_argument("pytest_args", nargs=argparse.REMAINDER)
+
+    p_inspect = sub.add_parser("inspect", help="inspect one explicit run directory")
+    p_inspect.add_argument("run_dir", type=Path)
+    p_inspect.add_argument("--json", dest="json_output", action="store_true")
+
+    p_demo = sub.add_parser("demo", help="run the deterministic green/failure proof demo")
+    demo_sub = p_demo.add_subparsers(dest="demo_command", required=True)
+    p_demo_run = demo_sub.add_parser("run", help="create, run and report the local demo")
+    p_demo_run.add_argument("--project", type=Path, default=Path("testence-demo"))
+    p_demo_run.add_argument("--run-prefix", default=None)
+    p_demo_run.add_argument("--json", dest="json_output", action="store_true")
+
+    p_capabilities = sub.add_parser("capabilities", help="inspect engine capabilities")
+    p_capabilities.add_argument("--project", type=Path, default=Path("."))
+    p_capabilities.add_argument("--backend", default="playwright-cdp")
+    p_capabilities.add_argument("--json", dest="json_output", action="store_true")
+
+    p_quality = sub.add_parser("quality", help="manage a versioned multi-project quality pack")
+    quality_sub = p_quality.add_subparsers(dest="quality_command", required=True)
+    p_quality_apply = quality_sub.add_parser("apply", help="apply a pinned quality pack")
+    p_quality_apply.add_argument("pack", type=Path)
+    p_quality_apply.add_argument("project", type=Path)
+    p_quality_apply.add_argument("--dry-run", action="store_true")
+    p_quality_apply.add_argument("--json", dest="json_output", action="store_true")
+    p_quality_rollback = quality_sub.add_parser("rollback", help="restore a retained pack revision")
+    p_quality_rollback.add_argument("project", type=Path)
+    p_quality_rollback.add_argument("--digest", required=True)
+    p_quality_rollback.add_argument("--json", dest="json_output", action="store_true")
+    p_quality_summary = quality_sub.add_parser("summary", help="build an actionable QA summary")
+    p_quality_summary.add_argument("run_dirs", nargs="+", type=Path)
+    p_quality_summary.add_argument("--project", default=None)
+    p_quality_summary.add_argument("--owner", default=None)
+    p_quality_summary.add_argument("--risk", default=None)
+    p_quality_summary.add_argument("--case", default=None)
+    p_quality_summary.add_argument("-o", "--out", type=Path, default=None)
+    p_quality_summary.add_argument("--json", dest="json_output", action="store_true")
+
+    p_agent = sub.add_parser("agent", help="install and verify the bundled agent skill pack")
+    agent_sub = p_agent.add_subparsers(dest="agent_command", required=True)
+    p_agent_install = agent_sub.add_parser("install", help="install skills for agent clients")
+    p_agent_install.add_argument("--project", type=Path, default=Path("."))
+    p_agent_install.add_argument(
+        "--client", action="append", choices=("codex", "claude"), required=True
+    )
+    p_agent_install.add_argument("--json", dest="json_output", action="store_true")
+    p_agent_verify = agent_sub.add_parser("verify", help="verify installed agent skills")
+    p_agent_verify.add_argument("--project", type=Path, default=Path("."))
+    p_agent_verify.add_argument(
+        "--client", action="append", choices=("codex", "claude"), default=[]
+    )
+    p_agent_verify.add_argument("--json", dest="json_output", action="store_true")
+
+    p_corpus = sub.add_parser("corpus", help="validate the frozen correctness corpus")
+    corpus_sub = p_corpus.add_subparsers(dest="corpus_command", required=True)
+    p_corpus_validate = corpus_sub.add_parser("validate", help="validate corpus structure/freeze")
+    p_corpus_validate.add_argument("path", type=Path)
+    p_corpus_validate.add_argument("--root", type=Path, default=None)
+    p_corpus_validate.add_argument("--structure-only", action="store_true")
+    p_corpus_validate.add_argument("--json", dest="json_output", action="store_true")
+
+    p_release = sub.add_parser("release", help="validate a release decision manifest")
+    release_sub = p_release.add_subparsers(dest="release_command", required=True)
+    p_release_validate = release_sub.add_parser("validate", help="validate manifest and evidence")
+    p_release_validate.add_argument("path", type=Path)
+    p_release_validate.add_argument("--root", type=Path, default=Path("."))
+    p_release_validate.add_argument("--structure-only", action="store_true")
+    p_release_validate.add_argument("--json", dest="json_output", action="store_true")
 
     args = parser.parse_args(argv)
 
@@ -288,6 +415,187 @@ def main(argv: list[str] | None = None) -> int:
         render_report(args.run_dir, out)
         print(f"report -> {out}")
         return 0
+
+    if args.command == "doctor":
+        from .application import doctor
+
+        result = doctor(args.root)
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            for check in result["checks"]:
+                print(f"{'ok' if check['ok'] else 'FAIL':4} {check['name']}: {check['detail']}")
+        return 0 if result["ok"] else 2
+
+    if args.command == "init":
+        from .application import ApplicationError, init_project
+
+        try:
+            result = init_project(args.path)
+        except (ApplicationError, OSError) as exc:
+            print(f"init failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(f"initialized {result['project_id']}: {result['manifest']}")
+        return 0
+
+    if args.command == "run":
+        from .evidence import RUN_ID_ENV, new_run_id
+
+        project = args.project.resolve()
+        run_id = args.run_id or new_run_id()
+        pytest_args = [part for part in args.pytest_args if part != "--"]
+        if not pytest_args:
+            pytest_args = [".testence/examples/test_onboarding.py", "-q"]
+        environment = dict(os.environ)
+        environment[RUN_ID_ENV] = run_id
+        print(f"testence run: {run_id}")
+        completed = subprocess.run(
+            [sys.executable, "-m", "pytest", "--rootdir", str(project), *pytest_args],
+            cwd=project,
+            env=environment,
+            check=False,
+        )
+        return int(completed.returncode)
+
+    if args.command == "inspect":
+        from .application import ApplicationError, inspect_run
+
+        try:
+            result = inspect_run(args.run_dir)
+        except ApplicationError as exc:
+            print(f"inspect failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(
+                f"{result['run_id']} {result['run_status']}: "
+                f"{result['tests']} tests, {result['assurance']}"
+            )
+        return 0
+
+    if args.command == "demo" and args.demo_command == "run":
+        from .application import ApplicationError, run_demo
+
+        try:
+            result = run_demo(args.project, run_prefix=args.run_prefix)
+        except (ApplicationError, OSError) as exc:
+            print(f"demo failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            for item in result["runs"]:
+                print(
+                    f"{item['name']}: {item['summary']['run_status']} "
+                    f"({item['summary']['assurance']}) -> {item['report']}"
+                )
+        return 0 if result["status"] == "passed" else 3
+
+    if args.command == "capabilities":
+        from .config import Settings
+        from .engine import capability_document, create_engine
+
+        try:
+            engine = create_engine(Settings.load(args.project), backend=args.backend)
+        except (OSError, ValueError) as exc:
+            print(f"capability preflight failed: {exc}", file=sys.stderr)
+            return 2
+        result = capability_document(engine, backend=args.backend)
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(f"{result['backend']}: {', '.join(result['capabilities'])}")
+        return 0
+
+    if args.command == "quality":
+        from .quality import (
+            QualityPackError,
+            apply_quality_pack,
+            quality_summary,
+            rollback_quality_pack,
+        )
+
+        try:
+            if args.quality_command == "apply":
+                result = apply_quality_pack(args.pack, args.project, dry_run=args.dry_run)
+            elif args.quality_command == "rollback":
+                result = rollback_quality_pack(args.project, args.digest)
+            else:
+                result = quality_summary(
+                    args.run_dirs,
+                    project=args.project,
+                    owner=args.owner,
+                    risk=args.risk,
+                    case=args.case,
+                )
+                if args.out:
+                    args.out.parent.mkdir(parents=True, exist_ok=True)
+                    args.out.write_text(
+                        json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8",
+                        newline="\n",
+                    )
+        except (OSError, QualityPackError, ValueError) as exc:
+            print(f"quality {args.quality_command} failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 3 if result.get("status") == "conflict" else 0
+
+    if args.command == "agent":
+        from .agent import AgentInstallError, install_skills, verify_skills
+
+        try:
+            if args.agent_command == "install":
+                result = install_skills(args.project, args.client)
+            else:
+                result = verify_skills(args.project, args.client)
+        except (AgentInstallError, OSError, ValueError) as exc:
+            print(f"agent {args.agent_command} failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 3 if result["status"] in {"conflict", "drift"} else 0
+
+    if args.command == "corpus":
+        from .benchmark import CorpusProtocolError, validate_corpus_registry
+
+        try:
+            result = validate_corpus_registry(args.path, repository_root=args.root)
+        except (CorpusProtocolError, OSError, ValueError) as exc:
+            print(f"corpus validate failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if args.structure_only or result["acceptance_ready"] else 3
+
+    if args.command == "release":
+        from .release import ReleaseManifestError, validate_release_manifest
+
+        try:
+            result = validate_release_manifest(
+                args.path,
+                repository_root=args.root,
+                verify_files=not args.structure_only,
+            )
+        except (ReleaseManifestError, OSError, ValueError) as exc:
+            print(f"release validate failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["status"] == "go" or result["ready_for_owner_decision"] else 3
 
     if args.command == "export":
         # Imported here, not at module scope: an exporter module is loaded only when
@@ -399,6 +707,107 @@ def main(argv: list[str] | None = None) -> int:
                 f"({len(verdict.claim_results)} claims)"
             )
         return 0
+
+    if args.command == "verdict" and args.verdict_command == "submit":
+        from .application import ApplicationError, submit_verdict
+        from .contracts._validation import ContractError
+
+        try:
+            result = submit_verdict(
+                args.path,
+                plan_path=args.plan,
+                pack_dir=args.pack,
+                output_path=args.out,
+            )
+        except (ApplicationError, ContractError, OSError) as exc:
+            print(f"verdict submit failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(f"verdict submitted: {result['output']} ({result['verdict_digest']})")
+        return 0
+
+    if args.command == "repair" and args.repair_command == "validate":
+        from .contracts import load_plan, load_repair, load_verdict, validate_repair
+        from .contracts._validation import ContractError
+
+        try:
+            repair_plan = load_plan(args.plan)
+            repair_verdict = load_verdict(
+                args.verdict,
+                pack_dir=args.pack or args.verdict.parent,
+                plan=repair_plan,
+            )
+            proposal = load_repair(args.path)
+            validate_repair(
+                proposal,
+                verdict=repair_verdict,
+                verdict_path=args.verdict,
+                plan=repair_plan,
+                base_path=args.base,
+                evidence_root=args.evidence_root,
+            )
+        except ContractError as exc:
+            print(f"repair invalid: {exc}", file=sys.stderr)
+            return 2
+        summary = proposal.summary_document()
+        if args.json_output:
+            print(json.dumps(summary, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(f"repair valid: {proposal.kind} for {proposal.case_id}")
+        return 0
+
+    if args.command == "delivery" and args.delivery_command == "run":
+        from .ci import CIError, run_delivery
+
+        command = [part for part in args.cmd if part != "--"]
+        try:
+            delivery_result = run_delivery(
+                run_dir=args.run_dir,
+                run_id=args.run_id,
+                project_id=args.project_id,
+                launch_id=args.launch_id,
+                job_run_id=args.job_run_id,
+                artifact_dir=args.artifact_dir,
+                receipt_path=args.receipt,
+                command=command,
+                retries=args.retries,
+                timeout_s=args.timeout,
+            )
+        except CIError as exc:
+            print(f"delivery invalid: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(delivery_result.receipt, ensure_ascii=False, separators=(",", ":")))
+        return delivery_result.exit_code
+
+    if args.command == "ci" and args.ci_command == "evaluate":
+        from .ci import CIError, evaluate_ci, write_ci_receipt
+
+        try:
+            receipt = evaluate_ci(
+                run_dir=args.run_dir,
+                run_id=args.run_id,
+                test_exit=args.test_exit,
+                quality_mode=args.quality_mode,
+                delivery_receipt=args.delivery_receipt,
+                ctrf_path=args.ctrf,
+                junit_path=args.junit,
+                allow_empty=args.allow_empty,
+            )
+            write_ci_receipt(args.out, receipt)
+        except CIError as exc:
+            print(f"ci invalid: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(receipt, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(
+                f"ci -> {args.out}: test={receipt['test']['exit_code']} "
+                f"quality={receipt['quality']['exit_code']} "
+                f"delivery={receipt['delivery']['exit_code']} final={receipt['final_exit']}"
+            )
+        return int(receipt["final_exit"])
 
     return 1
 

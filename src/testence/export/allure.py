@@ -25,7 +25,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from ._model import PACK_FILES, LoadedRun, Step, Test, epoch_ms
+from ._model import PACK_FILES, FixturePhase, LoadedRun, Step, Test, epoch_ms
 
 name = "allure"
 
@@ -60,11 +60,19 @@ _MIME = {
 def export(run: LoadedRun, out_dir: Path) -> list[Path]:
     written: list[Path] = []
     for test in run.tests:
-        test_uuid = _uuid_for(run.run_id, test.nodeid)
+        test_uuid = _uuid_for(
+            run.run_id,
+            test.case_id or test.nodeid,
+            test.variant_id,
+            test.attempt_id or "legacy",
+        )
         attachments, files = _attachments(run, test, test_uuid, out_dir)
         written.extend(files)
         result = _result(run, test, test_uuid, attachments)
         written.append(_write_json(out_dir / f"{test_uuid}-result.json", result))
+        if test.fixtures:
+            container = _container(test, test_uuid)
+            written.append(_write_json(out_dir / f"{container['uuid']}-container.json", container))
     written.append(_write_environment(run, out_dir))
     return written
 
@@ -72,15 +80,32 @@ def export(run: LoadedRun, out_dir: Path) -> list[Path]:
 def _result(run: LoadedRun, test: Test, test_uuid: str, attachments: list[dict]) -> dict[str, Any]:
     doc: dict[str, Any] = {
         "uuid": test_uuid,
+        "testCaseId": hashlib.sha256(
+            "|".join((test.project_id or run.project_id, test.case_id or test.nodeid)).encode(
+                "utf-8"
+            )
+        ).hexdigest(),
         # Stable across runs on purpose: this is what makes TestOps history a
         # history of one test rather than of one execution.
-        "historyId": hashlib.sha256(test.nodeid.encode("utf-8")).hexdigest(),
+        "historyId": hashlib.sha256(
+            "|".join(
+                (test.project_id or run.project_id, test.case_id or test.nodeid, test.variant_id)
+            ).encode("utf-8")
+        ).hexdigest(),
         "name": test.name,
         "fullName": test.nodeid,
         "status": _STATUS.get(test.status, "broken"),
         "stage": "finished",
         "labels": _labels(test),
+        "parameters": [
+            {"name": "variant_id", "value": test.variant_id},
+            *[
+                {"name": name, "value": f"sha256:{digest}"}
+                for name, digest in sorted(test.parameters.items())
+            ],
+        ],
         "steps": [_step(step) for step in test.steps],
+        "links": _links(test),
     }
     _put_window(doc, test.start, test.stop)
     message = test.error or _first_step_error(test.steps)
@@ -99,10 +124,56 @@ def _labels(test: Test) -> list[dict[str, str]]:
     saved filter.
     """
     labels = [{"name": "framework", "value": "testence"}]
+    for name, value in (
+        ("project", test.project_id),
+        ("case_id", test.case_id),
+        ("attempt_id", test.attempt_id),
+        ("proof_id", test.proof_id),
+        ("assurance", test.assurance),
+        ("ALLURE_ID", test.allure_id),
+        ("owner", test.owner),
+        ("risk", test.risk),
+    ):
+        if value:
+            labels.append({"name": name, "value": value})
     if test.file:
         labels.append({"name": "suite", "value": Path(test.file).stem})
     labels.extend({"name": "tag", "value": marker} for marker in test.markers)
+    labels.extend({"name": "requirement", "value": item["id"]} for item in test.requirements)
+    labels.extend({"name": "issue", "value": item["id"]} for item in test.issues)
     return labels
+
+
+def _links(test: Test) -> list[dict[str, str]]:
+    return [
+        {"name": item["id"], "url": item["url"], "type": kind}
+        for kind, values in (("tms", test.requirements), ("issue", test.issues))
+        for item in values
+        if item.get("url")
+    ]
+
+
+def _container(test: Test, test_uuid: str) -> dict[str, Any]:
+    before = [_fixture(item) for item in test.fixtures if item.name == "pytest setup"]
+    after = [_fixture(item) for item in test.fixtures if item.name == "pytest teardown"]
+    return {
+        "uuid": _uuid_for(test_uuid, "fixtures"),
+        "children": [test_uuid],
+        "befores": before,
+        "afters": after,
+    }
+
+
+def _fixture(fixture: FixturePhase) -> dict[str, Any]:
+    document: dict[str, Any] = {
+        "name": fixture.name,
+        "status": _STATUS.get(fixture.status, "broken"),
+        "stage": "finished",
+    }
+    _put_window(document, fixture.start, fixture.stop)
+    if fixture.error:
+        document["statusDetails"] = {"message": fixture.error, "trace": fixture.error}
+    return document
 
 
 def _step(step: Step) -> dict[str, Any]:
@@ -168,7 +239,12 @@ def _write_environment(run: LoadedRun, out_dir: Path) -> Path:
     values: dict[str, str] = {
         "testence.version": run.testence_version,
         "testence.run": run.run_id,
+        "testence.run_status": run.run_status,
     }
+    if run.integrity_errors:
+        values["testence.integrity_errors"] = json.dumps(
+            run.integrity_errors, ensure_ascii=False, separators=(",", ":")
+        )
     for key, value in (run.fingerprint or {}).items():
         values[f"environment.{key}"] = "" if value is None else str(value)
     lines = [f"{key}={_escape(value)}" for key, value in sorted(values.items()) if value != ""]

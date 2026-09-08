@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/r1-rc']
   pull_request:
   workflow_dispatch:
 
@@ -31,13 +31,31 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked --extra dev --extra parallel
       - name: Check formatting
-        run: uv run ruff format --check src tests bench
+        run: uv run ruff format --check src tests bench scripts
       - name: Lint
-        run: uv run ruff check src tests bench
+        run: uv run ruff check src tests bench scripts
       - name: Type-check
-        run: uv run mypy src/testence bench/react_latency.py bench/warm_runner_latency.py
-      - name: Build distributions
-        run: uv build
+        run: uv run mypy src scripts
+      - name: Validate schemas, documentation and frozen corpus
+        run: uv run pytest -q tests/test_contracts.py tests/test_documentation.py tests/test_release_corpus.py
+      - name: Enforce critical corpus freeze
+        run: uv run testence corpus validate corpus/r1-correctness-v2.json --structure-only --json
+      - name: Enforce scale and deterministic-output budgets
+        run: uv run python bench/scale_profile.py --repeats 3 --check --output scale-profile.json
+      - name: Save scale profile
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: testence-${{ github.sha }}-scale-profile
+          path: scale-profile.json
+          if-no-files-found: error
+      - name: Build reproducible wheel and sdist bytes
+        run: uv run python scripts/reproducible_build.py --dist-dir dist --output dist/reproducible-build.json
+      - name: Save immutable candidate distributions and build receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: testence-${{ github.sha }}-candidate-distributions
+          path: dist/*
+          if-no-files-found: error
 
   tests:
     name: ${{ matrix.os }} / Python ${{ matrix.python }}
@@ -68,3 +86,121 @@ jobs:
         run: uv run playwright install chromium
       - name: Run test suite
         run: uv run pytest -q
+
+  minimum-dependencies:
+    name: Minimum dependencies / Python 3.10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Install declared minimum dependencies
+        run: |
+          uv venv --python 3.10 .venv-min
+          uv pip install --python .venv-min/bin/python "playwright==1.49.0" "pytest==8.0.0" "pytest-xdist==3.6.1" .
+      - name: Install minimum Playwright Chromium
+        run: .venv-min/bin/python -m playwright install --with-deps chromium
+      - name: Run suite at dependency floor
+        run: .venv-min/bin/python -m pytest -q
+
+  installed-wheel:
+    name: Installed wheel / browser / release artifacts
+    runs-on: ubuntu-latest
+    needs: [quality, tests, minimum-dependencies]
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Download the immutable candidate distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: testence-${{ github.sha }}-candidate-distributions
+          path: dist
+      - name: Install wheel outside the checkout environment
+        run: |
+          uv venv .wheel-venv
+          wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          uv pip install --python .wheel-venv/bin/python "$wheel"
+          .wheel-venv/bin/python -m playwright install --with-deps chromium
+      - name: Run isolated installed-wheel smoke
+        run: |
+          wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          .wheel-venv/bin/python -I scripts/installed_wheel_smoke.py --distribution "$wheel" --output release-artifacts/installed-wheel-smoke.json
+      - name: Rebuild the wheel from the exact sdist
+        run: .wheel-venv/bin/python -I scripts/sdist_rebuild_smoke.py --dist-dir dist --output release-artifacts/sdist-rebuild.json
+      - name: Generate installed dependency and license inventory
+        run: |
+          wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          .wheel-venv/bin/python -I scripts/dependency_inventory.py --distribution "$wheel" --smoke-receipt release-artifacts/installed-wheel-smoke.json --output release-artifacts/dependency-inventory.json
+      - name: Install pinned SPDX validator outside the runtime inventory
+        run: uv pip install --python .wheel-venv/bin/python "spdx-tools==0.8.5"
+      - name: Generate checksums, resolved SPDX SBOM and local provenance
+        run: .wheel-venv/bin/python -I scripts/release_artifacts.py --dist-dir dist --output-dir release-artifacts --dependency-inventory release-artifacts/dependency-inventory.json --repository "${{ github.server_url }}/${{ github.repository }}" --revision "${{ github.sha }}"
+      - name: Sign build provenance
+        if: github.event_name != 'pull_request' && (!github.event.repository.private || vars.PRIVATE_ATTESTATIONS_ENABLED == 'true')
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: dist/*
+      - name: Record unavailable private-repository signing
+        if: github.event.repository.private && vars.PRIVATE_ATTESTATIONS_ENABLED != 'true'
+        run: echo 'Unsigned private engineering candidate. GitHub artifact attestations require Enterprise Cloud for private repositories; signed release provenance remains pending.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Save release evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: testence-${{ github.sha }}-release-evidence
+          path: |
+            dist/*
+            release-artifacts/*
+          if-no-files-found: error
+
+  installed-wheel-windows:
+    name: Installed wheel / Windows browser
+    runs-on: windows-latest
+    needs: [quality, tests, minimum-dependencies]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Download and install the exact candidate wheel
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: testence-${{ github.sha }}-candidate-distributions
+          path: dist
+      - name: Install exact wheel
+        shell: pwsh
+        run: |
+          uv venv .wheel-venv
+          $wheel = (Get-ChildItem -LiteralPath dist -Filter *.whl | Select-Object -First 1).FullName
+          uv pip install --python .wheel-venv/Scripts/python.exe $wheel
+          .wheel-venv/Scripts/python.exe -m playwright install chromium
+      - name: Run isolated installed-wheel smoke
+        shell: pwsh
+        run: |
+          $wheel = (Get-ChildItem -LiteralPath dist -Filter *.whl | Select-Object -First 1).FullName
+          .wheel-venv/Scripts/python.exe -I scripts/installed_wheel_smoke.py --distribution $wheel --output release-artifacts/installed-wheel-smoke-windows.json
+      - name: Save Windows wheel evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: testence-${{ github.sha }}-windows-wheel-smoke
+          path: |
+            release-artifacts/installed-wheel-smoke-windows.json
+          if-no-files-found: error

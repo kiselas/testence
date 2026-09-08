@@ -46,7 +46,8 @@ def test_report_surfaces_the_plan_and_claims(tmp_path):
     writer.bind_test(
         "create_blocker",
         plan={
-            "schema": "testence/planspec/1",
+            "schema": "testence/planspec/2",
+            "project_id": "testence",
             "id": "release-board.create-blocker",
             "path": "specs/create-blocker.md",
         },
@@ -62,3 +63,15 @@ def test_report_surfaces_the_plan_and_claims(tmp_path):
     assert "Proof contract:" in page
     assert "release-board.create-blocker" in page
     assert "blocker.create.persisted" in page
+
+
+def test_report_visibly_marks_a_torn_run_incomplete(tmp_path):
+    writer = EvidenceWriter(tmp_path, run_id="r-torn-report", worker="")
+    writer.emit("run.start")
+    writer.emit("test.start", test="case_a")
+    writer.close()
+
+    page = render_report(writer.run_dir, tmp_path / "torn.html").read_text(encoding="utf-8")
+
+    assert "INCOMPLETE RUN" in page
+    assert "run_not_complete" in page

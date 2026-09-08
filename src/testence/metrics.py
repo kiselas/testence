@@ -23,8 +23,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from testence import SCHEMA_VERSION, kernels
-from testence.evidence import ledger_paths
+from testence import kernels
+from testence.evidence import read_run_ledgers
+from testence.evidence.reconcile import reconcile_events
+from testence.status import normalize_execution_status
 
 
 def percentile(values: list[float], pct: float) -> float | None:
@@ -37,15 +39,7 @@ def load_run(run_dir: Path) -> list[dict[str, Any]]:
     A parallel run has one file per worker (see ``evidence.writer``); a serial run
     has exactly one. Parsing is kernel-dispatched (hot when aggregating many runs).
     """
-    events: list[dict[str, Any]] = []
-    for path in ledger_paths(run_dir):
-        events.extend(kernels.parse_ledger(path.read_bytes()))
-    for event in events:
-        if event.get("v") != SCHEMA_VERSION:
-            raise ValueError(f"unsupported schema version: {event.get('v')!r}")
-    # `seq` restarts per process, so it orders within a file, never across them.
-    events.sort(key=lambda doc: (doc.get("ts", ""), doc.get("seq", 0)))
-    return events
+    return reconcile_events(read_run_ledgers(run_dir))
 
 
 def _is_leaf(doc: dict[str, Any]) -> bool:
@@ -58,6 +52,13 @@ def _is_leaf(doc: dict[str, Any]) -> bool:
     return doc.get("children", 0) == 0
 
 
+def _attempt_key(doc: dict[str, Any]) -> str:
+    identity = [
+        str(doc.get(field) or "") for field in ("project_id", "case_id", "variant_id", "attempt_id")
+    ]
+    return "|".join(identity) if all(identity) else str(doc.get("nodeid") or doc.get("test"))
+
+
 def aggregate(run_dirs: list[Path]) -> dict[str, Any]:
     step_ms: list[float] = []
     case_s: list[float] = []
@@ -65,31 +66,54 @@ def aggregate(run_dirs: list[Path]) -> dict[str, Any]:
     pack_tokens: list[int] = []
     #: (test, code hash) -> statuses. The code hash scopes a flake to one version
     #: of the test; see the module docstring.
-    outcomes: dict[tuple[str, str], set[str]] = {}
+    outcomes: dict[tuple[str, str, str, str], set[str]] = {}
+    incomplete_runs: list[str] = []
+    assurance = {status: 0 for status in ("verified", "violated", "inconclusive", "unverified")}
 
     for run_dir in run_dirs:
         code_of: dict[str, str] = {}
-        for doc in load_run(run_dir):
+        run_events = load_run(run_dir)
+        final = next((doc for doc in reversed(run_events) if doc.get("kind") == "run.end"), {})
+        if final.get("run_status") == "incomplete":
+            incomplete_runs.append(str(final.get("run_id") or run_dir.name))
+        for doc in run_events:
             kind = doc["kind"]
             if kind == "step.end" and doc.get("status") == "ok" and _is_leaf(doc):
                 step_ms.append(doc["duration_ms"])
             elif kind == "test.start":
-                code_of[doc["test"]] = str(doc.get("code") or "")
+                test_id = _attempt_key(doc)
+                code_of[test_id] = str(doc.get("code") or "")
             elif kind == "test.end":
                 case_s.append(doc["duration_ms"] / 1000)
-                key = (doc["test"], code_of.get(doc["test"], ""))
-                outcomes.setdefault(key, set()).add(doc["status"])
+                assurance_status = str(doc.get("assurance") or "unverified")
+                assurance[assurance_status] = assurance.get(assurance_status, 0) + 1
+                test_id = _attempt_key(doc)
+                key = (
+                    str(doc.get("project_id") or "legacy"),
+                    str(doc.get("case_id") or doc.get("nodeid") or doc.get("test")),
+                    str(doc.get("variant_id") or "default"),
+                    code_of.get(test_id, ""),
+                )
+                outcomes.setdefault(key, set()).add(normalize_execution_status(doc.get("status")))
             elif kind == "run.end":
                 suite_min.append(doc["duration_ms"] / 60000)
             elif kind == "pack":
                 pack_tokens.append(sum(doc.get("sections_est_tokens", {}).values()))
 
-    flaky = sorted({test for (test, _), statuses in outcomes.items() if len(statuses) > 1})
-    tests = {test for test, _ in outcomes}
+    flaky = sorted(
+        {
+            "/".join((project, case, variant))
+            for (project, case, variant, _), statuses in outcomes.items()
+            if len(statuses) > 1
+        }
+    )
+    tests = {(project, case, variant) for project, case, variant, _ in outcomes}
     step_p50, step_p95 = kernels.percentiles(step_ms, [50, 95])
     case_p50, case_p95 = kernels.percentiles(case_s, [50, 95])
     return {
         "runs": len(run_dirs),
+        "incomplete_runs": incomplete_runs,
+        "assurance": assurance,
         "kernels": kernels.active_backend(),
         "step_latency_ms": {"p50": step_p50, "p95": step_p95, "n": len(step_ms)},
         "case_duration_s": {"p50": case_p50, "p95": case_p95, "n": len(case_s)},

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://testence.dev/schemas/correctness-corpus.schema.json",
+  "title": "Testence frozen correctness corpus",
+  "type": "object",
+  "required": ["schema", "revision", "freeze_manifest", "cases", "oss_targets", "independent_review"],
+  "properties": {
+    "schema": {"const": "testence/correctness-corpus/2"},
+    "revision": {"type": "string", "minLength": 1},
+    "freeze_manifest": {"type": "string", "minLength": 1},
+    "cases": {
+      "type": "array",
+      "minItems": 40,
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "required": ["id", "stratum", "truth", "source", "source_sha256", "selector", "split"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]+$"},
+          "stratum": {"enum": ["product_defect", "healthy_control", "repairable_drift", "ambiguous_infrastructure"]},
+          "truth": {"type": "string", "minLength": 1},
+          "source": {"type": "string", "minLength": 1},
+          "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "selector": {"type": "string", "minLength": 1},
+          "split": {"enum": ["development", "holdout"]},
+          "note": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "oss_targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "repository", "license", "commit", "reproduction_receipt", "receipt_sha256"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "repository": {"type": "string", "format": "uri", "pattern": "^https://"},
+          "license": {"type": "string", "minLength": 1},
+          "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "reproduction_receipt": {"type": "string", "minLength": 1},
+          "receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "independent_review": {
+      "type": "object",
+      "required": ["reviews"],
+      "properties": {
+        "reviews": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["reviewer_id", "scope_digest", "receipt", "receipt_sha256"],
+            "properties": {
+              "reviewer_id": {"type": "string", "minLength": 1},
+              "scope_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+              "receipt": {"type": "string", "minLength": 1},
+              "receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

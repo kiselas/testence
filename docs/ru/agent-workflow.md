@@ -65,9 +65,17 @@ pre-alpha.
 
 ## 1. Bootstrap
 
-Целевая команда — `testence agent init`. Она должна обнаруживать поддерживаемые
-клиенты, устанавливать переносимые workflow-артефакты и не копировать секреты в
-конфигурацию агента.
+Переносимые workflow-артефакты можно установить для одного или обоих поддерживаемых
+клиентов и затем проверить побайтово:
+
+```bash
+testence agent install --project . --client codex --client claude --json
+testence agent verify --project . --json
+```
+
+Installer не копирует секреты в конфигурацию агента. Он записывает repo-owned receipt
+`.testence/agents.json`, обновляет только неизменённые ранее установленные файлы и
+сообщает о локальных правках как о конфликтах.
 
 Устанавливаемый контракт включает:
 
@@ -92,8 +100,8 @@ PlanSpec — понятный человеку Markdown с машиночита�
 - независимый oracle, когда он доступен;
 - исключения, неопределённость и требуемые согласования.
 
-В первой версии машиночитаемый блок стабилизирует только `id`, `title`, `source`,
-claims с типами oracle и scenarios с risk. Preconditions, seed/cleanup и approvals пока
+В v2 машиночитаемый контракт стабилизирует `project_id`, metadata plan, claims с типами
+oracle и scenarios, чьи ID являются логическими case ID. Preconditions, seed/cleanup и approvals пока
 остаются в окружающем Markdown; расширять schema будем после проверки authoring corpus,
 а не заранее.
 
@@ -102,7 +110,8 @@ Markdown-файл содержит ровно один JSON-блок `testence-p
 
 ```testence-planspec
 {
-  "schema": "testence/planspec/1",
+  "schema": "testence/planspec/2",
+  "project_id": "checkout",
   "id": "checkout.discount",
   "title": "Apply an eligible discount",
   "claims": [
@@ -111,6 +120,15 @@ Markdown-файл содержит ровно один JSON-блок `testence-p
       "statement": "The UI and cart API expose the same discounted total.",
       "oracles": ["ui", "api"],
       "required": true
+    }
+  ],
+  "assertions": [
+    {
+      "id": "assert.discount.total",
+      "claim_id": "checkout.discount.total",
+      "oracle": "api",
+      "required": true,
+      "expected": "Cart API и UI показывают одинаковую итоговую сумму."
     }
   ],
   "scenarios": [
@@ -133,6 +151,7 @@ testence plan validate specs/checkout-discount.md --json
 ```python
 @pytest.mark.testence(
     plan="specs/checkout-discount.md",
+    case_id="eligible-code",
     claims=["checkout.discount.total"],
 )
 def test_discount_total(ex):
@@ -182,7 +201,17 @@ assertions. Затем результат компилируется в обыч
 
 ```json
 {
-  "schema": "testence/verdict/1",
+  "schema": "testence/verdict/2",
+  "project_id": "checkout",
+  "case_id": "discount-total",
+  "variant_id": "default",
+  "attempt_id": "attempt-controller-1",
+  "run_id": "r-20260906-120000-abc123",
+  "proof_id": "proof-0123456789abcdef0123",
+  "plan_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "test_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "policy_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "pack_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "plan_id": "checkout.discount",
   "test_id": "tests/test_checkout.py::test_discount_total",
   "verdict": "real_bug",
@@ -206,7 +235,9 @@ assertions. Затем результат компилируется в обыч
 явный канал воздержания: он
 называет недостающее доказательство вместо изобретения шестого класса причин. Вердикт
 с `null` требует хотя бы один blocker; `passed`/`failed` claim требует ссылки на реально
-существующие файлы pack. Проверка связывает verdict с точными plan, test и claims:
+существующие файлы pack. Проверка связывает verdict с точными plan, test и claims,
+проверяет digests plan/test/policy/pack, каждый artifact manifest и каждый JSON Pointer
+на принадлежность той же попытке:
 
 ```bash
 testence verdict validate runs/<run>/<test>/pack/verdict.json \
@@ -224,6 +255,17 @@ testence verdict validate runs/<run>/<test>/pack/verdict.json \
 - объяснение причины и уверенность;
 - точный diff исходников;
 - минимальный перезапуск, способный подтвердить изменение.
+
+Source proposal использует `testence/repair-proposal/1` и связывает файл verdict,
+защищённую семантику PlanSpec и исходное состояние source через SHA-256. Он действителен
+только с одним verified healthy run, одним violated defect control и одним verified
+harmless control:
+
+```bash
+testence repair validate repair.json --verdict <pack>/verdict.json \
+  --plan specs/checkout-discount.md --base tests/test_checkout.py \
+  --pack <pack> --evidence-root proof-runs --json
+```
 
 Применение patch — отдельное действие с разрешением. Принятие или отклонение хранится
 как обратная связь о качестве, но никогда как скрытое runtime-поведение.

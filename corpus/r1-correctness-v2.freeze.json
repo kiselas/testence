@@ -1,0 +1,46 @@
+{
+  "schema": "testence/correctness-corpus-freeze/1",
+  "corpus_digest": "sha256:8b25b39d09d26c639a77e2b3aa568df18c9ab09daac64f180940ba6f46dac4de",
+  "files": [
+    {
+      "path": "bench/corpus/items.py",
+      "bytes": 6737,
+      "sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404"
+    },
+    {
+      "path": "corpus/expected-state-v1.json",
+      "bytes": 2888,
+      "sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c"
+    },
+    {
+      "path": "corpus/items.py",
+      "bytes": 5641,
+      "sha256": "7925a124d3eb38654ea2d954a49a7223d763836407f07dc94f731be06ae7235f"
+    },
+    {
+      "path": "tests/test_assurance.py",
+      "bytes": 4350,
+      "sha256": "b2505c6aebf215904fdafcf7f94574062f49f5abd11739174895e431dd0c2f5a"
+    },
+    {
+      "path": "tests/test_evidence.py",
+      "bytes": 4144,
+      "sha256": "d2a3454d015b679e74cb83ad71cbcb9daff17a1d56f81ab9f659165110365314"
+    },
+    {
+      "path": "tests/test_identity.py",
+      "bytes": 6102,
+      "sha256": "a24e9a318448cb99d2d1402c3eb58285dc132fccf282585c0d50ffe1c90f7668"
+    },
+    {
+      "path": "tests/test_pytest_lifecycle.py",
+      "bytes": 17281,
+      "sha256": "8f68cdf27dc1e3922d0c98deef880ad19df75624efaa8dea484a9bce5b71beb0"
+    },
+    {
+      "path": "tests/test_repair_contract.py",
+      "bytes": 11396,
+      "sha256": "549f38f4a197ea714d8682e14f4a62c73394d4a621e63d1d502d86d0f1e0729f"
+    }
+  ]
+}

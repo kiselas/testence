@@ -1,0 +1,411 @@
+{
+  "schema": "testence/correctness-corpus/2",
+  "revision": "r1-2026-09-07",
+  "freeze_manifest": "corpus/r1-correctness-v2.freeze.json",
+  "cases": [
+    {
+      "id": "defect.first-interaction-swallowed",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "D-40 single-click mutation",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"D-40-first-interaction-swallowed\""
+    },
+    {
+      "id": "defect.view-does-not-catch-up",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "D-13 optimistic UI",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"D-13-view-does-not-catch-up\""
+    },
+    {
+      "id": "defect.placeholders-persist",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "D-15 content absence",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"D-15-placeholders-persist\""
+    },
+    {
+      "id": "defect.deleted-rows-listed",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "bench/corpus/items.py",
+      "split": "holdout",
+      "note": "D-17 authoritative delete",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"D-17-deleted-rows-listed\""
+    },
+    {
+      "id": "defect.deep-link-ignored",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "D-34 routing",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"D-34-deep-link-ignored\""
+    },
+    {
+      "id": "defect.counter-disagrees",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "D-43 total oracle",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"D-43-counter-disagrees\""
+    },
+    {
+      "id": "defect.short-page",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "D-43 pagination",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"D-43-short-page\""
+    },
+    {
+      "id": "defect.prefix-not-substring",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "D-44 search semantics",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"D-44-prefix-not-substring\""
+    },
+    {
+      "id": "defect.filter-dropped",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "bench/corpus/items.py",
+      "split": "holdout",
+      "note": "D-45 API filter",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"D-45-filter-dropped\""
+    },
+    {
+      "id": "defect.element-removed",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "corpus/items.py",
+      "split": "development",
+      "note": "capability disappearance",
+      "source_sha256": "7925a124d3eb38654ea2d954a49a7223d763836407f07dc94f731be06ae7235f",
+      "selector": "name=\"real_bug_element_removed\""
+    },
+    {
+      "id": "defect.wrong-value",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "corpus/items.py",
+      "split": "development",
+      "note": "incorrect mutation outcome",
+      "source_sha256": "7925a124d3eb38654ea2d954a49a7223d763836407f07dc94f731be06ae7235f",
+      "selector": "name=\"real_bug_wrong_value\""
+    },
+    {
+      "id": "defect.action-noop",
+      "stratum": "product_defect",
+      "truth": "real_bug",
+      "source": "corpus/items.py",
+      "split": "development",
+      "note": "successful click with no effect",
+      "source_sha256": "7925a124d3eb38654ea2d954a49a7223d763836407f07dc94f731be06ae7235f",
+      "selector": "name=\"real_bug_action_does_nothing\""
+    },
+    {
+      "id": "defect.stale-equal-ui-api",
+      "stratum": "product_defect",
+      "truth": "failed",
+      "source": "corpus/expected-state-v1.json",
+      "split": "development",
+      "note": "stale revision agrees across surfaces",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"stale-equal-ui-and-api\""
+    },
+    {
+      "id": "defect.wrong-entity",
+      "stratum": "product_defect",
+      "truth": "failed",
+      "source": "corpus/expected-state-v1.json",
+      "split": "development",
+      "note": "identity binding",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"wrong-entity\""
+    },
+    {
+      "id": "defect.wrong-role",
+      "stratum": "product_defect",
+      "truth": "failed",
+      "source": "corpus/expected-state-v1.json",
+      "split": "development",
+      "note": "actor binding",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"wrong-role\""
+    },
+    {
+      "id": "defect.rollback-window",
+      "stratum": "product_defect",
+      "truth": "failed",
+      "source": "corpus/expected-state-v1.json",
+      "split": "development",
+      "note": "state rolls back during stability window",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"rollback-during-window\""
+    },
+    {
+      "id": "defect.worker-crash",
+      "stratum": "product_defect",
+      "truth": "incomplete",
+      "source": "tests/test_pytest_lifecycle.py",
+      "split": "holdout",
+      "note": "controller detects missing worker terminal",
+      "source_sha256": "8f68cdf27dc1e3922d0c98deef880ad19df75624efaa8dea484a9bce5b71beb0",
+      "selector": "def test_worker_crash_cannot_export_as_a_green_run"
+    },
+    {
+      "id": "defect.missing-terminal",
+      "stratum": "product_defect",
+      "truth": "incomplete",
+      "source": "tests/test_evidence.py",
+      "split": "development",
+      "note": "run without terminal event",
+      "source_sha256": "d2a3454d015b679e74cb83ad71cbcb9daff17a1d56f81ab9f659165110365314",
+      "selector": "def test_writer_produces_valid_jsonl"
+    },
+    {
+      "id": "defect.dropped-oracle",
+      "stratum": "product_defect",
+      "truth": "unverified",
+      "source": "tests/test_assurance.py",
+      "split": "development",
+      "note": "required oracle proof absent",
+      "source_sha256": "b2505c6aebf215904fdafcf7f94574062f49f5abd11739174895e431dd0c2f5a",
+      "selector": "def test_passed_execution_without_required_proof_is_unverified"
+    },
+    {
+      "id": "defect.wrong-identity",
+      "stratum": "product_defect",
+      "truth": "integrity_error",
+      "source": "tests/test_identity.py",
+      "split": "holdout",
+      "note": "attempt/run collision",
+      "source_sha256": "a24e9a318448cb99d2d1402c3eb58285dc132fccf282585c0d50ffe1c90f7668",
+      "selector": "def test_loaded_run_keeps_attempts_of_one_case_separate"
+    },
+    {
+      "id": "control.collection-healthy",
+      "stratum": "healthy_control",
+      "truth": "none",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "clean collection baseline",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"healthy\""
+    },
+    {
+      "id": "control.restyle",
+      "stratum": "healthy_control",
+      "truth": "none",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "classes only",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"C-08-restyle\""
+    },
+    {
+      "id": "control.reorder",
+      "stratum": "healthy_control",
+      "truth": "none",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "semantic order change",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"C-08-reorder\""
+    },
+    {
+      "id": "control.wrap",
+      "stratum": "healthy_control",
+      "truth": "none",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "container insertion",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"C-08-wrap\""
+    },
+    {
+      "id": "control.slow-responses",
+      "stratum": "healthy_control",
+      "truth": "none",
+      "source": "bench/corpus/items.py",
+      "split": "holdout",
+      "note": "bounded 300ms latency",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"C-10-slow-responses\""
+    },
+    {
+      "id": "control.console-noise",
+      "stratum": "healthy_control",
+      "truth": "none",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "captured non-failing noise",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"C-12-console-noise\""
+    },
+    {
+      "id": "control.commit-on-enter",
+      "stratum": "healthy_control",
+      "truth": "none",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "one intended commit path",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"C-13-commit-on-enter-only\""
+    },
+    {
+      "id": "control.semantic-wrapper",
+      "stratum": "healthy_control",
+      "truth": "none",
+      "source": "corpus/items.py",
+      "split": "development",
+      "note": "static-page semantic control",
+      "source_sha256": "7925a124d3eb38654ea2d954a49a7223d763836407f07dc94f731be06ae7235f",
+      "selector": "name=\"ui_change_wrapped_in_container\""
+    },
+    {
+      "id": "control.expected-immediate",
+      "stratum": "healthy_control",
+      "truth": "passed",
+      "source": "corpus/expected-state-v1.json",
+      "split": "development",
+      "note": "fresh authoritative state",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"healthy-immediate\""
+    },
+    {
+      "id": "control.delayed-commit",
+      "stratum": "healthy_control",
+      "truth": "passed",
+      "source": "corpus/expected-state-v1.json",
+      "split": "holdout",
+      "note": "polling reaches commit before deadline",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"delayed-commit\""
+    },
+    {
+      "id": "drift.renamed-control",
+      "stratum": "repairable_drift",
+      "truth": "ui_change",
+      "source": "bench/corpus/items.py",
+      "split": "development",
+      "note": "accessible name change with proposal",
+      "source_sha256": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+      "selector": "id=\"U-01-renamed-control\""
+    },
+    {
+      "id": "drift.button-name",
+      "stratum": "repairable_drift",
+      "truth": "ui_change",
+      "source": "corpus/items.py",
+      "split": "development",
+      "note": "button rename",
+      "source_sha256": "7925a124d3eb38654ea2d954a49a7223d763836407f07dc94f731be06ae7235f",
+      "selector": "name=\"ui_change_button_renamed\""
+    },
+    {
+      "id": "drift.placeholder-name",
+      "stratum": "repairable_drift",
+      "truth": "ui_change",
+      "source": "corpus/items.py",
+      "split": "development",
+      "note": "placeholder rename",
+      "source_sha256": "7925a124d3eb38654ea2d954a49a7223d763836407f07dc94f731be06ae7235f",
+      "selector": "name=\"ui_change_placeholder_renamed\""
+    },
+    {
+      "id": "drift.role-locator",
+      "stratum": "repairable_drift",
+      "truth": "test_bug",
+      "source": "tests/test_repair_contract.py",
+      "split": "development",
+      "note": "bound minimal role locator change",
+      "source_sha256": "549f38f4a197ea714d8682e14f4a62c73394d4a621e63d1d502d86d0f1e0729f",
+      "selector": "def test_bound_repair_with_three_proof_runs_validates"
+    },
+    {
+      "id": "drift.css-locator",
+      "stratum": "repairable_drift",
+      "truth": "test_bug",
+      "source": "tests/test_repair_contract.py",
+      "split": "holdout",
+      "note": "bound minimal CSS locator change",
+      "source_sha256": "549f38f4a197ea714d8682e14f4a62c73394d4a621e63d1d502d86d0f1e0729f",
+      "selector": "def test_protected_test_contract_cannot_be_weakened"
+    },
+    {
+      "id": "ambiguous.empty-oracle",
+      "stratum": "ambiguous_infrastructure",
+      "truth": "inconclusive",
+      "source": "corpus/expected-state-v1.json",
+      "split": "development",
+      "note": "empty 200 body",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"empty-body\""
+    },
+    {
+      "id": "ambiguous.html-login",
+      "stratum": "ambiguous_infrastructure",
+      "truth": "inconclusive",
+      "source": "corpus/expected-state-v1.json",
+      "split": "development",
+      "note": "HTML auth interstitial",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"html-login\""
+    },
+    {
+      "id": "ambiguous.unauthorized",
+      "stratum": "ambiguous_infrastructure",
+      "truth": "inconclusive",
+      "source": "corpus/expected-state-v1.json",
+      "split": "development",
+      "note": "401 prevents judgment",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"unauthorized-401\""
+    },
+    {
+      "id": "ambiguous.forbidden",
+      "stratum": "ambiguous_infrastructure",
+      "truth": "inconclusive",
+      "source": "corpus/expected-state-v1.json",
+      "split": "development",
+      "note": "403 prevents judgment",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"forbidden-403\""
+    },
+    {
+      "id": "ambiguous.server-error",
+      "stratum": "ambiguous_infrastructure",
+      "truth": "inconclusive",
+      "source": "corpus/expected-state-v1.json",
+      "split": "holdout",
+      "note": "500 prevents product judgment",
+      "source_sha256": "2bcd2c75bf453466ee4997d1e88ee85823fa99c905e9ad039e2041cb75a4ed2c",
+      "selector": "\"id\": \"server-error-500\""
+    }
+  ],
+  "oss_targets": [],
+  "independent_review": {
+    "reviews": []
+  }
+}

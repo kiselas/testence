@@ -1,0 +1,32 @@
+{
+  "schema": "testence/pilot-session/1",
+  "candidate_wheel_sha256": null,
+  "participant": null,
+  "team": null,
+  "consent_recorded": false,
+  "environment": {
+    "os": null,
+    "python": null,
+    "browser": null
+  },
+  "timing": {
+    "started_at": null,
+    "finished_at": null,
+    "trustworthy_proof_minutes": null,
+    "setup_minutes": null,
+    "triage_minutes": null
+  },
+  "tasks": {
+    "demo_reproduced": false,
+    "failure_reason_explained": false,
+    "agent_installed_and_verified": false,
+    "second_scenario_accepted": false,
+    "three_project_quality_pack": null,
+    "testops_selective_launch": null,
+    "returned_next_week": false
+  },
+  "author_help_interventions": [],
+  "run_ids": [],
+  "gaps": [],
+  "review_overrides": []
+}

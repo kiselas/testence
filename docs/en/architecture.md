@@ -13,7 +13,7 @@
                Playwright over CDP, auto-wait        │
                            │                          │
                            ▼                          │
-             run.jsonl (schema testence/1) ──► evidence pack
+             run.jsonl (schema testence/2) ──► evidence pack
                     │              │
                HTML/Allure       metrics
 ```
@@ -68,14 +68,17 @@ path only, and only when `bench/kernels.py` says a threshold was crossed.
 
 ## Execution flow (one test)
 
-1. `ex` fixture: reset capture buffers → `test.start`.
+1. Pytest lifecycle hook emits `test.start` for every selected test, including tests
+   that do not request `ex`; the fixture resets browser capture when used.
 2. Each `Actions` call: `step.start` (intent, target) → engine action (auto-wait) →
    `step.end` (duration, fingerprint on green).
 3. Oracle points: `save_and_verify`-style checks emit `oracle` events; divergence
    raises and fails the step.
-4. On failure: `assemble_pack` captures aria/network/console/oracle + `browser.json`,
-   emits `pack`, `test.end(fail)`; session keeps the browser alive (ADR-0008).
-5. On green: `test.end(pass)` — the ledger stays compact by design.
+4. On failure: `assemble_pack` captures aria/network/console/oracle + `browser.json`
+   when the browser fixture exists and emits `pack`; pytest phase reports remain the
+   source of the execution outcome.
+5. The lifecycle hook emits canonical `test.end` status after teardown. Readers
+   reconcile missing terminals and unstarted selected cases before export.
 
 ## Modes
 

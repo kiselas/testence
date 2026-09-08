@@ -14,13 +14,61 @@ from __future__ import annotations
 import json
 import ssl
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
-from typing import Any
+from ipaddress import ip_address
+from typing import Any, Iterable
 
 from testence.auth.base import AuthContext
 
 _DEFAULT_TIMEOUT_S = 30.0
+
+
+class UnsafeRequestTarget(ValueError):
+    """A request or redirect would leave the authenticated client's origin."""
+
+
+def _normalized_host(host: str) -> str:
+    """Normalize a URL hostname without making DNS-dependent trust decisions."""
+    try:
+        return ip_address(host).compressed.lower()
+    except ValueError:
+        try:
+            return host.encode("idna").decode("ascii").lower()
+        except UnicodeError as exc:
+            raise UnsafeRequestTarget(f"invalid URL hostname {host!r}") from exc
+
+
+def _origin(url: str) -> tuple[str, str, int]:
+    """Return the origin tuple used for credential boundaries."""
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        port = parsed.port
+    except ValueError as exc:
+        raise UnsafeRequestTarget(f"invalid request URL {url!r}: {exc}") from exc
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https"} or not parsed.hostname:
+        raise UnsafeRequestTarget(f"request URL must be absolute HTTP(S): {url!r}")
+    if parsed.username is not None or parsed.password is not None:
+        raise UnsafeRequestTarget("credentials in request URLs are not allowed")
+    return scheme, _normalized_host(parsed.hostname), port or (443 if scheme == "https" else 80)
+
+
+class _SameOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Follow ordinary redirects only while they remain on the initial origin."""
+
+    def __init__(self, initial_url: str) -> None:
+        super().__init__()
+        self._allowed_origin = _origin(initial_url)
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+        target = urllib.parse.urljoin(req.full_url, newurl)
+        if _origin(target) != self._allowed_origin:
+            raise UnsafeRequestTarget(
+                f"refusing cross-origin redirect from {req.full_url!r} to {target!r}"
+            )
+        return super().redirect_request(req, fp, code, msg, headers, target)
 
 
 @dataclass
@@ -90,10 +138,15 @@ def http_json(
         data = json.dumps(body).encode("utf-8")
         request_headers.setdefault("Content-Type", "application/json")
 
+    _origin(url)  # reject non-HTTP targets and URL userinfo before opening a socket
     request = urllib.request.Request(url, data=data, headers=request_headers, method=method)
     context = tls_context(verify_tls, ca_bundle)
+    handlers: list[Any] = [_SameOriginRedirectHandler(url)]
+    if context is not None:
+        handlers.append(urllib.request.HTTPSHandler(context=context))
+    opener = urllib.request.build_opener(*handlers)
     try:
-        with urllib.request.urlopen(request, timeout=timeout_s, context=context) as raw:
+        with opener.open(request, timeout=timeout_s) as raw:
             response = Response(
                 raw.status, list(raw.headers.items()), raw.read().decode("utf-8", "replace")
             )
@@ -116,8 +169,13 @@ class ApiClient:
         verify_tls: bool = True,
         ca_bundle: str = "",
         timeout_s: float = _DEFAULT_TIMEOUT_S,
+        allowed_origins: Iterable[str] = (),
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        self._allowed_origins = {_origin(self.base_url)}
+        if isinstance(allowed_origins, str):
+            allowed_origins = [allowed_origins]
+        self._allowed_origins.update(_origin(url) for url in allowed_origins)
         self.auth = auth or AuthContext()
         self.verify_tls = verify_tls
         self.ca_bundle = ca_bundle
@@ -125,19 +183,26 @@ class ApiClient:
 
     @classmethod
     def from_settings(cls, settings: Any, auth: AuthContext | None = None) -> "ApiClient":
+        allowed_origins = (getattr(settings, "extra", {}) or {}).get("api_allowed_origins") or []
+        if isinstance(allowed_origins, str):
+            allowed_origins = [allowed_origins]
         return cls(
-            settings.base_url, auth, verify_tls=settings.verify_tls, ca_bundle=settings.ca_bundle
+            settings.base_url,
+            auth,
+            verify_tls=settings.verify_tls,
+            ca_bundle=settings.ca_bundle,
+            allowed_origins=allowed_origins,
         )
 
     def request(
         self, method: str, path: str, body: Any = None, headers: dict[str, str] | None = None
     ) -> Response:
+        url = self._resolve_url(path)
         merged = dict(self.auth.headers)
-        cookie_header = self.auth.cookie_header()
+        cookie_header = self.auth.cookie_header(url)
         if cookie_header:
             merged["Cookie"] = cookie_header
         merged.update(headers or {})
-        url = path if path.startswith("http") else f"{self.base_url}{path}"
         return http_json(
             method,
             url,
@@ -148,8 +213,29 @@ class ApiClient:
             ca_bundle=self.ca_bundle,
         )
 
+    def _resolve_url(self, path: str) -> str:
+        """Resolve a client path and enforce the credential-bearing origin."""
+        parsed = urllib.parse.urlsplit(path)
+        if parsed.scheme or parsed.netloc:
+            url = path
+        elif path.startswith(("?", "#")):
+            url = f"{self.base_url}{path}"
+        else:
+            url = f"{self.base_url}/{path.lstrip('/')}"
+        if _origin(url) not in self._allowed_origins:
+            raise UnsafeRequestTarget(
+                f"authenticated API client for {self.base_url!r} cannot request {url!r}"
+            )
+        return url
+
     def get(self, path: str, **kw: Any) -> Response:
         return self.request("GET", path, **kw)
+
+    def get_fresh(self, path: str, **kw: Any) -> Response:
+        """Make an authoritative read after a mutation, bypassing HTTP caches."""
+        headers = dict(kw.pop("headers", None) or {})
+        headers.update({"Cache-Control": "no-cache", "Pragma": "no-cache"})
+        return self.request("GET", path, headers=headers, **kw)
 
     def post(self, path: str, body: Any = None, **kw: Any) -> Response:
         return self.request("POST", path, body=body, **kw)

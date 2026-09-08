@@ -22,8 +22,14 @@ Which to pick:
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
+import math
+import os
+import time
+from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 from testence.engine import Engine, Target
 
@@ -241,9 +247,10 @@ class CachedSessionAuth:
     """Skip the login when the previous run's session is still valid.
 
     Wraps a credential strategy and reuses its cookies when they are still valid.
-    Cached cookies are validated
-    against a cheap probe endpoint (one HTTP GET, no browser involved); on a miss
-    the wrapped strategy logs in for real and the fresh cookies are saved.
+    Cached cookies are validated against a cheap identity endpoint (one HTTP GET,
+    no browser involved); on a miss the wrapped strategy logs in for real. Cache
+    records expire, carry their project/origin/account/role scope and are written
+    with owner-only permissions where the operating system supports that mode.
 
     The cache file holds a session cookie — the same secret the browser profile
     holds — so it lives under ``runs/`` (git-ignored) and is keyed by host.
@@ -258,13 +265,27 @@ class CachedSessionAuth:
         base_url: str,
         probe_path: str,
         cache_file: Any,
+        cache_ttl_s: int = 3600,
+        scope: dict[str, str] | None = None,
+        identity_field: str = "email",
+        role_field: str = "role",
+        expected_identity: str = "",
+        expected_role: str = "",
         verify_tls: bool = True,
         ca_bundle: str = "",
     ) -> None:
+        if cache_ttl_s <= 0:
+            raise ValueError("session cache TTL must be greater than zero")
         self.inner = inner
         self.base_url = base_url.rstrip("/")
         self.probe_path = probe_path
-        self.cache_file = cache_file
+        self.cache_file = Path(cache_file)
+        self.cache_ttl_s = cache_ttl_s
+        self.scope = dict(scope or {})
+        self.identity_field = identity_field
+        self.role_field = role_field
+        self.expected_identity_digest = _identity_digest(expected_identity)
+        self.expected_role = expected_role
         self.verify_tls = verify_tls
         self.ca_bundle = ca_bundle
 
@@ -273,41 +294,112 @@ class CachedSessionAuth:
         return self.inner.scheme
 
     def authenticate(self, engine: Engine) -> AuthContext:
-        cookies = self._load()
-        if cookies and self._still_valid(cookies):
+        cached = self._load()
+        if cached and self._still_valid(cached):
+            cookies = cached["cookies"]
             engine.add_cookies(cookies)
-            return AuthContext(cookies=cookies, scheme=f"{self.inner.scheme}+cached")
+            return AuthContext(
+                cookies=cookies,
+                user={"identity_verified": True, "role": cached["identity"]["role"]},
+                scheme=f"{self.inner.scheme}+cached",
+            )
         context = self.inner.authenticate(engine)
-        self._save(context.cookies)
+        identity = self._probe_identity(context.cookies)
+        if identity is not None:
+            self._save(context.cookies, identity)
         return context
 
-    def _still_valid(self, cookies: list[dict[str, Any]]) -> bool:
+    def _still_valid(self, cached: dict[str, Any]) -> bool:
+        try:
+            identity = self._probe_identity(cached["cookies"])
+        except RuntimeError:
+            return False
+        return identity is not None and identity == cached["identity"]
+
+    def _probe_identity(self, cookies: list[dict[str, Any]]) -> dict[str, str] | None:
         from testence.api import http_json
 
-        header = "; ".join(f"{c['name']}={c['value']}" for c in cookies)
+        url = self.base_url + self.probe_path
+        header = AuthContext(cookies=cookies).cookie_header(url)
         try:
             response = http_json(
                 "GET",
-                self.base_url + self.probe_path,
+                url,
                 headers={"Cookie": header},
                 verify_tls=self.verify_tls,
                 ca_bundle=self.ca_bundle,
             )
         except Exception:
-            return False
-        return 200 <= response.status < 300
+            return None
+        if not response.ok or not isinstance(response.json, dict):
+            return None
+        account = _json_field(response.json, self.identity_field)
+        role = _json_field(response.json, self.role_field)
+        if account is None or role is None:
+            return None
+        account_digest = _identity_digest(str(account))
+        if self.expected_identity_digest and account_digest != self.expected_identity_digest:
+            raise RuntimeError(
+                f"session identity probe returned another {self.identity_field}; refusing reuse"
+            )
+        if self.expected_role and str(role) != self.expected_role:
+            raise RuntimeError(
+                f"session identity probe returned role {role!r}, expected {self.expected_role!r}"
+            )
+        return {"account": account_digest, "role": str(role)}
 
-    def _load(self) -> list[dict[str, Any]]:
+    def _load(self) -> dict[str, Any] | None:
         try:
-            return json.loads(self.cache_file.read_text(encoding="utf-8"))
+            document = json.loads(self.cache_file.read_text(encoding="utf-8"))
+            if not isinstance(document, dict) or document.get("v") != 1:
+                return None
+            created_at = float(document["created_at"])
+            if not math.isfinite(created_at):
+                return None
+            age = time.time() - created_at
+            if age < -60 or age > self.cache_ttl_s:
+                return None
+            if document.get("scope") != self.scope:
+                return None
+            cookies = document.get("cookies")
+            if not isinstance(cookies, list) or not all(
+                isinstance(cookie, dict)
+                and isinstance(cookie.get("name"), str)
+                and isinstance(cookie.get("value"), str)
+                for cookie in cookies
+            ):
+                return None
+            identity = document.get("identity")
+            if not isinstance(identity, dict) or not {"account", "role"} <= identity.keys():
+                return None
+            return document
         except Exception:
-            return []
+            return None
 
-    def _save(self, cookies: list[dict[str, Any]]) -> None:
+    def _save(self, cookies: list[dict[str, Any]], identity: dict[str, str]) -> None:
+        temporary = self.cache_file.with_suffix(f"{self.cache_file.suffix}.tmp-{os.getpid()}")
         try:
             self.cache_file.parent.mkdir(parents=True, exist_ok=True)
-            self.cache_file.write_text(json.dumps(cookies), encoding="utf-8")
+            document = {
+                "v": 1,
+                "created_at": time.time(),
+                "scope": self.scope,
+                "identity": identity,
+                "cookies": cookies,
+            }
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+                json.dump(document, stream, separators=(",", ":"))
+            os.replace(temporary, self.cache_file)
+            try:
+                self.cache_file.chmod(0o600)
+            except OSError:
+                pass
         except Exception:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
             pass  # a cache that cannot be written is a slow run, not a failure
 
 
@@ -322,6 +414,19 @@ def _host_of(url: str) -> str:
     from urllib.parse import urlparse
 
     return urlparse(url).hostname or "localhost"
+
+
+def _identity_digest(value: str) -> str:
+    return hashlib.sha256(value.strip().casefold().encode("utf-8")).hexdigest() if value else ""
+
+
+def _json_field(document: dict[str, Any], pointer: str) -> Any:
+    current: Any = document
+    for part in pointer.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
 
 
 def from_settings(settings: Any, engine_base_url: str = "") -> Any:
@@ -375,15 +480,33 @@ def from_settings(settings: Any, engine_base_url: str = "") -> Any:
 
     probe_path = settings.extra.get("session_probe_path")
     if probe_path and scheme in ("form", "api-session", "session"):
-        from pathlib import Path
-        from urllib.parse import urlparse
-
-        host = urlparse(base).hostname or "default"
+        probe_path = str(probe_path)
+        parsed_probe = urlsplit(probe_path)
+        if not probe_path.startswith("/") or parsed_probe.scheme or parsed_probe.netloc:
+            raise ValueError("session_probe_path must be a root-relative path on base_url")
+        expected_role = str(settings.extra.get("session_expected_role") or "")
+        scope = {
+            "project": str(Path(settings.runs_root).resolve().parent),
+            "origin": base,
+            "account": _identity_digest(credentials.username),
+            "role": expected_role,
+            "strategy": scheme,
+            "environment": settings.profile or "(default)",
+        }
+        cache_key = hashlib.sha256(
+            json.dumps(scope, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()[:16]
         adapter = CachedSessionAuth(
             adapter,
             base_url=base,
             probe_path=probe_path,
-            cache_file=Path(settings.runs_root) / f".session-{host}.json",
+            cache_file=Path(settings.runs_root) / f".session-{cache_key}.json",
+            cache_ttl_s=int(settings.extra.get("session_cache_ttl_s", 3600)),
+            scope=scope,
+            identity_field=str(settings.extra.get("session_identity_field") or "email"),
+            role_field=str(settings.extra.get("session_role_field") or "role"),
+            expected_identity=credentials.username,
+            expected_role=expected_role,
             verify_tls=verify_tls,
             ca_bundle=ca_bundle,
         )

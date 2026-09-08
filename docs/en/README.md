@@ -1,5 +1,9 @@
 # Testence documentation
 
+Latest audit and proposed QA-oriented release specification (2026-09-06, in Russian):
+[audit](../audits/2026-09-06/audit.md), [release scope and acceptance](../audits/2026-09-06/release-spec.md),
+[adoption plan](../audits/2026-09-06/adoption.md). These distinguish current implementation from release requirements.
+
 ## Start here
 
 - [Product positioning](product-positioning.md)
@@ -22,11 +26,17 @@
 
 - [Testing a UI feature](testing-a-feature.md)
 - [Configuration](configuration.md)
+- [Engine capabilities and strict actions](engine-capabilities.md)
+- [Multi-project quality packs](quality-packs.md)
 - [Authentication](auth.md)
 - [Evidence schema](evidence-schema.md)
 - [Reporting and exporters](reporting.md)
 - [Compute kernels](kernels.md)
 - [Changelog](CHANGELOG.md)
+- [Open-source readiness](open-source-readiness.md)
+- [Support policy](../../SUPPORT.md)
+- [Pilot protocol](pilot-protocol.md)
+- [90-second demo recording script](demo-video-script.md)
 
 ## Design and measurement
 

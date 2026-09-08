@@ -21,6 +21,16 @@ def test_records_and_reads_back_by_intent(tmp_path):
     assert reloaded.get("test_save", "some other step") is None
 
 
+def test_full_nodeid_can_read_a_legacy_short_name_entry(tmp_path):
+    store = FingerprintStore(tmp_path / "fp.json", worker="")
+    store.record("test_save", "click the save button", "role=button name='Save'", FP)
+    store.flush()
+
+    reloaded = FingerprintStore(tmp_path / "fp.json", worker="")
+
+    assert reloaded.get("tests/test_save.py::TestForm::test_save", "click the save button") == FP
+
+
 def test_empty_fingerprint_is_not_recorded(tmp_path):
     store = FingerprintStore(tmp_path / "fp.json", worker="")
     store.record("t", "intent", "target", {})

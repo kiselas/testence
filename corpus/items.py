@@ -76,8 +76,10 @@ ITEMS: list[CorpusItem] = [
     CorpusItem(
         name="ui_change_wrapped_in_container",
         verdict="ui_change",
-        mutate=_replace('<button id="inc">inc</button>',
-                        '<div class="toolbar"><button id="inc" class="primary">inc</button></div>'),
+        mutate=_replace(
+            '<button id="inc">inc</button>',
+            '<div class="toolbar"><button id="inc" class="primary">inc</button></div>',
+        ),
         note="element moved into a wrapper and gained a class; semantics unchanged",
         expect_failure=False,
         extra={"why_green": "semantic addressing survives restructuring — a control"},
@@ -124,8 +126,10 @@ ITEMS: list[CorpusItem] = [
     CorpusItem(
         name="control_restyled",
         verdict="none",
-        mutate=_replace('<button id="inc">inc</button>',
-                        '<button id="inc" class="btn btn-lg accent">inc</button>'),
+        mutate=_replace(
+            '<button id="inc">inc</button>',
+            '<button id="inc" class="btn btn-lg accent">inc</button>',
+        ),
         note="classes changed only",
         expect_failure=False,
     ),

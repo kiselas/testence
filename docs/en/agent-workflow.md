@@ -63,8 +63,17 @@ truth for whether a browser step ran or an oracle passed. The ledger is.
 
 ## 1. Bootstrap
 
-The target command is `testence agent init`. It should detect supported clients, install
-portable workflow assets and avoid copying secrets into agent configuration.
+Install the portable workflow assets for either or both supported clients, then verify
+the exact packaged bytes:
+
+```bash
+testence agent install --project . --client codex --client claude --json
+testence agent verify --project . --json
+```
+
+The installer never copies secrets into agent configuration. It records a repo-owned
+`.testence/agents.json` receipt, updates files it previously installed only when they
+are still unmodified, and reports local edits as conflicts.
 
 The installed contract consists of:
 
@@ -89,8 +98,9 @@ A PlanSpec is human-readable Markdown with machine-readable identifiers. It reco
 - an independent oracle where one is available;
 - exclusions, uncertainty and required approvals.
 
-The first machine-readable version stabilizes only `id`, `title`, `source`, oracle-typed
-claims, and risk-bearing scenarios. Preconditions, seed/cleanup and approvals remain in
+The v2 machine-readable contract stabilizes `project_id`, plan metadata, oracle-typed
+claims, and risk-bearing scenarios whose IDs are logical case IDs. Preconditions,
+seed/cleanup and approvals remain in
 the surrounding Markdown until the authoring corpus justifies additive schema fields.
 
 The Markdown file contains exactly one `testence-planspec` JSON block; surrounding prose
@@ -98,7 +108,8 @@ remains free-form context for humans and agents:
 
 ```testence-planspec
 {
-  "schema": "testence/planspec/1",
+  "schema": "testence/planspec/2",
+  "project_id": "checkout",
   "id": "checkout.discount",
   "title": "Apply an eligible discount",
   "claims": [
@@ -107,6 +118,15 @@ remains free-form context for humans and agents:
       "statement": "The UI and cart API expose the same discounted total.",
       "oracles": ["ui", "api"],
       "required": true
+    }
+  ],
+  "assertions": [
+    {
+      "id": "assert.discount.total",
+      "claim_id": "checkout.discount.total",
+      "oracle": "api",
+      "required": true,
+      "expected": "The cart API total equals the rendered total."
     }
   ],
   "scenarios": [
@@ -129,6 +149,7 @@ testence plan validate specs/checkout-discount.md --json
 ```python
 @pytest.mark.testence(
     plan="specs/checkout-discount.md",
+    case_id="eligible-code",
     claims=["checkout.discount.total"],
 )
 def test_discount_total(ex):
@@ -178,7 +199,17 @@ fills in its `verdict.template.json`. The verdict contract is:
 
 ```json
 {
-  "schema": "testence/verdict/1",
+  "schema": "testence/verdict/2",
+  "project_id": "checkout",
+  "case_id": "discount-total",
+  "variant_id": "default",
+  "attempt_id": "attempt-controller-1",
+  "run_id": "r-20260906-120000-abc123",
+  "proof_id": "proof-0123456789abcdef0123",
+  "plan_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "test_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "policy_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "pack_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "plan_id": "checkout.discount",
   "test_id": "tests/test_checkout.py::test_discount_total",
   "verdict": "real_bug",
@@ -203,7 +234,8 @@ abstention channel:
 it names missing evidence rather than inventing a sixth causal class. A `null` verdict
 requires at least one blocker; a `passed`/`failed` claim requires references to files that
 actually exist in the pack. Validation binds the verdict to the exact plan, test and
-claims:
+claims. It also verifies plan/test/policy/pack digests, every manifest artifact, and
+every JSON Pointer against the same attempt:
 
 ```bash
 testence verdict validate runs/<run>/<test>/pack/verdict.json \
@@ -222,6 +254,16 @@ It includes:
 - a cause explanation and confidence;
 - the exact source diff;
 - the smallest rerun that can validate it.
+
+The source proposal uses `testence/repair-proposal/1` and binds the verdict file,
+protected PlanSpec semantics, and source base by SHA-256. It is valid only with one
+verified healthy run, one violated defect control, and one verified harmless control:
+
+```bash
+testence repair validate repair.json --verdict <pack>/verdict.json \
+  --plan specs/checkout-discount.md --base tests/test_checkout.py \
+  --pack <pack> --evidence-root proof-runs --json
+```
 
 Applying the patch is a separate permissioned action. Acceptance or rejection is stored
 as quality feedback, but never as hidden runtime behavior.

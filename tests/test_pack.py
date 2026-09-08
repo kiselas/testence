@@ -8,6 +8,7 @@ which is exactly the situation a real failure often creates.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 
@@ -62,6 +63,7 @@ def test_pack_contains_every_section_an_agent_needs(tmp_path):
 
     for name in (
         "pack.json",
+        "manifest.json",
         "TRIAGE.md",
         "aria.txt",
         "network.jsonl",
@@ -82,12 +84,23 @@ def test_pack_contains_every_section_an_agent_needs(tmp_path):
         "environment",
     }
     assert index["sections_est_tokens"]["aria"] > 0
+    assert index["manifest"] == "manifest.json"
+    assert index["capture"]["screenshot"] == "disabled"
+    assert not (pack / "screenshot.png").exists()
 
     # The network ledger must carry the failing response body — that is usually the
     # single most decisive piece of evidence.
     network = (pack / "network.jsonl").read_text(encoding="utf-8")
     assert '"status": 500' in network and "boom" in network
     assert "cdp_endpoint" in (pack / "browser.json").read_text(encoding="utf-8")
+
+    manifest = json.loads((pack / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["schema"] == "testence/pack-manifest/2"
+    for artifact in manifest["artifacts"]:
+        assert "/" not in artifact["path"] and "\\" not in artifact["path"]
+        content = (pack / artifact["path"]).read_bytes()
+        assert artifact["bytes"] == len(content)
+        assert artifact["sha256"] == hashlib.sha256(content).hexdigest()
 
 
 def test_pack_survives_a_dead_page(tmp_path):
@@ -143,6 +156,7 @@ def test_oversized_section_is_truncated_with_a_pointer(tmp_path):
     assert "<truncated:" in aria
     assert (pack / "full-aria.txt").exists()
     assert len(aria) < len(huge)
+    assert (pack / "full-aria.txt").stat().st_size < 300_000
 
 
 def test_pack_event_lands_in_the_ledger(tmp_path):
@@ -163,11 +177,15 @@ def test_pack_carries_the_plan_claims_and_failed_oracle(tmp_path):
     writer.bind_test(
         "test_create",
         plan={
-            "schema": "testence/planspec/1",
+            "schema": "testence/planspec/2",
+            "project_id": "feature",
             "id": "feature.create",
             "path": "specs/create.md",
         },
         claims=["feature.create.persisted"],
+        plan_digest="sha256:" + "a" * 64,
+        test_digest="sha256:" + "b" * 64,
+        policy_digest="sha256:" + "c" * 64,
     )
     writer.emit(
         "oracle",
@@ -191,5 +209,9 @@ def test_pack_carries_the_plan_claims_and_failed_oracle(tmp_path):
     assert index["verdict_template"] == "verdict.template.json"
     template = json.loads((pack / "verdict.template.json").read_text(encoding="utf-8"))
     assert template["plan_id"] == "feature.create"
+    assert template["plan_digest"] == "sha256:" + "a" * 64
+    assert template["pack_digest"].startswith("sha256:")
     assert template["claim_results"][0]["claim_id"] == "feature.create.persisted"
     assert json.loads((pack / "oracle.json").read_text(encoding="utf-8"))[0]["field"] == "id"
+    manifest = json.loads((pack / "manifest.json").read_text(encoding="utf-8"))
+    assert "verdict.template.json" not in {artifact["path"] for artifact in manifest["artifacts"]}

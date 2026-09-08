@@ -22,9 +22,13 @@ from testence.evidence import EvidenceWriter
 from testence.export import (
     BUILTIN_EXPORTERS,
     ExporterError,
+    LoadedRun,
     available,
     export_run,
     load,
+)
+from testence.export import (
+    Test as ExportTest,
 )
 
 # Reporting libraries the framework must never import: capture is ambient, and a
@@ -56,6 +60,18 @@ def build_ledger(tmp_path: Path, run_id: str = "r-export-1") -> Path:
         file="tests/test_login.py",
         nodeid="tests/test_login.py::test_login",
         markers=["Login", "Smoke"],
+        allure_id="314",
+        owner="qa-platform",
+        risk="critical",
+        requirements=[{"id": "REQ-LOGIN", "url": "https://tms.example/REQ-LOGIN"}],
+        issues=[{"id": "BUG-42", "url": "https://issues.example/BUG-42"}],
+    )
+    writer.emit(
+        "test.phase",
+        test="test_login",
+        phase="setup",
+        status="passed",
+        duration_ms=10,
     )
     writer.emit("step.start", test="test_login", step="s1", intent="log in as admin", depth=0)
     writer.emit(
@@ -85,6 +101,13 @@ def build_ledger(tmp_path: Path, run_id: str = "r-export-1") -> Path:
         children=1,
     )
     writer.emit("test.end", test="test_login", status="pass", duration_ms=120.0)
+    writer.emit(
+        "test.phase",
+        test="test_login",
+        phase="teardown",
+        status="passed",
+        duration_ms=8,
+    )
 
     pack_dir = writer.run_dir / "test_hosts" / "pack"
     pack_dir.mkdir(parents=True)
@@ -229,6 +252,15 @@ def test_allure_maps_status_steps_and_tags(tmp_path):
     assert green["steps"][0]["name"] == "log in as admin"
     assert green["steps"][0]["steps"][0]["name"] == "fill the password field"
     assert green["stop"] >= green["start"]
+    assert green["testCaseId"]
+    labels = {(label["name"], label["value"]) for label in green["labels"]}
+    assert {("owner", "qa-platform"), ("risk", "critical"), ("ALLURE_ID", "314")} <= labels
+    assert {link["name"] for link in green["links"]} == {"REQ-LOGIN", "BUG-42"}
+    container_path = next(out.glob("*-container.json"))
+    container = json.loads(container_path.read_text(encoding="utf-8"))
+    assert container["children"] == [green["uuid"]]
+    assert container["befores"][0]["name"] == "pytest setup"
+    assert container["afters"][0]["name"] == "pytest teardown"
 
     red = results["tests/test_hosts.py::test_hosts"]
     assert red["status"] == "failed"
@@ -260,6 +292,108 @@ def test_allure_history_id_is_stable_across_runs(tmp_path):
     key = "tests/test_login.py::test_login"
     assert a[key]["historyId"] == b[key]["historyId"]
     assert a[key]["uuid"] != b[key]["uuid"]
+
+
+def test_allure_history_follows_explicit_case_across_rename_and_scopes_project(tmp_path):
+    from testence.export import allure
+
+    def result(project: str, nodeid: str, run_id: str, out_name: str) -> dict:
+        test = ExportTest(
+            "checkout",
+            project_id=project,
+            case_id="checkout",
+            variant_id="variant-chromium",
+            attempt_id="attempt-controller-1",
+            proof_id="proof-one",
+            nodeid=nodeid,
+            status="passed",
+        )
+        run = LoadedRun(run_id=run_id, project_id=project, tests=[test])
+        out = tmp_path / out_name
+        out.mkdir()
+        paths = allure.export(run, out)
+        path = next(path for path in paths if path.name.endswith("-result.json"))
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    before = result("shop", "tests/test_old.py::test_buy", "r-before", "before")
+    after = result("shop", "tests/test_new.py::test_checkout", "r-after", "after")
+    other_project = result("billing", "tests/test_new.py::test_checkout", "r-other", "other")
+
+    assert before["historyId"] == after["historyId"]
+    assert before["uuid"] != after["uuid"]
+    assert other_project["historyId"] != after["historyId"]
+
+
+def test_allure_emits_every_attempt_with_one_case_identity(tmp_path):
+    from testence.export import allure
+
+    tests = [
+        ExportTest(
+            "checkout",
+            project_id="shop",
+            case_id="checkout",
+            variant_id="variant-chromium",
+            attempt_id=f"attempt-controller-{number}",
+            nodeid="tests/test_checkout.py::test_checkout",
+            status="failed" if number == 1 else "passed",
+        )
+        for number in (1, 2)
+    ]
+    run = LoadedRun(run_id="r-retry", project_id="shop", tests=tests)
+    out = tmp_path / "attempts"
+    out.mkdir()
+
+    paths = allure.export(run, out)
+    results = [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in paths
+        if path.name.endswith("-result.json")
+    ]
+
+    assert len(results) == 2
+    assert len({item["uuid"] for item in results}) == 2
+    assert len({item["historyId"] for item in results}) == 1
+    assert len({item["testCaseId"] for item in results}) == 1
+
+
+@pytest.mark.parametrize("pack_dir", ["../external", "../../external"])
+def test_pack_path_rejects_parent_traversal(tmp_path, pack_dir):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    (external / "pack.json").write_text('{"secret":"canary"}', encoding="utf-8")
+
+    run = LoadedRun(run_dir=run_dir)
+    assert run.pack_path(ExportTest("case", pack_dir=pack_dir), "pack.json") is None
+
+
+def test_pack_path_rejects_absolute_pack_and_filename_paths(tmp_path):
+    run_dir = tmp_path / "run"
+    pack = run_dir / "case" / "pack"
+    pack.mkdir(parents=True)
+    external = tmp_path / "external.json"
+    external.write_text('{"secret":"canary"}', encoding="utf-8")
+    run = LoadedRun(run_dir=run_dir)
+
+    assert run.pack_path(ExportTest("case", pack_dir=str(tmp_path)), "external.json") is None
+    assert run.pack_path(ExportTest("case", pack_dir="case/pack"), str(external)) is None
+
+
+def test_pack_path_rejects_a_directory_link_that_escapes_the_run(tmp_path):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    (external / "pack.json").write_text('{"secret":"canary"}', encoding="utf-8")
+    link = run_dir / "linked-pack"
+    try:
+        link.symlink_to(external, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"directory links are unavailable: {exc}")
+
+    run = LoadedRun(run_dir=run_dir)
+    assert run.pack_path(ExportTest("case", pack_dir="linked-pack"), "pack.json") is None
 
 
 # ── ctrf ──────────────────────────────────────────────────────────────────────

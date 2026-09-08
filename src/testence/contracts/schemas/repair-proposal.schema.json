@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:repair-proposal:1",
+  "title": "Testence repair proposal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "project_id", "case_id", "variant_id", "attempt_id", "run_id", "proof_id",
+    "verdict_digest", "plan_digest", "protected_plan_digest", "base_digest", "kind",
+    "summary", "patch", "changed_claims", "locator_changes", "proof_runs"
+  ],
+  "properties": {
+    "schema": {"const": "testence/repair-proposal/1"},
+    "project_id": {"$ref": "#/$defs/id"},
+    "case_id": {"$ref": "#/$defs/id"},
+    "variant_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "proof_id": {"$ref": "#/$defs/id"},
+    "verdict_digest": {"$ref": "#/$defs/digest"},
+    "plan_digest": {"$ref": "#/$defs/digest"},
+    "protected_plan_digest": {"$ref": "#/$defs/digest"},
+    "base_digest": {"$ref": "#/$defs/digest"},
+    "kind": {"enum": ["locator", "timing", "test_implementation"]},
+    "summary": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "patch": {"type": "string", "minLength": 1, "maxLength": 200000},
+    "changed_claims": {"type": "array", "maxItems": 0},
+    "locator_changes": {"type": "array", "items": {"$ref": "#/$defs/locatorChange"}},
+    "proof_runs": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": {"$ref": "#/$defs/proofRun"}
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "locatorChange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["intent", "old", "new", "source"],
+      "properties": {
+        "intent": {"type": "string", "minLength": 1},
+        "old": {"type": "string", "minLength": 1},
+        "new": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1}
+      }
+    },
+    "proofRun": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "run_id", "execution", "assurance", "evidence"],
+      "properties": {
+        "kind": {"enum": ["healthy", "defect", "harmless"]},
+        "run_id": {"$ref": "#/$defs/id"},
+        "execution": {"enum": ["passed", "failed"]},
+        "assurance": {"enum": ["verified", "violated"]},
+        "evidence": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

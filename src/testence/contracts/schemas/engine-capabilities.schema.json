@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:engine-capabilities:1",
+  "title": "Testence engine capabilities v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "backend", "capabilities"],
+  "properties": {
+    "schema": {"const": "testence/engine-capabilities/1"},
+    "backend": {"type": "string", "minLength": 1},
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "lifecycle", "session", "browser.navigation", "browser.dom",
+          "browser.network", "browser.websocket", "visual.screenshot",
+          "browser.accessibility", "browser.javascript", "browser.keyboard",
+          "browser.frames", "browser.popups", "browser.files", "browser.dialogs",
+          "evidence"
+        ]
+      }
+    }
+  }
+}

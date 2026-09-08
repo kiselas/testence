@@ -24,14 +24,20 @@ import os
 from pathlib import Path
 from typing import Any
 
-from testence.evidence import WORKER_ENV
+from testence.evidence import WORKER_ENV, sanitize, sanitize_text
 
 DEFAULT_STORE = Path(".testence") / "fingerprints.json"
 
 
 class FingerprintStore:
-    def __init__(self, path: Path | str = DEFAULT_STORE, worker: str | None = None) -> None:
+    def __init__(
+        self,
+        path: Path | str = DEFAULT_STORE,
+        worker: str | None = None,
+        redact_values: tuple[str, ...] | list[str] = (),
+    ) -> None:
         self.path = Path(path)
+        self._redact_values = tuple(value for value in redact_values if value)
         self.worker = worker if worker is not None else os.environ.get(WORKER_ENV, "")
         self.write_path = (
             self.path.with_name(f"{self.path.stem}.{self.worker}{self.path.suffix}")
@@ -53,16 +59,27 @@ class FingerprintStore:
     def key(test_id: str, intent: str) -> str:
         return f"{test_id}::{intent}"
 
+    def _key(self, test_id: str, intent: str) -> str:
+        return self.key(
+            sanitize_text(test_id, secrets=self._redact_values, limit=500),
+            sanitize_text(intent, secrets=self._redact_values, limit=500),
+        )
+
     def get(self, test_id: str, intent: str) -> dict[str, Any] | None:
-        entry = self._data.get(self.key(test_id, intent))
+        entry = self._data.get(self._key(test_id, intent))
+        # Lifecycle events now use the full pytest nodeid to avoid collisions.
+        # Fall back to the pre-migration short key so an existing last-green store
+        # remains useful until the case is observed and recorded under its nodeid.
+        if entry is None and "::" in test_id:
+            entry = self._data.get(self._key(test_id.rsplit("::", 1)[-1], intent))
         return entry.get("fingerprint") if entry else None
 
     def record(self, test_id: str, intent: str, target: str, fingerprint: dict[str, Any]) -> None:
         if not fingerprint:
             return
-        self._data[self.key(test_id, intent)] = {
-            "target": target,
-            "fingerprint": fingerprint,
+        self._data[self._key(test_id, intent)] = {
+            "target": sanitize_text(target, secrets=self._redact_values),
+            "fingerprint": sanitize(fingerprint, secrets=self._redact_values),
         }
         self._dirty = True
 

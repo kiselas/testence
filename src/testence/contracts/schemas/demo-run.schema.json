@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:demo-run:1",
+  "title": "Testence deterministic demo receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "testence_version", "project_id", "project", "status", "runs"],
+  "properties": {
+    "schema": {"const": "testence/demo-run/1"},
+    "testence_version": {"type": "string", "minLength": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "project": {"type": "string", "minLength": 1},
+    "status": {"enum": ["passed", "failed"]},
+    "runs": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "run_id", "expected_exit", "test_exit", "accepted", "summary", "report"],
+        "properties": {
+          "name": {"enum": ["healthy", "intentional_failure"]},
+          "run_id": {"type": "string", "minLength": 1},
+          "expected_exit": {"type": "integer"},
+          "test_exit": {"type": "integer"},
+          "accepted": {"type": "boolean"},
+          "summary": {"type": "object"},
+          "report": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

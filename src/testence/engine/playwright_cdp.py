@@ -16,7 +16,8 @@ import re
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
-from typing import Any
+from pathlib import Path
+from typing import Any, Callable
 
 from playwright.sync_api import (
     Browser,
@@ -28,12 +29,15 @@ from playwright.sync_api import (
 )
 from playwright.sync_api import expect as pw_expect
 
+from .capabilities import Capability
 from .protocol import Engine, NetRecord, Target
 
 _DEFAULT_TIMEOUT_MS = 10_000
 _RENDER_TIMEOUT_MS = 2_000
 _BODY_CAP_BYTES = 64 * 1024
 _WS_FRAME_CAP_BYTES = 8 * 1024
+_TAP_RECORD_CAP = 2_000
+_TAP_BYTE_CAP = 8 * 1024 * 1024
 #: Poll interval for capture-buffer waits. Playwright events are dispatched while
 #: ``wait_for_timeout`` yields to its message loop, so this is not a busy Python
 #: poll. It is still a floor on how late an already completed mutation is observed:
@@ -76,6 +80,10 @@ class PlaywrightCdpEngine(Engine):
         reduce_motion: bool = False,
         user_data_dir: str | None = None,
         test_id_attribute: str = "",
+        capture_network_bodies: bool = False,
+        capture_screenshots: bool = False,
+        admitted_body_content_types: tuple[str, ...] = ("application/json",),
+        body_cap_bytes: int = _BODY_CAP_BYTES,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.cdp_url = cdp_url
@@ -95,14 +103,25 @@ class PlaywrightCdpEngine(Engine):
         #: ms either way) but because Playwright re-evaluates the selector on every
         #: actionability retry, and a flat attribute match is the cheapest one.
         self.test_id_attribute = test_id_attribute
+        if body_cap_bytes < 0 or body_cap_bytes > _BODY_CAP_BYTES:
+            raise ValueError(f"body_cap_bytes must be between 0 and {_BODY_CAP_BYTES}")
+        self.capture_network_bodies = capture_network_bodies
+        self.capture_screenshots = capture_screenshots
+        self.admitted_body_content_types = tuple(
+            value.strip().lower() for value in admitted_body_content_types if value.strip()
+        )
+        self.body_cap_bytes = body_cap_bytes
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
         self._page: Page | None = None
+        self._scope: Any | None = None
         self._net: list[NetRecord] = []
         self._pending: dict[Any, NetRecord] = {}
         self._console: list[dict[str, Any]] = []
         self._ws: list[dict[str, Any]] = []
+        self._capture_omissions: dict[str, int] = {}
+        self._capture_bytes = 0
         #: Wait ledger: every wait/action records {op, detail, ms, ok}. This is the
         #: run's honest time budget — the answer to "where did 39 seconds go" is
         #: here, not in a profiler. Cleared per test with the other taps.
@@ -164,6 +183,11 @@ class PlaywrightCdpEngine(Engine):
             self._launched_here = True
             self._context = self._browser.new_context(ignore_https_errors=self.ignore_https_errors)
             self._owns_context = True
+        self._configure_context()
+
+    def _configure_context(self) -> None:
+        if self._context is None:
+            raise RuntimeError("browser context was not created")
         self._context.set_default_timeout(self.timeout_ms)
         if self.reduce_motion:
             # Both hints, because apps honour either: the media feature for
@@ -177,9 +201,31 @@ class PlaywrightCdpEngine(Engine):
             if self.cdp_url and self._context.pages
             else self._context.new_page()
         )
+        self._scope = self._page
         if self.reduce_motion:
             self._page.emulate_media(reduced_motion="reduce")
         self._attach_taps(self._page)
+
+    def reset_session(self) -> None:
+        """Give the next warm test a fresh context without relaunching Chromium."""
+        self.reset_taps()
+        if self.cdp_url:
+            # An attached context belongs to its launcher and is explicitly an
+            # authoring surface. Never discard its pages, cookies or storage.
+            return
+        if self.user_data_dir:
+            # A persistent profile is itself the requested state boundary.
+            return
+        if self._browser is None:
+            raise RuntimeError("engine is not started")
+        if self._context is not None and self._owns_context:
+            self._context.close()
+        self._context = self._browser.new_context(ignore_https_errors=self.ignore_https_errors)
+        self._owns_context = True
+        self._configure_context()
+
+    def capabilities(self) -> frozenset[str]:
+        return frozenset(cap.value for cap in Capability)
 
     def stop(self, *, keep_browser: bool = False) -> None:
         if keep_browser:
@@ -205,17 +251,67 @@ class PlaywrightCdpEngine(Engine):
     # -- taps --------------------------------------------------------------
 
     def _attach_taps(self, page: Page) -> None:
+        def admitted(content_type: str) -> bool:
+            media_type = content_type.partition(";")[0].strip().lower()
+            return self.capture_network_bodies and any(
+                media_type == allowed
+                or media_type.endswith("+json")
+                and allowed == "application/json"
+                for allowed in self.admitted_body_content_types
+            )
+
+        def bounded(value: str, limit: int | None = None) -> str:
+            cap = self.body_cap_bytes if limit is None else limit
+            raw = value.encode("utf-8")
+            if len(raw) <= cap:
+                return value
+            return raw[:cap].decode("utf-8", errors="ignore")
+
+        def declared_size(headers: dict[str, str]) -> int | None:
+            try:
+                value = int(headers.get("content-length", ""))
+            except ValueError:
+                return None
+            return value if value >= 0 else None
+
+        def omit(reason: str) -> None:
+            self._capture_omissions[reason] = self._capture_omissions.get(reason, 0) + 1
+
+        def reserve(size: int, reason: str) -> bool:
+            if self._capture_bytes + size > _TAP_BYTE_CAP:
+                omit(reason)
+                return False
+            self._capture_bytes += size
+            return True
+
         def on_request(request: Any) -> None:
             if self.api_prefix not in request.url:
                 return
-            body = request.post_data or None
+            if len(self._net) >= _TAP_RECORD_CAP:
+                omit("network_record_cap")
+                return
+            headers = request.headers
+            content_type = str(headers.get("content-type", ""))
+            size = declared_size(headers)
+            captured_body = None
+            if admitted(content_type) and size is not None and size <= self.body_cap_bytes:
+                body = request.post_data or None
+                captured_body = bounded(body) if body else None
+            elif request.method not in {"GET", "HEAD"}:
+                omit("request_body_policy")
+            base_bytes = len(request.method.encode("utf-8")) + len(request.url.encode("utf-8"))
+            body_bytes = len(captured_body.encode("utf-8")) if captured_body else 0
+            if not reserve(base_bytes + body_bytes, "network_byte_cap"):
+                if captured_body is None or not reserve(base_bytes, "network_byte_cap"):
+                    return
+                captured_body = None
             rec = NetRecord(
                 method=request.method,
                 url=request.url,
                 status=None,
                 started_ms=time.monotonic() * 1000,
                 duration_ms=None,
-                request_body=body[:_BODY_CAP_BYTES] if body else None,
+                request_body=captured_body,
             )
             self._pending[request] = rec
             self._net.append(rec)
@@ -229,11 +325,24 @@ class PlaywrightCdpEngine(Engine):
             # a POST/PATCH the UI just made carries the entity (with its id), which
             # is what wait_for_response callers synchronize on. GET bodies stay
             # uncaptured — list responses are large and an oracle can re-ask.
-            if (response.status >= 400) or rec.method != "GET":
+            content_type = str(response.headers.get("content-type", ""))
+            size = declared_size(response.headers)
+            should_consider = (response.status >= 400) or rec.method != "GET"
+            if (
+                should_consider
+                and admitted(content_type)
+                and size is not None
+                and size <= self.body_cap_bytes
+            ):
                 try:
-                    rec.response_body = response.text()[:_BODY_CAP_BYTES]
+                    captured = bounded(response.text())
+                    if reserve(len(captured.encode("utf-8")), "network_byte_cap"):
+                        rec.response_body = captured
                 except Exception:  # noqa: BLE001 - evidence capture is best-effort
                     rec.response_body = "<body unavailable>"
+                    omit("response_body_error")
+            elif should_consider:
+                omit("response_body_policy")
             # Status LAST, deliberately: wait_for_response keys on it, so setting it
             # before the body is captured hands the caller a record whose body is
             # still empty — a race that showed up as "the create response has no id".
@@ -258,18 +367,28 @@ class PlaywrightCdpEngine(Engine):
 
         def on_console(msg: Any) -> None:
             if msg.type in ("error", "warning"):
-                self._console.append({"level": msg.type, "text": msg.text})
+                text = bounded(str(msg.text))
+                size = len(msg.type.encode("utf-8")) + len(text.encode("utf-8"))
+                if len(self._console) >= _TAP_RECORD_CAP:
+                    omit("console_record_cap")
+                elif reserve(size, "console_byte_cap"):
+                    self._console.append({"level": msg.type, "text": text})
 
         def on_websocket(ws: Any) -> None:
             def on_frame(payload: Any) -> None:
                 text = payload if isinstance(payload, str) else "<binary frame>"
-                self._ws.append(
-                    {
-                        "url": ws.url,
-                        "at_ms": time.monotonic() * 1000,
-                        "payload": text[:_WS_FRAME_CAP_BYTES],
-                    }
-                )
+                text = bounded(text, _WS_FRAME_CAP_BYTES)
+                size = len(str(ws.url).encode("utf-8")) + len(text.encode("utf-8"))
+                if len(self._ws) >= _TAP_RECORD_CAP:
+                    omit("websocket_record_cap")
+                elif reserve(size, "websocket_byte_cap"):
+                    self._ws.append(
+                        {
+                            "url": ws.url,
+                            "at_ms": time.monotonic() * 1000,
+                            "payload": text,
+                        }
+                    )
 
             ws.on("framereceived", on_frame)
 
@@ -306,7 +425,7 @@ class PlaywrightCdpEngine(Engine):
     # -- targets -----------------------------------------------------------
 
     def _locate(self, target: Target) -> Locator:
-        page = self._require_page()
+        page = self._scope or self._require_page()
         exact = target.matches_exactly()
         if target.kind == "role":
             loc = page.get_by_role(target.value, name=target.name, exact=exact)  # type: ignore[arg-type]
@@ -454,6 +573,75 @@ class PlaywrightCdpEngine(Engine):
     def press(self, key: str) -> None:
         self._require_page().keyboard.press(key)
 
+    def focus(self, target: Target) -> None:
+        with self._timed("focus", target.describe()):
+            self._locate(target).focus()
+
+    def scroll_into_view(self, target: Target) -> None:
+        with self._timed("scroll_into_view", target.describe()):
+            self._locate(target).scroll_into_view_if_needed()
+
+    def upload(self, target: Target, paths: list[str]) -> None:
+        with self._timed("upload", target.describe()):
+            self._locate(target).set_input_files(paths)
+
+    def click_and_download(self, target: Target, path: str) -> str:
+        destination = Path(path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with self._timed("download", target.describe()):
+            with self._require_page().expect_download() as pending:
+                self._locate(target).click()
+            download = pending.value
+            download.save_as(destination)
+        return download.suggested_filename
+
+    def click_and_popup(self, target: Target) -> None:
+        with self._timed("popup", target.describe()):
+            with self._require_page().expect_popup() as pending:
+                self._locate(target).click()
+            self._page = pending.value
+            self._scope = self._page
+            self._attach_taps(self._page)
+
+    def switch_page(self, index: int) -> None:
+        if self._context is None:
+            raise RuntimeError("engine not started")
+        pages = self._context.pages
+        if index < 0 or index >= len(pages):
+            raise IndexError(f"page index {index} is outside 0..{len(pages) - 1}")
+        self._page = pages[index]
+        self._scope = self._page
+
+    def click_with_dialog(
+        self, target: Target, *, accept: bool = True, prompt: str | None = None
+    ) -> str:
+        message: list[str] = []
+
+        def handle(dialog: Any) -> None:
+            message.append(dialog.message)
+            if accept:
+                dialog.accept(prompt)
+            else:
+                dialog.dismiss()
+
+        page = self._require_page()
+        page.once("dialog", handle)
+        with self._timed("dialog", target.describe()):
+            self._locate(target).click()
+        return message[0] if message else ""
+
+    @contextmanager
+    def frame(self, target: Target) -> Iterator[None]:
+        previous = self._scope
+        frame = self._locate(target).content_frame
+        if frame is None:
+            raise RuntimeError(f"target is not an attached frame: {target.describe()}")
+        self._scope = frame
+        try:
+            yield
+        finally:
+            self._scope = previous
+
     # -- observation -----------------------------------------------------------
 
     def expect_text(
@@ -467,21 +655,17 @@ class PlaywrightCdpEngine(Engine):
         # exact=False where the element genuinely carries surrounding text.
         matcher: Any = re.compile(rf"^\s*{re.escape(text)}\s*$") if exact else text
         with self._timed("expect_text", f"{target.describe()} {'==' if exact else '~'} {text!r}"):
-            self._locate(target).filter(has_text=matcher).first.wait_for(
+            self._locate(target).filter(has_text=matcher).wait_for(
                 state="visible", timeout=timeout_ms or self.timeout_ms
             )
 
     def expect_visible(self, target: Target, timeout_ms: int | None = None) -> None:
         with self._timed("expect_visible", target.describe()):
-            self._locate(target).first.wait_for(
-                state="visible", timeout=timeout_ms or self.timeout_ms
-            )
+            self._locate(target).wait_for(state="visible", timeout=timeout_ms or self.timeout_ms)
 
     def wait_while_visible(self, target: Target, timeout_ms: int | None = None) -> None:
         with self._timed("wait_while_visible", target.describe()):
-            self._locate(target).first.wait_for(
-                state="hidden", timeout=timeout_ms or self.timeout_ms
-            )
+            self._locate(target).wait_for(state="hidden", timeout=timeout_ms or self.timeout_ms)
 
     def wait_for_url_contains(self, fragment: str, timeout_ms: int | None = None) -> None:
         with self._timed("wait_for_url", fragment):
@@ -578,6 +762,7 @@ class PlaywrightCdpEngine(Engine):
         method: str | None = None,
         since: int = 0,
         timeout_ms: int | None = None,
+        predicate: Callable[[NetRecord], bool] | None = None,
     ) -> NetRecord | None:
         """Wait for a completed response — see the protocol docstring.
 
@@ -601,6 +786,8 @@ class PlaywrightCdpEngine(Engine):
                     if url_contains not in record.url:
                         continue
                     if wanted is not None and record.method != wanted:
+                        continue
+                    if predicate is not None and not predicate(record):
                         continue
                     if record.status is not None:
                         return record
@@ -811,6 +998,8 @@ class PlaywrightCdpEngine(Engine):
         self._console.clear()
         self._ws.clear()
         self._waits.clear()
+        self._capture_omissions.clear()
+        self._capture_bytes = 0
 
     # -- triage hand-off -----------------------------------------------------------
 
@@ -819,5 +1008,18 @@ class PlaywrightCdpEngine(Engine):
         return {
             "cdp_endpoint": endpoint,
             "page_url": self._page.url if self._page else None,
+            "owns_browser": self._launched_here,
+            "owns_context": self._owns_context,
+            "mode": "attached" if self.cdp_url else "isolated",
+            "capture": {
+                "network_bodies": self.capture_network_bodies,
+                "screenshots": self.capture_screenshots,
+                "admitted_body_content_types": list(self.admitted_body_content_types),
+                "body_cap_bytes": self.body_cap_bytes,
+                "record_cap": _TAP_RECORD_CAP,
+                "byte_cap": _TAP_BYTE_CAP,
+                "retained_bytes": self._capture_bytes,
+                "omissions": dict(sorted(self._capture_omissions.items())),
+            },
             "note": "browser left at failure state; attach with any CDP/MCP client",
         }

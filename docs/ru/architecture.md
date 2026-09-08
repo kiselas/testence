@@ -13,7 +13,7 @@
                Playwright поверх CDP, auto-wait      │
                            │                          │
                            ▼                          │
-             run.jsonl (схема testence/1) ──► evidence pack
+             run.jsonl (схема testence/2) ──► evidence pack
                     │              │
                HTML/Allure       метрики
 ```
@@ -75,15 +75,17 @@ provenance. Вывод агента становится доверенным т
 
 ## Поток исполнения одного теста
 
-1. Fixture `ex`: сброс буферов захвата → `test.start`.
+1. Pytest lifecycle hook публикует `test.start` для каждого selected test, включая
+   тесты без `ex`; fixture при использовании сбрасывает browser capture.
 2. Каждый вызов `Actions`: `step.start` с намерением и целью → действие engine с
    auto-wait → `step.end` с длительностью и fingerprint на зелёном пути.
 3. Точки oracle: проверки вида `save_and_verify` публикуют события `oracle`;
    расхождение выбрасывает исключение и завершает шаг ошибкой.
 4. При падении `assemble_pack` захватывает ARIA, network, console, oracle и
-   `browser.json`, публикует `pack` и `test.end(fail)`; сессия оставляет браузер
-   живым согласно ADR-0008.
-5. При успехе публикуется `test.end(pass)`; журнал намеренно остаётся компактным.
+   `browser.json`, если browser fixture создан, и публикует `pack`; источником
+   execution outcome остаются pytest phase reports.
+5. После teardown lifecycle hook публикует canonical `test.end`. Перед export reader
+   восстанавливает missing terminal и selected cases, которые не начали.
 
 ## Режимы
 

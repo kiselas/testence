@@ -1,7 +1,7 @@
 # Отчётность: экспортёры поверх журнала
 
 Testence создаёт один authoritative artifact на запуск —
-`runs/<run-id>/run.jsonl` ([схема `testence/1`](evidence-schema.md)). Всё, что читают
+`runs/<run-id>/run.jsonl` ([схема `testence/2`](evidence-schema.md)). Всё, что читают
 люди или платформы, рендерится **из него**: [HTML-отчёт](adr/0005-html-report.md),
 `metrics.json` и описанные здесь форматы.
 
@@ -22,43 +22,93 @@ testence export runs/r-20260827-083736-29ae2f --to ctrf -o build/ctrf
 
 | Exporter | Что пишет | Что переносит |
 |---|---|---|
-| `allure` | `<n>-result.json` на тест, attachments, `environment.properties` | вложенные steps, markers как tags, evidence pack как attachments, fingerprint окружения |
+| `allure` | `<n>-result.json` на attempt, fixture containers, attachments, `environment.properties` | case/history/result identities, parameters, owner/risk/requirement/issue links, steps и redacted evidence |
 | `ctrf` | один `ctrf-report.json` | summary counts, tags, плоские step intents и путь pack |
 
 JUnit XML намеренно не является exporter: `pytest --junitxml=…` уже создаёт его
 корректно, в том числе под `-n`, а GitLab/Jenkins/GitHub читают его напрямую.
 
-## Сохранение существующего Allure TestOps pipeline
+## Загрузка результатов в Allure TestOps
 
-`allure` пишет формат **каталога результатов**, а не in-process модель SDK.
-`allurectl` загружает такой каталог независимо от производителя. Поэтому миграция
-дешева: **меняется test command, pipeline не меняется**. Endpoint, project id и token
-остаются прежними.
+`allure` пишет формат **каталога результатов**, а не in-process модель SDK, и
+`allurectl` может загрузить этот каталог. Исходный код завершения pytest нужно сохранить
+явно: успешный export/upload не должен делать failed или incomplete run зелёным. Run ID
+тоже задаётся явно, чтобы параллельный job не выбрал старый каталог.
 
 ```yaml
 run_tests:
   script:
-    # красный suite всё равно содержит результаты для загрузки
-    - pytest tests_e2e/ -q || true
-    - RUN=$(ls -dt runs/r-* | head -1)
-    - testence export "$RUN" --to allure
-    - allurectl upload "$RUN/allure-results"
+    - |
+      export TESTENCE_RUN_ID="r-${CI_PIPELINE_ID}-${CI_JOB_ID}"
+      set +e
+      pytest tests_e2e/ -q
+      TEST_EXIT=$?
+      set -e
+      RUN="runs/${TESTENCE_RUN_ID}"
+      testence export "$RUN" --to allure
+      allurectl upload "$RUN/allure-results"
+      exit "$TEST_EXIT"
   artifacts:
     when: always
     paths: [runs/]
 ```
 
-Две вещи сохраняются благодаря проектным решениям:
+Для retryable upload с машинным receipt все identity задаются явно. Options команды
+`delivery run` идут перед каталогом запуска, потому что остаток arguments является
+командой uploader:
+
+```bash
+testence delivery run \
+  --run-id "$TESTENCE_RUN_ID" --project-id "$TESTENCE_PROJECT_ID" \
+  --launch-id "$ALLURE_LAUNCH_ID" --job-run-id "$ALLURE_JOB_RUN_ID" \
+  --artifact-dir "$RUN/allure-results" --receipt "$RUN/delivery-receipt.json" \
+  --retries 2 --timeout 60 "$RUN" -- allurectl upload "$RUN/allure-results"
+
+testence ci evaluate "$RUN" --run-id "$TESTENCE_RUN_ID" \
+  --test-exit "$TEST_EXIT" --quality-mode assurance \
+  --delivery-receipt "$RUN/delivery-receipt.json" \
+  --ctrf "$RUN/ctrf-results/ctrf-report.json" --junit "$RUN/junit.xml" \
+  -o "$RUN/ci-receipt.json"
+exit $?
+```
+
+Delivery receipt идемпотентен для run/project/launch/job-run и точного artifact digest.
+Успешный receipt переиспользуется; timeout и ненулевой uploader exit повторяются внутри
+заданного лимита. `ci evaluate` отдельно записывает test, quality и delivery exits и
+возвращает первую упавшую ось, поэтому успешный upload не скрывает failed или incomplete
+run. Missing attachment, wrong project, stale run identity и расхождение CTRF/JUnit
+inventory отклоняются до зелёного статуса job.
+
+Exporter сохраняет consumer identities и dimensions:
 
 - **Имена markers.** Они переходят в Allure tags без изменений. Saved filters,
-  dashboards и scheduled selective runs зависят от этих строк, поэтому переименование
-  незаметно опустошит чужой filter.
-- **История.** `historyId` — hash только nodeid теста, поэтому trends в TestOps
-  следуют за тестом между запусками, а не создают несвязанные одноразовые результаты.
+  dashboards и saved filters зависят от этих строк, поэтому переименование незаметно
+  опустошит чужой filter.
+- **Identity и retries.** `testCaseId` следует за `(project, case)`, `historyId`
+  добавляет variant, а UUID результата — run и attempt. Каждый retry остаётся отдельным
+  результатом в одной истории и не заменяет предыдущую попытку.
+- **Метаданные плана.** `owner` PlanSpec, `risk` scenario, requirements и issues
+  становятся labels и стандартными Allure links типов `tms`/`issue`. Digest-only
+  parameters позволяют группировку без публикации исходных секретов.
+- **Fixtures.** Pytest setup и teardown становятся детерминированными Allure container
+  entries со статусом, временем и ошибкой.
 
-Не сохраняется streaming: результаты появляются при export, а не во время запуска,
-поэтому `allurectl watch` нечего наблюдать. Для suite длительностью от секунд до минут
-это не проблема. Если streaming станет блокером adoption, tripwire ADR-0013 требует
+Consumer-проверка T15 использует закреплённый Allure Report 3.14.3:
+
+```bash
+testence export <run-dir> --to allure -o allure-results
+npx --yes allure@3.14.3 awesome allure-results -o allure-report --single-file
+```
+
+Testence читает стандартный формат `ALLURE_TESTPLAN_PATH` во время collection. Версия
+plan обязана быть `1.0`; entries выбирают по точному pytest `fullName`, `allure_id` или
+`testence://<project>/<case>/<variant>`. Invalid, unresolved, ambiguous и пустой plan
+завершаются ошибкой до запуска тестов. Намеренно пустой plan требует
+`--testence-empty-testplan=noop` и создаёт успешный manifest запуска с нулём тестов.
+Offline selector проверен; select/upload/history round trip настоящего TestOps tenant
+остаётся внешним gate. Streaming отсутствует: результаты появляются при export, а не во время запуска,
+поэтому `allurectl watch` нечего наблюдать. Для короткого suite это может быть допустимо.
+Если streaming станет блокером adoption, tripwire ADR-0013 требует
 incremental export на каждый `test.end`, но не SDK.
 
 ## Собственный exporter
@@ -128,7 +178,8 @@ testops = "acme_testops.exporter"
 | `tests` | список `Test` |
 | `pack_path(test, filename)` | абсолютный путь к файлу evidence pack либо `None` |
 | `events` | raw ledger как escape hatch |
-| `Test` | `name`, `nodeid`, `file`, `markers`, `plan_id`, `plan_path`, `claim_ids`, `status`, `duration_ms`, `start`/`stop`, `error`, `steps`, `oracles`, `pack_dir` |
+| `Test` | identity/parameters, owner/risk/requirements/issues, source/plan/claims, status/assurance, fixtures, steps, oracles и pack |
+| `FixturePhase` | setup/teardown name, status, duration, error и `start`/`stop` |
 | `Step` | `intent`, `target`, `status`, `duration_ms`, `error`, `start`/`stop`, `substeps` |
 
 Перед форматированием важно знать два правила:

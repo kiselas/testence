@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:release-manifest:2",
+  "title": "Testence release decision manifest v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "target_version", "candidate", "environment", "inputs", "artifacts", "requirements", "gates", "exemptions", "limitations", "machine_readiness", "owner_decision", "rollback"],
+  "$defs": {
+    "fileReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "receiptReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256", "profile", "candidate_sha"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "profile": {"enum": ["local", "rc", "external"]},
+        "candidate_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "status", "required_profiles", "receipts", "missing"],
+      "properties": {
+        "id": {"type": "string", "minLength": 2},
+        "name": {"type": "string", "minLength": 1},
+        "status": {"enum": ["passed", "incomplete", "blocked"]},
+        "required_profiles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["local", "rc", "external"]}
+        },
+        "receipts": {"type": "array", "items": {"$ref": "#/$defs/receiptReference"}},
+        "missing": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  },
+  "properties": {
+    "schema": {"const": "testence/release-manifest/2"},
+    "target_version": {"type": "string", "minLength": 1},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_sha", "rc_sha", "tag", "dirty_worktree"],
+      "properties": {
+        "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "rc_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "tag": {"type": ["string", "null"]},
+        "dirty_worktree": {"type": "boolean"}
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python", "platforms", "tools"],
+      "properties": {
+        "python": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "platforms": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "tools": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}}
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dependency_inventory", "corpus_registry", "corpus_digest"],
+      "properties": {
+        "dependency_inventory": {"$ref": "#/$defs/fileReference"},
+        "corpus_registry": {"$ref": "#/$defs/fileReference"},
+        "corpus_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "artifacts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/fileReference"}},
+    "requirements": {"type": "array", "minItems": 24, "maxItems": 24, "items": {"$ref": "#/$defs/check"}},
+    "gates": {"type": "array", "minItems": 8, "maxItems": 8, "items": {"$ref": "#/$defs/check"}},
+    "exemptions": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "machine_readiness": {"type": "boolean"},
+    "owner_decision": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "owner", "reason", "payload_digest", "receipt"],
+          "properties": {
+            "status": {"enum": ["go", "no-go"]},
+            "owner": {"type": "string", "minLength": 1},
+            "reason": {"type": "string", "minLength": 1},
+            "payload_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+            "receipt": {"$ref": "#/$defs/receiptReference"}
+          }
+        }
+      ]
+    },
+    "rollback": {"type": "string", "minLength": 1}
+  }
+}

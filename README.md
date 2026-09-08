@@ -23,6 +23,10 @@
   <a href="docs/en/benchmark/launch-protocol.md">Benchmark protocol</a>
 </p>
 
+The machine-readable [support matrix](support.json) is the source of truth for the
+declared Python, operating-system and dependency floors. Hosted receipts for the exact
+clean candidate are still required before a platform is called release-verified.
+
 ---
 
 Testence turns a product claim into a reviewable `PlanSpec`, deterministic browser
@@ -60,12 +64,32 @@ explicit contracts that another agent, a reviewer or policy can verify.
 ```bash
 git clone git@github.com:kiselas/testence.git
 cd testence
-uv sync --locked --extra dev
+uv sync --locked --extra dev --extra parallel
 uv run playwright install chromium
 
 uv run testence plan validate examples/specs/target-page.md --json
 uv run pytest examples -q --testence-headless
 ```
+
+For a wheel-only onboarding check in a new or existing project:
+
+```bash
+testence doctor --json
+testence init . --json
+testence run --project . --run-id r-onboarding
+testence inspect runs/r-onboarding --json
+```
+
+Or run the complete portable green/failure demo and render both local reports with one
+command:
+
+```bash
+testence demo run --project testence-demo --json
+```
+
+The scaffold lives under `.testence/` and is not added to the existing pytest suite;
+the default `testence run` selects it explicitly. Every generated file is bound by a
+scaffold manifest, and conflicting user files are left untouched.
 
 Every failed test produces a bounded evidence pack containing the relevant UI state,
 network and console signals, intent-bearing steps, independent oracle observations and
@@ -117,12 +141,29 @@ A verdict is a versioned document bound to the plan, claims and captured run:
 
 ```json
 {
-  "schema": "testence/verdict/1",
+  "schema": "testence/verdict/2",
+  "project_id": "widgets",
+  "case_id": "create-widget",
+  "variant_id": "default",
+  "attempt_id": "attempt-controller-1",
+  "run_id": "r-20260906-120000-abc123",
+  "proof_id": "proof-0123456789abcdef0123",
+  "plan_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "test_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "policy_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "pack_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "plan_id": "widgets.create",
   "verdict": "real_bug",
   "test_id": "test_created_widget_is_visible",
+  "confidence": 0.96,
   "summary": "POST succeeded, but the new row never appeared in the UI",
   "claim_results": [
-    {"claim": "widgets.create.persisted", "status": "failed"}
+    {
+      "claim_id": "widgets.create.persisted",
+      "status": "failed",
+      "reason": "The persisted row is absent from the rendered collection",
+      "evidence": ["oracle.json#/0"]
+    }
   ]
 }
 ```
@@ -160,7 +201,7 @@ flowchart LR
 - `src/testence/contracts` — PlanSpec and verdict schemas with claim traceability;
 - `src/testence/engine` — replaceable execution protocol and Playwright/CDP backend;
 - `src/testence/dsl` — intent-bearing actions and exact-by-default assertions;
-- `src/testence/evidence` — append-only `testence/1` ledger and bounded artifacts;
+- `src/testence/evidence` — append-only `testence/2` ledger and bounded artifacts;
 - `src/testence/triage` — evidence packs, verdicts and reviewable healing proposals;
 - `src/testence/agent` — packaged, versioned, client-neutral skills;
 - `bench` and `corpus` — real-React latency gates and seeded correctness defects.
@@ -190,7 +231,9 @@ portable skills, deterministic execution and evidence packs are implemented. Pub
 agent bootstrap and managed verdict submission are still alpha work; APIs may change.
 
 Do not use the current preview against sensitive production data. Systematic evidence
-redaction and session-cache hardening remain release gates. See
+redaction and the remaining security review are release gates. API credentials are
+origin-bound and the opt-in session cache has TTL and identity checks, but the complete
+canary/path/retention matrix from the release specification is not yet accepted. See
 [SECURITY.md](SECURITY.md), [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [roadmap](docs/en/roadmap.md).
 

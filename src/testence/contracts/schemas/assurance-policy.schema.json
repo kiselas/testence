@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:assurance-policy:1",
+  "title": "Testence assurance policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "required_assertions",
+    "duplicate_assertions",
+    "missing_assertions",
+    "optional_assertions_in_denominator"
+  ],
+  "properties": {
+    "schema": {"const": "testence/assurance-policy/1"},
+    "required_assertions": {"const": "all"},
+    "duplicate_assertions": {"const": "unverified"},
+    "missing_assertions": {"const": "unverified"},
+    "optional_assertions_in_denominator": {"const": false}
+  }
+}

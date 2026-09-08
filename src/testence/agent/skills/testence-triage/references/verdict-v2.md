@@ -1,6 +1,6 @@
-# Verdict v1 reference
+# Verdict v2 reference
 
-The current contract is `testence/verdict/1`.
+The current contract is `testence/verdict/2`. Copy every identity field from the pack template unchanged; they bind the decision to one immutable attempt and proof.
 
 ## Causal taxonomy
 
@@ -18,7 +18,17 @@ The current contract is `testence/verdict/1`.
 
 ```json
 {
-  "schema": "testence/verdict/1",
+  "schema": "testence/verdict/2",
+  "project_id": "checkout",
+  "case_id": "discount",
+  "variant_id": "default",
+  "attempt_id": "attempt-controller-1",
+  "run_id": "r-20260906-120000-abc123",
+  "proof_id": "proof-0123456789abcdef0123",
+  "plan_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "test_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "policy_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "pack_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "plan_id": "checkout.discount",
   "test_id": "tests/test_checkout.py::test_discount",
   "verdict": "real_bug",
@@ -36,7 +46,7 @@ The current contract is `testence/verdict/1`.
 }
 ```
 
-Every pack claim appears exactly once. Claim statuses are `passed`, `failed`, `blocked`, or `not_evaluated`. A passed or failed result requires at least one relative reference to an existing file inside the pack; paths may use a JSON fragment after `#` and may not escape the pack.
+Every pack claim appears exactly once. Claim statuses are `passed`, `failed`, `blocked`, or `not_evaluated`. A passed or failed result requires at least one relative reference to a manifested file inside the pack. JSON and JSONL fragments are RFC 6901 pointers and must resolve. Copy all four digest fields from the template unchanged: they bind the plan, test source, assurance policy, and exact pack manifest.
 
 Validate the completed document:
 

@@ -1,0 +1,59 @@
+{
+  "schema": "testence/expected-state-corpus/1",
+  "cases": [
+    {
+      "id": "healthy-immediate",
+      "responses": [{"status": 200, "body": {"id": "widget-42", "role": "editor", "correlation_id": "run-7", "revision": 2, "state": "saved"}}],
+      "expected": "passed"
+    },
+    {
+      "id": "optimistic-stale-then-commit",
+      "responses": [
+        {"status": 200, "body": {"id": "widget-42", "role": "editor", "correlation_id": "run-7", "revision": 1, "state": "saved"}},
+        {"status": 200, "body": {"id": "widget-42", "role": "editor", "correlation_id": "run-7", "revision": 2, "state": "saved"}}
+      ],
+      "deadline_ms": 15,
+      "expected": "passed"
+    },
+    {
+      "id": "stale-equal-ui-and-api",
+      "responses": [{"status": 200, "body": {"id": "widget-42", "role": "editor", "correlation_id": "run-7", "revision": 1, "state": "saved"}}],
+      "expected": "failed"
+    },
+    {"id": "empty-body", "responses": [{"status": 200, "body": ""}], "expected": "inconclusive"},
+    {"id": "html-login", "responses": [{"status": 200, "content_type": "text/html", "body": "<html>login</html>"}], "expected": "inconclusive"},
+    {
+      "id": "wrong-entity",
+      "responses": [{"status": 200, "body": {"id": "widget-other", "role": "editor", "correlation_id": "run-7", "revision": 2, "state": "saved"}}],
+      "expected": "failed"
+    },
+    {
+      "id": "wrong-role",
+      "responses": [{"status": 200, "body": {"id": "widget-42", "role": "viewer", "correlation_id": "run-7", "revision": 2, "state": "saved"}}],
+      "expected": "failed"
+    },
+    {
+      "id": "delayed-commit",
+      "responses": [
+        {"status": 200, "body": {"id": "widget-42", "role": "editor", "correlation_id": "run-7", "revision": 2, "state": "pending"}},
+        {"status": 200, "body": {"id": "widget-42", "role": "editor", "correlation_id": "run-7", "revision": 2, "state": "saved"}}
+      ],
+      "deadline_ms": 15,
+      "expected": "passed"
+    },
+    {
+      "id": "rollback-during-window",
+      "responses": [
+        {"status": 200, "body": {"id": "widget-42", "role": "editor", "correlation_id": "run-7", "revision": 2, "state": "saved"}},
+        {"status": 200, "body": {"id": "widget-42", "role": "editor", "correlation_id": "run-7", "revision": 3, "state": "rolled-back"}}
+      ],
+      "deadline_ms": 15,
+      "stability_ms": 10,
+      "expected": "failed"
+    },
+    {"id": "unauthorized-401", "responses": [{"status": 401, "body": {"detail": "unauthorized"}}], "expected": "inconclusive"},
+    {"id": "forbidden-403", "responses": [{"status": 403, "body": {"detail": "forbidden"}}], "expected": "inconclusive"},
+    {"id": "missing-404", "responses": [{"status": 404, "body": {"detail": "missing"}}], "expected": "inconclusive"},
+    {"id": "server-error-500", "responses": [{"status": 500, "body": {"detail": "error"}}], "expected": "inconclusive"}
+  ]
+}

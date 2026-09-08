@@ -11,10 +11,10 @@ Repair only after the failure has a validated verdict. A locator guess is not a 
 
 1. Read the validated `verdict.json`, PlanSpec, evidence pack, failing source, and the last relevant green fingerprint or run.
 2. Apply the category gate in [references/repair-gates.md](references/repair-gates.md). Stop when the verdict calls for a product or environment fix instead of a test change.
-3. Describe a proposal before editing: affected claim and step, old and proposed behavior, decisive evidence, alternatives considered, confidence, ambiguity, source diff, and smallest proving scope.
+3. Create a `testence/repair-proposal/1` document before editing: bind the verdict, PlanSpec semantics and source base digests; record the affected step, exact diff and proving scope.
 4. If the user requested only investigation or a proposal, do not apply it. If implementation was requested and host permissions allow it, make the smallest visible edit.
-5. Validate the PlanSpec if it changed. Run the targeted test on the healthy target, the relevant negative control, and the restored target.
-6. Confirm that plan/claim bindings and independent oracles remain present in the new evidence.
+5. Run the targeted test on a healthy target, a defect control where the claim must fail, and a harmless control. Record their execution and assurance results in the proposal.
+6. Confirm that plan/claim bindings and independent oracles remain present, then run `testence repair validate` with the verdict, plan, source base, pack and proof root.
 7. Report the diff, rerun results, artifact paths, residual risk, and whether the proposal is ready for human review.
 
 ## Repair rules

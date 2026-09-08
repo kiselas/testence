@@ -40,10 +40,10 @@ correctness/security, or makes the public proof more reproducible.
   pytest binding, ledger events, failure packs and the HTML report.
 - Ship one portable Agent Skills package covering plan, author, triage and repair; keep
   client-specific instructions as thin adapters.
-- Add `testence agent init` with a dry-run/file manifest, project instructions, a
-  synthetic seed test and no secret copying.
-- **Partly implemented:** structured CLI operations for PlanSpec and verdict validation.
-  Scoped execution, pack lookup and managed verdict submission remain; the JSON contracts
+- **Implemented locally:** conflict-safe `testence agent install/verify`, a file manifest,
+  project instructions, a synthetic seed test and no secret copying.
+- **Implemented locally:** structured CLI operations for PlanSpec and verdict validation,
+  scoped execution, pack lookup and managed verdict submission. The JSON contracts
   become the future MCP foundation.
 - Define repository-owned permission policy for approved targets, seed mutations,
   evidence access and source-changing proposals.

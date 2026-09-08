@@ -24,9 +24,13 @@
 | [0013](0013-reporting-as-export.md) | Reporting integrations как exporters из ledger | accepted (seam implemented) |
 | [0014](0014-verdict-taxonomy.md) | Verdict для изменения поведения и ошибки теста; `blocked_on` для abstention | accepted |
 | [0015](0015-agent-native-interface.md) | Переносимый agent control plane над детерминированным runner | proposed (golden path pending) |
-| [0016](0016-plan-verdict-contracts.md) | PlanSpec и verdict как версионированные proof-контракты | accepted |
+| [0016](0016-plan-verdict-contracts.md) | PlanSpec и verdict как версионированные proof-контракты | заменено 0019 |
 | [0017](0017-event-driven-spa-latency.md) | Event-driven SPA readiness, mutation waits и input fast path | accepted (measured) |
 | [0018](0018-warm-authoring-runner.md) | Тёплый pytest process для authoring loop | accepted (measured, opt-in) |
+| [0019](0019-identity-and-schema-v2.md) | Стабильная identity и миграция schema v2 | accepted |
+| [0020](0020-application-cli-contract.md) | Явный onboarding/submission CLI с manifests | accepted |
+| [0021](0021-isolated-runtime-ownership.md) | Изоляция state по тестам и явное владение browser | accepted |
+| [0022](0022-engine-capability-negotiation.md) | Версионированные capabilities и strict action preflight | accepted |
 
 Формат: Контекст → Рассмотренные варианты → Решение → Последствия → Tripwire.
 Имена метрик определяются рядом с их реализацией и benchmark-документацией.

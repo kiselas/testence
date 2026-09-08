@@ -1,0 +1,81 @@
+{
+  "schema": "testence/release-manifest/1",
+  "target_version": "0.1.0a1",
+  "candidate": {
+    "base_sha": "7be8d025f81d9116ab267c59d440e14b377cfce7",
+    "rc_sha": null,
+    "tag": null,
+    "dirty_worktree": true
+  },
+  "artifacts": [
+    "outputs/audit-2026-09-06-followup/release-artifacts/checksums.sha256",
+    "outputs/audit-2026-09-06-followup/release-artifacts/sbom.json",
+    "outputs/audit-2026-09-06-followup/release-artifacts/provenance.json",
+    "outputs/audit-2026-09-06-followup/release-artifacts/dependency-inventory.json",
+    "outputs/audit-2026-09-06-followup/installed-wheel-smoke.json"
+  ],
+  "gates": [
+    {
+      "id": "G1",
+      "name": "Truth",
+      "status": "passed",
+      "receipts": ["docs/audits/2026-09-06-followup/t07-t08-lifecycle-integrity-implementation.md", "docs/audits/2026-09-06-followup/t09-assurance-implementation.md", "docs/audits/2026-09-06-followup/t13-expected-state-implementation.md"],
+      "missing": []
+    },
+    {
+      "id": "G2",
+      "name": "Safety",
+      "status": "incomplete",
+      "receipts": ["docs/audits/2026-09-06-followup/m1-security-implementation.md", "docs/audits/2026-09-06-followup/t19-runtime-isolation-implementation.md"],
+      "missing": ["independent T10-T12 security review", "Windows junction-capable and Linux containment receipts"]
+    },
+    {
+      "id": "G3",
+      "name": "Web reliability",
+      "status": "incomplete",
+      "receipts": ["docs/audits/2026-09-06-followup/t20-capability-actions-implementation.md", "outputs/audit-2026-09-06-followup/warm-fresh-profile.json"],
+      "missing": ["fresh Linux RC browser receipt"]
+    },
+    {
+      "id": "G4",
+      "name": "Integrations",
+      "status": "blocked",
+      "receipts": ["docs/audits/2026-09-06-followup/t15-allure-consumer-implementation.md", "docs/audits/2026-09-06-followup/t16-testplan-implementation.md", "docs/audits/2026-09-06-followup/t17-ci-delivery-implementation.md"],
+      "missing": ["live TestOps test-tenant selection, upload and history receipt"]
+    },
+    {
+      "id": "G5",
+      "name": "Agent workflow",
+      "status": "passed",
+      "receipts": ["docs/audits/2026-09-06-followup/t22-agent-clients-implementation.md"],
+      "missing": []
+    },
+    {
+      "id": "G6",
+      "name": "Measured quality",
+      "status": "blocked",
+      "receipts": ["docs/audits/2026-09-06-followup/t23-corpus-protocol.md", "docs/audits/2026-09-06-followup/t24-scale-performance.md"],
+      "missing": ["two licensed OSS SUT revisions", "two truth reviewers", "independent deterministic reproduction"]
+    },
+    {
+      "id": "G7",
+      "name": "Adoption",
+      "status": "blocked",
+      "receipts": ["docs/en/pilot-protocol.md"],
+      "missing": ["five new-user sessions", "three team pilots", "week-return evidence", "two external reproductions"]
+    },
+    {
+      "id": "G8",
+      "name": "Distribution",
+      "status": "blocked",
+      "receipts": ["docs/audits/2026-09-06-followup/t25-t26-distribution-demo.md", "docs/audits/2026-09-06-followup/t28-open-source-readiness.md"],
+      "missing": ["clean RC SHA and tag", "green hosted RC CI", "enabled private vulnerability reporting", "recorded 90-second video", "maintainer rights review"]
+    }
+  ],
+  "decision": {
+    "status": "no-go",
+    "owner": "@kiselas",
+    "reason": "Local implementation is reviewable, but G2-G4 and G6-G8 still require external or hosted evidence on one clean RC SHA."
+  },
+  "rollback": "Keep the repository private and publish no package or tag. For a failed later candidate, reinstall the prior recorded wheel digest and restore repo-owned locks from their previous Git revisions."
+}

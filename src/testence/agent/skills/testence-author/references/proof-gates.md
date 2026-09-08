@@ -2,7 +2,7 @@
 
 ## Contract binding
 
-Start from a validated `testence/planspec/1` and bind only declared claim IDs:
+Start from a validated `testence/planspec/2` and bind only declared claim IDs:
 
 ```python
 import pytest
@@ -22,7 +22,13 @@ def test_created_widget_is_persisted(ex, testence_api, widget_seed):
     ex.goto("/widgets", intent="open the widget collection")
     ex.click(SAVE, intent="save the widget")
     actual = testence_api.get(f"/api/widgets/{widget.id}").raise_for_status().json
-    ex.verify("persisted widget", {"name": widget.name}, {"name": actual["name"]})
+    ex.verify(
+        "persisted widget",
+        {"name": widget.name},
+        {"name": actual["name"]},
+        assertion_id="assert.widget.persisted",
+        claim_id="widgets.create.persisted",
+    )
 ```
 
 Collection must reject an external plan path or unknown claim. Use repository-relative plan paths so bindings survive across machines.

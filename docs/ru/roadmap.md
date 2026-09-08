@@ -43,10 +43,10 @@ correctness/security или делает публичное доказатель
   pytest binding, ledger, failure pack и HTML report.
 - Поставлять один переносимый пакет Agent Skills для plan, author, triage и repair;
   клиентские инструкции оставить тонкими адаптерами.
-- Добавить `testence agent init` с dry-run/manifest файлов, инструкциями проекта,
-  синтетическим seed-тестом и без копирования секретов.
-- **Частично реализовано:** структурированные CLI-операции проверки PlanSpec и verdict.
-  Ограниченный запуск, поиск pack и управляемое сохранение verdict остаются; JSON-
+- **Реализовано локально:** conflict-safe `testence agent install/verify`, manifest файлов,
+  инструкции проекта, синтетический seed-тест и отсутствие копирования секретов.
+- **Реализовано локально:** структурированные CLI-операции проверки PlanSpec и verdict,
+  ограниченный запуск, поиск pack и управляемое сохранение verdict. JSON-
   контракты станут основой MCP.
 - Определить принадлежащую репозиторию permission policy для согласованных targets,
   seed mutations, доступа к evidence и предложений, меняющих исходники.

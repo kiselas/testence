@@ -1,11 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:testence:schema:verdict:1",
-  "title": "Testence Verdict v1",
+  "$id": "urn:testence:schema:verdict:2",
+  "title": "Testence Verdict v2",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "schema",
+    "project_id",
+    "case_id",
+    "variant_id",
+    "attempt_id",
+    "run_id",
+    "proof_id",
+    "plan_digest",
+    "test_digest",
+    "policy_digest",
+    "pack_digest",
     "plan_id",
     "test_id",
     "verdict",
@@ -14,7 +24,17 @@
     "claim_results"
   ],
   "properties": {
-    "schema": {"const": "testence/verdict/1"},
+    "schema": {"const": "testence/verdict/2"},
+    "project_id": {"$ref": "#/$defs/id"},
+    "case_id": {"$ref": "#/$defs/id"},
+    "variant_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "proof_id": {"$ref": "#/$defs/id"},
+    "plan_digest": {"$ref": "#/$defs/digest"},
+    "test_digest": {"$ref": "#/$defs/digest"},
+    "policy_digest": {"$ref": "#/$defs/digest"},
+    "pack_digest": {"$ref": "#/$defs/digest"},
     "plan_id": {"$ref": "#/$defs/id"},
     "test_id": {"type": "string", "minLength": 1, "maxLength": 500},
     "verdict": {
@@ -73,6 +93,10 @@
     }
   ],
   "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "id": {
       "type": "string",
       "minLength": 1,

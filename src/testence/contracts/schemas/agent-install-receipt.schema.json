@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://testence.dev/schemas/agent-install-receipt.schema.json",
+  "title": "Testence agent installation receipt",
+  "type": "object",
+  "required": ["schema", "status", "project", "pack_schema", "pack_version", "pack_digest", "clients", "state"],
+  "properties": {
+    "schema": {"const": "testence/agent-install-receipt/1"},
+    "status": {"enum": ["installed", "conflict", "valid", "drift"]},
+    "project": {"type": "string", "minLength": 1},
+    "pack_schema": {"const": "testence/skill-pack/1"},
+    "pack_version": {"type": "string", "minLength": 1},
+    "pack_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "state": {"const": ".testence/agents.json"},
+    "clients": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+  },
+  "additionalProperties": false
+}

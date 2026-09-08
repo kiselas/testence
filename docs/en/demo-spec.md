@@ -117,7 +117,7 @@ uninterrupted real-time recording is available alongside the cut.
 ### Live demo — 5–7 minutes
 
 1. Clone a clean demo repository and show the one-command bootstrap.
-2. Run `testence agent init --client <client>` and show the created-file manifest without
+2. Run `testence agent install --project . --client <client>` and show the created-file manifest without
    manually reading the files.
 3. Give the agent the requirement and approve a short PlanSpec.
 4. Show the generated repo-owned test and claim IDs.
@@ -132,8 +132,8 @@ Target bootstrap interface, not yet implemented:
 ```bash
 uv sync --locked
 uv run testence doctor
-uv run testence agent init --client codex
-uv run testence demo run --scenario acknowledged-but-not-persisted
+uv run testence agent install --project . --client codex --json
+uv run testence demo run --project testence-demo --json
 ```
 
 If the launch package offers a shorter safe command, it may replace the first two lines,

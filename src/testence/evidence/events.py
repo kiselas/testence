@@ -1,4 +1,4 @@
-"""Event model for run.jsonl (schema ``testence/1``).
+"""Event model for run.jsonl (schema ``testence/2``).
 
 Design rules (see docs/en/evidence-schema.md):
 - One JSON object per line, append-only, UTF-8, ``\n`` line endings on all platforms.
@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from testence import SCHEMA_VERSION
+from testence.assurance import assertion_errors
+from testence.identity import adapt_event
 
 # Per-section token budgets for a single evidence pack (normative; the pack
 # assembler enforces them by truncating with a ref to the full file).
@@ -48,8 +50,10 @@ KINDS = frozenset(
         "net",
         "console",
         "oracle",
+        "assertion",
         "pack",
         "note",
+        "ledger.damage",
     }
 )
 
@@ -79,6 +83,8 @@ class Event:
 
     kind: str
     run: str
+    project_id: str = "unconfigured"
+    worker: str = "controller"
     test: str | None = None
     payload: dict[str, Any] = field(default_factory=dict)
     seq: int = -1
@@ -87,6 +93,8 @@ class Event:
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
             raise ValueError(f"unknown event kind: {self.kind!r}")
+        if self.kind == "assertion" and (errors := assertion_errors(self.payload)):
+            raise ValueError("invalid assertion event field(s): " + ", ".join(errors))
 
     def stamp(self, seq: int) -> None:
         self.seq = seq
@@ -94,21 +102,27 @@ class Event:
             self.ts = _utc_now_iso()
 
     def to_json(self) -> str:
-        doc: dict[str, Any] = {
-            "v": SCHEMA_VERSION,
-            "run": self.run,
-            "seq": self.seq,
-            "ts": self.ts,
-            "kind": self.kind,
-        }
+        doc: dict[str, Any] = dict(self.payload)
+        doc.update(
+            {
+                "v": SCHEMA_VERSION,
+                "run": self.run,
+                "run_id": self.run,
+                "project_id": self.project_id,
+                "worker": self.worker,
+                "event_id": f"{self.worker}:{self.seq}",
+                "seq": self.seq,
+                "ts": self.ts,
+                "kind": self.kind,
+            }
+        )
         if self.test is not None:
             doc["test"] = self.test
-        doc.update(self.payload)
         return json.dumps(doc, ensure_ascii=False, separators=(",", ":"))
 
     @staticmethod
     def parse(line: str) -> dict[str, Any]:
         doc = json.loads(line)
-        if doc.get("v") != SCHEMA_VERSION:
-            raise ValueError(f"unsupported schema version: {doc.get('v')!r}")
-        return doc
+        if not isinstance(doc, dict):
+            raise ValueError("ledger event must be a JSON object")
+        return adapt_event(doc)
