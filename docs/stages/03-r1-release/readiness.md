@@ -2,6 +2,11 @@
 
 Checked: 8 September 2026. Sensitive values are intentionally absent.
 
+Update, 13 September: branches are consolidated, two pinned OSS UI smoke targets
+and a portable agent handoff are in the repository. See the
+[new engineering audit](../../audits/2026-09-13/README.md) for results and precise
+limits; this does not replace the independent acceptance rows below.
+
 | Dependency | Status | Evidence and next action |
 |---|---|---|
 | Local Windows implementation environment | verified for engineering | Windows 11, Python 3.13.11, Playwright 1.62.0 and Chromium 151.0.7922.34 are recorded in current receipts |

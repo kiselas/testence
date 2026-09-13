@@ -4,6 +4,14 @@ Status: engineering audit; public release acceptance remains open. The package i
 still `0.1.0.dev0`. No public tag, PyPI upload or visibility change is authorized by
 this audit receipt. Historical no-go manifests remain historical.
 
+Final local source candidate: `2493f81d90a1c19263f3c48998f3f02119f4f59d`.
+**400 tests passed, 2 skipped; all 48 external UI cases matched expectations.**
+The external cases produced 42 verified results and 6 expected violations, with no
+integrity errors. See [validation.json](validation.json), [OSS samples](oss-result.json),
+[reproducible build](build.json) and [isolated wheel smoke](wheel-smoke.json).
+Receipts name the exact source revision tested; later fixes and hosted validation
+are recorded separately rather than retroactively changing those receipts.
+
 ## Integration
 
 Consolidated `codex/r1-rc` and all three fetched Dependabot branches into `main`,
@@ -53,6 +61,20 @@ Hosted Windows/Python 3.12 also caught a crash-test race: terminating the venv
 launcher could leave the real Python worker holding the quality lock. The test now
 records and terminates the actual worker PID. No production lock exclusion is weakened.
 
+Hosted Windows/Python 3.10 subsequently caught a too-short 150 ms navigation budget
+in the new UI regression fixture. Navigation now uses 10 seconds, while only the
+deliberately missing assertion uses 150 ms; fixture cleanup includes setup failures.
+The default application timeout and proof expectations were not relaxed.
+
+The legacy collection run completed 36 expected outcomes, then stalled during
+another browser setup. Its partial results and interrupted attempt remain in
+[legacy-corpus-partial.json](legacy-corpus-partial.json); this is not a clean full
+corpus receipt. Resuming with `TESTENCE_DEBUG_PORT=0` exposed two more problems:
+the config loader rejected zero despite the factory supporting it, and the legacy
+runner returned exit 0 even with incomplete cases. Both are fixed and regression
+tested. The initial 15 rejected-config attempts are retained locally. Any later
+successful continuation does not erase the interrupted or rejected attempts.
+
 The first external trial exposed another authoring gap: UI assertions could pass
 while assurance remained unverified because they emitted no bound assertion event.
 `expect_visible` now optionally accepts assertion/claim IDs, records observed
@@ -86,6 +108,24 @@ The scale output hashes are identical across samples. This machine is not the
 specified reference host. Three samples are insufficient for a robust tail-latency
 claim. External-panel raw timings and exact expected failures are in oss-result.json.
 
+External four-case replay median: healthy 9,712.1 ms; defect 15,681.2 ms; restored
+10,305.8 ms; harmless restyle 9,936.1 ms (three fresh processes per phase). Other
+audit processes ran concurrently, so these are local engineering samples. The
+updated Node Playwright comparison also ran successfully; its
+[snapshot](competitive-replay.json) is retained without a performance superiority claim.
+
+Manual screenshots were inspected at 1440×1000 and 390×844. The two sampled mobile
+pages had document width 390 px, matching the viewport, and their form cards stacked
+without observed horizontal clipping. This is a sampled observation, not automated
+responsive acceptance; see [mobile inspection](mobile-inspection.json).
+
+The packaged triage skill was exercised on a real bound checkbox failure pack.
+Its verdict validated and was submitted through the CLI:
+[triage receipt](triage-receipt.json). The initial out-of-pack submission path was
+correctly refused; submission then used an allowed path within the same pack.
+The verdict is `real_bug` for the locally injected defect, not a defect report about
+unmodified upstream AdminLTE. No test repair is appropriate for that verdict.
+
 ## Remaining product and release work
 
 - **Visual scope:** screenshot-guided authoring and semantic replay are supported;
@@ -95,6 +135,11 @@ claim. External-panel raw timings and exact expected failures are in oss-result.
 - **DSL ergonomics:** the external cases use CSS state predicates for checked and
   input masking assertions. Native checked/value/enabled assertions would make
   authoring more natural while preserving exact state checks.
+- **Healing hint precision:** the checked-state failure produced a high-confidence
+  `ui_change` hint for the still-present unchecked checkbox. The validated triage
+  verdict rejected that hint. A state predicate is part of the claim, not an address
+  to weaken; hints must remain advisory. Add dedicated state-predicate controls to
+  the heuristic corpus before presenting hint confidence as classification quality.
 - **Corpus depth:** two templates and four UI claims cannot satisfy the existing
   R1 frozen/holdout corpus requirements or prove real authentication/persistence.
   Add backend-driven apps, delayed and concurrent changes, modal/table workflows,

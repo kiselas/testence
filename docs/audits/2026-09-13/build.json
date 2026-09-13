@@ -1,0 +1,28 @@
+{
+  "schema": "testence/reproducible-build/1",
+  "status": "passed",
+  "revision": "2493f81d90a1c19263f3c48998f3f02119f4f59d",
+  "dirty": false,
+  "source_date_epoch": 1789312650,
+  "matched": true,
+  "artifacts": {
+    "testence-0.1.0.dev0-py3-none-any.whl": {
+      "bytes": 217712,
+      "sha256": "6f7c9afef99a1a6c986f19dc4d27d9600ebb7cf6740acd6349ef43229040565d"
+    },
+    "testence-0.1.0.dev0.tar.gz": {
+      "bytes": 252893,
+      "sha256": "dc6e90be584a57348ee8c8cddf81b7c3a1dce9cd9ebbca301c93433cc978cc12"
+    }
+  },
+  "second_build": {
+    "testence-0.1.0.dev0-py3-none-any.whl": {
+      "bytes": 217712,
+      "sha256": "6f7c9afef99a1a6c986f19dc4d27d9600ebb7cf6740acd6349ef43229040565d"
+    },
+    "testence-0.1.0.dev0.tar.gz": {
+      "bytes": 252893,
+      "sha256": "dc6e90be584a57348ee8c8cddf81b7c3a1dce9cd9ebbca301c93433cc978cc12"
+    }
+  }
+}

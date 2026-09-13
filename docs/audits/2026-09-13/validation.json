@@ -1,0 +1,69 @@
+{
+  "schema": "testence/engineering-audit/1",
+  "source_revision": "2493f81d90a1c19263f3c48998f3f02119f4f59d",
+  "publication": "not performed; independent R1 acceptance remains pending",
+  "checks": [
+    {
+      "command": "uv run ruff format --check src tests bench scripts",
+      "status": "passed"
+    },
+    {
+      "command": "uv run ruff check src tests bench scripts",
+      "status": "passed"
+    },
+    {
+      "command": "uv run mypy src scripts",
+      "status": "passed"
+    },
+    {
+      "command": "uv run pytest -q --basetemp=.tmp-pytest-audit-2493f81",
+      "status": "passed",
+      "passed": 400,
+      "skipped": 2,
+      "seconds": 146.73,
+      "log_sha256": "9d4fa002a71f13e55736daeb76816c1a2b1d2b661c9e770a59c77470162b3109"
+    },
+    {
+      "command": "uv run python bench/oss/run.py --repeats 3 --output outputs/release-audit-20260913/oss-port-proof",
+      "status": "passed",
+      "tests": 48,
+      "verified": 42,
+      "violated_expected": 6,
+      "receipt": "oss-result.json"
+    },
+    {
+      "command": "uv run python scripts/reproducible_build.py --dist-dir outputs/release-audit-20260913/dist-2493f81 --output outputs/release-audit-20260913/build-2493f81.json",
+      "status": "passed",
+      "receipt": "build.json"
+    },
+    {
+      "command": "<isolated-wheel-python> -I scripts/installed_wheel_smoke.py --distribution <exact-wheel> --output <receipt>",
+      "status": "passed",
+      "receipt": "wheel-smoke.json"
+    }
+  ],
+  "timing_notes": [
+    "Local Windows host; other audit processes ran concurrently.",
+    "Three repeats are a smoke sample, not a robust tail estimate.",
+    "Replay excludes target install/build, agent discovery, authoring and triage."
+  ],
+  "retained_failure_attempts": [
+    {
+      "scope": "Initial system temp setup",
+      "outcome": "WinError 5; resolved with unique project-local basetemp"
+    },
+    {
+      "scope": "Initial full suite",
+      "outcome": "390 passed, 2 skipped, one Windows cleanup flake; fixed"
+    },
+    {
+      "scope": "Initial repeated external UI run",
+      "outcome": "120-second browser setup deadline; incomplete run retained locally; later runs do not erase this failure"
+    },
+    {
+      "scope": "Hosted 3db8f63 Windows/Python 3.12",
+      "outcome": "crash test killed launcher rather than worker; test fixed",
+      "url": "https://github.com/kiselas/testence/actions/runs/34764788383"
+    }
+  ]
+}

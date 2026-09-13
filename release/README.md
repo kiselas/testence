@@ -1,5 +1,8 @@
 # Release evidence
 
+The [13 September engineering audit](../docs/audits/2026-09-13/README.md) records
+the consolidated source candidate, checks and remaining release acceptance work.
+
 `rc-manifest.json` and `rc-manifest-v2.json` retain historical, **no-go**
 development snapshots. Their `outputs/` paths point into retained local evidence
 bundles, which are intentionally excluded from source control. They are not the

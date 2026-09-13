@@ -1,0 +1,26 @@
+[
+  {
+    "target": "adminlte",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "dimensions": {
+      "width": 390,
+      "scrollWidth": 390
+    },
+    "scope": "manual screenshot inspection; not a visual oracle"
+  },
+  {
+    "target": "tabler",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "dimensions": {
+      "width": 390,
+      "scrollWidth": 390
+    },
+    "scope": "manual screenshot inspection; not a visual oracle"
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "scope": "Codex reasoning in this task; not an independent Claude/client acceptance receipt",
+  "validation": {
+    "valid": true,
+    "schema": "testence/verdict/2",
+    "project_id": "oss-panels",
+    "case_id": "admin-checkbox",
+    "variant_id": "default",
+    "attempt_id": "attempt-controller-1",
+    "run_id": "oss-defect-1",
+    "proof_id": "proof-de016d7189c7c93314d7",
+    "plan_digest": "sha256:20b41813612fff39c509ebae3fb0a475b51b6b5a4022b55e691018dc03daf281",
+    "test_digest": "sha256:b18bef56150b5b44a01f363da7f2fc4b97abf6e8057eacfb419afa00b0f274a5",
+    "policy_digest": "sha256:efc0a2e4809c69a2bb37916c33cd19456c88dbc8d7eb0e890a0a3b0ffd36334b",
+    "pack_digest": "sha256:8b6fbb122852207764e2d36636aff2bcc1b424bbbd038993255af7140c219dd5",
+    "plan_id": "oss.panels",
+    "test_id": "bench/oss/test_panels.py::test_admin_checkbox",
+    "verdict": "real_bug",
+    "confidence": 0.97,
+    "claims": {
+      "admin.checkbox": "failed"
+    },
+    "blocked_on": []
+  },
+  "submission": {
+    "schema": "testence/verdict-submission/1",
+    "project_id": "oss-panels",
+    "run_id": "oss-defect-1",
+    "case_id": "admin-checkbox",
+    "attempt_id": "attempt-controller-1",
+    "proof_id": "proof-de016d7189c7c93314d7",
+    "verdict_digest": "sha256:38eaeb162a26cfc5ef432c3ecef6ca6a69898ec50e8ee22452c29c795efd5212",
+    "output": "submitted-verdict.json"
+  }
+}

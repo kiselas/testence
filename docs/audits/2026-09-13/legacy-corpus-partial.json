@@ -1,0 +1,231 @@
+{
+  "schema": "testence/legacy-corpus-audit/1",
+  "complete": false,
+  "completed": 36,
+  "records": [
+    {
+      "item": "healthy",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   green (expected green)"
+    },
+    {
+      "item": "healthy",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   green (expected green)"
+    },
+    {
+      "item": "healthy",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   green (expected green)"
+    },
+    {
+      "item": "D-40-first-interaction-swallowed",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: filter, paging, search, substring"
+    },
+    {
+      "item": "D-40-first-interaction-swallowed",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: filter, paging, search, substring"
+    },
+    {
+      "item": "D-40-first-interaction-swallowed",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: filter, paging, search, substring"
+    },
+    {
+      "item": "D-13-view-does-not-catch-up",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: create"
+    },
+    {
+      "item": "D-13-view-does-not-catch-up",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: create"
+    },
+    {
+      "item": "D-13-view-does-not-catch-up",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: create"
+    },
+    {
+      "item": "D-15-placeholders-persist",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: content, counter, create, filter, full-page, paging, substring"
+    },
+    {
+      "item": "D-15-placeholders-persist",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: content, counter, create, filter, full-page, paging, substring"
+    },
+    {
+      "item": "D-15-placeholders-persist",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: content, counter, create, filter, full-page, paging, substring"
+    },
+    {
+      "item": "D-17-deleted-rows-listed",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: deleted"
+    },
+    {
+      "item": "D-17-deleted-rows-listed",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: deleted"
+    },
+    {
+      "item": "D-17-deleted-rows-listed",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: deleted"
+    },
+    {
+      "item": "D-34-deep-link-ignored",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: deep-link"
+    },
+    {
+      "item": "D-34-deep-link-ignored",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: deep-link"
+    },
+    {
+      "item": "D-34-deep-link-ignored",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: deep-link"
+    },
+    {
+      "item": "D-43-counter-disagrees",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: counter, deep-link, search, substring"
+    },
+    {
+      "item": "D-43-counter-disagrees",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: counter, deep-link, search, substring"
+    },
+    {
+      "item": "D-43-counter-disagrees",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: counter, deep-link, search, substring"
+    },
+    {
+      "item": "D-43-short-page",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: content, counter, full-page, substring"
+    },
+    {
+      "item": "D-43-short-page",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: content, counter, full-page, substring"
+    },
+    {
+      "item": "D-43-short-page",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: content, counter, full-page, substring"
+    },
+    {
+      "item": "D-44-prefix-not-substring",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: substring"
+    },
+    {
+      "item": "D-44-prefix-not-substring",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: substring"
+    },
+    {
+      "item": "D-44-prefix-not-substring",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: substring"
+    },
+    {
+      "item": "D-45-filter-dropped",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: filter"
+    },
+    {
+      "item": "D-45-filter-dropped",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: filter"
+    },
+    {
+      "item": "D-45-filter-dropped",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: filter"
+    },
+    {
+      "item": "U-01-renamed-control",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: create"
+    },
+    {
+      "item": "U-01-renamed-control",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: create"
+    },
+    {
+      "item": "U-01-renamed-control",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   red (expected red)  failed: create"
+    },
+    {
+      "item": "C-08-restyle",
+      "attempt": 1,
+      "expected_outcome_matched": true,
+      "observation": "ok   green (expected green)"
+    },
+    {
+      "item": "C-08-restyle",
+      "attempt": 2,
+      "expected_outcome_matched": true,
+      "observation": "ok   green (expected green)"
+    },
+    {
+      "item": "C-08-restyle",
+      "attempt": 3,
+      "expected_outcome_matched": true,
+      "observation": "ok   green (expected green)"
+    }
+  ],
+  "interrupted": {
+    "item": "C-08-reorder",
+    "attempt": 1
+  },
+  "interruption": "Manually stopped after repeated lack of progress; last test.start was test_the_status_filter_shapes_the_result. py-spy showed the main thread waiting inside Playwright sync event loop. Root cause not established.",
+  "log_sha256": "41e745ee115742f56432fdc86601b3fd88bce1a4fb3bf668f62643129c1c51e1",
+  "source_note": "Engineering run began before this audit and used changing checkout source between per-item subprocesses; not a frozen-candidate release receipt.",
+  "resume": "Separate remaining-five-control run uses TESTENCE_DEBUG_PORT=0; interrupted evidence copied before rerun; never counted as clean first-attempt success."
+}

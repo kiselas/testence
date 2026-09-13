@@ -1,0 +1,76 @@
+{
+ "schema": "testence/competitive-replay/1",
+ "captured_at": "2026-09-13T18:13:36+0300",
+ "scenario": "six intent-bearing steps on bench/target/index.html",
+ "timing_boundary": "fresh runner process; discovery, browser launch, test, reporting and shutdown; SUT startup excluded",
+ "policy": {
+  "warmups_per_arm": 1,
+  "measured_repeats_per_arm": 3,
+  "workers": 1,
+  "retries": 0,
+  "tracing": "off",
+  "video": "off",
+  "arms_run": "serial"
+ },
+ "environment": {
+  "os": "Windows-11-10.0.26200-SP0",
+  "machine": "AMD64",
+  "logical_cpu_count": 16,
+  "python": "3.13.11",
+  "node": "v22.22.0",
+  "browser": "Playwright Chromium 151.0.7922.34",
+  "python_playwright": "1.62.0",
+  "pytest": "9.1.1",
+  "node_playwright_test": "1.63.0",
+  "benchmark_revision": "bc8d1d853c80e6a5"
+ },
+ "arms": {
+  "testence": {
+   "n": 3,
+   "median_ms": 2364.0,
+   "median_ci95_ms": [
+    2207.2,
+    2427.1
+   ],
+   "p95_ms": 2420.8,
+   "min_ms": 2207.2,
+   "max_ms": 2427.1,
+   "samples_ms": [
+    2427.1,
+    2364.0,
+    2207.2
+   ],
+   "source": {
+    "path": "bench/competitive/testence/test_flow.py",
+    "bytes": 604,
+    "nonblank_noncomment_lines": 13
+   }
+  },
+  "playwright_test": {
+   "n": 3,
+   "median_ms": 3018.2,
+   "median_ci95_ms": [
+    2590.7,
+    3103.7
+   ],
+   "p95_ms": 3095.2,
+   "min_ms": 2590.7,
+   "max_ms": 3103.7,
+   "samples_ms": [
+    3103.7,
+    2590.7,
+    3018.2
+   ],
+   "source": {
+    "path": "bench/node/competitive/playwright_flow.spec.mjs",
+    "bytes": 841,
+    "nonblank_noncomment_lines": 21
+   }
+  }
+ },
+ "derived": {
+  "testence_vs_playwright_median_ratio": 0.783,
+  "testence_median_overhead_pct": -21.7
+ },
+ "authoring_note": "source size is a transparent proxy only; elapsed authoring and review time were not measured in this replay experiment"
+}

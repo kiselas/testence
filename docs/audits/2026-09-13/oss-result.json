@@ -1,0 +1,252 @@
+{
+  "schema": "testence/oss-ui-smoke/1",
+  "scope": "UI-only synthetic controls; not frozen R1 corpus acceptance or independent client proof",
+  "revision": "2493f81d90a1c19263f3c48998f3f02119f4f59d",
+  "dirty": false,
+  "python": "3.13.11",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "playwright": "1.62.0",
+  "targets": [
+    {
+      "name": "adminlte",
+      "repository": "https://github.com/ColorlibHQ/AdminLTE.git",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "checkout": ".tmp/oss-adminlte",
+      "web_root": "dist",
+      "license": "LICENSE",
+      "license_id": "MIT",
+      "license_sha256": "9e8b0d4e7ce8c13e67a2373d5094910c263fd95b1e49bdf45dc2a9813be5996b",
+      "built_tree_sha256": "226117bc13ec4d74a145b2b31fad34b93e0866a3bf5b0010fca09b6ac48e2f60"
+    },
+    {
+      "name": "tabler",
+      "repository": "https://github.com/tabler/tabler.git",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "checkout": ".tmp/oss-tabler",
+      "web_root": "preview/dist",
+      "license": "LICENSE",
+      "license_id": "MIT",
+      "license_sha256": "8ae01434d2466e421a196f97308a0876c4b9089c0dc5352bb4cc7ba68b12dbcd",
+      "built_tree_sha256": "e58cb75aa7c9a2691caa01aa760791d96c4f81a0feb4ddd9a85b6db2638b2933"
+    }
+  ],
+  "tests_sha256": "b18bef56150b5b44a01f363da7f2fc4b97abf6e8057eacfb419afa00b0f274a5",
+  "plan_sha256": "20b41813612fff39c509ebae3fb0a475b51b6b5a4022b55e691018dc03daf281",
+  "records": [
+    {
+      "phase": "healthy",
+      "repeat": 1,
+      "wall_ms": 7542.1,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-healthy-1.xml",
+      "run_id": "oss-healthy-1",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "healthy",
+      "repeat": 2,
+      "wall_ms": 9712.1,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-healthy-2.xml",
+      "run_id": "oss-healthy-2",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "healthy",
+      "repeat": 3,
+      "wall_ms": 11667.1,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-healthy-3.xml",
+      "run_id": "oss-healthy-3",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "defect",
+      "repeat": 1,
+      "wall_ms": 15728.7,
+      "exit_code": 1,
+      "timed_out": false,
+      "passed": true,
+      "failures": {
+        "test_admin_checkbox": "testence.dsl.steps.StepFailed: step failed: Selection is visibly checked (AssertionError: target did not become visible: css='#exampleCheck1:checked')",
+        "test_tabler_password": "testence.dsl.steps.StepFailed: step failed: Password is revealed (AssertionError: target did not become visible: css='#signin-password[type=text]')"
+      },
+      "junit": "oss-defect-1.xml",
+      "run_id": "oss-defect-1",
+      "assurance": {
+        "violated": 2,
+        "verified": 2
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "defect",
+      "repeat": 2,
+      "wall_ms": 15681.2,
+      "exit_code": 1,
+      "timed_out": false,
+      "passed": true,
+      "failures": {
+        "test_admin_checkbox": "testence.dsl.steps.StepFailed: step failed: Selection is visibly checked (AssertionError: target did not become visible: css='#exampleCheck1:checked')",
+        "test_tabler_password": "testence.dsl.steps.StepFailed: step failed: Password is revealed (AssertionError: target did not become visible: css='#signin-password[type=text]')"
+      },
+      "junit": "oss-defect-2.xml",
+      "run_id": "oss-defect-2",
+      "assurance": {
+        "violated": 2,
+        "verified": 2
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "defect",
+      "repeat": 3,
+      "wall_ms": 14595.0,
+      "exit_code": 1,
+      "timed_out": false,
+      "passed": true,
+      "failures": {
+        "test_admin_checkbox": "testence.dsl.steps.StepFailed: step failed: Selection is visibly checked (AssertionError: target did not become visible: css='#exampleCheck1:checked')",
+        "test_tabler_password": "testence.dsl.steps.StepFailed: step failed: Password is revealed (AssertionError: target did not become visible: css='#signin-password[type=text]')"
+      },
+      "junit": "oss-defect-3.xml",
+      "run_id": "oss-defect-3",
+      "assurance": {
+        "violated": 2,
+        "verified": 2
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "restored",
+      "repeat": 1,
+      "wall_ms": 11099.7,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-restored-1.xml",
+      "run_id": "oss-restored-1",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "restored",
+      "repeat": 2,
+      "wall_ms": 10305.8,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-restored-2.xml",
+      "run_id": "oss-restored-2",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "restored",
+      "repeat": 3,
+      "wall_ms": 9809.1,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-restored-3.xml",
+      "run_id": "oss-restored-3",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "restyle",
+      "repeat": 1,
+      "wall_ms": 9936.1,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-restyle-1.xml",
+      "run_id": "oss-restyle-1",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "restyle",
+      "repeat": 2,
+      "wall_ms": 9739.9,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-restyle-2.xml",
+      "run_id": "oss-restyle-2",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "restyle",
+      "repeat": 3,
+      "wall_ms": 10420.0,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-restyle-3.xml",
+      "run_id": "oss-restyle-3",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    }
+  ],
+  "summary": {
+    "healthy": {
+      "n": 3,
+      "p50_ms": 9712.1,
+      "max_ms": 11667.1
+    },
+    "defect": {
+      "n": 3,
+      "p50_ms": 15681.2,
+      "max_ms": 15728.7
+    },
+    "restored": {
+      "n": 3,
+      "p50_ms": 10305.8,
+      "max_ms": 11099.7
+    },
+    "restyle": {
+      "n": 3,
+      "p50_ms": 9936.1,
+      "max_ms": 10420.0
+    }
+  },
+  "passed": true
+}

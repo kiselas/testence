@@ -18,6 +18,16 @@ def test_engine_factory_preserves_ephemeral_port_with_parallel_workers(monkeypat
     assert engine.debug_port == expected
 
 
+def test_settings_load_accepts_ephemeral_port_from_environment(tmp_path, monkeypatch):
+    from testence.config import Settings
+
+    monkeypatch.setenv("TESTENCE_DEBUG_PORT", "0")
+    assert Settings.load(tmp_path).debug_port == 0
+    monkeypatch.setenv("TESTENCE_DEBUG_PORT", "80")
+    with pytest.raises(ValueError, match="debug_port"):
+        Settings.load(tmp_path)
+
+
 @pytest.fixture
 def visible_actions():
     engine = PlaywrightCdpEngine(headed=False, timeout_ms=10_000, debug_port=0)

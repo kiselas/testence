@@ -1,0 +1,62 @@
+{
+  "schema": "testence/installed-wheel-smoke/1",
+  "distribution": {
+    "path": "testence-0.1.0.dev0-py3-none-any.whl",
+    "name": "testence",
+    "version": "0.1.0.dev0",
+    "sha256": "6f7c9afef99a1a6c986f19dc4d27d9600ebb7cf6740acd6349ef43229040565d",
+    "verified_package_files": 102
+  },
+  "schemas": {
+    "count": 27,
+    "missing": []
+  },
+  "agents": {
+    "installed": "installed",
+    "verified": "valid",
+    "clients": [
+      "claude",
+      "codex"
+    ]
+  },
+  "demo": {
+    "status": "passed",
+    "runs": [
+      {
+        "name": "healthy",
+        "test_exit": 0,
+        "assurance": {
+          "verified": 1
+        },
+        "report_exists": true,
+        "pack_required": false,
+        "pack_exists": false
+      },
+      {
+        "name": "intentional_failure",
+        "test_exit": 1,
+        "assurance": {
+          "violated": 1
+        },
+        "report_exists": true,
+        "pack_required": true,
+        "pack_exists": true
+      },
+      {
+        "name": "harmless_change",
+        "test_exit": 0,
+        "assurance": {
+          "verified": 1
+        },
+        "report_exists": true,
+        "pack_required": false,
+        "pack_exists": false
+      }
+    ]
+  },
+  "browser": {
+    "chromium": true,
+    "version": "151.0.7922.34"
+  },
+  "status": "passed"
+}

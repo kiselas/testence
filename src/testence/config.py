@@ -166,8 +166,8 @@ class Settings:
         merged["verify_tls"] = _as_bool(merged.get("verify_tls", True))
         merged["timeout_ms"] = int(merged.get("timeout_ms", 10_000))
         merged["debug_port"] = int(merged.get("debug_port", 9222))
-        if not 1024 <= merged["debug_port"] <= 65535:
-            raise ValueError("debug_port must be between 1024 and 65535")
+        if merged["debug_port"] != 0 and not 1024 <= merged["debug_port"] <= 65535:
+            raise ValueError("debug_port must be 0 (ephemeral) or between 1024 and 65535")
         merged["execution_mode"] = str(merged.get("execution_mode", "isolated")).lower()
         if merged["execution_mode"] not in {"isolated", "warm", "attached"}:
             raise ValueError("execution_mode must be isolated, warm, or attached")

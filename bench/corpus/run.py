@@ -234,7 +234,7 @@ def summarize(records: list[dict]) -> dict:
     }
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--only", action="append", default=None)
     parser.add_argument("--port", type=int, default=8800)
@@ -246,7 +246,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.repeats < 1:
+        parser.error("repeats must be positive")
+
     items = [i for i in ITEMS if not args.only or i.id in args.only]
+    if not items or (args.only and set(args.only) - {item.id for item in ITEMS}):
+        parser.error("--only must name existing corpus items")
     runs_root = ROOT / "runs" / "corpus"
     runs_root.mkdir(parents=True, exist_ok=True)
 
@@ -301,7 +306,14 @@ def main() -> None:
     )
     if unstable:
         print(f"\nunstable across repeats: {unstable}")
+    failed = any(
+        not record["outcome_ok"]
+        or record.get("right_reason") is False
+        or record.get("heal_proposed") is False
+        for record in records
+    )
+    return 1 if failed or unstable else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
