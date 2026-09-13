@@ -192,10 +192,52 @@ class Actions:
             require_capabilities(self.engine, "expect_text", Capability.DOM)
             self.engine.expect_text(target, text, exact=exact)
 
-    def expect_visible(self, target: Target, intent: str | None = None) -> None:
+    def expect_visible(
+        self,
+        target: Target,
+        intent: str | None = None,
+        *,
+        assertion_id: str | None = None,
+        claim_id: str | None = None,
+    ) -> None:
+        """Assert visibility, optionally binding the observed result to a UI claim."""
+        from testence.oracle import _assertion_identity, _emit_assertion, _source_location
+
+        bound = _assertion_identity(assertion_id, claim_id)
+        source = _source_location()
         with self.step(intent or f"expect {target.describe()} visible", target):
             require_capabilities(self.engine, "expect_visible", Capability.DOM)
-            self.engine.expect_visible(target)
+            try:
+                self.engine.expect_visible(target)
+            except Exception as exc:
+                if bound:
+                    # A browser/transport failure is not proof that the UI claim
+                    # is false. Only a completed visibility wait can violate it.
+                    _emit_assertion(
+                        self.writer,
+                        self.test_id,
+                        assertion_id=str(assertion_id),
+                        claim_id=str(claim_id),
+                        oracle_kind="ui",
+                        expected={"visible": True, "target": target.describe()},
+                        actual={"error": str(exc)},
+                        diffs=[],
+                        source=source,
+                        outcome="failed" if isinstance(exc, AssertionError) else "inconclusive",
+                    )
+                raise
+            if bound:
+                _emit_assertion(
+                    self.writer,
+                    self.test_id,
+                    assertion_id=str(assertion_id),
+                    claim_id=str(claim_id),
+                    oracle_kind="ui",
+                    expected={"visible": True, "target": target.describe()},
+                    actual={"visible": True, "target": target.describe()},
+                    diffs=[],
+                    source=source,
+                )
 
     def expect_hidden(self, target: Target, intent: str | None = None) -> None:
         with self.step(intent or f"expect {target.describe()} gone", target):

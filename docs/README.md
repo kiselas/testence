@@ -1,5 +1,8 @@
 # Testence documentation / Документация Testence
 
+Последняя инженерная проверка: [объединение веток и аудит 13 сентября](audits/2026-09-13/README.md).
+Переносимый вход для агентов: [AGENTS.md](../AGENTS.md).
+
 Актуальный план завершения R1: [этап 3 — подробное ТЗ](stages/03-r1-release/README.md),
 [пособие исполнителю](stages/03-r1-release/implementation-guide.md),
 [матрица приёмки](stages/03-r1-release/acceptance.md).

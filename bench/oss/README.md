@@ -4,6 +4,9 @@ Four UI claims against two real, pinned upstream dashboard projects. Each repeat
 starts fresh pytest/browser processes. The runner starts loopback HTTP servers on
 free ports and checks exact expected failed tests and assertion messages. It exits
 nonzero for an unexpected pass, failure, skip, setup error or missing test.
+It also requires verified assurance for every healthy/restored/restyled case and
+exactly two violated plus two verified cases in the defect phase, with no integrity
+errors. Every UI state predicate carries its declared assertion and claim IDs.
 
 This is an engineering smoke corpus. It is not the frozen R1 40-case corpus,
 holdout evaluation, independent agent-client trial or backend persistence proof.

@@ -27,6 +27,7 @@ from playwright.sync_api import (
     Playwright,
     sync_playwright,
 )
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect as pw_expect
 
 from .capabilities import Capability
@@ -661,7 +662,12 @@ class PlaywrightCdpEngine(Engine):
 
     def expect_visible(self, target: Target, timeout_ms: int | None = None) -> None:
         with self._timed("expect_visible", target.describe()):
-            self._locate(target).wait_for(state="visible", timeout=timeout_ms or self.timeout_ms)
+            try:
+                self._locate(target).wait_for(
+                    state="visible", timeout=timeout_ms or self.timeout_ms
+                )
+            except PlaywrightTimeoutError as exc:
+                raise AssertionError(f"target did not become visible: {target.describe()}") from exc
 
     def wait_while_visible(self, target: Target, timeout_ms: int | None = None) -> None:
         with self._timed("wait_while_visible", target.describe()):

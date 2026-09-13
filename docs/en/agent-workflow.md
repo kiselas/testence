@@ -183,6 +183,11 @@ Generated code is only a hypothesis. Before proposing it for acceptance, the age
 5. rerun green from a clean seed;
 6. report uncovered claims and unresolved ambiguity.
 
+Bind UI state checks with `ex.expect_visible(..., assertion_id="...", claim_id="...")`
+when the plan declares a UI oracle. Check `testence inspect <run-dir> --json`:
+pytest success alone does not satisfy required assertions; accepted healthy proof
+must have `verified` assurance and no integrity errors.
+
 This prevents a plausible-looking test from being mistaken for verified coverage.
 
 ## 5. Replay without an agent

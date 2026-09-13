@@ -33,6 +33,22 @@ def test_created_widget_is_persisted(ex, testence_api, widget_seed):
 
 Collection must reject an external plan path or unknown claim. Use repository-relative plan paths so bindings survive across machines.
 
+For a UI-only claim, bind the observed state to a declared assertion too:
+
+```python
+ex.expect_visible(
+    Target("css", "#notifications:checked"),
+    intent="Notifications are enabled",
+    assertion_id="assert.notifications.checked",
+    claim_id="notifications.enabled",
+)
+```
+
+Declare that assertion with `oracle: "ui"` in the PlanSpec. A normal unbound
+`expect_visible` still checks execution but does not satisfy the required proof
+inventory. Missing visibility produces a failed assertion; an unavailable browser
+produces an inconclusive one. Do not relabel browser errors as product violations.
+
 ## Claim-to-proof review
 
 For every bound claim, record:
@@ -51,7 +67,10 @@ For every bound claim, record:
 2. Run the exact test against the healthy target.
 3. Activate a declared defect or safe negative control.
 4. Run the same code and confirm the expected claim fails for the expected reason.
-5. Inspect `run.jsonl` and the bounded pack for plan and claim bindings.
+5. Inspect `run.jsonl` and the bounded pack for plan and claim bindings. Run
+   `testence inspect <run-dir> --json`: healthy/restored cases must have verified
+   assurance, and intended defect cases violated assurance, with no integrity errors.
+   A pytest pass with unverified assurance is incomplete proof.
 6. Restore the target and clean seed data.
 7. Run the same code green again.
 

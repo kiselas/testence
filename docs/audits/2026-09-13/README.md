@@ -38,6 +38,15 @@ development line. See Git history for source commits and subsequent audit receip
 
 ## Validation evidence
 
+The first external trial exposed another authoring gap: UI assertions could pass
+while assurance remained unverified because they emitted no bound assertion event.
+`expect_visible` now optionally accepts assertion/claim IDs, records observed
+visibility, and distinguishes unmet visibility from unavailable browser evidence.
+The external suite now gates on verified/violated assurance and integrity as well
+as expected pytest outcomes. Transport errors remain inconclusive. Other custom
+engines should raise AssertionError for unmet visibility and another exception for
+unavailable evidence, as documented in the engine protocol.
+
 Local bundles live in ignored `outputs/release-audit-20260913/`. Compact, sanitized
 JSON snapshots are kept next to this document as they complete. They disclose
 revision and dirty state where the harness supports it. Build/authoring time is not

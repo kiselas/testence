@@ -18,6 +18,8 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from testence.application import inspect_run
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -149,6 +151,13 @@ def main() -> int:
                     and set(failed) == set(expected)
                     and all(reason in failed[name] for name, reason in expected.items())
                 )
+                inspection = inspect_run(output / "runs" / run_id)
+                expected_assurance = {"verified": 2, "violated": 2} if expected else {"verified": 4}
+                passed = (
+                    passed
+                    and inspection["assurance"] == expected_assurance
+                    and not inspection["integrity_errors"]
+                )
                 record = {
                     "phase": phase,
                     "repeat": repeat + 1,
@@ -158,6 +167,8 @@ def main() -> int:
                     "failures": failed,
                     "junit": junit.name,
                     "run_id": run_id,
+                    "assurance": inspection["assurance"],
+                    "integrity_errors": inspection["integrity_errors"],
                 }
                 records.append(record)
                 print(f"{run_id}: {'OK' if passed else 'MISMATCH'} {elapsed:.0f} ms", flush=True)
