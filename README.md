@@ -183,6 +183,7 @@ The package ships portable skills for four bounded jobs:
 
 The same versioned skill pack is designed for Codex/ChatGPT, Claude Code, OpenCode and
 other Agent Skills clients. Client adapters stay thin; the contracts remain portable.
+Start from [AGENTS.md](AGENTS.md), the shared entry point for any coding agent.
 See [Agent Skills](docs/en/agent-skills.md) and the
 [agent workflow](docs/en/agent-workflow.md).
 
@@ -228,7 +229,8 @@ environment and failure criteria is deliberately not treated as a product claim.
 
 Testence is a **pre-alpha developer preview**. PlanSpec propagation, verdict validation,
 portable skills, deterministic execution and evidence packs are implemented. Public
-agent bootstrap and managed verdict submission are still alpha work; APIs may change.
+agent bootstrap and managed verdict submission are implemented through the CLI;
+independent client and public release acceptance are pending. APIs may change.
 
 Do not use the current preview against sensitive production data. Systematic evidence
 redaction and the remaining security review are release gates. API credentials are

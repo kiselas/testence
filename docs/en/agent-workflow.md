@@ -2,8 +2,9 @@
 
 This document defines the public Testence workflow. PlanSpec, pytest claim binding,
 ledger/evidence-pack propagation, verdict validation and the portable skill pack are
-implemented. Bootstrap, controlled discovery and MCP remain target parts of the current
-pre-alpha.
+implemented. CLI bootstrap, safe skill installation and managed verdict submission
+are implemented too. Controlled discovery is performed by the host agent using the
+packaged visual-discovery reference; a managed discovery service and MCP remain future work.
 
 ## The transparent pipeline
 
@@ -231,7 +232,7 @@ Allowed `verdict` values are `real_bug`, `test_bug`, `behaviour_change`, `ui_cha
 `flaky_timing` and `environment`. `test_bug` means that the product and current PlanSpec
 agree while the test implementation contradicts them. `blocked_on` is the explicit
 abstention channel:
-it names missing evidence rather than inventing a sixth causal class. A `null` verdict
+it names missing evidence rather than inventing another causal class. A `null` verdict
 requires at least one blocker; a `passed`/`failed` claim requires references to files that
 actually exist in the pack. Validation binds the verdict to the exact plan, test and
 claims. It also verifies plan/test/policy/pack digests, every manifest artifact, and
@@ -324,10 +325,11 @@ of agent client.
 | HTML, Allure and CTRF rendering from the ledger | implemented |
 | PlanSpec schema, pytest binding and traceability through ledger/pack/report | implemented |
 | portable `plan`, `author`, `triage` and `repair` skills | implemented and packaged |
-| cross-client bootstrap and safe skill updates | to build |
+| CLI bootstrap and safe Codex/Claude skill updates | implemented; independent client acceptance pending |
 | verdict schema, pack template and CLI validation | implemented |
-| managed verdict persistence and agent-facing MCP | to build |
-| systematic redaction and permission policy | P0 release blocker |
+| managed verdict persistence | implemented through CLI |
+| agent-facing MCP and managed discovery service | future work; CLI/host-agent path available |
+| redaction and permission policy | implemented controls; independent security acceptance pending |
 
 The public alpha is not agent-native until one supported agent can complete the entire
 golden path from feature request through evidence-backed result using this contract.

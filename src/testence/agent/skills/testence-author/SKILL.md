@@ -7,6 +7,10 @@ description: Discover, implement, and prove deterministic Testence browser tests
 
 Turn an approved PlanSpec into a deterministic, reviewable test and prove that it detects the claimed failure.
 
+For visible UI exploration or external applications, read
+[references/visual-discovery.md](references/visual-discovery.md) for observation,
+state checks, timing and a portable handoff.
+
 ## Workflow
 
 1. Locate the PlanSpec and run `testence plan validate <path> --json`. Do not author against an invalid plan.

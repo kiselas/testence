@@ -33,13 +33,18 @@ The supported development platforms are Windows and Linux with Python 3.10 or ne
 ```bash
 uv run ruff format --check src tests bench scripts
 uv run ruff check src tests bench scripts
-uv run mypy src/testence bench/react_latency.py bench/warm_runner_latency.py bench/scale_profile.py scripts/release_artifacts.py
+uv run mypy src scripts
 uv run pytest -q
 ```
 
 Run the narrowest relevant benchmark when changing waits, engine behaviour, evidence
 capture or runner lifecycle. Do not improve a number by weakening the scenario or its
 oracle. Update the checked-in result, command and environment together.
+
+External application authoring/replay checks are described in
+[bench/oss/README.md](bench/oss/README.md). On Windows, an inaccessible system pytest
+temp directory can be bypassed with a fresh `--basetemp=.tmp-pytest-<unique-run>`.
+Do not reuse a directory containing artifacts you need: pytest clears basetemp.
 
 ## Design rules
 

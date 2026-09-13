@@ -1,0 +1,7 @@
+{
+  "schema": "testence/oss-targets/1",
+  "targets": [
+    {"name": "adminlte", "repository": "https://github.com/ColorlibHQ/AdminLTE.git", "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30", "checkout": ".tmp/oss-adminlte", "web_root": "dist", "license": "LICENSE", "license_id": "MIT"},
+    {"name": "tabler", "repository": "https://github.com/tabler/tabler.git", "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3", "checkout": ".tmp/oss-tabler", "web_root": "preview/dist", "license": "LICENSE", "license_id": "MIT"}
+  ]
+}

@@ -1,0 +1,173 @@
+{
+  "schema": "testence/scale-profile/1",
+  "environment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.13.11",
+    "testence": "0.1.0.dev0"
+  },
+  "repeats": 3,
+  "ten_thousand": {
+    "warm": {
+      "elapsed_ms": {
+        "p50": 393.35,
+        "p95": 455.61,
+        "min": 372.68,
+        "max": 455.61,
+        "n": 3
+      },
+      "peak_memory_bytes": {
+        "p50": 17815256.0,
+        "p95": 17820016.0,
+        "min": 17814312.0,
+        "max": 17820016.0,
+        "n": 3
+      },
+      "artifact_bytes": {
+        "p50": 4463458.0,
+        "p95": 4463458.0,
+        "min": 4463458.0,
+        "max": 4463458.0,
+        "n": 3
+      },
+      "unique_output_digests": 1,
+      "raw": [
+        {
+          "elapsed_ms": 372.68,
+          "peak_memory_bytes": 17820016,
+          "artifact_bytes": 4463458,
+          "sha256": "2353c382ab32afbb2444452f4dc4715e9174fe3eb0dce48e7d342b4424348a82",
+          "results": 10000,
+          "failures": 0
+        },
+        {
+          "elapsed_ms": 455.61,
+          "peak_memory_bytes": 17815256,
+          "artifact_bytes": 4463458,
+          "sha256": "2353c382ab32afbb2444452f4dc4715e9174fe3eb0dce48e7d342b4424348a82",
+          "results": 10000,
+          "failures": 0
+        },
+        {
+          "elapsed_ms": 393.35,
+          "peak_memory_bytes": 17814312,
+          "artifact_bytes": 4463458,
+          "sha256": "2353c382ab32afbb2444452f4dc4715e9174fe3eb0dce48e7d342b4424348a82",
+          "results": 10000,
+          "failures": 0
+        }
+      ]
+    },
+    "cold": {
+      "elapsed_ms": {
+        "p50": 408.48,
+        "p95": 416.76,
+        "min": 389.03,
+        "max": 416.76,
+        "n": 3
+      },
+      "peak_memory_bytes": {
+        "p50": 17820016.0,
+        "p95": 17820016.0,
+        "min": 17820016.0,
+        "max": 17820016.0,
+        "n": 3
+      },
+      "artifact_bytes": {
+        "p50": 4463458.0,
+        "p95": 4463458.0,
+        "min": 4463458.0,
+        "max": 4463458.0,
+        "n": 3
+      },
+      "unique_output_digests": 1,
+      "raw": [
+        {
+          "elapsed_ms": 408.48,
+          "peak_memory_bytes": 17820016,
+          "artifact_bytes": 4463458,
+          "sha256": "2353c382ab32afbb2444452f4dc4715e9174fe3eb0dce48e7d342b4424348a82",
+          "results": 10000,
+          "failures": 0
+        },
+        {
+          "elapsed_ms": 416.76,
+          "peak_memory_bytes": 17820016,
+          "artifact_bytes": 4463458,
+          "sha256": "2353c382ab32afbb2444452f4dc4715e9174fe3eb0dce48e7d342b4424348a82",
+          "results": 10000,
+          "failures": 0
+        },
+        {
+          "elapsed_ms": 389.03,
+          "peak_memory_bytes": 17820016,
+          "artifact_bytes": 4463458,
+          "sha256": "2353c382ab32afbb2444452f4dc4715e9174fe3eb0dce48e7d342b4424348a82",
+          "results": 10000,
+          "failures": 0
+        }
+      ]
+    }
+  },
+  "failure_storm": {
+    "elapsed_ms": {
+      "p50": 94.15,
+      "p95": 99.98,
+      "min": 78.85,
+      "max": 99.98,
+      "n": 3
+    },
+    "peak_memory_bytes": {
+      "p50": 10012560.0,
+      "p95": 10012568.0,
+      "min": 10012552.0,
+      "max": 10012568.0,
+      "n": 3
+    },
+    "artifact_bytes": {
+      "p50": 4560750.0,
+      "p95": 4560750.0,
+      "min": 4560750.0,
+      "max": 4560750.0,
+      "n": 3
+    },
+    "unique_output_digests": 1,
+    "raw": [
+      {
+        "elapsed_ms": 78.85,
+        "peak_memory_bytes": 10012568,
+        "artifact_bytes": 4560750,
+        "sha256": "9194810f3c86a33f25ced562876be52b633f99f692320c87aa04ecfb9d6448e2",
+        "results": 1000,
+        "failures": 1000
+      },
+      {
+        "elapsed_ms": 94.15,
+        "peak_memory_bytes": 10012560,
+        "artifact_bytes": 4560750,
+        "sha256": "9194810f3c86a33f25ced562876be52b633f99f692320c87aa04ecfb9d6448e2",
+        "results": 1000,
+        "failures": 1000
+      },
+      {
+        "elapsed_ms": 99.98,
+        "peak_memory_bytes": 10012552,
+        "artifact_bytes": 4560750,
+        "sha256": "9194810f3c86a33f25ced562876be52b633f99f692320c87aa04ecfb9d6448e2",
+        "results": 1000,
+        "failures": 1000
+      }
+    ]
+  },
+  "protocol": {
+    "export": "CTRF from LoadedRun",
+    "failure_storm": "1000 failed results with 4096-byte bounded errors",
+    "memory": "Python allocations measured by tracemalloc",
+    "flake": "all repeated output SHA-256 digests must be identical"
+  },
+  "budget": {
+    "checked": true,
+    "source": "bench/budgets/scale_profile.json",
+    "passed": true,
+    "violations": []
+  }
+}

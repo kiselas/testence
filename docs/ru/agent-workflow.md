@@ -2,8 +2,9 @@
 
 Этот документ определяет публичный workflow Testence. PlanSpec, привязка claim'ов к
 pytest, их перенос в ledger/evidence pack, валидация verdict и переносимый skill-pack
-уже работают. Bootstrap, controlled discovery и MCP остаются целевой частью текущей
-pre-alpha.
+уже работают. CLI bootstrap, безопасная установка skills и сохранение verdict тоже
+реализованы. Визуальное исследование выполняет агент по packaged reference;
+управляемый discovery service и MCP остаются будущей работой.
 
 ## Прозрачный конвейер
 
@@ -327,10 +328,11 @@ permissions клиентского приложения. Testence не нуже�
 | рендеринг HTML, Allure и CTRF из журнала | реализовано |
 | схема PlanSpec, pytest binding и трассируемость до ledger/pack/report | реализовано |
 | переносимые skills `plan`, `author`, `triage` и `repair` | реализованы и включены в пакет |
-| cross-client bootstrap и безопасное обновление skills | предстоит реализовать |
+| CLI bootstrap и безопасное обновление Codex/Claude skills | реализовано; независимая приёмка клиентов ожидается |
 | verdict schema, pack template и CLI-валидация | реализовано |
-| управляемое сохранение verdict и MCP для агента | предстоит реализовать |
-| систематическое редактирование и permission policy | блокер релиза P0 |
+| управляемое сохранение verdict | реализовано через CLI |
+| MCP и управляемый discovery service | будущая работа; доступен CLI/host-agent workflow |
+| редактирование чувствительных данных и permission policy | меры реализованы; независимая security-приёмка ожидается |
 
 Публичная альфа не является agent-native, пока хотя бы один поддерживаемый агент не
 может пройти весь golden path от запроса функции до результата с доказательствами по

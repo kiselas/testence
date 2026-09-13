@@ -1,0 +1,129 @@
+{
+  "schema": "testence/react-latency/2",
+  "scenario": "production-built React controlled input and POST mutation",
+  "generated_at": "2026-09-13T14:57:49.822678+00:00",
+  "environment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.13.11",
+    "playwright": "1.62.0"
+  },
+  "browser_mode": "launch",
+  "shared_browser_start_ms": null,
+  "repeats": 3,
+  "fresh_process_ms": {
+    "p50": 2806.51,
+    "p95": 3187.19,
+    "min": 2430.73,
+    "max": 3187.19,
+    "n": 3
+  },
+  "bootstrap_ms": {
+    "p50": 809.21,
+    "p95": 1005.49,
+    "min": 687.43,
+    "max": 1005.49,
+    "n": 3
+  },
+  "session_ms": {
+    "p50": 1997.3,
+    "p95": 2181.7,
+    "min": 1743.3,
+    "max": 2181.7,
+    "n": 3
+  },
+  "test_ms": {
+    "p50": 1892.0,
+    "p95": 2084.0,
+    "min": 1647.8,
+    "max": 2084.0,
+    "n": 3
+  },
+  "steps": {
+    "controlled_fill_safe_ms": {
+      "p50": 14.35,
+      "p95": 22.7,
+      "min": 9.1,
+      "max": 42.4,
+      "n": 24
+    },
+    "controlled_fill_fast_ms": {
+      "p50": 15.15,
+      "p95": 28.4,
+      "min": 9.8,
+      "max": 29.7,
+      "n": 24
+    },
+    "mutation_round_trip_ms": {
+      "p50": 74.4,
+      "p95": 100.8,
+      "min": 64.4,
+      "max": 100.8,
+      "n": 3
+    }
+  },
+  "engine": {
+    "goto_ms": {
+      "p50": 138.1,
+      "p95": 186.4,
+      "min": 101.5,
+      "max": 186.4,
+      "n": 3
+    },
+    "wait_until_rendered_ms": {
+      "p50": 68.1,
+      "p95": 80.7,
+      "min": 60.9,
+      "max": 80.7,
+      "n": 3
+    },
+    "fill_ms": {
+      "p50": 10.05,
+      "p95": 16.6,
+      "min": 5.9,
+      "max": 30.4,
+      "n": 24
+    },
+    "fill_fast_ms": {
+      "p50": 8.6,
+      "p95": 16.4,
+      "min": 5.4,
+      "max": 19.1,
+      "n": 27
+    },
+    "click_fast_ms": {
+      "p50": 19.7,
+      "p95": 19.8,
+      "min": 19.6,
+      "max": 19.8,
+      "n": 3
+    },
+    "wait_for_response_ms": {
+      "p50": 12.2,
+      "p95": 15.3,
+      "min": 10.9,
+      "max": 15.3,
+      "n": 3
+    },
+    "expect_text_ms": {
+      "p50": 8.4,
+      "p95": 39.9,
+      "min": 6.6,
+      "max": 39.9,
+      "n": 3
+    },
+    "wait_while_visible_ms": {
+      "p50": 20.7,
+      "p95": 101.8,
+      "min": 20.6,
+      "max": 101.8,
+      "n": 3
+    }
+  },
+  "note": "Fresh pytest processes on one host; broad budgets detect hidden waits, not cross-machine microbenchmarks. Browser mode is explicit so launch and CDP-attach results are never mixed.",
+  "budget": {
+    "checked": true,
+    "source": "bench/budgets/react_latency.json",
+    "passed": true,
+    "violations": []
+  }
+}

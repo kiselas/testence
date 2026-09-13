@@ -221,6 +221,41 @@ def test_apply_restores_every_file_if_commit_is_interrupted(tmp_path: Path, monk
     assert not transactions.exists() or not list(transactions.iterdir())
 
 
+def test_cleanup_retries_transient_windows_delete_without_reapplying(tmp_path: Path, monkeypatch):
+    pack = _pack(tmp_path / "pack", "1", "safe")
+    project = _project(tmp_path / "project", "catalog")
+    original = quality_module.shutil.rmtree
+    calls = []
+
+    def busy_once(directory):
+        calls.append(directory)
+        if len(calls) == 1:
+            error = OSError("directory still pending deletion")
+            error.winerror = 145
+            raise error
+        return original(directory)
+
+    monkeypatch.setattr(quality_module.shutil, "rmtree", busy_once)
+    result = apply_quality_pack(pack, project)
+    assert result["status"] == "applied"
+    assert len(calls) == 2
+    assert calls[0] == calls[1]
+    assert not list((project / ".testence/quality-transactions").iterdir())
+
+
+def test_cleanup_propagates_nontransient_errors(tmp_path: Path, monkeypatch):
+    directory = tmp_path / ".testence/quality-transactions/failed"
+    directory.mkdir(parents=True)
+
+    def denied(_directory):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(quality_module.shutil, "rmtree", denied)
+    with pytest.raises(PermissionError, match="denied"):
+        quality_module._cleanup_transaction(tmp_path, ".testence/quality-transactions/failed")
+    assert directory.exists()
+
+
 def test_apply_rejects_a_concurrent_quality_operation(tmp_path: Path):
     pack = _pack(tmp_path / "pack", "1", "safe")
     project = _project(tmp_path / "project", "catalog").resolve()

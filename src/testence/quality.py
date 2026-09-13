@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import sys
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
@@ -95,9 +96,19 @@ def _quality_lock(project: Path) -> Iterator[None]:
 
 
 def _cleanup_transaction(project: Path, relative: str) -> None:
-    directory = _inside(project, relative)
-    if directory.exists():
-        shutil.rmtree(directory)
+    # Windows may briefly retain a deleted child (scanner/indexer handles). Retry
+    # only those transient filesystem errors, never a transaction or UI action.
+    for attempt in range(4):
+        directory = _inside(project, relative)
+        if not directory.exists():
+            return
+        try:
+            shutil.rmtree(directory)
+            return
+        except OSError as exc:
+            if getattr(exc, "winerror", None) not in {32, 145} or attempt == 3:
+                raise
+            time.sleep(0.025 * (attempt + 1))
 
 
 def _recover_transactions(project: Path) -> None:
