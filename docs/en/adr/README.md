@@ -31,5 +31,7 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 | [0021](0021-isolated-runtime-ownership.md) | Per-test state isolation and explicit browser ownership | accepted |
 | [0022](0022-engine-capability-negotiation.md) | Versioned engine capabilities and strict action preflight | accepted |
 
+| [0023](0023-visual-baseline-proof.md) | Digest-pinned visual assertions and installed-client simulation | implemented (engineering) |
+
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.

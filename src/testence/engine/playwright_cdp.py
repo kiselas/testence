@@ -85,6 +85,7 @@ class PlaywrightCdpEngine(Engine):
         capture_screenshots: bool = False,
         admitted_body_content_types: tuple[str, ...] = ("application/json",),
         body_cap_bytes: int = _BODY_CAP_BYTES,
+        viewport: dict[str, int] | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.cdp_url = cdp_url
@@ -96,6 +97,15 @@ class PlaywrightCdpEngine(Engine):
         self.ignore_https_errors = ignore_https_errors
         self.reduce_motion = reduce_motion
         self.user_data_dir = user_data_dir
+        if viewport is not None and (
+            not isinstance(viewport, dict)
+            or set(viewport) != {"width", "height"}
+            or any(type(v) is not int or not 1 <= v <= 4096 for v in viewport.values())
+        ):
+            raise ValueError("viewport requires integer width/height in 1..4096")
+        if viewport is not None and cdp_url:
+            raise ValueError("configure viewport in the owner of an attached browser")
+        self.viewport = dict(viewport) if viewport is not None else None
         #: DOM attribute that ``Target("testid", ...)`` resolves against. Apps
         #: rarely ship `data-testid`; they do ship something stable (this project's
         #: tables carry `data-key` with the row's id). Pointing the test-id
@@ -203,6 +213,10 @@ class PlaywrightCdpEngine(Engine):
             else self._context.new_page()
         )
         self._scope = self._page
+        if self.viewport is not None:
+            self._page.set_viewport_size(
+                {"width": self.viewport["width"], "height": self.viewport["height"]}
+            )
         if self.reduce_motion:
             self._page.emulate_media(reduced_motion="reduce")
         self._attach_taps(self._page)
@@ -1017,6 +1031,7 @@ class PlaywrightCdpEngine(Engine):
             "owns_browser": self._launched_here,
             "owns_context": self._owns_context,
             "mode": "attached" if self.cdp_url else "isolated",
+            "viewport": self._page.viewport_size if self._page else None,
             "capture": {
                 "network_bodies": self.capture_network_bodies,
                 "screenshots": self.capture_screenshots,

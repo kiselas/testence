@@ -244,6 +244,63 @@ class Actions:
             require_capabilities(self.engine, "expect_hidden", Capability.DOM)
             self.engine.wait_while_visible(target)
 
+    def expect_screenshot(
+        self,
+        baseline: str,
+        *,
+        baseline_digest: str,
+        assertion_id: str,
+        claim_id: str,
+        intent: str = "Viewport matches the accepted visual baseline",
+    ) -> dict[str, Any]:
+        """Bound visual UI assertion; unusable evidence is inconclusive, never green."""
+        from pathlib import Path
+
+        from testence.oracle import _emit_assertion, _source_location
+        from testence.visual import compare_baseline
+
+        source = _source_location()
+        expected = {"baseline_digest": baseline_digest}
+        with self.step(intent):
+            try:
+                result = compare_baseline(
+                    self.engine,
+                    Path(baseline),
+                    self.writer.test_dir(self.test_id) / "pack",
+                    baseline_digest=baseline_digest,
+                )
+            except Exception as exc:
+                _emit_assertion(
+                    self.writer,
+                    self.test_id,
+                    assertion_id=assertion_id,
+                    claim_id=claim_id,
+                    oracle_kind="ui",
+                    expected=expected,
+                    actual={"error": str(exc)},
+                    diffs=[],
+                    source=source,
+                    outcome="inconclusive",
+                )
+                raise
+            _emit_assertion(
+                self.writer,
+                self.test_id,
+                assertion_id=assertion_id,
+                claim_id=claim_id,
+                oracle_kind="ui",
+                expected=expected,
+                actual=result,
+                diffs=[]
+                if result["outcome"] == "passed"
+                else [{"field": "viewport", "visual": result}],
+                source=source,
+                outcome=result["outcome"],
+            )
+            if result["outcome"] != "passed":
+                raise AssertionError(f"visual mismatch: {result['changed_pixels']} pixels changed")
+            return result
+
     def focus(self, target: Target, intent: str | None = None) -> None:
         with self.step(intent or f"focus {target.describe()}", target):
             require_capabilities(self.engine, "focus", Capability.DOM, Capability.KEYBOARD)

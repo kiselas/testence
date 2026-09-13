@@ -23,6 +23,11 @@ Judge from recorded evidence. Keep this phase read-only except for completing th
 - Do not read secrets or broader raw artifacts merely to increase confidence. Abstain and request the missing bounded evidence.
 - Distinguish an accepted behavior change from a product regression and locator drift from a missing feature.
 - Do not edit test or product code during triage. A repair is a separate reviewable phase.
+- For visual failures, inspect the manifested `visual-*.json` and expected/actual/diff
+  PNGs. Stable pixel disagreement proves only the declared visual contract was violated;
+  it does not establish root cause or authorize baseline replacement. Missing, unstable
+  or incompatible captures are inconclusive. State-predicate selectors must not be
+  healed into plain element addresses that erase the assertion.
 
 ## Completion gate
 

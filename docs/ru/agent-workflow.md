@@ -362,3 +362,16 @@ permissions клиентского приложения. Testence не нуже�
 - [Skills OpenCode](https://opencode.ai/docs/skills)
 - [Инструкции проекта OpenCode](https://opencode.ai/v2/docs/instructions)
 - [Playwright Test Agents](https://playwright.dev/docs/test-agents)
+
+## Автономная визуальная регрессия
+
+Опциональный `testence[visual]` добавляет `ex.expect_screenshot`: сравнение viewport
+с проверенным эталоном, закреплённым по SHA-256. Требуются явное разрешение захвата
+и привязка UI assertion к PlanSpec. Пропавший или подменённый эталон, нестабильный
+кадр и другой профиль дают `inconclusive`; визуальное расхождение даёт нарушение.
+Эталон не обновляется при повторном прогоне.
+
+[Клиентская эмуляция](../../bench/client_simulation/README.md) устанавливает wheel
+в изолированные проекты, проверяет форматы Codex/Claude и выполняет визуальные
+контроли с передачей пакета скриптовому судье. Это один скриптовый исполнитель,
+а не независимые запуски моделей. Подробнее: [ADR-0023](adr/0023-visual-baseline-proof.md).

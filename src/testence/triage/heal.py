@@ -16,6 +16,7 @@ feature is broken. Hence the score floor below: no candidate above it means gone
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -98,6 +99,17 @@ def propose(
     silence is correct there; a guess without a baseline is noise.
     """
     if not known_fingerprint:
+        return None
+
+    # A selector may encode a product-state assertion, not just an address.
+    # Fingerprint similarity cannot prove checked/value/type/expanded state;
+    # replacing such a selector with a plain role would erase the claim.
+    if failed_target.kind == "css" and re.search(
+        r":(?:checked|disabled|enabled|required|optional|valid|invalid|read-only|read-write)\b"
+        r"|\[\s*(?:type|value|checked|disabled|selected|hidden|aria-checked|aria-selected|aria-expanded)\b",
+        failed_target.value,
+        re.IGNORECASE,
+    ):
         return None
 
     candidates = engine.candidate_elements()

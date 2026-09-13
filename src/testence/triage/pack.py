@@ -228,6 +228,7 @@ def assemble_pack(
             "page_url": manifest.get("page_url"),
             "page_settled": settled,
             "capture": {"screenshot": screenshot_status},
+            "visual_comparisons": sorted(path.name for path in pack_dir.glob("visual-*.json")),
             "sections_est_tokens": sections,
             "verdicts": list(VERDICTS),
             **context,

@@ -10,6 +10,8 @@ Turn an approved PlanSpec into a deterministic, reviewable test and prove that i
 For visible UI exploration or external applications, read
 [references/visual-discovery.md](references/visual-discovery.md) for observation,
 state checks, timing and a portable handoff.
+For automated screenshot regression or an isolated client simulation, also read
+[references/visual-regression.md](references/visual-regression.md).
 
 ## Workflow
 

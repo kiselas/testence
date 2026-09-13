@@ -13,6 +13,8 @@ deterministic and has no model dependency.
   Read the relevant plan, author, triage or repair skill directly if your client
   does not discover packaged skills. No personal memory or proprietary client is required.
 - For the external panel corpus, follow `bench/oss/README.md`.
+- For visual baselines and isolated client simulation, follow
+  `bench/client_simulation/README.md` and the author's visual-regression reference.
 - Release engineering status and outstanding acceptance gates are in
   `docs/audits/2026-09-13/README.md` and `docs/stages/03-r1-release/`.
 

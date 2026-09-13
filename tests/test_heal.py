@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from testence.engine import Target
 from testence.triage.heal import MIN_SCORE, propose
 
@@ -20,6 +22,21 @@ SAVE_FP = {
     "id": "save",
     "classes": ["btn"],
 }
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        "#agree:checked",
+        "#agree:not(:checked)",
+        "input[type=text]",
+        "[aria-expanded=true]",
+        "input[value='saved']",
+    ],
+)
+def test_state_predicates_cannot_be_healed_into_plain_addresses(selector):
+    engine = FakeEngine([_candidate(SAVE_FP, {"kind": "css", "value": "#save"})])
+    assert propose(engine, "prove state", Target("css", selector), SAVE_FP) is None
 
 
 class FakeEngine:

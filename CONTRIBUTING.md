@@ -21,7 +21,7 @@ proof contract first.
 ```bash
 git clone git@github.com:kiselas/testence.git
 cd testence
-uv sync --locked --extra dev --extra parallel
+uv sync --locked --extra dev --extra parallel --extra visual
 uv run playwright install chromium
 uv run pytest -q
 ```

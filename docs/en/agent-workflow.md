@@ -320,6 +320,13 @@ of agent client.
 
 ## What exists today
 
+Optional `testence[visual]` provides deterministic viewport regression through
+`ex.expect_screenshot`, with reviewed, digest-pinned baselines and explicit capture
+policy. See [ADR-0023](adr/0023-visual-baseline-proof.md) and the
+[installed-client simulation](../../bench/client_simulation/README.md). The simulation
+uses one scripted actor across two adapter layouts; actual independent client trials
+remain a separate acceptance requirement.
+
 | Capability | Current pre-alpha state |
 |---|---|
 | deterministic pytest/Playwright execution | implemented |

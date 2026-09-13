@@ -184,6 +184,10 @@ The package ships portable skills for four bounded jobs:
 The same versioned skill pack is designed for Codex/ChatGPT, Claude Code, OpenCode and
 other Agent Skills clients. Client adapters stay thin; the contracts remain portable.
 Start from [AGENTS.md](AGENTS.md), the shared entry point for any coding agent.
+Optional `testence[visual]` adds digest-pinned viewport comparisons and manifested
+expected/actual/diff evidence. The [client simulation](bench/client_simulation/README.md)
+exercises two adapter layouts from an installed wheel, including visual defects
+and harmless controls; it does not claim independent model/client acceptance.
 See [Agent Skills](docs/en/agent-skills.md) and the
 [agent workflow](docs/en/agent-workflow.md).
 

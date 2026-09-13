@@ -41,6 +41,7 @@ Changelog = "https://github.com/kiselas/testence/blob/main/docs/en/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["ruff>=0.6", "mypy>=1.10"]
+visual = ["pillow>=12.1.1,<13"]
 # Reserved for the optional native wheel described by ADR-0009. Keep the extra
 # installable while that separately published distribution is not available yet.
 # Testence is fully functional with the pure-Python reference kernels.

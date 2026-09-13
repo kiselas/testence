@@ -76,6 +76,7 @@ def create_engine(settings: Any, backend: str = "playwright-cdp") -> Engine:
         capture_screenshots=bool(capture.get("screenshots", False)),
         admitted_body_content_types=tuple(admitted),
         body_cap_bytes=int(capture.get("body_cap_bytes", 64 * 1024)),
+        viewport=settings.extra.get("viewport"),
     )
 
 

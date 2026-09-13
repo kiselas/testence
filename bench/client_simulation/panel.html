@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Northstar workspace</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef2f6;color:#142638;font:16px Arial,sans-serif}
+header{background:#142638;color:white;padding:24px 32px;display:flex;justify-content:space-between}
+main{max-width:1050px;margin:32px auto;padding:0 24px}h1{font-size:28px;margin:0 0 8px}
+.muted{color:#506477}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0}
+.card{background:white;border:1px solid #cbd5df;border-radius:12px;padding:24px}.value{font-size:32px;font-weight:bold;margin-top:16px}
+button{border:0;border-radius:6px;padding:12px 20px;background:#075bba;color:white;font-weight:bold;cursor:pointer}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:14px 4px;border-bottom:1px solid #dce4ec}
+.badge{background:#daf3e8;color:#135b3f;padding:5px 10px;border-radius:5px}dialog{border:0;border-radius:12px;padding:28px;width:360px;max-width:90vw}
+dialog::backdrop{background:#14263866}dialog p{line-height:1.5}dialog button{width:100%}
+@media(max-width:600px){header{padding:20px}.grid{grid-template-columns:1fr}.card{padding:16px}.value{margin-top:8px}main{margin:24px auto;padding:0 16px}h1{font-size:24px}}
+/* harness-style */
+</style>
+<header><strong>Northstar</strong><span>Demo workspace</span></header>
+<main><h1>Workspace overview</h1><p class="muted">Synthetic account · September 2026</p>
+<div class="grid"><section class="card"><div>Active projects</div><div class="value">12</div></section>
+<section class="card"><div>Team members</div><div class="value">24</div></section>
+<section class="card"><div>Service health</div><div class="value">99.9%</div></section></div>
+<section class="card"><h2>Recent projects</h2><table><tr><th>Project</th><th>Status</th></tr>
+<tr><td>Atlas</td><td><span class="badge">Active</span></td></tr><tr><td>Orion</td><td><span class="badge">Active</span></td></tr></table>
+<p><button id="invite" onclick="document.querySelector('dialog').showModal()">Invite teammate</button></p></section></main>
+<dialog aria-labelledby="dialog-title"><h2 id="dialog-title">Invite teammate</h2><p>This synthetic workspace is read-only. Invitations are disabled in the demo.</p><button onclick="this.closest('dialog').close()">Got it</button></dialog>
+</html>
