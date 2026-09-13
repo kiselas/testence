@@ -75,7 +75,12 @@ def loaded(ex) -> None:
     fast enough, and a control that adds 300 ms to every response is what exposed
     them. That is the control doing its job: it found a fragile suite.
     """
-    ex.engine.wait_while_visible(SKELETONS, timeout_ms=SETTLE_MS)
+    # A collection can show many placeholders. A strict single-element hidden
+    # wait errors as soon as the slow-response control exposes all ten of them.
+    assert ex.engine.wait_for_predicate_js(
+        "() => document.querySelectorAll('tbody tr.skeleton').length === 0",
+        timeout_ms=SETTLE_MS,
+    ), "collection placeholders did not disappear"
 
 
 def settled_on(ex, total: str, intent: str) -> None:

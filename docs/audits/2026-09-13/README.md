@@ -75,6 +75,12 @@ runner returned exit 0 even with incomplete cases. Both are fixed and regression
 tested. The initial 15 rejected-config attempts are retained locally. Any later
 successful continuation does not erase the interrupted or rejected attempts.
 
+The resumed slow-response control then exposed a false red in the collection
+specification: a strict single-element hidden wait matched ten skeleton rows.
+`loaded()` now waits until no skeleton rows remain. A browser regression exercises
+ten transient placeholders and ten persistent placeholders; the latter must still
+fail. This changes the corpus readiness check, not the product or its expected state.
+
 The first external trial exposed another authoring gap: UI assertions could pass
 while assurance remained unverified because they emitted no bound assertion event.
 `expect_visible` now optionally accepts assertion/claim IDs, records observed

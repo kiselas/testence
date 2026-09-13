@@ -76,3 +76,30 @@ def test_corpus_cli_exit_reflects_proof_completeness(tmp_path, monkeypatch, comp
         },
     )
     assert runner.main() == exit_code
+
+
+def test_collection_loading_waits_for_all_placeholders_and_rejects_persistent_ones(monkeypatch):
+    from types import SimpleNamespace
+
+    from testence.engine.playwright_cdp import PlaywrightCdpEngine
+
+    path = Path(__file__).parents[1] / "bench/corpus/spec_collection.py"
+    spec = importlib.util.spec_from_file_location("collection_spec", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(module, "SETTLE_MS", 500)
+    engine = PlaywrightCdpEngine(headed=False, debug_port=0)
+    rows = "<tr class=skeleton><td>Loading</td></tr>" * 10
+    page = "data:text/html,<table><tbody>" + rows + "</tbody></table>"
+    try:
+        engine.start()
+        engine.goto(
+            page
+            + "<script>setTimeout(()=>document.querySelector('tbody').replaceChildren(),100)</script>"
+        )
+        module.loaded(SimpleNamespace(engine=engine))
+        engine.goto(page)
+        with pytest.raises(AssertionError, match="placeholders did not disappear"):
+            module.loaded(SimpleNamespace(engine=engine))
+    finally:
+        engine.stop()
