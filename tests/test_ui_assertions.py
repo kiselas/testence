@@ -20,12 +20,15 @@ def test_engine_factory_preserves_ephemeral_port_with_parallel_workers(monkeypat
 
 @pytest.fixture
 def visible_actions():
-    engine = PlaywrightCdpEngine(headed=False, timeout_ms=150, debug_port=0)
-    engine.start()
-    engine.goto("data:text/html,<button id=visible>Visible</button>")
+    engine = PlaywrightCdpEngine(headed=False, timeout_ms=10_000, debug_port=0)
     events = []
     writer = SimpleNamespace(emit=lambda kind, **data: events.append({"kind": kind, **data}))
     try:
+        engine.start()
+        engine.goto("data:text/html,<button id=visible>Visible</button>")
+        # The short budget belongs to the intentionally missing assertion, not
+        # browser startup/navigation on a slower hosted Windows runner.
+        engine.timeout_ms = 150
         yield Actions(engine, writer, "test-ui"), events
     finally:
         engine.stop()
