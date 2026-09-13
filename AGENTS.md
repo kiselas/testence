@@ -26,6 +26,9 @@ Run the required checks in CONTRIBUTING. A browser/runner change also needs its
 relevant live corpus or latency gate. Use fresh processes for release checks.
 On Windows, if the system pytest temp directory is inaccessible, pass a new,
 unused `--basetemp=.tmp-pytest-<unique-run>`; pytest removes that directory on reuse.
+For independent isolated browser runs on one host, use `TESTENCE_DEBUG_PORT=0`
+to allocate free CDP ports. Persistent/attached authoring sessions need their
+explicit known port instead.
 
 Never retry an interaction to hide a defect, weaken a claim to obtain green,
 silently heal a locator, or call a screenshot alone proof of backend correctness.

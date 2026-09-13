@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -305,7 +306,8 @@ def test_next_public_apply_recovers_after_a_real_process_kill(tmp_path: Path):
     marker = tmp_path / "published-first-target"
     child = tmp_path / "kill_during_apply.py"
     child.write_text(
-        """import sys
+        """import os
+import sys
 import time
 from pathlib import Path
 import testence.quality as quality
@@ -315,7 +317,7 @@ original = quality.atomic_write_bytes
 def delayed(root, relative, raw):
     result = original(root, relative, raw)
     if relative == "quality/a":
-        marker.write_text("ready", encoding="utf-8")
+        marker.write_text(str(os.getpid()), encoding="utf-8")
         time.sleep(60)
     return result
 quality.atomic_write_bytes = delayed
@@ -340,7 +342,9 @@ quality.apply_quality_pack(pack, project)
             time.sleep(0.025)
         else:
             pytest.fail("child did not reach the transaction kill point")
-        process.kill()
+        # Windows venv Python can be a redirector. Kill the worker that actually
+        # holds the lock, not only its launcher process.
+        os.kill(int(marker.read_text(encoding="utf-8")), signal.SIGTERM)
         process.wait(timeout=10)
     finally:
         if process.poll() is None:

@@ -45,6 +45,14 @@ records, logs and checkpoints instead of losing the whole result. The cause of t
 original startup hang is not established; subsequent successful samples do not
 erase it. A regression test proves timeout recording and nonzero exit without retries.
 
+Follow-up inspection found that the engine factory treated explicit `debug_port=0`
+as false and silently replaced it with 9222. It now preserves zero, including under
+xdist; fixed ports still receive worker offsets. This removes a concrete port
+collision risk, without claiming it proves the cause of the earlier timeout.
+Hosted Windows/Python 3.12 also caught a crash-test race: terminating the venv
+launcher could leave the real Python worker holding the quality lock. The test now
+records and terminates the actual worker PID. No production lock exclusion is weakened.
+
 The first external trial exposed another authoring gap: UI assertions could pass
 while assurance remained unverified because they emitted no bound assertion event.
 `expect_visible` now optionally accepts assertion/claim IDs, records observed

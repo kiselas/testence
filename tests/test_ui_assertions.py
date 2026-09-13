@@ -8,6 +8,16 @@ from testence.engine import Target
 from testence.engine.playwright_cdp import PlaywrightCdpEngine
 
 
+@pytest.mark.parametrize("port,expected", [(0, 0), (9300, 9303)])
+def test_engine_factory_preserves_ephemeral_port_with_parallel_workers(monkeypatch, port, expected):
+    from testence.config import Settings
+    from testence.engine import create_engine
+
+    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw3")
+    engine = create_engine(Settings(debug_port=port))
+    assert engine.debug_port == expected
+
+
 @pytest.fixture
 def visible_actions():
     engine = PlaywrightCdpEngine(headed=False, timeout_ms=150, debug_port=0)

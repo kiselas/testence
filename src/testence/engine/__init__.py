@@ -50,6 +50,9 @@ def create_engine(settings: Any, backend: str = "playwright-cdp") -> Engine:
     admitted = capture.get("body_content_types", ["application/json"])
     if not isinstance(admitted, list) or not all(isinstance(item, str) for item in admitted):
         raise ValueError("capture_policy.body_content_types must be a list of strings")
+    debug_port = getattr(settings, "debug_port", None)
+    if debug_port is None:
+        debug_port = _DEFAULT_DEBUG_PORT
     return PlaywrightCdpEngine(
         base_url=settings.base_url,
         cdp_url=settings.cdp_url,
@@ -58,8 +61,7 @@ def create_engine(settings: Any, backend: str = "playwright-cdp") -> Engine:
         api_prefix=settings.api_prefix,
         timeout_ms=settings.timeout_ms,
         ignore_https_errors=not settings.verify_tls,
-        debug_port=(getattr(settings, "debug_port", None) or _DEFAULT_DEBUG_PORT)
-        + worker_port_offset(),
+        debug_port=0 if debug_port == 0 else debug_port + worker_port_offset(),
         # On by default at the framework level: CSS entry animations are pure wait
         # for a deterministic runner (150-300 ms per modal/panel open), and no case
         # should ever assert on an animation frame. Escape hatch for the one that
