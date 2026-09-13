@@ -1,0 +1,976 @@
+{
+  "summary": {
+    "items": 51,
+    "outcome_accuracy": 1.0,
+    "false_green_rate": 0.0,
+    "false_red_rate": 0.0,
+    "right_reason_rate": 1.0,
+    "heal_recall": 1.0,
+    "detection_by_stratum": {
+      "P": {
+        "caught": 12,
+        "total": 12
+      },
+      "O": {
+        "caught": 15,
+        "total": 15
+      },
+      "-": {
+        "caught": 3,
+        "total": 3
+      }
+    },
+    "collateral": {
+      "D-40-first-interaction-swallowed": [
+        "filter",
+        "search",
+        "substring"
+      ],
+      "D-15-placeholders-persist": [
+        "counter",
+        "create",
+        "filter",
+        "full-page",
+        "paging",
+        "substring"
+      ],
+      "D-43-counter-disagrees": [
+        "deep-link",
+        "search",
+        "substring"
+      ],
+      "D-43-short-page": [
+        "content",
+        "counter",
+        "substring"
+      ]
+    },
+    "misses": [],
+    "wrong_reason": []
+  },
+  "records": [
+    {
+      "item": "healthy",
+      "attempt": 1,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "nothing seeded; this is the run's false-red floor",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "healthy-1"
+    },
+    {
+      "item": "healthy",
+      "attempt": 2,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "nothing seeded; this is the run's false-red floor",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "healthy-2"
+    },
+    {
+      "item": "healthy",
+      "attempt": 3,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "nothing seeded; this is the run's false-red floor",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "healthy-3"
+    },
+    {
+      "item": "D-40-first-interaction-swallowed",
+      "attempt": 1,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "retry_hides_it: the flagship. A framework that repeats the click reports green",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "filter",
+        "paging",
+        "search",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "filter",
+        "search",
+        "substring"
+      ],
+      "run_dir": "D-40-first-interaction-swallowed-1"
+    },
+    {
+      "item": "D-40-first-interaction-swallowed",
+      "attempt": 2,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "retry_hides_it: the flagship. A framework that repeats the click reports green",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "filter",
+        "paging",
+        "search",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "filter",
+        "search",
+        "substring"
+      ],
+      "run_dir": "D-40-first-interaction-swallowed-2"
+    },
+    {
+      "item": "D-40-first-interaction-swallowed",
+      "attempt": 3,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "retry_hides_it: the flagship. A framework that repeats the click reports green",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "filter",
+        "paging",
+        "search",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "filter",
+        "search",
+        "substring"
+      ],
+      "run_dir": "D-40-first-interaction-swallowed-3"
+    },
+    {
+      "item": "D-13-view-does-not-catch-up",
+      "attempt": 1,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "retry_hides_it: a reload between acting and asserting hides it entirely",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "create"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-13-view-does-not-catch-up-1"
+    },
+    {
+      "item": "D-13-view-does-not-catch-up",
+      "attempt": 2,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "retry_hides_it: a reload between acting and asserting hides it entirely",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "create"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-13-view-does-not-catch-up-2"
+    },
+    {
+      "item": "D-13-view-does-not-catch-up",
+      "attempt": 3,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "retry_hides_it: a reload between acting and asserting hides it entirely",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "create"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-13-view-does-not-catch-up-3"
+    },
+    {
+      "item": "D-15-placeholders-persist",
+      "attempt": 1,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "broad collateral is expected: nothing renders, so most reads fail",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "content",
+        "counter",
+        "create",
+        "filter",
+        "full-page",
+        "paging",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "counter",
+        "create",
+        "filter",
+        "full-page",
+        "paging",
+        "substring"
+      ],
+      "run_dir": "D-15-placeholders-persist-1"
+    },
+    {
+      "item": "D-15-placeholders-persist",
+      "attempt": 2,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "broad collateral is expected: nothing renders, so most reads fail",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "content",
+        "counter",
+        "create",
+        "filter",
+        "full-page",
+        "paging",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "counter",
+        "create",
+        "filter",
+        "full-page",
+        "paging",
+        "substring"
+      ],
+      "run_dir": "D-15-placeholders-persist-2"
+    },
+    {
+      "item": "D-15-placeholders-persist",
+      "attempt": 3,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "broad collateral is expected: nothing renders, so most reads fail",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "content",
+        "counter",
+        "create",
+        "filter",
+        "full-page",
+        "paging",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "counter",
+        "create",
+        "filter",
+        "full-page",
+        "paging",
+        "substring"
+      ],
+      "run_dir": "D-15-placeholders-persist-3"
+    },
+    {
+      "item": "D-17-deleted-rows-listed",
+      "attempt": 1,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "the page looks entirely healthy; only the API contract shows it",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "deleted"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-17-deleted-rows-listed-1"
+    },
+    {
+      "item": "D-17-deleted-rows-listed",
+      "attempt": 2,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "the page looks entirely healthy; only the API contract shows it",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "deleted"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-17-deleted-rows-listed-2"
+    },
+    {
+      "item": "D-17-deleted-rows-listed",
+      "attempt": 3,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "the page looks entirely healthy; only the API contract shows it",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "deleted"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-17-deleted-rows-listed-3"
+    },
+    {
+      "item": "D-34-deep-link-ignored",
+      "attempt": 1,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "deep-link"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-34-deep-link-ignored-1"
+    },
+    {
+      "item": "D-34-deep-link-ignored",
+      "attempt": 2,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "deep-link"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-34-deep-link-ignored-2"
+    },
+    {
+      "item": "D-34-deep-link-ignored",
+      "attempt": 3,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "deep-link"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-34-deep-link-ignored-3"
+    },
+    {
+      "item": "D-43-counter-disagrees",
+      "attempt": 1,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "only catchable by counting what the API will actually hand over",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "counter",
+        "deep-link",
+        "search",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "deep-link",
+        "search",
+        "substring"
+      ],
+      "run_dir": "D-43-counter-disagrees-1"
+    },
+    {
+      "item": "D-43-counter-disagrees",
+      "attempt": 2,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "only catchable by counting what the API will actually hand over",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "counter",
+        "deep-link",
+        "search",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "deep-link",
+        "search",
+        "substring"
+      ],
+      "run_dir": "D-43-counter-disagrees-2"
+    },
+    {
+      "item": "D-43-counter-disagrees",
+      "attempt": 3,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "only catchable by counting what the API will actually hand over",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "counter",
+        "deep-link",
+        "search",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "deep-link",
+        "search",
+        "substring"
+      ],
+      "run_dir": "D-43-counter-disagrees-3"
+    },
+    {
+      "item": "D-43-short-page",
+      "attempt": 1,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "an assertion on the first row passes; the window is one short",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "content",
+        "counter",
+        "full-page",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "content",
+        "counter",
+        "substring"
+      ],
+      "run_dir": "D-43-short-page-1"
+    },
+    {
+      "item": "D-43-short-page",
+      "attempt": 2,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "an assertion on the first row passes; the window is one short",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "content",
+        "counter",
+        "full-page",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "content",
+        "counter",
+        "substring"
+      ],
+      "run_dir": "D-43-short-page-2"
+    },
+    {
+      "item": "D-43-short-page",
+      "attempt": 3,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "an assertion on the first row passes; the window is one short",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "content",
+        "counter",
+        "full-page",
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [
+        "content",
+        "counter",
+        "substring"
+      ],
+      "run_dir": "D-43-short-page-3"
+    },
+    {
+      "item": "D-44-prefix-not-substring",
+      "attempt": 1,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "a whole-word search still works, which is what makes it look like bad test data",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-44-prefix-not-substring-1"
+    },
+    {
+      "item": "D-44-prefix-not-substring",
+      "attempt": 2,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "a whole-word search still works, which is what makes it look like bad test data",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-44-prefix-not-substring-2"
+    },
+    {
+      "item": "D-44-prefix-not-substring",
+      "attempt": 3,
+      "verdict_truth": "real_bug",
+      "stratum": "P",
+      "note": "a whole-word search still works, which is what makes it look like bad test data",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "substring"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-44-prefix-not-substring-3"
+    },
+    {
+      "item": "D-45-filter-dropped",
+      "attempt": 1,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "the request in the network log carries the filter the server ignored",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "filter"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-45-filter-dropped-1"
+    },
+    {
+      "item": "D-45-filter-dropped",
+      "attempt": 2,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "the request in the network log carries the filter the server ignored",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "filter"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-45-filter-dropped-2"
+    },
+    {
+      "item": "D-45-filter-dropped",
+      "attempt": 3,
+      "verdict_truth": "real_bug",
+      "stratum": "O",
+      "note": "the request in the network log carries the filter the server ignored",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "filter"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "run_dir": "D-45-filter-dropped-3"
+    },
+    {
+      "item": "U-01-renamed-control",
+      "attempt": 1,
+      "verdict_truth": "ui_change",
+      "stratum": "",
+      "note": "a renamed accessible name must fail loudly AND carry a heal proposal",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "create"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "heal_proposed": true,
+      "run_dir": "U-01-renamed-control-1"
+    },
+    {
+      "item": "U-01-renamed-control",
+      "attempt": 2,
+      "verdict_truth": "ui_change",
+      "stratum": "",
+      "note": "a renamed accessible name must fail loudly AND carry a heal proposal",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "create"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "heal_proposed": true,
+      "run_dir": "U-01-renamed-control-2"
+    },
+    {
+      "item": "U-01-renamed-control",
+      "attempt": 3,
+      "verdict_truth": "ui_change",
+      "stratum": "",
+      "note": "a renamed accessible name must fail loudly AND carry a heal proposal",
+      "outcome_ok": true,
+      "observed": "red",
+      "expected": "red",
+      "failed_claims": [
+        "create"
+      ],
+      "complete": true,
+      "right_reason": true,
+      "missing_claims": [],
+      "collateral_claims": [],
+      "heal_proposed": true,
+      "run_dir": "U-01-renamed-control-3"
+    },
+    {
+      "item": "C-08-restyle",
+      "attempt": 1,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "classes only; semantic addressing must survive it",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-08-restyle-1"
+    },
+    {
+      "item": "C-08-restyle",
+      "attempt": 2,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "classes only; semantic addressing must survive it",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-08-restyle-2"
+    },
+    {
+      "item": "C-08-restyle",
+      "attempt": 3,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "classes only; semantic addressing must survive it",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-08-restyle-3"
+    },
+    {
+      "item": "C-08-reorder",
+      "attempt": 1,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "pure reordering of controls",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-08-reorder-1"
+    },
+    {
+      "item": "C-08-reorder",
+      "attempt": 2,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "pure reordering of controls",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-08-reorder-2"
+    },
+    {
+      "item": "C-08-reorder",
+      "attempt": 3,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "pure reordering of controls",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-08-reorder-3"
+    },
+    {
+      "item": "C-08-wrap",
+      "attempt": 1,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "the control gains a container and keeps its semantics",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-08-wrap-1"
+    },
+    {
+      "item": "C-08-wrap",
+      "attempt": 2,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "the control gains a container and keeps its semantics",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-08-wrap-2"
+    },
+    {
+      "item": "C-08-wrap",
+      "attempt": 3,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "the control gains a container and keeps its semantics",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-08-wrap-3"
+    },
+    {
+      "item": "C-10-slow-responses",
+      "attempt": 1,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "300 ms per response; auto-waiting must absorb it without a flake",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-10-slow-responses-1"
+    },
+    {
+      "item": "C-10-slow-responses",
+      "attempt": 2,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "300 ms per response; auto-waiting must absorb it without a flake",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-10-slow-responses-2"
+    },
+    {
+      "item": "C-10-slow-responses",
+      "attempt": 3,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "300 ms per response; auto-waiting must absorb it without a flake",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-10-slow-responses-3"
+    },
+    {
+      "item": "C-12-console-noise",
+      "attempt": 1,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "a permanent console error that affects nothing \u0432\u0402\u201d must reach the pack, must not fail the run",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-12-console-noise-1"
+    },
+    {
+      "item": "C-12-console-noise",
+      "attempt": 2,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "a permanent console error that affects nothing \u0432\u0402\u201d must reach the pack, must not fail the run",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-12-console-noise-2"
+    },
+    {
+      "item": "C-12-console-noise",
+      "attempt": 3,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "a permanent console error that affects nothing \u0432\u0402\u201d must reach the pack, must not fail the run",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-12-console-noise-3"
+    },
+    {
+      "item": "C-13-commit-on-enter-only",
+      "attempt": 1,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "typing alone is inert by design; a suite that assumes a commit model cries wolf",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-13-commit-on-enter-only-1"
+    },
+    {
+      "item": "C-13-commit-on-enter-only",
+      "attempt": 2,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "typing alone is inert by design; a suite that assumes a commit model cries wolf",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-13-commit-on-enter-only-2"
+    },
+    {
+      "item": "C-13-commit-on-enter-only",
+      "attempt": 3,
+      "verdict_truth": "none",
+      "stratum": "",
+      "note": "typing alone is inert by design; a suite that assumes a commit model cries wolf",
+      "outcome_ok": true,
+      "observed": "green",
+      "expected": "green",
+      "failed_claims": [],
+      "complete": true,
+      "run_dir": "C-13-commit-on-enter-only-3"
+    }
+  ],
+  "provenance": {
+    "command": "TESTENCE_DEBUG_PORT=0 uv run python bench/corpus/run.py --port 8801 --repeats 3 --output outputs/client-visual/legacy-full/result.json --runs-root outputs/client-visual/legacy-full/runs",
+    "scope": "One complete non-interrupted engineering run. Started from the working tree during visual feature finalization; corpus runner/spec/SUT were unchanged. Not independent frozen R1 acceptance.",
+    "log_sha256": "16140520f37441b2d36b6786ff55712bd05bbca3cd95fa21b5417917396e7adf"
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "source_revision": "eee0b4e264b064c4614115a5cce2132b99292acd",
+  "full_suite": {
+    "passed": 430,
+    "skipped": 2,
+    "seconds": 182.19,
+    "junit_sha256": "efa9a9d9065c9c61677c43820e5e0cedbe716f3404fc45054cc5a2e7addc207c"
+  },
+  "processes": 48,
+  "cases": 96,
+  "verified": 56,
+  "expected_violations": 40,
+  "verdict_submissions": 40,
+  "replay_p50_ms": 5359.4,
+  "judge_submit_p50_ms": 644.6,
+  "phase_medians_ms": {
+    "dom-only": 4529.3,
+    "healthy": 5359.1,
+    "invisible": 5961.1,
+    "mobile-clip": 5621.9,
+    "restored": 4793.4,
+    "shift": 6160.8
+  },
+  "baseline_review": {
+    "actor": "Codex in this task, not independent acceptance",
+    "timing": "Agent review of candidates and exact-byte equivalence across layouts; separate from automatic capture",
+    "images": [
+      {
+        "client": "codex",
+        "profile": "desktop",
+        "state": "overview",
+        "image_sha256": "313282dccb3b0d73ca3758ee01a02eb0cfc042c2f972733af9d4a911ee8fc3b7",
+        "matches_reviewed_image": true
+      },
+      {
+        "client": "codex",
+        "profile": "desktop",
+        "state": "dialog",
+        "image_sha256": "245e3b57798336bc060d6376567c0ec094625b3d1ab1860f198aa81c17d2a212",
+        "matches_reviewed_image": true
+      },
+      {
+        "client": "codex",
+        "profile": "mobile",
+        "state": "overview",
+        "image_sha256": "37e58366173d2ed713a1c9206568a4ba4488135bc8fcee359d88a86242156ef9",
+        "matches_reviewed_image": true
+      },
+      {
+        "client": "codex",
+        "profile": "mobile",
+        "state": "dialog",
+        "image_sha256": "103f641dfd326e65eab608dfe8951cb2526a78bdefe4b2f43f08d33324442c97",
+        "matches_reviewed_image": true
+      },
+      {
+        "client": "claude",
+        "profile": "desktop",
+        "state": "overview",
+        "image_sha256": "313282dccb3b0d73ca3758ee01a02eb0cfc042c2f972733af9d4a911ee8fc3b7",
+        "matches_reviewed_image": true
+      },
+      {
+        "client": "claude",
+        "profile": "desktop",
+        "state": "dialog",
+        "image_sha256": "245e3b57798336bc060d6376567c0ec094625b3d1ab1860f198aa81c17d2a212",
+        "matches_reviewed_image": true
+      },
+      {
+        "client": "claude",
+        "profile": "mobile",
+        "state": "overview",
+        "image_sha256": "37e58366173d2ed713a1c9206568a4ba4488135bc8fcee359d88a86242156ef9",
+        "matches_reviewed_image": true
+      },
+      {
+        "client": "claude",
+        "profile": "mobile",
+        "state": "dialog",
+        "image_sha256": "103f641dfd326e65eab608dfe8951cb2526a78bdefe4b2f43f08d33324442c97",
+        "matches_reviewed_image": true
+      }
+    ]
+  },
+  "retained_attempts": [
+    {
+      "path": "outputs/client-visual/trial-1",
+      "outcome": "Failed navigation: parent pytest configuration inherited; fixed with consumer pytest.ini; interrupted and retained"
+    },
+    {
+      "path": "outputs/client-visual/trial-2",
+      "outcome": "24/24 processes matched; preliminary, before scripted verdict handoff"
+    },
+    {
+      "path": "outputs/client-visual/final-trial",
+      "outcome": "48/48 processes and 40 submissions matched; phase names still present in run IDs; superseded by opaque-ID trial"
+    }
+  ],
+  "oss_comparisons": {
+    "total": 16,
+    "passed_controls": 12,
+    "expected_mismatches": 4,
+    "receipt": "oss-visual.json"
+  },
+  "legacy_corpus": {
+    "records": 51,
+    "receipt": "legacy-full.json",
+    "metrics": {
+      "items": 51,
+      "outcome_accuracy": 1.0,
+      "false_green_rate": 0.0,
+      "false_red_rate": 0.0,
+      "right_reason_rate": 1.0,
+      "heal_recall": 1.0,
+      "detection_by_stratum": {
+        "P": {
+          "caught": 12,
+          "total": 12
+        },
+        "O": {
+          "caught": 15,
+          "total": 15
+        },
+        "-": {
+          "caught": 3,
+          "total": 3
+        }
+      },
+      "collateral": {
+        "D-40-first-interaction-swallowed": [
+          "filter",
+          "search",
+          "substring"
+        ],
+        "D-15-placeholders-persist": [
+          "counter",
+          "create",
+          "filter",
+          "full-page",
+          "paging",
+          "substring"
+        ],
+        "D-43-counter-disagrees": [
+          "deep-link",
+          "search",
+          "substring"
+        ],
+        "D-43-short-page": [
+          "content",
+          "counter",
+          "substring"
+        ]
+      },
+      "misses": [],
+      "wrong_reason": []
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "revision": "eee0b4e264b064c4614115a5cce2132b99292acd",
+  "url": "https://github.com/kiselas/testence/actions/runs/34768647765",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "Minimum dependencies / Python 3.10",
+      "conclusion": "success"
+    },
+    {
+      "name": "windows-latest / Python 3.12",
+      "conclusion": "success"
+    },
+    {
+      "name": "windows-latest / Python 3.10",
+      "conclusion": "success"
+    },
+    {
+      "name": "ubuntu-latest / Python 3.10",
+      "conclusion": "success"
+    },
+    {
+      "name": "ubuntu-latest / Python 3.12",
+      "conclusion": "success"
+    },
+    {
+      "name": "Quality and package",
+      "conclusion": "success"
+    },
+    {
+      "name": "Visual client simulation / windows-latest",
+      "conclusion": "success"
+    },
+    {
+      "name": "Visual client simulation / ubuntu-latest",
+      "conclusion": "success"
+    },
+    {
+      "name": "Installed wheel / browser / release artifacts",
+      "conclusion": "success"
+    },
+    {
+      "name": "Installed wheel / Windows browser",
+      "conclusion": "success"
+    }
+  ]
+}

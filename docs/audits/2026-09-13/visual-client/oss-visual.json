@@ -1,0 +1,807 @@
+{
+  "scope": "Supplemental OSS pixel probes; not bound pytest/client acceptance",
+  "records": [
+    {
+      "target": "adminlte",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "license_digest": "sha256:9e8b0d4e7ce8c13e67a2373d5094910c263fd95b1e49bdf45dc2a9813be5996b",
+      "profile": "desktop",
+      "phase": "healthy",
+      "wall_ms": 2431.2,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:3022c69e6318c0d2535ce03d587204b21b821e5bd05ff467ec613a94d2e6915b",
+        "profile": {
+          "width": 1280,
+          "height": 900,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 1152000,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-013c2fb559ad4883999b5488db555436-expected.png",
+            "digest": "sha256:f5f90ab4eb1d0d482635909d29f16b458d1b1c1c4ca137f98c17ac41b409cee0"
+          },
+          "actual": {
+            "path": "visual-013c2fb559ad4883999b5488db555436-actual.png",
+            "digest": "sha256:f5f90ab4eb1d0d482635909d29f16b458d1b1c1c4ca137f98c17ac41b409cee0"
+          },
+          "stability": {
+            "path": "visual-013c2fb559ad4883999b5488db555436-stability.png",
+            "digest": "sha256:f5f90ab4eb1d0d482635909d29f16b458d1b1c1c4ca137f98c17ac41b409cee0"
+          },
+          "diff": {
+            "path": "visual-013c2fb559ad4883999b5488db555436-diff.png",
+            "digest": "sha256:c28ee32bde3ec1cde56156b8771eb6d16bf779cb6979537a80314a188dafa206"
+          }
+        }
+      }
+    },
+    {
+      "target": "adminlte",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "license_digest": "sha256:9e8b0d4e7ce8c13e67a2373d5094910c263fd95b1e49bdf45dc2a9813be5996b",
+      "profile": "desktop",
+      "phase": "shift",
+      "wall_ms": 2409.7,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "failed",
+        "baseline_digest": "sha256:3022c69e6318c0d2535ce03d587204b21b821e5bd05ff467ec613a94d2e6915b",
+        "profile": {
+          "width": 1280,
+          "height": 900,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 106073,
+        "total_pixels": 1152000,
+        "changed_bbox": [
+          267,
+          215,
+          1280,
+          900
+        ],
+        "artifacts": {
+          "expected": {
+            "path": "visual-5223d864296046b58ce99ddcc152e01b-expected.png",
+            "digest": "sha256:f5f90ab4eb1d0d482635909d29f16b458d1b1c1c4ca137f98c17ac41b409cee0"
+          },
+          "actual": {
+            "path": "visual-5223d864296046b58ce99ddcc152e01b-actual.png",
+            "digest": "sha256:4bb45629477b1e3b53981e8a1a2231f5d63541894d4623e5a2870dea4415e390"
+          },
+          "stability": {
+            "path": "visual-5223d864296046b58ce99ddcc152e01b-stability.png",
+            "digest": "sha256:4bb45629477b1e3b53981e8a1a2231f5d63541894d4623e5a2870dea4415e390"
+          },
+          "diff": {
+            "path": "visual-5223d864296046b58ce99ddcc152e01b-diff.png",
+            "digest": "sha256:727d37038b0037f4754d9ac207a74a0272f04a8fa95973dd251fb180f8bd61b7"
+          }
+        }
+      }
+    },
+    {
+      "target": "adminlte",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "license_digest": "sha256:9e8b0d4e7ce8c13e67a2373d5094910c263fd95b1e49bdf45dc2a9813be5996b",
+      "profile": "desktop",
+      "phase": "dom-only",
+      "wall_ms": 2767.6,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:3022c69e6318c0d2535ce03d587204b21b821e5bd05ff467ec613a94d2e6915b",
+        "profile": {
+          "width": 1280,
+          "height": 900,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 1152000,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-501c4da6b6414566bbf972665218772e-expected.png",
+            "digest": "sha256:f5f90ab4eb1d0d482635909d29f16b458d1b1c1c4ca137f98c17ac41b409cee0"
+          },
+          "actual": {
+            "path": "visual-501c4da6b6414566bbf972665218772e-actual.png",
+            "digest": "sha256:f5f90ab4eb1d0d482635909d29f16b458d1b1c1c4ca137f98c17ac41b409cee0"
+          },
+          "stability": {
+            "path": "visual-501c4da6b6414566bbf972665218772e-stability.png",
+            "digest": "sha256:f5f90ab4eb1d0d482635909d29f16b458d1b1c1c4ca137f98c17ac41b409cee0"
+          },
+          "diff": {
+            "path": "visual-501c4da6b6414566bbf972665218772e-diff.png",
+            "digest": "sha256:c28ee32bde3ec1cde56156b8771eb6d16bf779cb6979537a80314a188dafa206"
+          }
+        }
+      }
+    },
+    {
+      "target": "adminlte",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "license_digest": "sha256:9e8b0d4e7ce8c13e67a2373d5094910c263fd95b1e49bdf45dc2a9813be5996b",
+      "profile": "desktop",
+      "phase": "restored",
+      "wall_ms": 2823.3,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:3022c69e6318c0d2535ce03d587204b21b821e5bd05ff467ec613a94d2e6915b",
+        "profile": {
+          "width": 1280,
+          "height": 900,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 1152000,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-7cc24c1c24d442b89e0ea2f8f357019e-expected.png",
+            "digest": "sha256:f5f90ab4eb1d0d482635909d29f16b458d1b1c1c4ca137f98c17ac41b409cee0"
+          },
+          "actual": {
+            "path": "visual-7cc24c1c24d442b89e0ea2f8f357019e-actual.png",
+            "digest": "sha256:f5f90ab4eb1d0d482635909d29f16b458d1b1c1c4ca137f98c17ac41b409cee0"
+          },
+          "stability": {
+            "path": "visual-7cc24c1c24d442b89e0ea2f8f357019e-stability.png",
+            "digest": "sha256:f5f90ab4eb1d0d482635909d29f16b458d1b1c1c4ca137f98c17ac41b409cee0"
+          },
+          "diff": {
+            "path": "visual-7cc24c1c24d442b89e0ea2f8f357019e-diff.png",
+            "digest": "sha256:c28ee32bde3ec1cde56156b8771eb6d16bf779cb6979537a80314a188dafa206"
+          }
+        }
+      }
+    },
+    {
+      "target": "adminlte",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "license_digest": "sha256:9e8b0d4e7ce8c13e67a2373d5094910c263fd95b1e49bdf45dc2a9813be5996b",
+      "profile": "mobile",
+      "phase": "healthy",
+      "wall_ms": 2409.3,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:59e6439e1d5c7529d2a3cad8e07cd60225d4b3f70247232a036a467e6c6f9595",
+        "profile": {
+          "width": 390,
+          "height": 844,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 329160,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-ae2ffe5467554513b2981c29cb5aa08e-expected.png",
+            "digest": "sha256:d96feda23e02275d2097397d9f7c2981fd1cd925143d8c1f7699103a34d9b26f"
+          },
+          "actual": {
+            "path": "visual-ae2ffe5467554513b2981c29cb5aa08e-actual.png",
+            "digest": "sha256:d96feda23e02275d2097397d9f7c2981fd1cd925143d8c1f7699103a34d9b26f"
+          },
+          "stability": {
+            "path": "visual-ae2ffe5467554513b2981c29cb5aa08e-stability.png",
+            "digest": "sha256:d96feda23e02275d2097397d9f7c2981fd1cd925143d8c1f7699103a34d9b26f"
+          },
+          "diff": {
+            "path": "visual-ae2ffe5467554513b2981c29cb5aa08e-diff.png",
+            "digest": "sha256:e10db573d2edf3bdcf572809caf9f3e4c59b6e2b939bac599f1b05811d7881b9"
+          }
+        }
+      }
+    },
+    {
+      "target": "adminlte",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "license_digest": "sha256:9e8b0d4e7ce8c13e67a2373d5094910c263fd95b1e49bdf45dc2a9813be5996b",
+      "profile": "mobile",
+      "phase": "shift",
+      "wall_ms": 2352.4,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "failed",
+        "baseline_digest": "sha256:59e6439e1d5c7529d2a3cad8e07cd60225d4b3f70247232a036a467e6c6f9595",
+        "profile": {
+          "width": 390,
+          "height": 844,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 41243,
+        "total_pixels": 329160,
+        "changed_bbox": [
+          17,
+          267,
+          390,
+          844
+        ],
+        "artifacts": {
+          "expected": {
+            "path": "visual-9ad0f848e51d4dc39a5a0f40649e59b7-expected.png",
+            "digest": "sha256:d96feda23e02275d2097397d9f7c2981fd1cd925143d8c1f7699103a34d9b26f"
+          },
+          "actual": {
+            "path": "visual-9ad0f848e51d4dc39a5a0f40649e59b7-actual.png",
+            "digest": "sha256:c91140488923b3eb04fb7cdec54f9ea993871b427bc2440597d3115f04f026bb"
+          },
+          "stability": {
+            "path": "visual-9ad0f848e51d4dc39a5a0f40649e59b7-stability.png",
+            "digest": "sha256:c91140488923b3eb04fb7cdec54f9ea993871b427bc2440597d3115f04f026bb"
+          },
+          "diff": {
+            "path": "visual-9ad0f848e51d4dc39a5a0f40649e59b7-diff.png",
+            "digest": "sha256:050cb7374e89cf1965b9445c89e48e9ee072712c78a7d341711cd77a3aecd20a"
+          }
+        }
+      }
+    },
+    {
+      "target": "adminlte",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "license_digest": "sha256:9e8b0d4e7ce8c13e67a2373d5094910c263fd95b1e49bdf45dc2a9813be5996b",
+      "profile": "mobile",
+      "phase": "dom-only",
+      "wall_ms": 1853.4,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:59e6439e1d5c7529d2a3cad8e07cd60225d4b3f70247232a036a467e6c6f9595",
+        "profile": {
+          "width": 390,
+          "height": 844,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 329160,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-dd79162b691a4b3f957990fdf624b1cf-expected.png",
+            "digest": "sha256:d96feda23e02275d2097397d9f7c2981fd1cd925143d8c1f7699103a34d9b26f"
+          },
+          "actual": {
+            "path": "visual-dd79162b691a4b3f957990fdf624b1cf-actual.png",
+            "digest": "sha256:d96feda23e02275d2097397d9f7c2981fd1cd925143d8c1f7699103a34d9b26f"
+          },
+          "stability": {
+            "path": "visual-dd79162b691a4b3f957990fdf624b1cf-stability.png",
+            "digest": "sha256:d96feda23e02275d2097397d9f7c2981fd1cd925143d8c1f7699103a34d9b26f"
+          },
+          "diff": {
+            "path": "visual-dd79162b691a4b3f957990fdf624b1cf-diff.png",
+            "digest": "sha256:e10db573d2edf3bdcf572809caf9f3e4c59b6e2b939bac599f1b05811d7881b9"
+          }
+        }
+      }
+    },
+    {
+      "target": "adminlte",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "license_digest": "sha256:9e8b0d4e7ce8c13e67a2373d5094910c263fd95b1e49bdf45dc2a9813be5996b",
+      "profile": "mobile",
+      "phase": "restored",
+      "wall_ms": 2059.7,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:59e6439e1d5c7529d2a3cad8e07cd60225d4b3f70247232a036a467e6c6f9595",
+        "profile": {
+          "width": 390,
+          "height": 844,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 329160,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-5ac6985f4cc0453384b45e56dd130901-expected.png",
+            "digest": "sha256:d96feda23e02275d2097397d9f7c2981fd1cd925143d8c1f7699103a34d9b26f"
+          },
+          "actual": {
+            "path": "visual-5ac6985f4cc0453384b45e56dd130901-actual.png",
+            "digest": "sha256:d96feda23e02275d2097397d9f7c2981fd1cd925143d8c1f7699103a34d9b26f"
+          },
+          "stability": {
+            "path": "visual-5ac6985f4cc0453384b45e56dd130901-stability.png",
+            "digest": "sha256:d96feda23e02275d2097397d9f7c2981fd1cd925143d8c1f7699103a34d9b26f"
+          },
+          "diff": {
+            "path": "visual-5ac6985f4cc0453384b45e56dd130901-diff.png",
+            "digest": "sha256:e10db573d2edf3bdcf572809caf9f3e4c59b6e2b939bac599f1b05811d7881b9"
+          }
+        }
+      }
+    },
+    {
+      "target": "tabler",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "license_digest": "sha256:8ae01434d2466e421a196f97308a0876c4b9089c0dc5352bb4cc7ba68b12dbcd",
+      "profile": "desktop",
+      "phase": "healthy",
+      "wall_ms": 1812.9,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:1152a152132c5043ef4c2ad1c2e00c0c0cc77afe348277ce64211a6549215707",
+        "profile": {
+          "width": 1280,
+          "height": 900,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 1152000,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-e210089abc7140889bafbd19d5273d06-expected.png",
+            "digest": "sha256:14e3b78779fb69212ba8324723f426efea4861e5df0afab2d01624142743a23a"
+          },
+          "actual": {
+            "path": "visual-e210089abc7140889bafbd19d5273d06-actual.png",
+            "digest": "sha256:14e3b78779fb69212ba8324723f426efea4861e5df0afab2d01624142743a23a"
+          },
+          "stability": {
+            "path": "visual-e210089abc7140889bafbd19d5273d06-stability.png",
+            "digest": "sha256:14e3b78779fb69212ba8324723f426efea4861e5df0afab2d01624142743a23a"
+          },
+          "diff": {
+            "path": "visual-e210089abc7140889bafbd19d5273d06-diff.png",
+            "digest": "sha256:8db067d7d906b5ac2b70719f20891681dd79fab7a15250f6e008847569ef32e8"
+          }
+        }
+      }
+    },
+    {
+      "target": "tabler",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "license_digest": "sha256:8ae01434d2466e421a196f97308a0876c4b9089c0dc5352bb4cc7ba68b12dbcd",
+      "profile": "desktop",
+      "phase": "shift",
+      "wall_ms": 2047.9,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "failed",
+        "baseline_digest": "sha256:1152a152132c5043ef4c2ad1c2e00c0c0cc77afe348277ce64211a6549215707",
+        "profile": {
+          "width": 1280,
+          "height": 900,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 43533,
+        "total_pixels": 1152000,
+        "changed_bbox": [
+          398,
+          208,
+          906,
+          719
+        ],
+        "artifacts": {
+          "expected": {
+            "path": "visual-296a8d41bd7a410e9a10875f9f52d5c9-expected.png",
+            "digest": "sha256:14e3b78779fb69212ba8324723f426efea4861e5df0afab2d01624142743a23a"
+          },
+          "actual": {
+            "path": "visual-296a8d41bd7a410e9a10875f9f52d5c9-actual.png",
+            "digest": "sha256:7dca046f5345d2a7ff72f85f3cdae64be57ff221a636ee57113be8056145cfbe"
+          },
+          "stability": {
+            "path": "visual-296a8d41bd7a410e9a10875f9f52d5c9-stability.png",
+            "digest": "sha256:7dca046f5345d2a7ff72f85f3cdae64be57ff221a636ee57113be8056145cfbe"
+          },
+          "diff": {
+            "path": "visual-296a8d41bd7a410e9a10875f9f52d5c9-diff.png",
+            "digest": "sha256:49b37b7d46fe4ba0ccd1423fc88e307515159177660e4e43890e637814469ae2"
+          }
+        }
+      }
+    },
+    {
+      "target": "tabler",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "license_digest": "sha256:8ae01434d2466e421a196f97308a0876c4b9089c0dc5352bb4cc7ba68b12dbcd",
+      "profile": "desktop",
+      "phase": "dom-only",
+      "wall_ms": 2083.4,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:1152a152132c5043ef4c2ad1c2e00c0c0cc77afe348277ce64211a6549215707",
+        "profile": {
+          "width": 1280,
+          "height": 900,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 1152000,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-7fc84bf17e6a4d8bb706ffc180cf5bf4-expected.png",
+            "digest": "sha256:14e3b78779fb69212ba8324723f426efea4861e5df0afab2d01624142743a23a"
+          },
+          "actual": {
+            "path": "visual-7fc84bf17e6a4d8bb706ffc180cf5bf4-actual.png",
+            "digest": "sha256:14e3b78779fb69212ba8324723f426efea4861e5df0afab2d01624142743a23a"
+          },
+          "stability": {
+            "path": "visual-7fc84bf17e6a4d8bb706ffc180cf5bf4-stability.png",
+            "digest": "sha256:14e3b78779fb69212ba8324723f426efea4861e5df0afab2d01624142743a23a"
+          },
+          "diff": {
+            "path": "visual-7fc84bf17e6a4d8bb706ffc180cf5bf4-diff.png",
+            "digest": "sha256:8db067d7d906b5ac2b70719f20891681dd79fab7a15250f6e008847569ef32e8"
+          }
+        }
+      }
+    },
+    {
+      "target": "tabler",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "license_digest": "sha256:8ae01434d2466e421a196f97308a0876c4b9089c0dc5352bb4cc7ba68b12dbcd",
+      "profile": "desktop",
+      "phase": "restored",
+      "wall_ms": 1774.7,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:1152a152132c5043ef4c2ad1c2e00c0c0cc77afe348277ce64211a6549215707",
+        "profile": {
+          "width": 1280,
+          "height": 900,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 1152000,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-b47080766f74481c9863ddab29d229ac-expected.png",
+            "digest": "sha256:14e3b78779fb69212ba8324723f426efea4861e5df0afab2d01624142743a23a"
+          },
+          "actual": {
+            "path": "visual-b47080766f74481c9863ddab29d229ac-actual.png",
+            "digest": "sha256:14e3b78779fb69212ba8324723f426efea4861e5df0afab2d01624142743a23a"
+          },
+          "stability": {
+            "path": "visual-b47080766f74481c9863ddab29d229ac-stability.png",
+            "digest": "sha256:14e3b78779fb69212ba8324723f426efea4861e5df0afab2d01624142743a23a"
+          },
+          "diff": {
+            "path": "visual-b47080766f74481c9863ddab29d229ac-diff.png",
+            "digest": "sha256:8db067d7d906b5ac2b70719f20891681dd79fab7a15250f6e008847569ef32e8"
+          }
+        }
+      }
+    },
+    {
+      "target": "tabler",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "license_digest": "sha256:8ae01434d2466e421a196f97308a0876c4b9089c0dc5352bb4cc7ba68b12dbcd",
+      "profile": "mobile",
+      "phase": "healthy",
+      "wall_ms": 1638.4,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:6dd954340a50eb6eec90a2cc751b823212e9744f0bf5896c3bc4fce7c3d764b9",
+        "profile": {
+          "width": 390,
+          "height": 844,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 329160,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-6abdfb1ad128420e860b63066641d9c3-expected.png",
+            "digest": "sha256:36c3d1816412c808d3271df99e0991116d44225020b4d17406885c90a8c20d48"
+          },
+          "actual": {
+            "path": "visual-6abdfb1ad128420e860b63066641d9c3-actual.png",
+            "digest": "sha256:36c3d1816412c808d3271df99e0991116d44225020b4d17406885c90a8c20d48"
+          },
+          "stability": {
+            "path": "visual-6abdfb1ad128420e860b63066641d9c3-stability.png",
+            "digest": "sha256:36c3d1816412c808d3271df99e0991116d44225020b4d17406885c90a8c20d48"
+          },
+          "diff": {
+            "path": "visual-6abdfb1ad128420e860b63066641d9c3-diff.png",
+            "digest": "sha256:476bb0de0d5bdea2a49aa214b2bb0b84358c335b6dd6852d149df09c038d7fdb"
+          }
+        }
+      }
+    },
+    {
+      "target": "tabler",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "license_digest": "sha256:8ae01434d2466e421a196f97308a0876c4b9089c0dc5352bb4cc7ba68b12dbcd",
+      "profile": "mobile",
+      "phase": "shift",
+      "wall_ms": 1809.7,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "failed",
+        "baseline_digest": "sha256:6dd954340a50eb6eec90a2cc751b823212e9744f0bf5896c3bc4fce7c3d764b9",
+        "profile": {
+          "width": 390,
+          "height": 844,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 30255,
+        "total_pixels": 329160,
+        "changed_bbox": [
+          6,
+          220,
+          390,
+          651
+        ],
+        "artifacts": {
+          "expected": {
+            "path": "visual-ef7201806e2143d6a2dc5eaf0891c01a-expected.png",
+            "digest": "sha256:36c3d1816412c808d3271df99e0991116d44225020b4d17406885c90a8c20d48"
+          },
+          "actual": {
+            "path": "visual-ef7201806e2143d6a2dc5eaf0891c01a-actual.png",
+            "digest": "sha256:829535ef9de5df51f46a23aa898289be755aeb99e1d6402675cb59ac7a6a1800"
+          },
+          "stability": {
+            "path": "visual-ef7201806e2143d6a2dc5eaf0891c01a-stability.png",
+            "digest": "sha256:829535ef9de5df51f46a23aa898289be755aeb99e1d6402675cb59ac7a6a1800"
+          },
+          "diff": {
+            "path": "visual-ef7201806e2143d6a2dc5eaf0891c01a-diff.png",
+            "digest": "sha256:9649be5b4934ec90fabb56b0ee1222c8816f9bea08769896284b1e56d135e09c"
+          }
+        }
+      }
+    },
+    {
+      "target": "tabler",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "license_digest": "sha256:8ae01434d2466e421a196f97308a0876c4b9089c0dc5352bb4cc7ba68b12dbcd",
+      "profile": "mobile",
+      "phase": "dom-only",
+      "wall_ms": 1758.8,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:6dd954340a50eb6eec90a2cc751b823212e9744f0bf5896c3bc4fce7c3d764b9",
+        "profile": {
+          "width": 390,
+          "height": 844,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 329160,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-69a6425e72014a67bc7b03e3b01bd608-expected.png",
+            "digest": "sha256:36c3d1816412c808d3271df99e0991116d44225020b4d17406885c90a8c20d48"
+          },
+          "actual": {
+            "path": "visual-69a6425e72014a67bc7b03e3b01bd608-actual.png",
+            "digest": "sha256:36c3d1816412c808d3271df99e0991116d44225020b4d17406885c90a8c20d48"
+          },
+          "stability": {
+            "path": "visual-69a6425e72014a67bc7b03e3b01bd608-stability.png",
+            "digest": "sha256:36c3d1816412c808d3271df99e0991116d44225020b4d17406885c90a8c20d48"
+          },
+          "diff": {
+            "path": "visual-69a6425e72014a67bc7b03e3b01bd608-diff.png",
+            "digest": "sha256:476bb0de0d5bdea2a49aa214b2bb0b84358c335b6dd6852d149df09c038d7fdb"
+          }
+        }
+      }
+    },
+    {
+      "target": "tabler",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "license_digest": "sha256:8ae01434d2466e421a196f97308a0876c4b9089c0dc5352bb4cc7ba68b12dbcd",
+      "profile": "mobile",
+      "phase": "restored",
+      "wall_ms": 1583.1,
+      "passed": true,
+      "comparison": {
+        "schema": "testence/visual-comparison/1",
+        "outcome": "passed",
+        "baseline_digest": "sha256:6dd954340a50eb6eec90a2cc751b823212e9744f0bf5896c3bc4fce7c3d764b9",
+        "profile": {
+          "width": 390,
+          "height": 844,
+          "dpr": 1,
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+          "language": "ru-RU",
+          "dark": false,
+          "reducedMotion": true,
+          "os": "Windows"
+        },
+        "channel_tolerance": 0,
+        "max_changed_pixels": 0,
+        "changed_pixels": 0,
+        "total_pixels": 329160,
+        "changed_bbox": null,
+        "artifacts": {
+          "expected": {
+            "path": "visual-ffe8977f844c465fb6c2b3f6e4369e2f-expected.png",
+            "digest": "sha256:36c3d1816412c808d3271df99e0991116d44225020b4d17406885c90a8c20d48"
+          },
+          "actual": {
+            "path": "visual-ffe8977f844c465fb6c2b3f6e4369e2f-actual.png",
+            "digest": "sha256:36c3d1816412c808d3271df99e0991116d44225020b4d17406885c90a8c20d48"
+          },
+          "stability": {
+            "path": "visual-ffe8977f844c465fb6c2b3f6e4369e2f-stability.png",
+            "digest": "sha256:36c3d1816412c808d3271df99e0991116d44225020b4d17406885c90a8c20d48"
+          },
+          "diff": {
+            "path": "visual-ffe8977f844c465fb6c2b3f6e4369e2f-diff.png",
+            "digest": "sha256:476bb0de0d5bdea2a49aa214b2bb0b84358c335b6dd6852d149df09c038d7fdb"
+          }
+        }
+      }
+    }
+  ],
+  "status": "passed",
+  "distribution": {
+    "path": "testence-0.1.0.dev0-py3-none-any.whl",
+    "name": "testence",
+    "version": "0.1.0.dev0",
+    "sha256": "abf91578cafdb32f30cfaa6f006f20597218ab39ff0800f6268ef03e8ff985a0",
+    "verified_package_files": 106
+  },
+  "targets": [
+    {
+      "name": "adminlte",
+      "repository": "https://github.com/ColorlibHQ/AdminLTE.git",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "checkout": ".tmp/oss-adminlte",
+      "web_root": "dist",
+      "license": "LICENSE",
+      "license_id": "MIT",
+      "build_sha256": "226117bc13ec4d74a145b2b31fad34b93e0866a3bf5b0010fca09b6ac48e2f60"
+    },
+    {
+      "name": "tabler",
+      "repository": "https://github.com/tabler/tabler.git",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "checkout": ".tmp/oss-tabler",
+      "web_root": "preview/dist",
+      "license": "LICENSE",
+      "license_id": "MIT",
+      "build_sha256": "e58cb75aa7c9a2691caa01aa760791d96c4f81a0feb4ddd9a85b6db2638b2933"
+    }
+  ]
+}

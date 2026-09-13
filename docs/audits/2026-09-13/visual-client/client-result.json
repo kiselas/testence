@@ -1,0 +1,1364 @@
+{
+  "schema": "testence/client-visual-simulation/1",
+  "scope": "Installed wheel, two adapter layouts, one scripted actor; no independent Claude/Codex execution claimed",
+  "distribution": {
+    "path": "testence-0.1.0.dev0-py3-none-any.whl",
+    "name": "testence",
+    "version": "0.1.0.dev0",
+    "sha256": "abf91578cafdb32f30cfaa6f006f20597218ab39ff0800f6268ef03e8ff985a0",
+    "verified_package_files": 106
+  },
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.11",
+  "sources": {
+    "judge.py": "5b7226329e95ce47b4e5372c20cfa67a8878fa49d3e9cc451db8b49a95bed7a8",
+    "panel.html": "465080db41eba63a1dc0954ab3bae157df749afc47229524f84ff58603b46dbd",
+    "plan.md": "45eb93b0eb2bf08d2b7970a24711b8b86a165ff9b0f5be24a607f350b3173cff",
+    "provision.py": "916c26dc10defa24395d9b3ec8bfca197fc95f38a80881abb047896f8cb12190",
+    "README.md": "4afeec444594c79df5d2951529ffda18249e71da2708a86329160ab9f59329e5",
+    "report.py": "763816800ba8ff1c3b14ecb5e23e1cff90b673877cd1a5cf3051c2abd11e9de5",
+    "run.py": "2600c7f85af314f3c18135d9e046d590e1b9844dea673df1350ff80c857a8c72",
+    "test_ui.py": "757e087b6c7849514ce1fc2b1c298538933aed1b20dfe3c1aaa0e2848d83ba62"
+  },
+  "provisioning": [
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "command": [
+        "-m",
+        "testence.cli",
+        "agent",
+        "install",
+        "--project",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\codex-desktop",
+        "--client",
+        "codex",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 1201.9
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "command": [
+        "-m",
+        "testence.cli",
+        "agent",
+        "verify",
+        "--project",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\codex-desktop",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 354.5
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "command": [
+        "-m",
+        "testence.cli",
+        "doctor",
+        "--root",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\codex-desktop",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 2021.3
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "command": [
+        "-m",
+        "testence.cli",
+        "plan",
+        "validate",
+        "plan.md",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 513.9
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "command": [
+        "provision.py"
+      ],
+      "exit_code": 0,
+      "wall_ms": 2740.6
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "command": [
+        "-m",
+        "testence.cli",
+        "agent",
+        "install",
+        "--project",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\codex-mobile",
+        "--client",
+        "codex",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 1316.4
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "command": [
+        "-m",
+        "testence.cli",
+        "agent",
+        "verify",
+        "--project",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\codex-mobile",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 728.4
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "command": [
+        "-m",
+        "testence.cli",
+        "doctor",
+        "--root",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\codex-mobile",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 1883.6
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "command": [
+        "-m",
+        "testence.cli",
+        "plan",
+        "validate",
+        "plan.md",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 471.7
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "command": [
+        "provision.py"
+      ],
+      "exit_code": 0,
+      "wall_ms": 3927.1
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "command": [
+        "-m",
+        "testence.cli",
+        "agent",
+        "install",
+        "--project",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\claude-desktop",
+        "--client",
+        "claude",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 939.0
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "command": [
+        "-m",
+        "testence.cli",
+        "agent",
+        "verify",
+        "--project",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\claude-desktop",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 615.9
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "command": [
+        "-m",
+        "testence.cli",
+        "doctor",
+        "--root",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\claude-desktop",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 1565.0
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "command": [
+        "-m",
+        "testence.cli",
+        "plan",
+        "validate",
+        "plan.md",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 633.9
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "command": [
+        "provision.py"
+      ],
+      "exit_code": 0,
+      "wall_ms": 3236.5
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "command": [
+        "-m",
+        "testence.cli",
+        "agent",
+        "install",
+        "--project",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\claude-mobile",
+        "--client",
+        "claude",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 580.3
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "command": [
+        "-m",
+        "testence.cli",
+        "agent",
+        "verify",
+        "--project",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\claude-mobile",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 415.4
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "command": [
+        "-m",
+        "testence.cli",
+        "doctor",
+        "--root",
+        "<workspace>\\outputs\\client-visual\\blind-trial\\claude-mobile",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 1051.5
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "command": [
+        "-m",
+        "testence.cli",
+        "plan",
+        "validate",
+        "plan.md",
+        "--json"
+      ],
+      "exit_code": 0,
+      "wall_ms": 291.4
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "command": [
+        "provision.py"
+      ],
+      "exit_code": 0,
+      "wall_ms": 1988.7
+    }
+  ],
+  "projects": [
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "frozen_files": {
+        "test_ui.py": "757e087b6c7849514ce1fc2b1c298538933aed1b20dfe3c1aaa0e2848d83ba62",
+        "plan.md": "45eb93b0eb2bf08d2b7970a24711b8b86a165ff9b0f5be24a607f350b3173cff",
+        "baselines.json": "3d501dc2780563f4832fa30a1f9295345a15e695646724818025de25af061afa",
+        "baselines/dialog/baseline.json": "27ed42533352f12944b007c884ea6ecd84939d7a4afe69e7ce40d838ae928626",
+        "baselines/dialog/baseline.png": "245e3b57798336bc060d6376567c0ec094625b3d1ab1860f198aa81c17d2a212",
+        "baselines/dialog/stability.png": "245e3b57798336bc060d6376567c0ec094625b3d1ab1860f198aa81c17d2a212",
+        "baselines/overview/baseline.json": "bc562cc7506fa0afeee081e86a4fa3f8037d86e59d70cfcc1890006019fa4f3c",
+        "baselines/overview/baseline.png": "313282dccb3b0d73ca3758ee01a02eb0cfc042c2f972733af9d4a911ee8fc3b7",
+        "baselines/overview/stability.png": "313282dccb3b0d73ca3758ee01a02eb0cfc042c2f972733af9d4a911ee8fc3b7"
+      }
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "frozen_files": {
+        "test_ui.py": "757e087b6c7849514ce1fc2b1c298538933aed1b20dfe3c1aaa0e2848d83ba62",
+        "plan.md": "45eb93b0eb2bf08d2b7970a24711b8b86a165ff9b0f5be24a607f350b3173cff",
+        "baselines.json": "f61d2b82b941dab496d70731245aafd32458d91bde72003bf29a9b532175c8ed",
+        "baselines/dialog/baseline.json": "d1ef69ab6e7bcd5714e5aa7e028ae5218af310bb4a22a2886486e144e9db96e5",
+        "baselines/dialog/baseline.png": "103f641dfd326e65eab608dfe8951cb2526a78bdefe4b2f43f08d33324442c97",
+        "baselines/dialog/stability.png": "103f641dfd326e65eab608dfe8951cb2526a78bdefe4b2f43f08d33324442c97",
+        "baselines/overview/baseline.json": "1e09e275143433ca95ad1142cefeb928acdea1655ecaf34da0c21937271940d6",
+        "baselines/overview/baseline.png": "37e58366173d2ed713a1c9206568a4ba4488135bc8fcee359d88a86242156ef9",
+        "baselines/overview/stability.png": "37e58366173d2ed713a1c9206568a4ba4488135bc8fcee359d88a86242156ef9"
+      }
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "frozen_files": {
+        "test_ui.py": "757e087b6c7849514ce1fc2b1c298538933aed1b20dfe3c1aaa0e2848d83ba62",
+        "plan.md": "45eb93b0eb2bf08d2b7970a24711b8b86a165ff9b0f5be24a607f350b3173cff",
+        "baselines.json": "3d501dc2780563f4832fa30a1f9295345a15e695646724818025de25af061afa",
+        "baselines/dialog/baseline.json": "27ed42533352f12944b007c884ea6ecd84939d7a4afe69e7ce40d838ae928626",
+        "baselines/dialog/baseline.png": "245e3b57798336bc060d6376567c0ec094625b3d1ab1860f198aa81c17d2a212",
+        "baselines/dialog/stability.png": "245e3b57798336bc060d6376567c0ec094625b3d1ab1860f198aa81c17d2a212",
+        "baselines/overview/baseline.json": "bc562cc7506fa0afeee081e86a4fa3f8037d86e59d70cfcc1890006019fa4f3c",
+        "baselines/overview/baseline.png": "313282dccb3b0d73ca3758ee01a02eb0cfc042c2f972733af9d4a911ee8fc3b7",
+        "baselines/overview/stability.png": "313282dccb3b0d73ca3758ee01a02eb0cfc042c2f972733af9d4a911ee8fc3b7"
+      }
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "frozen_files": {
+        "test_ui.py": "757e087b6c7849514ce1fc2b1c298538933aed1b20dfe3c1aaa0e2848d83ba62",
+        "plan.md": "45eb93b0eb2bf08d2b7970a24711b8b86a165ff9b0f5be24a607f350b3173cff",
+        "baselines.json": "f61d2b82b941dab496d70731245aafd32458d91bde72003bf29a9b532175c8ed",
+        "baselines/dialog/baseline.json": "d1ef69ab6e7bcd5714e5aa7e028ae5218af310bb4a22a2886486e144e9db96e5",
+        "baselines/dialog/baseline.png": "103f641dfd326e65eab608dfe8951cb2526a78bdefe4b2f43f08d33324442c97",
+        "baselines/dialog/stability.png": "103f641dfd326e65eab608dfe8951cb2526a78bdefe4b2f43f08d33324442c97",
+        "baselines/overview/baseline.json": "1e09e275143433ca95ad1142cefeb928acdea1655ecaf34da0c21937271940d6",
+        "baselines/overview/baseline.png": "37e58366173d2ed713a1c9206568a4ba4488135bc8fcee359d88a86242156ef9",
+        "baselines/overview/stability.png": "37e58366173d2ed713a1c9206568a4ba4488135bc8fcee359d88a86242156ef9"
+      }
+    }
+  ],
+  "records": [
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "healthy",
+      "repeat": 1,
+      "run_id": "sample-dd6351afcdaf",
+      "exit_code": 0,
+      "wall_ms": 5610.9,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "healthy",
+      "repeat": 2,
+      "run_id": "sample-b071ecf4c79f",
+      "exit_code": 0,
+      "wall_ms": 5107.3,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "shift",
+      "repeat": 1,
+      "run_id": "sample-47a8e0c9cc13",
+      "exit_code": 1,
+      "wall_ms": 6521.7,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 818.3
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 791.9
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "shift",
+      "repeat": 2,
+      "run_id": "sample-4daec5d87d5a",
+      "exit_code": 1,
+      "wall_ms": 6463.4,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 617.9
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 646.6
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "invisible",
+      "repeat": 1,
+      "run_id": "sample-002579d56e7b",
+      "exit_code": 1,
+      "wall_ms": 6694.2,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 569.9
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 796.1
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "invisible",
+      "repeat": 2,
+      "run_id": "sample-627e6080e8df",
+      "exit_code": 1,
+      "wall_ms": 5948.4,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 689.3
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 694.2
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "mobile-clip",
+      "repeat": 1,
+      "run_id": "sample-51af4cc1941c",
+      "exit_code": 0,
+      "wall_ms": 5452.4,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "mobile-clip",
+      "repeat": 2,
+      "run_id": "sample-517b1eb1cdd0",
+      "exit_code": 0,
+      "wall_ms": 6018.5,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "dom-only",
+      "repeat": 1,
+      "run_id": "sample-592670f1312a",
+      "exit_code": 0,
+      "wall_ms": 5266.4,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "dom-only",
+      "repeat": 2,
+      "run_id": "sample-381938d6a7fb",
+      "exit_code": 0,
+      "wall_ms": 6899.2,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "restored",
+      "repeat": 1,
+      "run_id": "sample-de60dd56d16c",
+      "exit_code": 0,
+      "wall_ms": 7344.7,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "desktop",
+      "phase": "restored",
+      "repeat": 2,
+      "run_id": "sample-0576b71e38da",
+      "exit_code": 0,
+      "wall_ms": 7322.3,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "healthy",
+      "repeat": 1,
+      "run_id": "sample-06ae3c7d4089",
+      "exit_code": 0,
+      "wall_ms": 9378.2,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "healthy",
+      "repeat": 2,
+      "run_id": "sample-1c1bd0bd2476",
+      "exit_code": 0,
+      "wall_ms": 9296.2,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "shift",
+      "repeat": 1,
+      "run_id": "sample-5cf7e1f713f8",
+      "exit_code": 1,
+      "wall_ms": 10401.1,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 992.3
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 660.2
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "shift",
+      "repeat": 2,
+      "run_id": "sample-11ce2c37e059",
+      "exit_code": 1,
+      "wall_ms": 7794.7,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 782.2
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 763.1
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "invisible",
+      "repeat": 1,
+      "run_id": "sample-7a699d78bc21",
+      "exit_code": 1,
+      "wall_ms": 5964.1,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 567.5
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 527.9
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "invisible",
+      "repeat": 2,
+      "run_id": "sample-a779f80cf873",
+      "exit_code": 1,
+      "wall_ms": 6943.3,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 868.0
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 644.5
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "mobile-clip",
+      "repeat": 1,
+      "run_id": "sample-e8a2946f01cd",
+      "exit_code": 1,
+      "wall_ms": 6287.2,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 716.7
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 605.1
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "mobile-clip",
+      "repeat": 2,
+      "run_id": "sample-b617e7f6f67c",
+      "exit_code": 1,
+      "wall_ms": 6910.4,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 851.8
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 808.1
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "dom-only",
+      "repeat": 1,
+      "run_id": "sample-306ab039f266",
+      "exit_code": 0,
+      "wall_ms": 4426.4,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "dom-only",
+      "repeat": 2,
+      "run_id": "sample-5c1013bc68d2",
+      "exit_code": 0,
+      "wall_ms": 5010.0,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "restored",
+      "repeat": 1,
+      "run_id": "sample-7a275545aeff",
+      "exit_code": 0,
+      "wall_ms": 4693.5,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "codex",
+      "profile": "mobile",
+      "phase": "restored",
+      "repeat": 2,
+      "run_id": "sample-4525cb275f54",
+      "exit_code": 0,
+      "wall_ms": 4865.9,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "healthy",
+      "repeat": 1,
+      "run_id": "sample-571cba7af6fb",
+      "exit_code": 0,
+      "wall_ms": 5921.0,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "healthy",
+      "repeat": 2,
+      "run_id": "sample-8083525b008b",
+      "exit_code": 0,
+      "wall_ms": 4288.1,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "shift",
+      "repeat": 1,
+      "run_id": "sample-50e3d78a2085",
+      "exit_code": 1,
+      "wall_ms": 4967.5,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 621.2
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 517.9
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "shift",
+      "repeat": 2,
+      "run_id": "sample-3a2963f5200a",
+      "exit_code": 1,
+      "wall_ms": 5139.8,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 562.7
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 492.3
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "invisible",
+      "repeat": 1,
+      "run_id": "sample-9279c63c625d",
+      "exit_code": 1,
+      "wall_ms": 6624.8,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 585.8
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 700.3
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "invisible",
+      "repeat": 2,
+      "run_id": "sample-c374cce37816",
+      "exit_code": 1,
+      "wall_ms": 5593.4,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 611.8
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 538.9
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "mobile-clip",
+      "repeat": 1,
+      "run_id": "sample-4329b43a965f",
+      "exit_code": 0,
+      "wall_ms": 4272.0,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "mobile-clip",
+      "repeat": 2,
+      "run_id": "sample-3b3adc7ff3d8",
+      "exit_code": 0,
+      "wall_ms": 4614.3,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "dom-only",
+      "repeat": 1,
+      "run_id": "sample-2d6b9dd8140d",
+      "exit_code": 0,
+      "wall_ms": 4254.0,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "dom-only",
+      "repeat": 2,
+      "run_id": "sample-6992947789b2",
+      "exit_code": 0,
+      "wall_ms": 4632.2,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "restored",
+      "repeat": 1,
+      "run_id": "sample-5510ad1ca7bf",
+      "exit_code": 0,
+      "wall_ms": 4914.2,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "desktop",
+      "phase": "restored",
+      "repeat": 2,
+      "run_id": "sample-d5b6f9515dd7",
+      "exit_code": 0,
+      "wall_ms": 4530.6,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "healthy",
+      "repeat": 1,
+      "run_id": "sample-392bfa0504ad",
+      "exit_code": 0,
+      "wall_ms": 4611.6,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "healthy",
+      "repeat": 2,
+      "run_id": "sample-4d138b9f9cec",
+      "exit_code": 0,
+      "wall_ms": 4095.8,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "shift",
+      "repeat": 1,
+      "run_id": "sample-f735bb7c6f9a",
+      "exit_code": 1,
+      "wall_ms": 4901.2,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 638.3
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 650.7
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "shift",
+      "repeat": 2,
+      "run_id": "sample-ca3bfd1fb8f8",
+      "exit_code": 1,
+      "wall_ms": 5858.2,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 514.5
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 478.2
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "invisible",
+      "repeat": 1,
+      "run_id": "sample-6ddcb7fb8cf5",
+      "exit_code": 1,
+      "wall_ms": 5189.0,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 470.4
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 448.9
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "invisible",
+      "repeat": 2,
+      "run_id": "sample-3383cb8540d3",
+      "exit_code": 1,
+      "wall_ms": 5958.2,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 944.5
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 658.0
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "mobile-clip",
+      "repeat": 1,
+      "run_id": "sample-413c236eb88d",
+      "exit_code": 1,
+      "wall_ms": 5791.3,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 644.8
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 780.0
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "mobile-clip",
+      "repeat": 2,
+      "run_id": "sample-43077217af01",
+      "exit_code": 1,
+      "wall_ms": 4772.1,
+      "expected_defect": true,
+      "assurance": {
+        "violated": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [
+        {
+          "exit_code": 0,
+          "wall_ms": 560.5
+        },
+        {
+          "exit_code": 0,
+          "wall_ms": 586.6
+        }
+      ],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "dom-only",
+      "repeat": 1,
+      "run_id": "sample-4e128ff33103",
+      "exit_code": 0,
+      "wall_ms": 3778.8,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "dom-only",
+      "repeat": 2,
+      "run_id": "sample-697465f773a1",
+      "exit_code": 0,
+      "wall_ms": 4247.8,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "restored",
+      "repeat": 1,
+      "run_id": "sample-86aba6141e7c",
+      "exit_code": 0,
+      "wall_ms": 4005.4,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    },
+    {
+      "client": "claude",
+      "profile": "mobile",
+      "phase": "restored",
+      "repeat": 2,
+      "run_id": "sample-288bb4ee2979",
+      "exit_code": 0,
+      "wall_ms": 4720.8,
+      "expected_defect": false,
+      "assurance": {
+        "verified": 2
+      },
+      "integrity_errors": [],
+      "frozen_unchanged": true,
+      "judgments": [],
+      "passed": true
+    }
+  ],
+  "status": "passed",
+  "source_revision": "eee0b4e264b064c4614115a5cce2132b99292acd",
+  "evidence_root": "outputs/client-visual/blind-trial"
+}

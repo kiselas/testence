@@ -7,6 +7,13 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### September release audit
 
+- Added optional digest-pinned viewport regression, explicit viewport profiles,
+  manifested expected/actual/diff images, and inconclusive handling for unusable
+  visual evidence. Installed-wheel client simulations run on Linux/Windows CI.
+- Skill pack 0.1.2 documents autonomous visual proof and simulated-client boundaries;
+  state-predicate selectors no longer get address-only healing proposals. See the
+  [visual/client follow-up](../audits/2026-09-13/visual-client/README.md).
+
 - Added plan-bound visibility assertions with verified/violated/inconclusive proof
   outcomes, plus regression coverage for unavailable browser evidence.
 - Added pinned AdminLTE/Tabler UI cases, negative and harmless controls, timing

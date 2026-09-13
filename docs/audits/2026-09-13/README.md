@@ -1,5 +1,9 @@
 # Consolidation and release audit — 13 September 2026
 
+Follow-up: [client simulation and autonomous visual regression](visual-client/README.md)
+implements and tests the previously missing baseline comparison and state-predicate
+healing guard. The findings below remain the historical consolidation receipt.
+
 Status: engineering audit; public release acceptance remains open. The package is
 still `0.1.0.dev0`. No public tag, PyPI upload or visibility change is authorized by
 this audit receipt. Historical no-go manifests remain historical.

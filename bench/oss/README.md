@@ -1,5 +1,18 @@
 # External panel smoke corpus
 
+Optional visual follow-up after building these same pinned targets:
+
+```powershell
+outputs/client-visual/blind-venv/Scripts/python.exe -I bench/oss/visual_probe.py --distribution outputs/client-visual/blind-dist/testence-0.1.0.dev0-py3-none-any.whl --output outputs/client-visual/oss-visual-new
+```
+
+Prepare an installed `testence[visual]` wheel as described in
+[client simulation](../client_simulation/README.md); adjust paths to that environment.
+The probe uses a new browser per phase at desktop/mobile sizes, checks healthy,
+shifted cards, a DOM-only edit and restoration, and retains baseline/actual/diff
+PNGs, wheel binding and built-tree hashes. These 16 comparisons supplement the
+bound pytest corpus below; they are not independent client or R1 acceptance.
+
 Four UI claims against two real, pinned upstream dashboard projects. Each repeat
 starts fresh pytest/browser processes. The runner starts loopback HTTP servers on
 free ports and checks exact expected failed tests and assertion messages. It exits
