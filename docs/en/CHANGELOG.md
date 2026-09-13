@@ -5,6 +5,18 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ## Unreleased
 
+### September release audit
+
+- Added plan-bound visibility assertions with verified/violated/inconclusive proof
+  outcomes, plus regression coverage for unavailable browser evidence.
+- Added pinned AdminLTE/Tabler UI cases, negative and harmless controls, timing
+  receipts, root agent instructions and visual-discovery guidance in skill pack 0.1.1.
+- Preserved explicit ephemeral CDP ports through settings and engine creation.
+- Fixed transient Windows transaction cleanup and crash-test worker termination.
+- Made corpus failures return nonzero, separated audit output directories and fixed
+  the loading wait for multiple placeholders. See the
+  [audit and remaining acceptance work](../audits/2026-09-13/README.md).
+
 ### Added
 
 - Deterministic Playwright-over-CDP execution behind an engine protocol.

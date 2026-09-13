@@ -1,0 +1,55 @@
+{
+ "summary": {
+  "items": 3,
+  "outcome_accuracy": 1.0,
+  "false_green_rate": null,
+  "false_red_rate": 0.0,
+  "right_reason_rate": null,
+  "heal_recall": null,
+  "detection_by_stratum": {},
+  "collateral": {},
+  "misses": [],
+  "wrong_reason": []
+ },
+ "records": [
+  {
+   "item": "C-10-slow-responses",
+   "attempt": 1,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "300 ms per response; auto-waiting must absorb it without a flake",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-10-slow-responses-1"
+  },
+  {
+   "item": "C-10-slow-responses",
+   "attempt": 2,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "300 ms per response; auto-waiting must absorb it without a flake",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-10-slow-responses-2"
+  },
+  {
+   "item": "C-10-slow-responses",
+   "attempt": 3,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "300 ms per response; auto-waiting must absorb it without a flake",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-10-slow-responses-3"
+  }
+ ]
+}

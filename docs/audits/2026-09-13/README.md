@@ -4,8 +4,12 @@ Status: engineering audit; public release acceptance remains open. The package i
 still `0.1.0.dev0`. No public tag, PyPI upload or visibility change is authorized by
 this audit receipt. Historical no-go manifests remain historical.
 
-Final local source candidate: `2493f81d90a1c19263f3c48998f3f02119f4f59d`.
-**400 tests passed, 2 skipped; all 48 external UI cases matched expectations.**
+Final local suite source: `fdde5aee5ea93826df4fab247951cf658046634c`.
+**404 tests passed, 2 skipped; all 48 external UI cases matched expectations.**
+The two local skips require Windows symlink privileges unavailable on this host.
+The same final source passed all eight [hosted CI jobs](https://github.com/kiselas/testence/actions/runs/34765807232),
+including Linux/Windows Python 3.10/3.12 and installed-wheel browser checks.
+The external UI receipt names its separately tested source `2493f81`.
 The external cases produced 42 verified results and 6 expected violations, with no
 integrity errors. See [validation.json](validation.json), [OSS samples](oss-result.json),
 [reproducible build](build.json) and [isolated wheel smoke](wheel-smoke.json).
@@ -81,6 +85,13 @@ specification: a strict single-element hidden wait matched ten skeleton rows.
 ten transient placeholders and ten persistent placeholders; the latter must still
 fail. This changes the corpus readiness check, not the product or its expected state.
 
+Post-fix live checks: the slow-response control passed all three repeats, and the
+persistent-placeholder defect still failed for its expected claim. Preserve the
+distinction between [the failed control run](legacy-controls-before-fix.json),
+[the corrected control](slow-control-fixed.json) and
+[the persistent defect](persistent-placeholders.json). These are engineering
+follow-ups, not a single pristine 51-case acceptance run.
+
 The first external trial exposed another authoring gap: UI assertions could pass
 while assurance remained unverified because they emitted no bound assertion event.
 `expect_visible` now optionally accepts assertion/claim IDs, records observed
@@ -154,8 +165,9 @@ unmodified upstream AdminLTE. No test repair is appropriate for that verdict.
   independent truth/security/rights reviews and pilot/return-week evidence remain
   governed by [Stage 3](../../stages/03-r1-release/readiness.md). Do not fabricate them
   or replace them with more local agents. Reference-host measurement remains deferred.
-- **Publication:** obtain an exact-candidate hosted matrix, immutable wheel/sdist,
-  complete acceptance manifest and owner release decision before publication.
+- **Publication:** hosted engineering validation and immutable distributions are
+  available. A publishable version still needs the complete acceptance manifest,
+  required signing and owner release decision before publication.
   The positioning is “agent-first browser testing with evidence-backed verdicts”;
   historical primacy (“the first”) has not been established by this audit.
 

@@ -1,0 +1,227 @@
+{
+ "summary": {
+  "items": 15,
+  "outcome_accuracy": 0.8,
+  "false_green_rate": null,
+  "false_red_rate": 0.2,
+  "right_reason_rate": null,
+  "heal_recall": null,
+  "detection_by_stratum": {},
+  "collateral": {},
+  "misses": [
+   "C-10-slow-responses",
+   "C-10-slow-responses",
+   "C-10-slow-responses"
+  ],
+  "wrong_reason": []
+ },
+ "records": [
+  {
+   "item": "C-08-reorder",
+   "attempt": 1,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "pure reordering of controls",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-08-reorder-1"
+  },
+  {
+   "item": "C-08-reorder",
+   "attempt": 2,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "pure reordering of controls",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-08-reorder-2"
+  },
+  {
+   "item": "C-08-reorder",
+   "attempt": 3,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "pure reordering of controls",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-08-reorder-3"
+  },
+  {
+   "item": "C-08-wrap",
+   "attempt": 1,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "the control gains a container and keeps its semantics",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-08-wrap-1"
+  },
+  {
+   "item": "C-08-wrap",
+   "attempt": 2,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "the control gains a container and keeps its semantics",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-08-wrap-2"
+  },
+  {
+   "item": "C-08-wrap",
+   "attempt": 3,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "the control gains a container and keeps its semantics",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-08-wrap-3"
+  },
+  {
+   "item": "C-10-slow-responses",
+   "attempt": 1,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "300 ms per response; auto-waiting must absorb it without a flake",
+   "outcome_ok": false,
+   "observed": "red",
+   "expected": "green",
+   "failed_claims": [
+    "counter",
+    "create",
+    "full-page"
+   ],
+   "complete": true,
+   "run_dir": "C-10-slow-responses-1"
+  },
+  {
+   "item": "C-10-slow-responses",
+   "attempt": 2,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "300 ms per response; auto-waiting must absorb it without a flake",
+   "outcome_ok": false,
+   "observed": "red",
+   "expected": "green",
+   "failed_claims": [
+    "counter",
+    "create",
+    "full-page"
+   ],
+   "complete": true,
+   "run_dir": "C-10-slow-responses-2"
+  },
+  {
+   "item": "C-10-slow-responses",
+   "attempt": 3,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "300 ms per response; auto-waiting must absorb it without a flake",
+   "outcome_ok": false,
+   "observed": "red",
+   "expected": "green",
+   "failed_claims": [
+    "counter",
+    "create",
+    "full-page"
+   ],
+   "complete": true,
+   "run_dir": "C-10-slow-responses-3"
+  },
+  {
+   "item": "C-12-console-noise",
+   "attempt": 1,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "a permanent console error that affects nothing — must reach the pack, must not fail the run",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-12-console-noise-1"
+  },
+  {
+   "item": "C-12-console-noise",
+   "attempt": 2,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "a permanent console error that affects nothing — must reach the pack, must not fail the run",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-12-console-noise-2"
+  },
+  {
+   "item": "C-12-console-noise",
+   "attempt": 3,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "a permanent console error that affects nothing — must reach the pack, must not fail the run",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-12-console-noise-3"
+  },
+  {
+   "item": "C-13-commit-on-enter-only",
+   "attempt": 1,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "typing alone is inert by design; a suite that assumes a commit model cries wolf",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-13-commit-on-enter-only-1"
+  },
+  {
+   "item": "C-13-commit-on-enter-only",
+   "attempt": 2,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "typing alone is inert by design; a suite that assumes a commit model cries wolf",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-13-commit-on-enter-only-2"
+  },
+  {
+   "item": "C-13-commit-on-enter-only",
+   "attempt": 3,
+   "verdict_truth": "none",
+   "stratum": "",
+   "note": "typing alone is inert by design; a suite that assumes a commit model cries wolf",
+   "outcome_ok": true,
+   "observed": "green",
+   "expected": "green",
+   "failed_claims": [],
+   "complete": true,
+   "run_dir": "C-13-commit-on-enter-only-3"
+  }
+ ]
+}

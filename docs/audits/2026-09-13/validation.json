@@ -65,5 +65,59 @@
       "outcome": "crash test killed launcher rather than worker; test fixed",
       "url": "https://github.com/kiselas/testence/actions/runs/34764788383"
     }
-  ]
+  ],
+  "followup_full_suite": {
+    "source_revision": "6d85426b3c5fe102e0b9f85a2e021dee1d709517",
+    "passed": 403,
+    "skipped": 2,
+    "seconds": 132.76
+  },
+  "hosted_runtime_candidate": {
+    "source_revision": "6d85426b3c5fe102e0b9f85a2e021dee1d709517",
+    "status": "success",
+    "url": "https://github.com/kiselas/testence/actions/runs/34765529235",
+    "jobs": [
+      "Quality and package",
+      "Minimum dependencies / Python 3.10",
+      "ubuntu-latest / Python 3.10",
+      "ubuntu-latest / Python 3.12",
+      "windows-latest / Python 3.10",
+      "windows-latest / Python 3.12",
+      "Installed wheel / Windows browser",
+      "Installed wheel / browser / release artifacts"
+    ]
+  },
+  "hosted_distributions": [
+    {
+      "file": "testence-0.1.0.dev0-py3-none-any.whl",
+      "sha256": "0b819be959445d7d7a6d781c5d6ccd2206ec13fe2d1e19fe6219bee0c2574e22"
+    },
+    {
+      "file": "testence-0.1.0.dev0.tar.gz",
+      "sha256": "bb6896701c60da26af02258ca037a8c9fecf0a60ef7ef5a354c37f085b26ba52"
+    }
+  ],
+  "final_local_suite": {
+    "source_revision": "fdde5aee5ea93826df4fab247951cf658046634c",
+    "command": "uv run pytest -q --basetemp=.tmp-pytest-audit-fdde5ae --junitxml=outputs/release-audit-20260913/final-suite.xml",
+    "passed": 404,
+    "skipped": 2,
+    "seconds": 112.78,
+    "skips": "Windows symlink privilege unavailable locally; Linux matrix covers link rejection",
+    "junit_sha256": "ca3193a6dbcbcb11c98d4f5a9347069b02e05d1d8f6aa6808f7a158bb5278a11"
+  },
+  "final_hosted_suite": {
+    "source_revision": "fdde5aee5ea93826df4fab247951cf658046634c",
+    "status": "success",
+    "url": "https://github.com/kiselas/testence/actions/runs/34765807232",
+    "jobs_passed": 8,
+    "coverage": "Quality/package, minimum dependencies, Linux and Windows on Python 3.10/3.12, installed-wheel browser checks on both operating systems"
+  },
+  "corpus_followups": {
+    "initial": "legacy-corpus-partial.json",
+    "resumed_before_wait_fix": "legacy-controls-before-fix.json",
+    "slow_control_after_fix": "slow-control-fixed.json",
+    "persistent_defect_after_fix": "persistent-placeholders.json",
+    "interpretation": "Prior failed/interrupted attempts remain failures; these samples are not one pristine release-corpus run."
+  }
 }

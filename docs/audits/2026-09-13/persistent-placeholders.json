@@ -1,0 +1,61 @@
+{
+ "summary": {
+  "items": 1,
+  "outcome_accuracy": 1.0,
+  "false_green_rate": 0.0,
+  "false_red_rate": null,
+  "right_reason_rate": 1.0,
+  "heal_recall": null,
+  "detection_by_stratum": {
+   "P": {
+    "caught": 1,
+    "total": 1
+   }
+  },
+  "collateral": {
+   "D-15-placeholders-persist": [
+    "counter",
+    "create",
+    "filter",
+    "full-page",
+    "paging",
+    "substring"
+   ]
+  },
+  "misses": [],
+  "wrong_reason": []
+ },
+ "records": [
+  {
+   "item": "D-15-placeholders-persist",
+   "attempt": 1,
+   "verdict_truth": "real_bug",
+   "stratum": "P",
+   "note": "broad collateral is expected: nothing renders, so most reads fail",
+   "outcome_ok": true,
+   "observed": "red",
+   "expected": "red",
+   "failed_claims": [
+    "content",
+    "counter",
+    "create",
+    "filter",
+    "full-page",
+    "paging",
+    "substring"
+   ],
+   "complete": true,
+   "right_reason": true,
+   "missing_claims": [],
+   "collateral_claims": [
+    "counter",
+    "create",
+    "filter",
+    "full-page",
+    "paging",
+    "substring"
+   ],
+   "run_dir": "D-15-placeholders-persist-1"
+  }
+ ]
+}
