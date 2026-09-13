@@ -238,6 +238,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--only", action="append", default=None)
     parser.add_argument("--port", type=int, default=8800)
+    parser.add_argument("--output", type=Path, default=RESULTS / "collection.json")
+    parser.add_argument("--runs-root", type=Path, default=ROOT / "runs" / "corpus")
     parser.add_argument(
         "--repeats",
         type=int,
@@ -252,7 +254,7 @@ def main() -> int:
     items = [i for i in ITEMS if not args.only or i.id in args.only]
     if not items or (args.only and set(args.only) - {item.id for item in ITEMS}):
         parser.error("--only must name existing corpus items")
-    runs_root = ROOT / "runs" / "corpus"
+    runs_root = args.runs_root.resolve()
     runs_root.mkdir(parents=True, exist_ok=True)
 
     session = time.strftime("%H%M%S")
@@ -288,8 +290,8 @@ def main() -> int:
             target.terminate()
 
     summary = summarize(records)
-    RESULTS.mkdir(exist_ok=True)
-    (RESULTS / "collection.json").write_text(
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(
         json.dumps({"summary": summary, "records": records}, indent=1, ensure_ascii=False),
         encoding="utf-8",
         newline="\n",

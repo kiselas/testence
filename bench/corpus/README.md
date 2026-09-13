@@ -1,5 +1,11 @@
 # The benchmark corpus
 
+For audit runs, preserve earlier evidence with a unique `--runs-root` and
+`--output`, for example `--runs-root outputs/corpus-audit/runs --output
+outputs/corpus-audit/result.json`. The command returns nonzero for incomplete,
+wrong-outcome, wrong-reason, missing-heal or unstable results. Use
+`TESTENCE_DEBUG_PORT=0` for isolated concurrent runs on the same host.
+
 Seeded behaviours from
 [docs/en/benchmark/taxonomy.md](../../docs/en/benchmark/taxonomy.md),
 run against the target in [bench/sut](../sut), scored mechanically.
