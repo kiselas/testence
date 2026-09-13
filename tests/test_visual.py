@@ -114,6 +114,17 @@ def test_unstable_baseline_is_not_accepted(tmp_path):
     assert not (tmp_path / "b" / "baseline.json").exists()
 
 
+def test_visual_capability_rejected_before_capture(tmp_path):
+    from testence.engine import UnsupportedCapability
+
+    engine = PixelEngine()
+    engine.capabilities = lambda: frozenset({"browser.dom"})
+    with pytest.raises(UnsupportedCapability, match="visual.screenshot"):
+        capture_baseline(engine, tmp_path / "b", provenance="unsupported engine")
+    assert engine.captures == 0
+    assert not (tmp_path / "b").exists()
+
+
 def test_live_viewport_survives_session_reset_and_detects_css_only_defect(tmp_path):
     from testence.config import Settings
     from testence.engine import create_engine

@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from testence.engine import Engine
+from testence.engine import Capability, Engine, require_capabilities
 
 MAX_BYTES = 16 * 1024 * 1024
 MAX_PIXELS = 8_000_000
@@ -52,6 +52,7 @@ def _image(path: Path) -> Any:
 
 
 def _profile(engine: Engine) -> dict[str, Any]:
+    require_capabilities(engine, "visual comparison", Capability.VISUAL, Capability.JAVASCRIPT)
     if not getattr(engine, "capture_screenshots", False):
         raise VisualUnavailable("capture_policy.screenshots must be enabled explicitly")
     result = engine.eval_js(PROFILE_JS)

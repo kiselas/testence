@@ -12,6 +12,7 @@ import http.server
 import json
 import os
 import platform
+import secrets
 import shutil
 import subprocess
 import sys
@@ -121,6 +122,7 @@ def main() -> int:
         "python": platform.python_version(),
         "sources": {path.name: sha(path) for path in HERE.iterdir() if path.is_file()},
         "provisioning": [],
+        "projects": [],
         "records": [],
         "status": "incomplete",
     }
@@ -164,6 +166,7 @@ def main() -> int:
                         "--json",
                     ],
                     ["-m", "testence.cli", "agent", "verify", "--project", str(project), "--json"],
+                    ["-m", "testence.cli", "doctor", "--root", str(project), "--json"],
                     ["-m", "testence.cli", "plan", "validate", "plan.md", "--json"],
                     ["provision.py"],
                 ]
@@ -188,6 +191,9 @@ def main() -> int:
                     if code:
                         raise RuntimeError(f"client setup failed: {project.name}, command {number}")
                 frozen = frozen_files(project)
+                receipt["projects"].append(
+                    {"client": client, "profile": profile, "frozen_files": frozen}
+                )
                 for phase in PHASES:
                     mode["phase"] = phase
                     defect = (
@@ -196,7 +202,8 @@ def main() -> int:
                         and profile == "mobile"
                     )
                     for repeat in range(args.repeats):
-                        run_id = f"{phase}-{repeat + 1}"
+                        # Expected labels belong to the grader, not the judge's pack/path.
+                        run_id = "sample-" + secrets.token_hex(6)
                         junit = project / f"{run_id}.xml"
                         command = [
                             sys.executable,
@@ -240,6 +247,7 @@ def main() -> int:
                             "profile": profile,
                             "phase": phase,
                             "repeat": repeat + 1,
+                            "run_id": run_id,
                             "exit_code": code,
                             "wall_ms": elapsed,
                             "expected_defect": defect,
