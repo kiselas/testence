@@ -38,6 +38,13 @@ development line. See Git history for source commits and subsequent audit receip
 
 ## Validation evidence
 
+An initial repeated external-panel run hit the 120-second process deadline during
+browser setup. This is retained as a failed environment attempt, not counted as a
+successful repeat. The harness now uses ephemeral CDP ports and retains timeout
+records, logs and checkpoints instead of losing the whole result. The cause of the
+original startup hang is not established; subsequent successful samples do not
+erase it. A regression test proves timeout recording and nonzero exit without retries.
+
 The first external trial exposed another authoring gap: UI assertions could pass
 while assurance remained unverified because they emitted no bound assertion event.
 `expect_visible` now optionally accepts assertion/claim IDs, records observed

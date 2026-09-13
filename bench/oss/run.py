@@ -119,14 +119,29 @@ def main() -> int:
                     f"--junitxml={junit}",
                 ]
                 started = time.perf_counter()
-                completed = subprocess.run(
-                    command, cwd=ROOT, env=run_env, capture_output=True, text=True, timeout=120
-                )
+                timed_out = False
+                with (output / f"{run_id}.log").open("w", encoding="utf-8") as log:
+                    try:
+                        completed = subprocess.run(
+                            command,
+                            cwd=ROOT,
+                            env=run_env,
+                            stdout=log,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            timeout=120,
+                        )
+                        exit_code = completed.returncode
+                    except subprocess.TimeoutExpired:
+                        # A failed attempt remains evidence. Never retry it into green.
+                        timed_out = True
+                        exit_code = 124
+                        log.write("\nHarness deadline exceeded (120 seconds).\n")
                 elapsed = (time.perf_counter() - started) * 1000
-                (output / f"{run_id}.log").write_text(
-                    completed.stdout + completed.stderr, encoding="utf-8"
-                )
-                cases = list(ET.parse(junit).iter("testcase")) if junit.exists() else []
+                try:
+                    cases = list(ET.parse(junit).iter("testcase")) if junit.exists() else []
+                except ET.ParseError:
+                    cases = []
                 failed = {
                     case.attrib["name"]: case.find("failure").attrib.get("message", "")
                     for case in cases
@@ -145,13 +160,16 @@ def main() -> int:
                     else {}
                 )
                 passed = (
-                    completed.returncode == (1 if expected else 0)
+                    exit_code == (1 if expected else 0)
                     and len(cases) == 4
                     and errors == 0
                     and set(failed) == set(expected)
                     and all(reason in failed[name] for name, reason in expected.items())
                 )
-                inspection = inspect_run(output / "runs" / run_id)
+                try:
+                    inspection = inspect_run(output / "runs" / run_id)
+                except (OSError, ValueError) as exc:
+                    inspection = {"assurance": {}, "integrity_errors": [str(exc)]}
                 expected_assurance = {"verified": 2, "violated": 2} if expected else {"verified": 4}
                 passed = (
                     passed
@@ -162,7 +180,8 @@ def main() -> int:
                     "phase": phase,
                     "repeat": repeat + 1,
                     "wall_ms": round(elapsed, 1),
-                    "exit_code": completed.returncode,
+                    "exit_code": exit_code,
+                    "timed_out": timed_out,
                     "passed": passed,
                     "failures": failed,
                     "junit": junit.name,
@@ -171,6 +190,10 @@ def main() -> int:
                     "integrity_errors": inspection["integrity_errors"],
                 }
                 records.append(record)
+                (output / "checkpoint.json").write_text(
+                    json.dumps({"complete": False, "records": records}, indent=2) + "\n",
+                    encoding="utf-8",
+                )
                 print(f"{run_id}: {'OK' if passed else 'MISMATCH'} {elapsed:.0f} ms", flush=True)
     finally:
         for server in servers:

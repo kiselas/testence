@@ -42,6 +42,9 @@ Use a new output directory for each invocation to preserve earlier evidence.
 The runner refuses wrong revisions or modified tracked upstream files. Upstream
 pages can load CDN assets; internet/cache state therefore affects measurements.
 These results are not an offline reproducibility or cross-machine speed claim.
+Isolated browsers use an ephemeral CDP port. A 120-second process deadline is
+recorded as a failed attempt (exit 124); logs and checkpoint.json preserve partial
+evidence. The runner continues the declared phases without retrying a failed attempt.
 
 ## Cases and controls
 

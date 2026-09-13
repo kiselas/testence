@@ -6,3 +6,4 @@ def panel_capture(testence_settings):
     # Explicit consent for local, synthetic screenshot evidence in this corpus.
     testence_settings.extra["capture_policy"] = {"screenshots": True}
     testence_settings.timeout_ms = 2000
+    testence_settings.debug_port = 0
