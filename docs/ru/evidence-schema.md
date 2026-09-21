@@ -147,7 +147,7 @@ Authorization, cookies, passwords, tokens, API/private keys, значения Be
 `<redacted>`. Строка ledger ограничена 16 384 символами. Manifest содержит только
 имена файлов относительно pack и намеренно не включает собственный hash. Screenshot
 остаётся визуальным capture и может содержать данные приложения, поэтому ограничение
-pre-alpha на production data действует до visual masking и полного security review T12.
+alpha-кандидата на production data действует до visual masking и полного security review T12.
 
 ## Совместимость `/1`
 

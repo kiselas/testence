@@ -1,9 +1,11 @@
 # Changelog
 
-This project is pre-alpha. Until a first tagged release, notable changes are grouped
+This project is an alpha candidate. Until a first tagged release, notable changes are grouped
 under `Unreleased`; compatibility is not guaranteed.
 
 ## Unreleased
+
+## 0.1.0a1 — release candidate
 
 ### September release audit
 

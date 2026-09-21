@@ -19,8 +19,9 @@ about 2.10 MB, no detected leaks. The locked runtime dependency audit reported n
 vulnerabilities. These scans cover known patterns/databases and do not prove that the
 tree is free of every secret or vulnerability.
 
-Publication remains blocked until GitHub private vulnerability reporting is enabled,
-the final clean RC commit is rescanned, and a maintainer reviews all uncommitted assets.
+The repository became public and GitHub private vulnerability reporting was enabled and
+verified through the API on 21 September 2026. Publication remains blocked until the
+final clean RC commit is rescanned and a maintainer reviews all intended source assets.
 See [support policy](../../SUPPORT.md), [security policy](../../SECURITY.md), and the
 [current release decision](../../release/rc-manifest-v2.json). The manual
 `publish.yml` workflow accepts only an existing tag, artifacts from the selected CI

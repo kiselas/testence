@@ -1,7 +1,7 @@
 {
   "schema": "testence/support/1",
-  "version": "0.1.0.dev0",
-  "status": "pre-alpha",
+  "version": "0.1.0a1",
+  "status": "alpha",
   "python": {
     "requires": ">=3.10",
     "ci": ["3.10", "3.12"],

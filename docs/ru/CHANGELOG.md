@@ -1,9 +1,11 @@
 # История изменений
 
-Проект находится на стадии pre-alpha. До первого tagged release значимые изменения
+Проект готовится как alpha-кандидат. До первого tagged release значимые изменения
 группируются в `Unreleased`; совместимость не гарантируется.
 
 ## Unreleased
+
+## 0.1.0a1 — release candidate
 
 - Контекст iframe теперь одинаково применяется к locator actions, JavaScript evaluation
   и predicate waits; разрыв был обнаружен на preview сайта NextDish.

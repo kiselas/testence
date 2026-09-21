@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from urllib.parse import unquote
 
+from testence import __version__
 from testence.contracts.verdict import Verdict
 
 ROOT = Path(__file__).parents[1]
@@ -75,6 +76,21 @@ def test_support_manifest_matches_package_and_ci_contract() -> None:
     assert f'requires-python = "{support["python"]["requires"]}"' in pyproject
     assert 'python: ["3.10", "3.12"]' in workflow
     assert set(support["platforms"]["ci"]) == {"ubuntu-latest", "windows-latest"}
+
+
+def test_release_version_is_consistent_across_package_and_public_manifests() -> None:
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    project_version = re.search(r'^version = "([^"]+)"$', pyproject, re.MULTILINE)
+    support = json.loads((ROOT / "support.json").read_text(encoding="utf-8"))
+    skill_pack = json.loads(
+        (ROOT / "src/testence/agent/skill-pack.json").read_text(encoding="utf-8")
+    )
+
+    assert project_version is not None
+    assert project_version.group(1) == __version__ == support["version"] == "0.1.0a1"
+    assert skill_pack["minimum_testence"] == __version__
+    assert support["status"] == "alpha"
+    assert '"Development Status :: 3 - Alpha"' in pyproject
 
 
 def test_publish_workflow_does_not_interpolate_manual_inputs_in_shell() -> None:

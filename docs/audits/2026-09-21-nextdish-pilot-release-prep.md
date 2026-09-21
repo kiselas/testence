@@ -1,7 +1,8 @@
 # NextDish pilot retrospective and public-release preparation — 21 September 2026
 
-Status: engineering fixes implemented on `codex/authoring-readiness`; public repository
-visibility, tag creation, and PyPI publication have not been performed.
+Status: engineering fixes merged to `main`; version `0.1.0a1` selected for the release
+candidate. The repository is public and private vulnerability reporting is enabled.
+Tag creation and PyPI publication have not been performed.
 
 ## What the pilot changed
 
@@ -32,7 +33,7 @@ retries, or weaker assertions.
 
 ## Release preparation boundary
 
-The current package version is still `0.1.0.dev0`. Before choosing an alpha version:
+Before publishing `0.1.0a1`:
 
 1. merge the framework fixes into a clean candidate and run the complete Windows/Linux
    CI matrix plus installed-wheel browser jobs;
@@ -40,7 +41,8 @@ The current package version is still `0.1.0.dev0`. Before choosing an alpha vers
    hashes, dependency inventory, SPDX SBOM and provenance;
 3. scan the exact clean tree, history and resolved dependencies, then complete the
    independent security and publication-rights reviews;
-4. enable GitHub private vulnerability reporting before changing repository visibility;
+4. change repository visibility, then immediately enable and verify GitHub private
+   vulnerability reporting before announcing the repository;
 5. configure the protected `pypi` environment and the PyPI trusted publisher for
    `kiselas/testence`, `.github/workflows/publish.yml`, environment `pypi`;
 6. assemble a candidate-bound `go` manifest, create an immutable matching version tag,
@@ -53,6 +55,21 @@ Opening the repository and uploading to PyPI are separate actions. Neither shoul
 while `SECURITY.md` still says that outside vulnerability reports are unavailable or the
 release manifest remains `no-go`.
 
+Current operational status:
+
+| Step | Status | Closure condition |
+|---|---|---|
+| Pilot framework fixes | complete | PR #9 merged to `main` with all hosted checks green |
+| Package version | in progress | `0.1.0a1` metadata, lock, wheel and docs agree; release PR green |
+| Public source inventory | prepared | independent rights review binds the clean candidate SHA |
+| Security review | pending | exact candidate scan/review has no unexplained blocking finding |
+| Repository visibility | complete | `kiselas/testence` is public |
+| Vulnerability reporting | complete | GitHub API reports `enabled: true`; public report route is documented |
+| GitHub `pypi` environment | pending | environment exists with required owner approval |
+| PyPI trusted publisher | pending | project `testence` trusts `publish.yml` / environment `pypi` |
+| Release manifest | pending | all required receipts resolve and owner decision is `go` |
+| Tag and upload | pending | immutable `v0.1.0a1` tag matches candidate; verified workflow publishes existing artifacts |
+
 ## Validation and handoff
 
 The focused checks for this change are `tests/test_capabilities.py`,
@@ -60,7 +77,7 @@ The focused checks for this change are `tests/test_capabilities.py`,
 candidate must also run the commands in `CONTRIBUTING.md` from a clean checkout and the
 installed-wheel jobs in `.github/workflows/ci.yml`.
 
-Local Windows validation before the clean distribution build:
+Local Windows validation of the merged pilot fixes:
 
 ```text
 uv run ruff format --check src tests bench scripts
@@ -78,6 +95,11 @@ uv run pytest -q --basetemp=<new repository-local directory>
 
 The two skips are the existing Windows symlink-privilege cases. This local result is an
 engineering check and does not replace the clean hosted candidate matrix.
+
+The subsequent `0.1.0a1` version-consistency change passed Ruff, mypy, 21 focused
+distribution/documentation tests, and the complete local suite: **443 passed, 2 known
+Windows symlink skips in 161.93 seconds**. Clean distribution and hosted results must be
+bound to the final alpha candidate commit after this document is committed.
 
 The NextDish repository retains its full canonical suites and a generated backlog of all
 browser cases without accepted Testence evidence. Product-specific open findings remain

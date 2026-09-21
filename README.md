@@ -13,7 +13,7 @@
   <a href="https://github.com/kiselas/testence/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/kiselas/testence/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&amp;logoColor=white">
   <a href="LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/License-Apache--2.0-6C63FF"></a>
-  <img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-F59E0B">
+  <img alt="Status: alpha candidate" src="https://img.shields.io/badge/status-alpha%20candidate-F59E0B">
 </p>
 
 <p align="center">
@@ -267,7 +267,7 @@ environment and failure criteria is deliberately not treated as a product claim.
 
 ## Project status
 
-Testence is a **pre-alpha developer preview**. PlanSpec propagation, verdict validation,
+Testence is an **alpha release candidate**. PlanSpec propagation, verdict validation,
 portable skills, deterministic execution and evidence packs are implemented. Public
 agent bootstrap and managed verdict submission are implemented through the CLI;
 independent client and public release acceptance are pending. APIs may change.

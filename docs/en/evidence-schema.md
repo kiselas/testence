@@ -148,7 +148,7 @@ values, secret query parameters and the configured Testence username/password ar
 replaced with `<redacted>`. Ledger strings are capped at 16,384 characters. The
 manifest contains only filenames relative to its pack; it intentionally excludes its
 own hash. Screenshots remain visual captures and may contain application data, so the
-pre-alpha production-data restriction still applies until visual masking and the full
+alpha-candidate production-data restriction still applies until visual masking and the full
 T12 security review are complete.
 
 ## Verdict taxonomy (triage contract)

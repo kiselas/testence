@@ -3,7 +3,7 @@
 Optional visual follow-up after building these same pinned targets:
 
 ```powershell
-outputs/client-visual/blind-venv/Scripts/python.exe -I bench/oss/visual_probe.py --distribution outputs/client-visual/blind-dist/testence-0.1.0.dev0-py3-none-any.whl --output outputs/client-visual/oss-visual-new
+outputs/client-visual/blind-venv/Scripts/python.exe -I bench/oss/visual_probe.py --distribution outputs/client-visual/blind-dist/testence-0.1.0a1-py3-none-any.whl --output outputs/client-visual/oss-visual-new
 ```
 
 Prepare an installed `testence[visual]` wheel as described in

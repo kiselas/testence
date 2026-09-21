@@ -344,7 +344,7 @@ policy. See [ADR-0023](adr/0023-visual-baseline-proof.md) and the
 uses one scripted actor across two adapter layouts; actual independent client trials
 remain a separate acceptance requirement.
 
-| Capability | Current pre-alpha state |
+| Capability | Current alpha-candidate state |
 |---|---|
 | deterministic pytest/Playwright execution | implemented |
 | intent-bearing steps and element fingerprints | implemented |

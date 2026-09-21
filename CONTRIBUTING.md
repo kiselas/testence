@@ -1,6 +1,6 @@
 # Contributing to Testence
 
-Testence is pre-alpha. Contributions are welcome when they strengthen its central
+Testence is in alpha. Contributions are welcome when they strengthen its central
 contract: agents may plan, author and judge, while ordinary replay stays deterministic,
 reviewable and independent of any model provider.
 

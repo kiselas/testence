@@ -13,9 +13,9 @@ the `visual` extra. Example on Windows (use `bin/python` on Linux):
 ```powershell
 uv build --wheel --out-dir outputs/client-visual/dist
 uv venv outputs/client-visual/venv
-uv pip install --python outputs/client-visual/venv/Scripts/python.exe 'outputs/client-visual/dist/testence-0.1.0.dev0-py3-none-any.whl[visual]'
+uv pip install --python outputs/client-visual/venv/Scripts/python.exe 'outputs/client-visual/dist/testence-0.1.0a1-py3-none-any.whl[visual]'
 outputs/client-visual/venv/Scripts/python.exe -m playwright install chromium
-outputs/client-visual/venv/Scripts/python.exe -I bench/client_simulation/run.py --distribution outputs/client-visual/dist/testence-0.1.0.dev0-py3-none-any.whl --output outputs/client-visual/new-attempt --repeats 2
+outputs/client-visual/venv/Scripts/python.exe -I bench/client_simulation/run.py --distribution outputs/client-visual/dist/testence-0.1.0a1-py3-none-any.whl --output outputs/client-visual/new-attempt --repeats 2
 outputs/client-visual/venv/Scripts/python.exe -I bench/client_simulation/report.py outputs/client-visual/new-attempt
 ```
 

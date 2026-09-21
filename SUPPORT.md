@@ -1,6 +1,6 @@
 # Support and compatibility
 
-Testence is pre-alpha. The supported development and CI matrix is Windows and Linux,
+Testence is an alpha candidate. The supported development and CI matrix is Windows and Linux,
 Python 3.10 and 3.12, and the Playwright-bundled Chromium browser. macOS, Firefox,
 WebKit, mobile, hosted dashboards and production-data handling are outside the current
 support promise.
