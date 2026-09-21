@@ -28,5 +28,5 @@ The current development tree sanitizes common structured credentials and configu
 Testence credentials before writing text evidence, bounds captured text, validates
 session-cache identity and keeps API authentication on explicit origins. These controls
 do not yet cover arbitrary personal/proprietary text or visual secrets in screenshots.
-Until the full T12 review and cross-platform safety matrix are complete, do not run
+Until the full evidence-redaction review and cross-platform safety matrix are complete, do not run
 Testence against sensitive production data. Review every artifact before sharing it.

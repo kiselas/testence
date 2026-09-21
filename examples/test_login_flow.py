@@ -47,8 +47,7 @@ def signed_in(ex, testence_engine, app):
 def test_login_form_grants_access(ex, signed_in):
     # The only substring assertion in the repository, and it says so: a greeting
     # legitimately wraps the name in other words.
-    ex.expect_text(WHOAMI, USER, intent="dashboard greets the signed-in user",
-                   exact=False)
+    ex.expect_text(WHOAMI, USER, intent="dashboard greets the signed-in user", exact=False)
 
 
 def test_ui_and_api_agree_on_the_user(ex, signed_in, testence_engine, testence_writer):
@@ -66,5 +65,10 @@ def test_widget_oracle_detects_divergence(ex, signed_in, testence_writer):
 
     api_view = signed_in.get("/api/v1/widgets/42").raise_for_status().json
     with pytest.raises(OracleFailed, match="cidr"):
-        verify(testence_writer, "test_widget_oracle_detects_divergence", "widget",
-               {"cidr": "10.0.99.0/24"}, api_view)
+        verify(
+            testence_writer,
+            "test_widget_oracle_detects_divergence",
+            "widget",
+            {"cidr": "10.0.99.0/24"},
+            api_view,
+        )

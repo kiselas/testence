@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from testence.config import Settings
+from testence.config import Settings, SettingsError
 from testence.engine import create_engine
 
 
@@ -213,3 +213,44 @@ def test_session_cache_probe_must_stay_on_base_origin(tmp_path, monkeypatch, pro
 
     with pytest.raises(ValueError, match="root-relative"):
         from_settings(settings)
+
+
+def test_env_file_written_with_a_byte_order_mark_still_defines_its_first_key(tmp_path):
+    """A Windows editor writes a BOM by default.
+
+    Read as plain UTF-8 the mark stays attached to the first key, so credentials in a
+    visibly correct .env silently never arrive and the run reports them as missing.
+    """
+
+    (tmp_path / ".env").write_bytes(
+        "\ufeffTESTENCE_USER=alice\nTESTENCE_PASSWORD=secret\n".encode("utf-8")
+    )
+
+    settings = Settings.load(tmp_path)
+
+    assert settings.credentials().username == "alice"
+
+
+def test_settings_file_with_a_byte_order_mark_loads(tmp_path):
+    (tmp_path / "testence.json").write_bytes('\ufeff{"project_id": "shop"}\n'.encode("utf-8"))
+
+    assert Settings.load(tmp_path).project_id == "shop"
+
+
+def test_invalid_settings_file_names_the_file_and_position(tmp_path):
+    (tmp_path / "testence.json").write_text('{"project_id": "shop",}\n', encoding="utf-8")
+
+    with pytest.raises(SettingsError) as failure:
+        Settings.load(tmp_path)
+
+    message = str(failure.value)
+    assert "testence.json" in message
+    assert "line 1" in message
+
+
+def test_blank_channel_variable_keeps_the_packaged_default(tmp_path, monkeypatch):
+    """An empty .env line means "not chosen here", not "launch without a channel"."""
+
+    monkeypatch.setenv("TESTENCE_BROWSER_CHANNEL", "")
+
+    assert Settings.load(tmp_path).browser_channel == "chromium"

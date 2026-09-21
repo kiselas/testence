@@ -48,6 +48,14 @@ def default_browser_channel() -> str:
     return os.environ.get(f"{ENV_PREFIX}BROWSER_CHANNEL", "").strip() or "chromium"
 
 
+class SettingsError(RuntimeError):
+    """A settings file exists but cannot be read.
+
+    ``RuntimeError`` on purpose: every caller that already reports a runtime failure
+    keeps working, and the message stays the actionable part of the report.
+    """
+
+
 def _default_project_id(root: Path) -> str:
     """Best-effort stable namespace for projects that have not opted in explicitly."""
 
@@ -67,9 +75,16 @@ def _default_project_id(root: Path) -> str:
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:
-    """Minimal KEY=VALUE parser: ``#`` comments, optional ``export``, quoted values."""
+    """Minimal KEY=VALUE parser: ``#`` comments, optional ``export``, quoted values.
+
+    ``utf-8-sig`` because a Windows editor writes a byte-order mark by default. Read as
+    plain ``utf-8`` the mark stays glued to the first key, so ``TESTENCE_USER`` silently
+    never arrives and the run fails with "set TESTENCE_USER" while the file visibly
+    contains it.
+    """
+
     values: dict[str, str] = {}
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    for raw in path.read_text(encoding="utf-8-sig").splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -87,14 +102,24 @@ def _load_settings_file(root: Path) -> dict[str, Any]:
         if not path.exists():
             continue
         if path.suffix == ".json":
-            return json.loads(path.read_text(encoding="utf-8"))
+            try:
+                return json.loads(path.read_text(encoding="utf-8-sig"))
+            except json.JSONDecodeError as exc:
+                # A typo in the settings file is a configuration problem, not a
+                # traceback: name the file and the position the parser stopped at.
+                raise SettingsError(
+                    f"{path} is not valid JSON: {exc.msg} (line {exc.lineno}, column {exc.colno})"
+                ) from exc
         try:
             import tomllib
         except ModuleNotFoundError:  # Python 3.10: TOML needs 3.11+
             raise RuntimeError(
                 f"{name} needs Python 3.11+ for tomllib; use testence.json instead"
             ) from None
-        return tomllib.loads(path.read_text(encoding="utf-8"))
+        try:
+            return tomllib.loads(path.read_text(encoding="utf-8-sig"))
+        except tomllib.TOMLDecodeError as exc:
+            raise SettingsError(f"{path} is not valid TOML: {exc}") from exc
     return {}
 
 
@@ -180,6 +205,11 @@ class Settings:
         merged["debug_port"] = int(merged.get("debug_port", 9222))
         if merged["debug_port"] != 0 and not 1024 <= merged["debug_port"] <= 65535:
             raise ValueError("debug_port must be 0 (ephemeral) or between 1024 and 65535")
+        if not str(merged.get("browser_channel") or "").strip():
+            # An empty TESTENCE_BROWSER_CHANNEL means "nothing chosen here", which is
+            # how a .env line left blank reads. Keep the packaged default instead of
+            # handing an empty channel to the browser.
+            merged["browser_channel"] = default_browser_channel()
         merged["execution_mode"] = str(merged.get("execution_mode", "isolated")).lower()
         if merged["execution_mode"] not in {"isolated", "warm", "attached"}:
             raise ValueError("execution_mode must be isolated, warm, or attached")

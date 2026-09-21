@@ -7,7 +7,9 @@ with what credentials all come from configuration.
 
 1. Explicit flags — `pytest --testence-profile staging --testence-base-url ...`
 2. Process environment — `TESTENCE_*`
-3. `.env.local`, then `.env` in the project root (both git-ignored; `.env.local` wins)
+3. `.env.local`, then `.env` in the project root (both git-ignored; `.env.local` wins).
+   [`.env.example`](../../.env.example) lists every variable Testence reads.
+   Save these files as UTF-8; a byte-order mark is tolerated.
 4. Settings file — `testence.toml` (Python 3.11+) or `testence.json`
 5. Built-in defaults
 

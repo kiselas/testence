@@ -68,8 +68,12 @@ class FormLoginAuth:
             "css", "input[type=email], input[name=email], input[name=username]"
         )
         self.password_target = password_target or Target("css", "input[type=password]")
+        # `form button:not([type])` because a button inside a form submits it by
+        # default: the HTML spec says so, component libraries rely on it, and without
+        # this the first run against an ordinary `<button>Log in</button>` failed with
+        # a bare element-not-found timeout.
         self.submit_target = submit_target or Target(
-            "css", "button[type=submit], input[type=submit]"
+            "css", "button[type=submit], input[type=submit], form button:not([type])"
         )
         self.success_url_contains = success_url_contains
         self.success_target = success_target

@@ -31,9 +31,9 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked --extra dev --extra parallel --extra visual
       - name: Check formatting
-        run: uv run ruff format --check src tests bench scripts
+        run: uv run ruff format --check src tests bench scripts examples
       - name: Lint
-        run: uv run ruff check src tests bench scripts
+        run: uv run ruff check src tests bench scripts examples
       - name: Type-check
         run: uv run mypy src scripts
       - name: Validate schemas, documentation and frozen corpus
@@ -86,6 +86,11 @@ jobs:
         run: uv run playwright install chromium
       - name: Run test suite
         run: uv run pytest -q
+      - name: Run the documented examples
+        # `testpaths` covers tests/ only, so a broken example reached the published
+        # quick start without any job failing. These are the commands the README
+        # hands a new reader, so CI runs exactly them.
+        run: uv run pytest examples -q --testence-headless
 
   minimum-dependencies:
     name: Minimum dependencies / Python 3.10

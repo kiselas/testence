@@ -74,7 +74,7 @@ def test_doctor_is_machine_readable_and_checks_required_runtime(tmp_path):
         "python",
         "settings",
         "schemas",
-        "chromium",
+        "browser",
         "workspace",
     }
     assert all("PASSWORD" not in item["detail"] for item in result["checks"])

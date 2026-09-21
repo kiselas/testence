@@ -14,6 +14,7 @@ the page at the failure state IS evidence.
 from __future__ import annotations
 
 import re
+import socket
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
@@ -47,6 +48,9 @@ _TAP_BYTE_CAP = 8 * 1024 * 1024
 #: poll. It is still a floor on how late an already completed mutation is observed:
 #: 50 ms was visible on fast React APIs, while 10 ms stays cheap and responsive.
 _POLL_MS = 10
+#: Any scheme means the caller addressed a document directly: http(s), file, data,
+#: about. Matching only "http"/"file:" prefixed base_url onto everything else.
+_URL_SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 #: Verbs that must never be accepted as a URL fragment: see wait_for_request.
 _HTTP_VERBS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"})
 
@@ -67,6 +71,22 @@ _REDUCE_MOTION_JS = """(() => {
     if (document.documentElement) inject();
     else document.addEventListener('DOMContentLoaded', inject);
 })();"""
+
+
+def _free_tcp_port() -> int:
+    """A port the operating system is currently willing to hand out.
+
+    ``--remote-debugging-port=0`` lets the browser choose, but it reports the choice
+    only inside its own profile directory, which Playwright creates somewhere the
+    caller never learns. The triage manifest then advertises ``127.0.0.1:0``, which no
+    CDP client can attach to, and the documented way to run isolated browsers side by
+    side silently loses the "attach to the failure" promise. Pick the port here so the
+    manifest names an endpoint that works.
+    """
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return int(probe.getsockname()[1])
 
 
 class PlaywrightCdpEngine(Engine):
@@ -156,6 +176,23 @@ class PlaywrightCdpEngine(Engine):
         # one engine object for more than one start/stop cycle.
         self._launched_here = False
         self._owns_context = False
+        try:
+            self._open_session()
+        except BaseException:
+            # A start that fails halfway still owns a driver process, and often a
+            # browser: the channel is unavailable, the debug port is taken, the
+            # browser was never installed. Callers put `engine.stop()` in a finally
+            # that only guards a successful start, so without this the processes
+            # outlive every failed run and accumulate across a suite.
+            self.stop()
+            self._pw = None
+            self._browser = None
+            self._context = None
+            raise
+
+    def _open_session(self) -> None:
+        if not self.cdp_url and self.debug_port == 0:
+            self.debug_port = _free_tcp_port()
         playwright = sync_playwright().start()
         self._pw = playwright
         if self.test_id_attribute:
@@ -474,7 +511,16 @@ class PlaywrightCdpEngine(Engine):
     # -- actions -------------------------------------------------------------
 
     def goto(self, url: str) -> None:
-        full = url if url.startswith(("http", "file:")) else f"{self.base_url}{url}"
+        absolute = bool(_URL_SCHEME.match(url))
+        if not absolute and not self.base_url:
+            # Otherwise the missing configuration surfaces much later as a browser
+            # navigation error against a path with nothing in front of it.
+            raise RuntimeError(
+                f"cannot open {url!r}: no base_url is configured. Set base_url in "
+                "testence.json, TESTENCE_BASE_URL in the environment, or pass an "
+                "absolute URL."
+            )
+        full = url if absolute else f"{self.base_url}{url}"
         # "domcontentloaded", not the default "load": load waits for every
         # secondary resource (fonts, images, dev-server chunks), which on a slow
         # target can time out on assets no test cares about. Readiness is decided by
@@ -636,6 +682,9 @@ class PlaywrightCdpEngine(Engine):
         self._page = pages[index]
         self._scope = self._page
         self._js_scope = self._page
+        # Without this the new page records no network, console or websocket
+        # evidence, and a pack for a second tab looks like nothing ever happened.
+        self._attach_taps(self._page)
 
     def click_with_dialog(
         self, target: Target, *, accept: bool = True, prompt: str | None = None

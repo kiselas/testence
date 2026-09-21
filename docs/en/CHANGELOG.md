@@ -5,6 +5,38 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ## Unreleased
 
+### Fixed
+
+- Evidence: a network capture holding more than one request was redacted by text rules
+  only, so a credential field inside a request body could reach `network.jsonl` in clear
+  text. JSON Lines are now redacted record by record.
+- Lifecycle: a browser start that failed halfway left its Playwright driver process
+  running, one per failed run. `start()` now releases what it created.
+- `switch_page()` did not re-attach the evidence taps, so a second tab produced an
+  empty network and console section.
+- `TESTENCE_DEBUG_PORT=0` advertised `127.0.0.1:0` in the triage manifest. The engine
+  now resolves a real free port, so the failure browser stays attachable.
+- `.env`, `testence.json` and `testence.toml` are read as UTF-8 with an optional
+  byte-order mark, so a file saved by a Windows editor no longer loses its first key.
+- An unparsable settings file reports the file and the position instead of a traceback,
+  and a relative navigation without `base_url` names the missing setting.
+- An empty `TESTENCE_BROWSER_CHANNEL` keeps the packaged default instead of launching
+  with no channel.
+- The default form-login submit target also matches `<button>` without an explicit
+  `type`, which submits its form per the HTML specification.
+
+### Changed
+
+- `testence init` writes the readiness mapping its generated plan needs, so
+  `plan prepare` reports `ready` for a freshly initialized project.
+- `testence doctor` starts the configured browser channel instead of checking that a
+  bundled executable path exists, and reports the command that fixes a failure. The
+  check is named `browser`.
+- `testence --version` prints the installed version.
+- README links are absolute, so they resolve on PyPI, and the quick start follows the
+  `pip install testence` path that needs no clone.
+- CI runs and lints `examples/`, which the published quick start points at.
+
 - `TESTENCE_BROWSER_CHANNEL` now also sets the default for `Settings` and engines
   constructed directly, so a host whose bundled Chromium cannot start can run the
   browser tests on `msedge` or `chromium-headless-shell`; explicit arguments and CI

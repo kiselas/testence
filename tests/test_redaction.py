@@ -86,3 +86,65 @@ def test_canary_is_absent_from_ledger_pack_report_and_exports(tmp_path):
     combined = "\n".join(path.read_text(encoding="utf-8") for path in persisted)
     assert canary not in combined
     assert REDACTED in combined
+
+
+class _MultiRequestEngine:
+    """A capture with more than one request: the ordinary shape of a real failure."""
+
+    def __init__(self, unknown_secret: str) -> None:
+        self.unknown_secret = unknown_secret
+
+    def settle(self, timeout_ms: int = 1_500) -> bool:
+        return True
+
+    def aria_snapshot(self) -> str:
+        return '- button "Save"'
+
+    def network_log(self) -> list[NetRecord]:
+        return [
+            NetRecord(
+                "POST",
+                "https://app.example.test/api/login",
+                200,
+                0.0,
+                5.0,
+                request_body=f'{{"user":"alice","password":"{self.unknown_secret}"}}',
+                response_body=f'{{"access_token":"{self.unknown_secret}"}}',
+            ),
+            NetRecord("GET", "https://app.example.test/api/me", 200, 0.0, 3.0),
+        ]
+
+    def console_log(self) -> list[dict[str, Any]]:
+        return []
+
+    def screenshot(self, path: str) -> None:
+        Path(path).write_bytes(b"")
+
+    def browser_manifest(self) -> dict[str, Any]:
+        return {"cdp_endpoint": "http://127.0.0.1:9222", "page_url": "https://app.example.test"}
+
+
+def test_credential_fields_are_redacted_in_a_multi_request_capture(tmp_path):
+    """A second request must not disable key-based redaction for the whole capture.
+
+    The pack writes network evidence as JSON Lines. Sanitizing the joined blob as one
+    JSON document only succeeded for a single record; every larger capture fell back to
+    text rules that cannot see an already escaped ``password`` field.
+    """
+
+    secret = "never-configured-2f7c"
+    writer = EvidenceWriter(tmp_path, run_id="r-multi", worker="", redact_values=[])
+    pack = assemble_pack(
+        _MultiRequestEngine(secret),
+        writer,
+        "test_multi_request",
+        error="save failed",
+    )
+    writer.close()
+
+    network = (pack / "network.jsonl").read_text(encoding="utf-8")
+    assert secret not in network
+    assert network.count("\n") == 1, "every captured record stays its own line"
+    assert REDACTED in network
+    persisted = [path for path in tmp_path.rglob("*") if path.suffix in {".json", ".jsonl"}]
+    assert secret not in "\n".join(path.read_text(encoding="utf-8") for path in persisted)

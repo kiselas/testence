@@ -31,10 +31,11 @@ The supported development platforms are Windows and Linux with Python 3.10 or ne
 ## Required checks
 
 ```bash
-uv run ruff format --check src tests bench scripts
-uv run ruff check src tests bench scripts
+uv run ruff format --check src tests bench scripts examples
+uv run ruff check src tests bench scripts examples
 uv run mypy src scripts
 uv run pytest -q
+uv run pytest examples -q --testence-headless
 ```
 
 Run the narrowest relevant benchmark when changing waits, engine behaviour, evidence

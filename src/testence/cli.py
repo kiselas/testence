@@ -17,6 +17,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from types import ModuleType
 
+from . import __version__
 from .metrics import write_metrics
 from .report.html import render_report
 
@@ -194,7 +195,23 @@ def _watch(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="testence")
+    parser = argparse.ArgumentParser(
+        prog="testence",
+        description="Agent-first browser testing with evidence-backed verdicts.",
+        epilog=(
+            "Start here: doctor, init, run, inspect, report.\n"
+            "Authoring: plan, capabilities, watch, bench, demo, agent.\n"
+            "Results: export, metrics, verdict, repair, quality, ci, delivery.\n"
+            "Testence maintainers only: corpus, release.\n"
+            "\n"
+            "Exit codes: 0 success, 1 unexpected failure, 2 invalid input or "
+            "configuration, 3 a valid answer that blocks the caller (blocked "
+            "readiness, failed check, no-go decision)."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    # Alpha software: every bug report starts with "which version".
+    parser.add_argument("--version", action="version", version=f"testence {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_metrics = sub.add_parser("metrics", help="aggregate metrics.json from run dirs")
@@ -202,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
     p_metrics.add_argument("-o", "--out", type=Path, default=Path("metrics.json"))
 
     p_report = sub.add_parser("report", help="render a self-contained HTML report")
-    p_report.add_argument("run_dir", type=Path)
+    p_report.add_argument("run_dir", type=Path, help="run directory to render")
     p_report.add_argument("-o", "--out", type=Path, default=None)
 
     p_export = sub.add_parser("export", help="render an integration format from a run")
@@ -259,12 +276,12 @@ def main(argv: list[str] | None = None) -> int:
     p_plan = sub.add_parser("plan", help="validate and inspect a PlanSpec")
     plan_sub = p_plan.add_subparsers(dest="plan_command", required=True)
     p_plan_validate = plan_sub.add_parser("validate", help="validate a PlanSpec")
-    p_plan_validate.add_argument("path", type=Path)
+    p_plan_validate.add_argument("path", type=Path, help="PlanSpec markdown or JSON file")
     p_plan_validate.add_argument("--json", dest="json_output", action="store_true")
     p_plan_prepare = plan_sub.add_parser(
         "prepare", help="check scenario readiness before browser authoring"
     )
-    p_plan_prepare.add_argument("path", type=Path)
+    p_plan_prepare.add_argument("path", type=Path, help="PlanSpec markdown or JSON file")
     p_plan_prepare.add_argument("--project", type=Path, default=Path("."))
     p_plan_prepare.add_argument("--profile", default=None)
     p_plan_prepare.add_argument("--backend", default="playwright-cdp")
@@ -336,20 +353,24 @@ def main(argv: list[str] | None = None) -> int:
     p_delivery_run.add_argument("cmd", nargs=argparse.REMAINDER)
 
     p_doctor = sub.add_parser("doctor", help="check the local Testence runtime")
-    p_doctor.add_argument("--root", type=Path, default=Path("."))
+    p_doctor.add_argument("--root", type=Path, default=Path("."), help="project directory to check")
     p_doctor.add_argument("--json", dest="json_output", action="store_true")
 
     p_init = sub.add_parser("init", help="create a conflict-safe onboarding scaffold")
-    p_init.add_argument("path", type=Path, nargs="?", default=Path("."))
+    p_init.add_argument(
+        "path", type=Path, nargs="?", default=Path("."), help="project directory to scaffold"
+    )
     p_init.add_argument("--json", dest="json_output", action="store_true")
 
     p_run = sub.add_parser("run", help="run the explicit Testence scope")
-    p_run.add_argument("--project", type=Path, default=Path("."))
-    p_run.add_argument("--run-id", default=None)
+    p_run.add_argument(
+        "--project", type=Path, default=Path("."), help="project whose scaffold to run"
+    )
+    p_run.add_argument("--run-id", default=None, help="explicit run id; generated when omitted")
     p_run.add_argument("pytest_args", nargs=argparse.REMAINDER)
 
     p_inspect = sub.add_parser("inspect", help="inspect one explicit run directory")
-    p_inspect.add_argument("run_dir", type=Path)
+    p_inspect.add_argument("run_dir", type=Path, help="run directory, for example runs/r-123")
     p_inspect.add_argument("--json", dest="json_output", action="store_true")
 
     p_demo = sub.add_parser("demo", help="run the deterministic green/failure proof demo")
@@ -399,7 +420,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_agent_verify.add_argument("--json", dest="json_output", action="store_true")
 
-    p_corpus = sub.add_parser("corpus", help="validate the frozen correctness corpus")
+    p_corpus = sub.add_parser(
+        "corpus", help="Testence maintainers: validate the frozen correctness corpus"
+    )
     corpus_sub = p_corpus.add_subparsers(dest="corpus_command", required=True)
     p_corpus_validate = corpus_sub.add_parser("validate", help="validate corpus structure/freeze")
     p_corpus_validate.add_argument("path", type=Path)
@@ -407,7 +430,9 @@ def main(argv: list[str] | None = None) -> int:
     p_corpus_validate.add_argument("--structure-only", action="store_true")
     p_corpus_validate.add_argument("--json", dest="json_output", action="store_true")
 
-    p_release = sub.add_parser("release", help="validate a release decision manifest")
+    p_release = sub.add_parser(
+        "release", help="Testence maintainers: validate a release decision manifest"
+    )
     release_sub = p_release.add_subparsers(dest="release_command", required=True)
     p_release_validate = release_sub.add_parser("validate", help="validate manifest and evidence")
     p_release_validate.add_argument("path", type=Path)

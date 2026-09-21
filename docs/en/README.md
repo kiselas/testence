@@ -1,48 +1,50 @@
 # Testence documentation
 
-Latest audit and proposed QA-oriented release specification (2026-09-06, in Russian):
-[audit](../audits/2026-09-06/audit.md), [release scope and acceptance](../audits/2026-09-06/release-spec.md),
-[adoption plan](../audits/2026-09-06/adoption.md). These distinguish current implementation from release requirements.
+## Use Testence
 
-## Start here
-
-- [Product positioning](product-positioning.md)
-- [Agent workflow](agent-workflow.md)
-- [Portable Agent Skills](agent-skills.md)
-- [Architecture](architecture.md)
-- [Roadmap](roadmap.md)
-- [Project audit](project-audit.md)
-- [Competitive landscape](competitive-landscape.md)
-
-## Launch artifacts
-
-- [Launch Thesis](launch-thesis.md) — user, wedge, advantages, gates, and safe agent-skill
-  updates
-- [DemoSpec](demo-spec.md) — the reproducible “green UI, data not saved” killer demo
-- [Launch Benchmark Protocol](benchmark/launch-protocol.md) — correctness-first
-  comparison, frozen corpus, and rules for public claims
-
-## User and contributor guides
-
-- [Testing a UI feature](testing-a-feature.md)
+- [Testing a UI feature](testing-a-feature.md) — the full workflow, start here
 - [Configuration](configuration.md)
-- [Engine capabilities and strict actions](engine-capabilities.md)
-- [Multi-project quality packs](quality-packs.md)
 - [Authentication](auth.md)
-- [Evidence schema](evidence-schema.md)
+- [Engine capabilities and strict actions](engine-capabilities.md)
 - [Reporting and exporters](reporting.md)
+- [Evidence schema](evidence-schema.md)
+- [Multi-project quality packs](quality-packs.md)
 - [Compute kernels](kernels.md)
 - [Changelog](CHANGELOG.md)
-- [Open-source readiness](open-source-readiness.md)
 - [Support policy](../../SUPPORT.md)
-- [Pilot protocol](pilot-protocol.md)
-- [90-second demo recording script](demo-video-script.md)
 
-## Design and measurement
+## Work with agents
 
+- [Agent workflow](agent-workflow.md)
+- [Portable Agent Skills](agent-skills.md)
+
+## Understand the design
+
+- [Architecture](architecture.md)
 - [Architecture decision records](adr/README.md)
+- [Product positioning](product-positioning.md)
+- [Roadmap](roadmap.md)
+- [Competitive landscape](competitive-landscape.md)
+
+## Measurement and claims
+
+- [Launch Benchmark Protocol](benchmark/launch-protocol.md) — correctness-first
+  comparison, frozen corpus, and the rules a public claim must satisfy
 - [Benchmark corpus](benchmark/corpus.md)
 - [Synthetic failure taxonomy](benchmark/taxonomy.md)
 - [Competitive benchmark](benchmark/competitive.md)
+- [DemoSpec](demo-spec.md) — the reproducible "green UI, data not saved" demo
+- [90-second demo recording script](demo-video-script.md)
+
+## Engineering records
+
+These describe how the project is built and released, not how to use it. They are
+working documents, partly in Russian, and they are not a support promise.
+
+- [Launch Thesis](launch-thesis.md)
+- [Project audit](project-audit.md)
+- [Open-source readiness](open-source-readiness.md)
+- [Pilot protocol](pilot-protocol.md)
+- [Audits](../audits/2026-09-13/README.md) and [release stages](../stages/03-r1-release/README.md)
 
 [Русская документация](../ru/README.md)

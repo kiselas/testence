@@ -102,3 +102,15 @@ def test_publish_workflow_does_not_interpolate_manual_inputs_in_shell() -> None:
     assert "${{ inputs." not in run_blocks
     assert "CANDIDATE_SHA: ${{ inputs.candidate_sha }}" in workflow
     assert "RELEASE_TAG: ${{ inputs.tag }}" in workflow
+
+
+def test_documented_skill_pack_version_matches_the_shipped_pack() -> None:
+    """The docs quoted a pack version two releases behind what `agent install` writes."""
+
+    pack = json.loads((ROOT / "src/testence/agent/skill-pack.json").read_text(encoding="utf-8"))
+    version = pack["version"]
+
+    for relative in ("docs/en/agent-skills.md", "docs/ru/agent-skills.md"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        quoted = re.findall(r"`testence/skill-pack/1`, (?:version|версия) `([^`]+)`", text)
+        assert quoted == [version], f"{relative} documents {quoted}, pack ships {version}"

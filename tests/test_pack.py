@@ -90,8 +90,15 @@ def test_pack_contains_every_section_an_agent_needs(tmp_path):
 
     # The network ledger must carry the failing response body — that is usually the
     # single most decisive piece of evidence.
-    network = (pack / "network.jsonl").read_text(encoding="utf-8")
-    assert '"status": 500' in network and "boom" in network
+    # Parsed, not matched as text: records are redacted and re-serialized, so the
+    # assertion is about the evidence, not about the spacing it was written with.
+    records = [
+        json.loads(line)
+        for line in (pack / "network.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    failed = [record for record in records if record["status"] == 500]
+    assert failed and "boom" in failed[0]["resp"]
     assert "cdp_endpoint" in (pack / "browser.json").read_text(encoding="utf-8")
 
     manifest = json.loads((pack / "manifest.json").read_text(encoding="utf-8"))

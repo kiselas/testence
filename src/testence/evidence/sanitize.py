@@ -67,6 +67,46 @@ def sanitize_text(
     return _clip(safe, limit)
 
 
+def _sanitize_json_lines(value: str, *, secrets: Iterable[str], limit: int) -> str | None:
+    """Redact JSON Lines record by record, or return ``None`` when this is not JSONL.
+
+    Network evidence is one JSON object per line (``dump_net``), so a capture with
+    more than one request is not a single JSON document. Without this path the whole
+    blob fell back to regex-only text redaction, where a body field already escaped
+    once as ``\\"password\\":\\"...\\"`` no longer matches the assignment pattern and
+    the value reached ``network.jsonl`` in clear text. Key-based redaction must apply
+    to every record, not only to a capture that happens to hold exactly one.
+    """
+
+    lines = value.splitlines()
+    if len(lines) < 2:
+        return None
+    documents: list[str] = []
+    parsed_any = False
+    for line in lines:
+        if not line.strip():
+            documents.append(line)
+            continue
+        try:
+            document = json.loads(line)
+        except (json.JSONDecodeError, RecursionError):
+            # A truncated or interleaved line still gets the text policy; one
+            # unparsable record must not disable structural redaction for the rest.
+            documents.append(sanitize_text(line, secrets=secrets, limit=limit))
+            continue
+        parsed_any = True
+        documents.append(
+            json.dumps(
+                sanitize(document, secrets=secrets, limit=limit),
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        )
+    if not parsed_any:
+        return None
+    return _clip("\n".join(documents), limit)
+
+
 def sanitize(
     value: Any,
     *,
@@ -96,7 +136,9 @@ def sanitize(
             try:
                 document = json.loads(value)
             except (json.JSONDecodeError, RecursionError):
-                pass
+                as_lines = _sanitize_json_lines(value, secrets=secrets, limit=limit)
+                if as_lines is not None:
+                    return as_lines
             else:
                 return _clip(
                     json.dumps(

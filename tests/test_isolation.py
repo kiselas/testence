@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
+from urllib.request import urlopen
 
 import pytest
 
@@ -122,3 +124,83 @@ def test_attached_reset_never_closes_or_replaces_foreign_context():
 
     assert engine._context is context
     assert context.closed == 0
+
+
+def test_failed_start_releases_the_driver_it_already_created(monkeypatch):
+    """A start that raises must not leave the Playwright driver process running.
+
+    ``testence_engine`` calls ``start()`` before the ``try`` that owns ``stop()``, so
+    an engine that raised while launching was never cleaned up by anyone. A wrong
+    browser channel or an occupied debug port then leaked one driver per failed run.
+    """
+
+    stopped: list[str] = []
+
+    class _Chromium:
+        def launch(self, **kwargs: object) -> object:
+            raise RuntimeError("Executable doesn't exist: chrome.exe")
+
+    class _Playwright:
+        chromium = _Chromium()
+        selectors = None
+
+        def stop(self) -> None:
+            stopped.append("driver")
+
+    class _Driver:
+        def start(self) -> _Playwright:
+            return _Playwright()
+
+    monkeypatch.setattr("testence.engine.playwright_cdp.sync_playwright", lambda: _Driver())
+    engine = PlaywrightCdpEngine(base_url="http://127.0.0.1:1", test_id_attribute="")
+
+    with pytest.raises(RuntimeError, match="Executable doesn't exist"):
+        engine.start()
+
+    assert stopped == ["driver"], "the driver started by the failed attempt is released"
+
+
+def test_ephemeral_debug_port_resolves_to_an_attachable_endpoint():
+    """`TESTENCE_DEBUG_PORT=0` is the documented way to run isolated browsers together.
+
+    The browser reports the port it picked only inside its own temporary profile, so
+    the triage manifest advertised `127.0.0.1:0`, which no CDP client can attach to.
+    """
+
+    engine = PlaywrightCdpEngine(headed=False, debug_port=0)
+    engine.start()
+    try:
+        endpoint = engine.browser_manifest()["cdp_endpoint"]
+        assert not endpoint.endswith(":0")
+        with urlopen(endpoint + "/json/version", timeout=10) as response:
+            assert json.load(response)["Browser"]
+    finally:
+        engine.stop()
+
+
+def test_relative_navigation_without_a_base_url_names_the_missing_setting():
+    engine = PlaywrightCdpEngine()
+
+    with pytest.raises(RuntimeError, match="no base_url is configured"):
+        engine.goto("/login")
+
+
+def test_switching_to_another_tab_keeps_capturing_evidence():
+    """`click_and_popup` re-attached the taps; `switch_page` did not.
+
+    A test that opens its own second tab then produced an evidence pack whose network
+    and console sections were empty, which reads as "nothing happened".
+    The tap keeps errors and warnings, so the probe raises a console error.
+    """
+
+    engine = PlaywrightCdpEngine(headed=False, debug_port=0)
+    engine.start()
+    try:
+        engine.goto("data:text/html,<p>first tab</p>")
+        engine._context.new_page()
+        engine.switch_page(1)
+        engine.goto("data:text/html,<script>console.error('second tab speaks')</script>")
+
+        assert any("second tab speaks" in message["text"] for message in engine.console_log())
+    finally:
+        engine.stop()

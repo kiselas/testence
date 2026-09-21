@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from testence import __version__
-from testence.config import Settings
+from testence.config import Settings, default_browser_channel
 from testence.contracts import SCHEMA_INVENTORY, load_plan, load_verdict
 from testence.contracts.versions import DEMO_RUN_SCHEMA, SCAFFOLD_SCHEMA, SUBMISSION_SCHEMA
 from testence.export import LoadedRun
@@ -62,7 +62,29 @@ def _scaffold(project_id: str) -> dict[str, bytes]:
                 "screenshots": True,
                 "body_content_types": ["application/json"],
                 "body_cap_bytes": 65536,
-            }
+            },
+            # `plan prepare` is strict on purpose: a scenario with no declared
+            # prerequisites is a scenario nobody has thought about. The scaffold
+            # therefore ships the mapping it needs, so the generated plan reports
+            # `ready` instead of teaching new projects that the gate always blocks.
+            # The onboarding run owns its loopback server, so the only real
+            # prerequisite is the generated test file itself.
+            "readiness": {
+                "schema": "testence/readiness/1",
+                "oracle_adapters": ["custom"],
+                "checks": [
+                    {
+                        "id": "onboarding-test",
+                        "type": "file",
+                        "path": ".testence/examples/test_onboarding.py",
+                    }
+                ],
+                "scenarios": {
+                    "synthetic-proof": ["onboarding-test"],
+                    "intentional-failure": ["onboarding-test"],
+                    "harmless-change": ["onboarding-test"],
+                },
+            },
         },
     }
     plan = f'''# Testence synthetic proof
@@ -353,9 +375,41 @@ def init_project(root: Path | str) -> dict[str, Any]:
         raise ApplicationError(f"cannot initialize project transaction: {exc}") from exc
 
 
+#: `playwright._impl._errors.Error: BrowserType.launch: Executable doesn't exist ...`
+_EXCEPTION_LINE = re.compile(r"^(?:[\w.]+\.)?\w*(?:Error|Exception):\s*(.+)$")
+
+
+def _browser_failure(stderr: str) -> str:
+    """The one line of a Playwright launch failure worth putting in a report.
+
+    The message sits at the end of the traceback, before Playwright's advice box,
+    so scan backwards for the exception rather than forwards into stack frames.
+    """
+
+    lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    for line in reversed(lines):
+        match = _EXCEPTION_LINE.match(line)
+        if match:
+            return match.group(1)[:200]
+    for line in lines:
+        if not line.startswith(("Traceback", "File ", "╔", "║", "╚")):
+            return line[:200]
+    return "browser did not start"
+
+
+def _browser_fix(channel: str) -> str:
+    if channel in {"chromium", "chromium-headless-shell"}:
+        return f"python -m playwright install {channel}"
+    return (
+        f"install the {channel!r} browser, or point Testence at another one with "
+        "TESTENCE_BROWSER_CHANNEL"
+    )
+
+
 def doctor(root: Path | str) -> dict[str, Any]:
     project = Path(root).resolve()
     checks: list[dict[str, Any]] = []
+    browser_channel = default_browser_channel()
 
     def check(name: str, ok: bool, detail: str) -> None:
         checks.append({"name": name, "ok": ok, "detail": detail})
@@ -363,6 +417,7 @@ def doctor(root: Path | str) -> dict[str, Any]:
     check("python", sys.version_info >= (3, 10), platform_python())
     try:
         settings = Settings.load(project)
+        browser_channel = settings.browser_channel
         check("settings", True, f"project_id={settings.project_id or 'unconfigured'}")
     except Exception as exc:
         check("settings", False, f"{type(exc).__name__}: {exc}")
@@ -374,27 +429,38 @@ def doctor(root: Path | str) -> dict[str, Any]:
         check("schemas", False, f"{type(exc).__name__}: {exc}")
     try:
         version = importlib.metadata.version("playwright")
+        # Start the browser the project is configured to use, rather than checking that
+        # a bundled executable path exists. A present file that cannot launch is the
+        # failure people actually hit, and a project on `chrome`/`msedge` was reported
+        # as broken while its runs worked.
         browser_probe = subprocess.run(
             [
                 sys.executable,
                 "-c",
-                "from playwright.sync_api import sync_playwright; "
-                "p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()",
+                "import sys\n"
+                "from playwright.sync_api import sync_playwright\n"
+                "with sync_playwright() as p:\n"
+                "    browser = p.chromium.launch(channel=sys.argv[1], headless=True)\n"
+                "    print(browser.version)\n"
+                "    browser.close()\n",
+                browser_channel,
             ],
             text=True,
             capture_output=True,
             check=False,
-            timeout=15,
+            timeout=90,
         )
-        executable = Path(browser_probe.stdout.strip())
-        check(
-            "chromium",
-            browser_probe.returncode == 0 and executable.is_file(),
-            f"playwright={version}; "
-            f"{executable if browser_probe.returncode == 0 else 'driver failed'}",
-        )
+        started = browser_probe.returncode == 0
+        detail = f"playwright={version}; channel={browser_channel}"
+        if started:
+            detail += f"; {browser_probe.stdout.strip()}"
+        else:
+            detail += (
+                f"; {_browser_failure(browser_probe.stderr)}; fix: {_browser_fix(browser_channel)}"
+            )
+        check("browser", started, detail)
     except Exception as exc:
-        check("chromium", False, f"{type(exc).__name__}: {exc}")
+        check("browser", False, f"{type(exc).__name__}: {exc}")
     try:
         relative_probe = f".testence/doctor-{os.getpid()}.tmp"
         workspace_probe = _atomic_write(project, relative_probe, b"ok")

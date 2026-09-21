@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/testence-mark.svg" width="96" alt="Testence logo">
+  <img src="https://raw.githubusercontent.com/kiselas/testence/main/docs/assets/testence-mark.svg" width="96" alt="Testence logo">
 </p>
 
 <h1 align="center">Testence</h1>
@@ -11,19 +11,20 @@
 
 <p align="center">
   <a href="https://github.com/kiselas/testence/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/kiselas/testence/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://pypi.org/project/testence/"><img alt="PyPI" src="https://img.shields.io/pypi/v/testence?color=3775A9&amp;logo=pypi&amp;logoColor=white"></a>
   <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&amp;logoColor=white">
-  <a href="LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/License-Apache--2.0-6C63FF"></a>
+  <a href="https://github.com/kiselas/testence/blob/main/LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/License-Apache--2.0-6C63FF"></a>
   <img alt="Status: alpha candidate" src="https://img.shields.io/badge/status-alpha%20candidate-F59E0B">
 </p>
 
 <p align="center">
-  <a href="docs/en/README.md">English docs</a> ·
-  <a href="docs/ru/README.md">Документация на русском</a> ·
-  <a href="docs/en/demo-spec.md">Demo contract</a> ·
-  <a href="docs/en/benchmark/launch-protocol.md">Benchmark protocol</a>
+  <a href="https://github.com/kiselas/testence/blob/main/docs/en/README.md">English docs</a> ·
+  <a href="https://github.com/kiselas/testence/blob/main/docs/ru/README.md">Документация на русском</a> ·
+  <a href="https://github.com/kiselas/testence/blob/main/docs/en/demo-spec.md">Demo contract</a> ·
+  <a href="https://github.com/kiselas/testence/blob/main/docs/en/benchmark/launch-protocol.md">Benchmark protocol</a>
 </p>
 
-The machine-readable [support matrix](support.json) is the source of truth for the
+The machine-readable [support matrix](https://github.com/kiselas/testence/blob/main/support.json) is the source of truth for the
 declared Python, operating-system and dependency floors. Hosted receipts for the exact
 clean candidate are still required before a platform is called release-verified.
 
@@ -62,13 +63,42 @@ explicit contracts that another agent, a reviewer or policy can verify.
 ## Quick start
 
 ```bash
+pip install testence
+python -m playwright install chromium
+
+testence doctor
+testence init .
+testence plan prepare .testence/specs/onboarding.md --project .
+testence run --project . --run-id r-onboarding
+testence inspect runs/r-onboarding
+```
+
+`testence init` writes `testence.json` and a `.testence/` scaffold: one synthetic plan and
+the tests that prove the loop. The scaffold is deliberately kept out of your existing
+pytest paths, so initialization never opts your current suite into Testence. Conflicting
+files are left untouched.
+
+Render the run as a single self-contained HTML file, or run the complete green/failure
+demo and both reports with one command:
+
+```bash
+testence report runs/r-onboarding
+testence demo run --project testence-demo --json
+```
+
+Every command that takes `--json` also prints a readable summary without it. `doctor`
+exits 2 when a check fails, `plan prepare` exits 3 when a scenario is blocked and 2 when
+the plan or configuration is invalid.
+
+### From a clone
+
+```bash
 git clone git@github.com:kiselas/testence.git
 cd testence
 uv sync --locked --extra dev --extra parallel
 uv run playwright install chromium
 
 uv run testence plan validate examples/specs/target-page.md --json
-uv run testence plan prepare examples/specs/target-page.md --project . --json
 uv run pytest examples -q --testence-headless
 ```
 
@@ -107,32 +137,15 @@ After reviewing a blocked report, `plan prepare --apply-fixes` runs only the exp
 configured argument arrays without a shell and checks the failed prerequisites again.
 Command output is discarded from the receipt so credentials cannot leak through tool logs.
 
-For a wheel-only onboarding check in a new or existing project:
-
-```bash
-testence doctor --json
-testence init . --json
-testence run --project . --run-id r-onboarding
-testence inspect runs/r-onboarding --json
-```
-
-Or run the complete portable green/failure demo and render both local reports with one
-command:
-
-```bash
-testence demo run --project testence-demo --json
-```
-
-The scaffold lives under `.testence/` and is not added to the existing pytest suite;
-the default `testence run` selects it explicitly. Every generated file is bound by a
-scaffold manifest, and conflicting user files are left untouched.
+Every generated file is bound by a scaffold manifest, and the machine-readable form of
+each command above is available with `--json`.
 
 Every failed test produces a bounded evidence pack containing the relevant UI state,
 network and console signals, intent-bearing steps, independent oracle observations and
 a verdict template. Render a standalone report with:
 
 ```bash
-uv run testence report runs/<run-id>
+testence report runs/<run-id>
 ```
 
 To integrate a real application, define a target profile in `testence.json`, keep
@@ -142,7 +155,7 @@ credentials in environment variables or `.env.local`, and run ordinary pytest:
 TESTENCE_PROFILE=staging uv run pytest tests_e2e -q
 ```
 
-Follow [Testing a UI feature](docs/en/testing-a-feature.md) for the full workflow.
+Follow [Testing a UI feature](https://github.com/kiselas/testence/blob/main/docs/en/testing-a-feature.md) for the full workflow.
 
 ## Fast agent authoring
 
@@ -166,9 +179,9 @@ processes remain the required path for CI and release validation.
 On the maintained production-built React profile, warm engine reuse reduced bootstrap
 p50 from **2,808 ms to 447 ms** (−84.1%) and whole-run p50 from **3,447 ms to
 1,133 ms** (−67.1%). See the
-[result snapshot](bench/results/warm_runner_latency.md),
-[machine-readable budget](bench/budgets/warm_runner_latency.json) and
-[ADR-0018](docs/en/adr/0018-warm-authoring-runner.md). Numbers are local engineering
+[result snapshot](https://github.com/kiselas/testence/blob/main/bench/results/warm_runner_latency.md),
+[machine-readable budget](https://github.com/kiselas/testence/blob/main/bench/budgets/warm_runner_latency.json) and
+[ADR-0018](https://github.com/kiselas/testence/blob/main/docs/en/adr/0018-warm-authoring-runner.md). Numbers are local engineering
 evidence, not a cross-machine performance promise.
 
 ## Evidence, not runtime magic
@@ -219,13 +232,13 @@ The package ships portable skills for four bounded jobs:
 
 The same versioned skill pack is designed for Codex/ChatGPT, Claude Code, OpenCode and
 other Agent Skills clients. Client adapters stay thin; the contracts remain portable.
-Start from [AGENTS.md](AGENTS.md), the shared entry point for any coding agent.
+Start from [AGENTS.md](https://github.com/kiselas/testence/blob/main/AGENTS.md), the shared entry point for any coding agent.
 Optional `testence[visual]` adds digest-pinned viewport comparisons and manifested
-expected/actual/diff evidence. The [client simulation](bench/client_simulation/README.md)
+expected/actual/diff evidence. The [client simulation](https://github.com/kiselas/testence/blob/main/bench/client_simulation/README.md)
 exercises two adapter layouts from an installed wheel, including visual defects
 and harmless controls; it does not claim independent model/client acceptance.
-See [Agent Skills](docs/en/agent-skills.md) and the
-[agent workflow](docs/en/agent-workflow.md).
+See [Agent Skills](https://github.com/kiselas/testence/blob/main/docs/en/agent-skills.md) and the
+[agent workflow](https://github.com/kiselas/testence/blob/main/docs/en/agent-workflow.md).
 
 ## Architecture
 
@@ -248,7 +261,7 @@ flowchart LR
 - `bench` and `corpus` — real-React latency gates and seeded correctness defects.
 
 Important decisions are recorded as bilingual ADRs with measurable tripwires:
-[English](docs/en/adr/README.md) · [Русский](docs/ru/adr/README.md).
+[English](https://github.com/kiselas/testence/blob/main/docs/en/adr/README.md) · [Русский](https://github.com/kiselas/testence/blob/main/docs/ru/adr/README.md).
 
 ## Proof before claims
 
@@ -261,8 +274,8 @@ The current proof surface includes:
 - a seeded mutation corpus for false-green, false-red and healing quality;
 - a competitive replay protocol with frozen scenarios and environment disclosure.
 
-Start with the [launch protocol](docs/en/benchmark/launch-protocol.md) and
-[benchmark corpus](docs/en/benchmark/corpus.md). A number without its command,
+Start with the [launch protocol](https://github.com/kiselas/testence/blob/main/docs/en/benchmark/launch-protocol.md) and
+[benchmark corpus](https://github.com/kiselas/testence/blob/main/docs/en/benchmark/corpus.md). A number without its command,
 environment and failure criteria is deliberately not treated as a product claim.
 
 ## Project status
@@ -276,10 +289,10 @@ Do not use the current preview against sensitive production data. Systematic evi
 redaction and the remaining security review are release gates. API credentials are
 origin-bound and the opt-in session cache has TTL and identity checks, but the complete
 canary/path/retention matrix from the release specification is not yet accepted. See
-[SECURITY.md](SECURITY.md), [CONTRIBUTING.md](CONTRIBUTING.md) and the
-[roadmap](docs/en/roadmap.md).
+[SECURITY.md](https://github.com/kiselas/testence/blob/main/SECURITY.md), [CONTRIBUTING.md](https://github.com/kiselas/testence/blob/main/CONTRIBUTING.md) and the
+[roadmap](https://github.com/kiselas/testence/blob/main/docs/en/roadmap.md).
 
 ## License
 
-[Apache-2.0](LICENSE). Runtime dependencies are restricted to permissive licenses. The
+[Apache-2.0](https://github.com/kiselas/testence/blob/main/LICENSE). Runtime dependencies are restricted to permissive licenses. The
 runner contains no LLM SDK and makes no call to a model provider during ordinary replay.
