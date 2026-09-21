@@ -60,14 +60,17 @@ jobs:
           run-id: ${{ inputs.evidence_run_id }}
           github-token: ${{ github.token }}
       - name: Verify the publishing inputs without uploading
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           uv run python scripts/verify_publish_inputs.py \
             --dist-dir dist \
             --build-receipt dist/reproducible-build.json \
             --manifest release/rc-manifest-v2.json \
             --evidence-root acceptance-bundle \
-            --candidate-sha "${{ inputs.candidate_sha }}" \
-            --tag "${{ inputs.tag }}" \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --tag "$RELEASE_TAG" \
             --output release-artifacts/publishing-prepared.json
           mkdir publish-dist
           cp dist/*.whl dist/*.tar.gz publish-dist/

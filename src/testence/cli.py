@@ -261,6 +261,19 @@ def main(argv: list[str] | None = None) -> int:
     p_plan_validate = plan_sub.add_parser("validate", help="validate a PlanSpec")
     p_plan_validate.add_argument("path", type=Path)
     p_plan_validate.add_argument("--json", dest="json_output", action="store_true")
+    p_plan_prepare = plan_sub.add_parser(
+        "prepare", help="check scenario readiness before browser authoring"
+    )
+    p_plan_prepare.add_argument("path", type=Path)
+    p_plan_prepare.add_argument("--project", type=Path, default=Path("."))
+    p_plan_prepare.add_argument("--profile", default=None)
+    p_plan_prepare.add_argument("--backend", default="playwright-cdp")
+    p_plan_prepare.add_argument(
+        "--apply-fixes",
+        action="store_true",
+        help="run explicitly configured argv fix recipes, then recheck",
+    )
+    p_plan_prepare.add_argument("--json", dest="json_output", action="store_true")
 
     p_verdict = sub.add_parser("verdict", help="validate an evidence-backed verdict")
     verdict_sub = p_verdict.add_subparsers(dest="verdict_command", required=True)
@@ -664,24 +677,58 @@ def main(argv: list[str] | None = None) -> int:
                 parser.error(str(exc))
         return _watch(roots, args.pattern or ["*.py"], cmd, warm=args.warm)
 
-    if args.command == "plan" and args.plan_command == "validate":
-        from .contracts import load_plan
+    if args.command == "plan":
+        if args.plan_command == "validate":
+            from .contracts import load_plan
+            from .contracts._validation import ContractError
+
+            try:
+                plan = load_plan(args.path)
+            except ContractError as exc:
+                print(f"plan invalid: {exc}", file=sys.stderr)
+                return 2
+            summary = plan.summary()
+            if args.json_output:
+                print(json.dumps(summary, ensure_ascii=False, separators=(",", ":")))
+            else:
+                print(
+                    f"plan valid: {plan.id} ({len(plan.claims)} claims, "
+                    f"{len(plan.scenarios)} scenarios)"
+                )
+            return 0
+
         from .contracts._validation import ContractError
+        from .readiness import ReadinessError, prepare_plan
 
         try:
-            plan = load_plan(args.path)
-        except ContractError as exc:
-            print(f"plan invalid: {exc}", file=sys.stderr)
-            return 2
-        summary = plan.summary()
-        if args.json_output:
-            print(json.dumps(summary, ensure_ascii=False, separators=(",", ":")))
-        else:
-            print(
-                f"plan valid: {plan.id} ({len(plan.claims)} claims, "
-                f"{len(plan.scenarios)} scenarios)"
+            result = prepare_plan(
+                args.path,
+                args.project,
+                profile=args.profile,
+                backend=args.backend,
+                apply_fixes=args.apply_fixes,
             )
-        return 0
+        except (ContractError, OSError, ReadinessError, ValueError) as exc:
+            print(f"plan prepare failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            for fix in result["fixes"]:
+                print(
+                    f"{fix['status']:7} fix for {fix['check_id']}: "
+                    f"recheck={'ok' if fix['check_ok_after'] else 'failed'}"
+                )
+            for scenario in result["scenarios"]:
+                print(f"{scenario['status']:7} {scenario['id']}")
+                for blocker in scenario["blockers"]:
+                    print(f"         {blocker['detail']}")
+            summary = result["summary"]
+            print(
+                f"{summary['ready']}/{summary['total']} scenarios ready "
+                f"in {result['timings']['total_ms']:.1f} ms"
+            )
+        return 0 if result["status"] == "ready" else 3
 
     if args.command == "verdict" and args.verdict_command == "validate":
         from .contracts import load_plan, load_verdict

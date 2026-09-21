@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:readiness-report:1",
+  "title": "Testence authoring readiness report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "status", "plan", "profile", "backend", "capabilities",
+    "oracle_adapters", "checks", "fixes", "scenarios", "summary", "timings"
+  ],
+  "properties": {
+    "schema": {"const": "testence/readiness-report/1"},
+    "status": {"enum": ["ready", "blocked"]},
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "digest"],
+      "properties": {
+        "id": {"type": "string"},
+        "digest": {"type": "string"}
+      }
+    },
+    "profile": {"type": "string"},
+    "backend": {"type": "string"},
+    "capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "oracle_adapters": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "ok", "detail", "duration_ms"],
+        "properties": {
+          "id": {"type": "string"},
+          "type": {"enum": ["env", "file", "http"]},
+          "ok": {"type": "boolean"},
+          "detail": {"type": "string"},
+          "duration_ms": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "fixes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "status", "exit_code", "duration_ms", "check_ok_after"],
+        "properties": {
+          "check_id": {"type": "string"},
+          "status": {"enum": ["applied", "failed"]},
+          "exit_code": {"type": ["integer", "null"]},
+          "check_ok_after": {"type": "boolean"},
+          "duration_ms": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "checks", "blockers"],
+        "properties": {
+          "id": {"type": "string"},
+          "status": {"enum": ["ready", "blocked"]},
+          "checks": {"type": "array", "items": {"type": "string"}},
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "detail"],
+              "properties": {
+                "kind": {"enum": ["capability", "oracle", "configuration", "check"]},
+                "check_id": {"type": "string"},
+                "detail": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ready", "blocked", "total"],
+      "properties": {
+        "ready": {"type": "integer", "minimum": 0},
+        "blocked": {"type": "integer", "minimum": 0},
+        "total": {"type": "integer", "minimum": 1}
+      }
+    },
+    "timings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_ms", "configuration_ms", "capabilities_ms", "checks_ms", "fixes_ms", "total_ms"],
+      "properties": {
+        "plan_ms": {"type": "number", "minimum": 0},
+        "configuration_ms": {"type": "number", "minimum": 0},
+        "capabilities_ms": {"type": "number", "minimum": 0},
+        "checks_ms": {"type": "number", "minimum": 0},
+        "fixes_ms": {"type": "number", "minimum": 0},
+        "total_ms": {"type": "number", "minimum": 0}
+      }
+    }
+  }
+}

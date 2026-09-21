@@ -17,6 +17,10 @@ frames, popups, upload/download и dialogs. DSL использует strict loca
 явное ослабление actionability. Оно записывается в `step.start` и переводит иначе
 verified attempt в `unverified` для review.
 
+Внутри `with ex.frame(...)` locator actions, `eval_js` и `wait_for_predicate_js`
+используют один активный iframe. После выхода восстанавливается предыдущий page или
+вложенный frame scope. Операции с session и network остаются page-level.
+
 Adapter может реализовать `CapabilityProvider`, `LifecycleEngine` и `EvidenceEngine`
 без импорта Playwright. Platform-neutral fake проверяет lifecycle, evidence и export,
 а browser action возвращает `UnsupportedCapability` с operation, required capability

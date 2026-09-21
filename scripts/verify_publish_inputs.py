@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import email.policy
 import hashlib
 import json
 import re
 import subprocess
+import tarfile
+import zipfile
+from email.parser import BytesParser
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +29,51 @@ def _git(root: Path, *args: str) -> str:
     if completed.returncode:
         raise ValueError(completed.stderr.strip() or f"git {' '.join(args)} failed")
     return completed.stdout.strip()
+
+
+def _canonical_project_name(value: str) -> str:
+    return re.sub(r"[-_.]+", "-", value).casefold()
+
+
+def _package_identity(path: Path) -> tuple[str, str]:
+    try:
+        if path.suffix == ".whl":
+            with zipfile.ZipFile(path) as archive:
+                wheel_metadata = [
+                    name
+                    for name in archive.namelist()
+                    if name.endswith(".dist-info/METADATA") and name.count("/") == 1
+                ]
+                if len(wheel_metadata) != 1:
+                    raise ValueError(f"wheel must contain exactly one METADATA file: {path.name}")
+                raw = archive.read(wheel_metadata[0])
+        elif path.name.endswith(".tar.gz"):
+            with tarfile.open(path, "r:gz") as archive:
+                sdist_metadata = [
+                    member
+                    for member in archive.getmembers()
+                    if member.isfile()
+                    and member.name.endswith("/PKG-INFO")
+                    and member.name.count("/") == 1
+                ]
+                if len(sdist_metadata) != 1:
+                    raise ValueError(
+                        f"sdist must contain exactly one top-level PKG-INFO: {path.name}"
+                    )
+                extracted = archive.extractfile(sdist_metadata[0])
+                if extracted is None:
+                    raise ValueError(f"cannot read sdist package metadata: {path.name}")
+                raw = extracted.read()
+        else:
+            raise ValueError(f"unsupported distribution artifact: {path.name}")
+    except (tarfile.TarError, zipfile.BadZipFile) as exc:
+        raise ValueError(f"cannot read distribution archive: {path.name}") from exc
+    metadata = BytesParser(policy=email.policy.compat32).parsebytes(raw)
+    name = metadata.get("Name")
+    version = metadata.get("Version")
+    if not name or not version:
+        raise ValueError(f"distribution metadata has no Name or Version: {path.name}")
+    return str(name), str(version)
 
 
 def verify_publish_inputs(
@@ -79,6 +128,16 @@ def verify_publish_inputs(
         raise ValueError("release manifest candidate/tag differs from publish request")
     if candidate["version"] != tag.removeprefix("v"):
         raise ValueError("release manifest version differs from release tag")
+    expected_version = candidate["version"]
+    for artifact in artifacts:
+        package_name, package_version = _package_identity(artifact)
+        if _canonical_project_name(package_name) != "testence":
+            raise ValueError(f"distribution package name is not testence: {artifact.name}")
+        if package_version != expected_version:
+            raise ValueError(
+                f"distribution version {package_version} differs from release version "
+                f"{expected_version}: {artifact.name}"
+            )
     release_artifacts = {Path(item["path"]).name: item for item in manifest["artifacts"]}
     for name, details in observed.items():
         reference = release_artifacts.get(name)

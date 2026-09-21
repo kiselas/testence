@@ -68,8 +68,44 @@ uv sync --locked --extra dev --extra parallel
 uv run playwright install chromium
 
 uv run testence plan validate examples/specs/target-page.md --json
+uv run testence plan prepare examples/specs/target-page.md --project . --json
 uv run pytest examples -q --testence-headless
 ```
+
+`plan prepare` is the fail-fast gate before browser discovery. It checks each scenario's
+engine capabilities, required oracle adapters and project prerequisites once, then returns
+`ready` or explicit blockers with phase timings. Configure reusable, read-only checks in
+`testence.json`:
+
+```json
+{
+  "project_id": "shop",
+  "base_url": "https://qa.example.test",
+  "readiness": {
+    "schema": "testence/readiness/1",
+    "oracle_adapters": ["api", "custom"],
+    "checks": [
+      {"id": "credentials", "type": "env", "variables": ["TESTENCE_USER", "TESTENCE_PASSWORD"]},
+      {
+        "id": "seed",
+        "type": "http",
+        "path": "/api/qa/seed",
+        "json_pointer": "/ready",
+        "equals": true,
+        "fix": {"argv": ["python", "scripts/seed_qa.py"], "timeout_ms": 120000}
+      }
+    ],
+    "scenarios": {"checkout": ["credentials", "seed"]}
+  }
+}
+```
+
+Supported checks are `env`, project-relative `file`, and read-only `http`. HTTP checks
+may assert a status and a JSON Pointer value. Secret values are never included in the
+report. A blocked result exits with status 3; invalid plans or configuration exit with 2.
+After reviewing a blocked report, `plan prepare --apply-fixes` runs only the explicitly
+configured argument arrays without a shell and checks the failed prerequisites again.
+Command output is discarded from the receipt so credentials cannot leak through tool logs.
 
 For a wheel-only onboarding check in a new or existing project:
 

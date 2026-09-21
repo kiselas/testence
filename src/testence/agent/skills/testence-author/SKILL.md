@@ -16,13 +16,14 @@ For automated screenshot regression or an isolated client simulation, also read
 ## Workflow
 
 1. Locate the PlanSpec and run `testence plan validate <path> --json`. Do not author against an invalid plan.
-2. Build a small claim-to-proof map: action, UI observation, independent oracle, seed, cleanup, and expected failure signal.
-3. Confirm the target, account/profile, mutation boundary, seed isolation, and allowed browser actions. Do not touch production or shared data without explicit authority.
-4. Inspect source, API schemas, and project adapters. Use controlled browser discovery only against the approved target.
-5. Prefer role plus accessible name, then label/placeholder, stable test ID, and only then CSS. Keep application-specific targets in project code.
-6. Write ordinary pytest plus Testence actions. Bind the exact plan path and claim IDs with `@pytest.mark.testence` as shown in [references/proof-gates.md](references/proof-gates.md).
-7. Prove every claim on the healthy target, exercise a seeded defect or negative control, verify failure for the intended reason, restore the target, and rerun green from a clean seed.
-8. Report changed files, exact commands, claim coverage, evidence/run paths, remaining ambiguity, and any proof gate that could not be completed.
+2. Run `testence plan prepare <path> --project <root> --profile <profile> --json` before opening a browser. Work only on scenarios reported `ready`; report each `blocked` reason instead of inventing a fixture, oracle, or skip. When the project defines a fix recipe and the approved scope permits it, use `--apply-fixes`, inspect the second report, and continue only for scenarios that became ready.
+3. Build a small claim-to-proof map: action, UI observation, independent oracle, seed, cleanup, and expected failure signal.
+4. Confirm the target, account/profile, mutation boundary, seed isolation, and allowed browser actions. Do not touch production or shared data without explicit authority.
+5. Inspect source, API schemas, and project adapters. Use controlled browser discovery only against the approved target.
+6. Prefer role plus accessible name, then label/placeholder, stable test ID, and only then CSS. Keep application-specific targets in project code.
+7. Write ordinary pytest plus Testence actions. Bind the exact plan path and claim IDs with `@pytest.mark.testence` as shown in [references/proof-gates.md](references/proof-gates.md).
+8. Prove every claim on the healthy target, exercise a seeded defect or negative control, verify failure for the intended reason, restore the target, and rerun green from a clean seed.
+9. Report changed files, exact commands, claim coverage, evidence/run paths, readiness and run timings, remaining ambiguity, and any proof gate that could not be completed.
 
 ## Authoring rules
 

@@ -127,6 +127,7 @@ class PlaywrightCdpEngine(Engine):
         self._context: BrowserContext | None = None
         self._page: Page | None = None
         self._scope: Any | None = None
+        self._js_scope: Any | None = None
         self._net: list[NetRecord] = []
         self._pending: dict[Any, NetRecord] = {}
         self._console: list[dict[str, Any]] = []
@@ -213,6 +214,7 @@ class PlaywrightCdpEngine(Engine):
             else self._context.new_page()
         )
         self._scope = self._page
+        self._js_scope = self._page
         if self.viewport is not None:
             self._page.set_viewport_size(
                 {"width": self.viewport["width"], "height": self.viewport["height"]}
@@ -458,6 +460,9 @@ class PlaywrightCdpEngine(Engine):
             loc = loc.nth(target.nth)
         return loc
 
+    def _require_js_scope(self) -> Any:
+        return self._js_scope if self._js_scope is not None else self._require_page()
+
     def _require_page(self) -> Page:
         if self._page is None:
             raise RuntimeError("engine not started")
@@ -616,6 +621,7 @@ class PlaywrightCdpEngine(Engine):
                 self._locate(target).click()
             self._page = pending.value
             self._scope = self._page
+            self._js_scope = self._page
             self._attach_taps(self._page)
 
     def switch_page(self, index: int) -> None:
@@ -626,6 +632,7 @@ class PlaywrightCdpEngine(Engine):
             raise IndexError(f"page index {index} is outside 0..{len(pages) - 1}")
         self._page = pages[index]
         self._scope = self._page
+        self._js_scope = self._page
 
     def click_with_dialog(
         self, target: Target, *, accept: bool = True, prompt: str | None = None
@@ -648,14 +655,20 @@ class PlaywrightCdpEngine(Engine):
     @contextmanager
     def frame(self, target: Target) -> Iterator[None]:
         previous = self._scope
-        frame = self._locate(target).content_frame
-        if frame is None:
+        previous_js = self._js_scope
+        locator = self._locate(target)
+        frame_locator = locator.content_frame
+        element = locator.element_handle()
+        frame = element.content_frame() if element is not None else None
+        if frame_locator is None or frame is None:
             raise RuntimeError(f"target is not an attached frame: {target.describe()}")
-        self._scope = frame
+        self._scope = frame_locator
+        self._js_scope = frame
         try:
             yield
         finally:
             self._scope = previous
+            self._js_scope = previous_js
 
     # -- observation -----------------------------------------------------------
 
@@ -872,7 +885,7 @@ class PlaywrightCdpEngine(Engine):
         """
         with self._timed("wait_for_predicate", expression[:80]):
             try:
-                self._require_page().wait_for_function(
+                self._require_js_scope().wait_for_function(
                     expression, timeout=timeout_ms or self.timeout_ms
                 )
                 return True
@@ -934,7 +947,7 @@ class PlaywrightCdpEngine(Engine):
         return self._require_page().url
 
     def eval_js(self, expression: str) -> Any:
-        return self._require_page().evaluate(expression)
+        return self._require_js_scope().evaluate(expression)
 
     #: One definition of "what this element looks like", shared by the green-run
     #: fingerprint and the failure-time candidate scan. They must agree: computing

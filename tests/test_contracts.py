@@ -597,4 +597,8 @@ def test_public_json_schemas_are_packaged_and_versioned():
     )
     assert root.joinpath("planspec-v1.schema.json").is_file()
     assert root.joinpath("verdict-v1.schema.json").is_file()
+    readiness_schema = json.loads(
+        root.joinpath("readiness-report.schema.json").read_text(encoding="utf-8")
+    )
+    assert readiness_schema["properties"]["schema"]["const"] == SCHEMA_INVENTORY["readiness_report"]
     assert "test_bug" in verdict_schema["properties"]["verdict"]["enum"]

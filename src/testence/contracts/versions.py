@@ -30,6 +30,7 @@ AGENT_INSTALL_RECEIPT_SCHEMA = "testence/agent-install-receipt/1"
 DEMO_RUN_SCHEMA = "testence/demo-run/1"
 RELEASE_MANIFEST_SCHEMA = "testence/release-manifest/2"
 ACCEPTANCE_RECEIPT_SCHEMA = "testence/acceptance-receipt/1"
+READINESS_REPORT_SCHEMA = "testence/readiness-report/1"
 
 SCHEMA_INVENTORY = MappingProxyType(
     {
@@ -57,5 +58,6 @@ SCHEMA_INVENTORY = MappingProxyType(
         "demo_run": DEMO_RUN_SCHEMA,
         "release_manifest": RELEASE_MANIFEST_SCHEMA,
         "acceptance_receipt": ACCEPTANCE_RECEIPT_SCHEMA,
+        "readiness_report": READINESS_REPORT_SCHEMA,
     }
 )

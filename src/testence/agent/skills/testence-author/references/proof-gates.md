@@ -51,6 +51,21 @@ produces an inconclusive one. Do not relabel browser errors as product violation
 
 ## Claim-to-proof review
 
+Before discovery, run the project's readiness contract:
+
+```bash
+testence plan prepare specs/widgets-create.md --project . --profile staging --json
+```
+
+Exit 3 is an actionable blocked result: use its scenario blockers to prepare the target
+or narrow the authorized scope. Exit 2 means the PlanSpec or readiness configuration is
+invalid. Do not open a browser for blocked scenarios.
+
+When a failed check has a project-owned `fix.argv` recipe and the authorized scope permits
+that preparation, rerun with `--apply-fixes`. Testence invokes the arguments without a
+shell and rechecks the prerequisite. An applied command is not proof by itself; only the
+second check result can move a scenario to `ready`.
+
 For every bound claim, record:
 
 | Question | Required answer |

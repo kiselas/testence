@@ -75,3 +75,14 @@ def test_support_manifest_matches_package_and_ci_contract() -> None:
     assert f'requires-python = "{support["python"]["requires"]}"' in pyproject
     assert 'python: ["3.10", "3.12"]' in workflow
     assert set(support["platforms"]["ci"]) == {"ubuntu-latest", "windows-latest"}
+
+
+def test_publish_workflow_does_not_interpolate_manual_inputs_in_shell() -> None:
+    workflow = (ROOT / ".github/workflows/publish.yml").read_text(encoding="utf-8")
+    run_blocks = "\n".join(
+        block for block in re.findall(r"(?ms)^\s+run: \|\n(.*?)(?=^\s{6}\S|\Z)", workflow)
+    )
+
+    assert "${{ inputs." not in run_blocks
+    assert "CANDIDATE_SHA: ${{ inputs.candidate_sha }}" in workflow
+    assert "RELEASE_TAG: ${{ inputs.tag }}" in workflow

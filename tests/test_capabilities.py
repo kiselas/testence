@@ -163,6 +163,14 @@ def test_web_capability_matrix_frame_shadow_keyboard_dialog_popup_and_files(web_
     web_engine.expect_visible(Target("css", "#shadow"))
     with web_engine.frame(Target("css", "#frame")):
         web_engine.expect_visible(Target("css", "#inside"))
+        assert web_engine.eval_js("document.querySelector('#inside').textContent") == "inside"
+        assert web_engine.eval_js("document.querySelector('#file')") is None
+        assert web_engine.wait_for_predicate_js(
+            "() => document.querySelector('#inside')?.textContent === 'inside'",
+            timeout_ms=500,
+        )
+
+    assert web_engine.eval_js("document.querySelector('#file').id") == "file"
 
     assert web_engine.click_with_dialog(Target("css", "#dialog"), prompt="QA") == "Name?"
     web_engine.click_and_popup(Target("css", "#popup"))

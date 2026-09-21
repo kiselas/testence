@@ -145,7 +145,24 @@ Validate the plan before execution and bind tests only to declared claim IDs:
 
 ```bash
 testence plan validate specs/checkout-discount.md --json
+testence plan prepare specs/checkout-discount.md --project . --profile staging --json
 ```
+
+Run `plan prepare` before opening a browser. The selected profile's `readiness` object
+maps scenarios to reusable `env`, project-relative `file`, and read-only `http` checks,
+and declares installed `api`, `custom`, `a11y`, or `visual` oracle adapters. The command
+checks backend capabilities and every required assertion oracle, executes each shared
+prerequisite once, and reports per-scenario blockers plus phase timings. Exit 3 means the
+result is valid but one or more scenarios are blocked; exit 2 means the plan or readiness
+configuration is invalid. Do not author a blocked scenario and turn its missing fixture
+or oracle into a skip.
+
+A readiness check may define `fix: {"argv": [...], "cwd": ".", "timeout_ms": 120000}`.
+After the blocked report has been reviewed and the project-owned recipe is authorized,
+rerun with `--apply-fixes`. Testence executes the argument array directly without a shell,
+captures no command output in the report, and checks the prerequisite again. Recipes may
+prepare dependencies, start an isolated target, or seed synthetic data; they must not
+weaken an assertion or retry a browser interaction.
 
 ```python
 @pytest.mark.testence(

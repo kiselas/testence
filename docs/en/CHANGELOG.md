@@ -7,6 +7,14 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### September release audit
 
+- Made frame contexts apply consistently to locator actions, JavaScript evaluation and
+  predicate waits, closing a real authoring gap found in the NextDish site preview.
+- Hardened the manual PyPI workflow against shell interpolation of dispatch inputs and
+  made publication verify the embedded project name and version in both wheel and sdist.
+- Added `testence plan prepare`, a browser-free per-scenario readiness gate for engine
+  capabilities, required oracle adapters, credentials, files and HTTP/JSON fixtures.
+  Explicit argv fix recipes can prepare dependencies, isolated targets or synthetic
+  seeds and are always rechecked. Skill pack 0.1.4 requires this gate before discovery.
 - Added optional digest-pinned viewport regression, explicit viewport profiles,
   manifested expected/actual/diff images, and inconclusive handling for unusable
   visual evidence. Installed-wheel client simulations run on Linux/Windows CI.

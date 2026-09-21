@@ -17,6 +17,10 @@ multiple matches fail unless the author deliberately supplies `Target(..., nth=N
 `fast=True` is an explicit actionability weakening. It is recorded on `step.start` and
 changes an otherwise verified attempt to `unverified` for review.
 
+Inside `with ex.frame(...)`, locator actions, `eval_js`, and `wait_for_predicate_js`
+share the same active iframe. Leaving the context restores the previous page or nested
+frame scope. Page-level session and network operations remain page-level.
+
 Adapters can implement `CapabilityProvider`, `LifecycleEngine`, and `EvidenceEngine`
 without importing Playwright. A platform-neutral fake therefore exercises lifecycle,
 evidence and export code while a browser action raises `UnsupportedCapability` with
