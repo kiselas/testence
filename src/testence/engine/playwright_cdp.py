@@ -3,8 +3,9 @@
 Two attach modes (ADR-0008):
 - ``cdp_url`` given → connect_over_cdp to an already-running headed Chrome
   (developer's profile, existing session cookies, shared triage substrate).
-- otherwise → launch system Chrome (``channel="chrome"``), headed by default,
-  with ``--remote-debugging-port`` so triage clients can attach later.
+- otherwise → launch a browser (Playwright's bundled ``chromium`` unless
+  ``TESTENCE_BROWSER_CHANNEL`` or the caller names another channel), headed by
+  default, with ``--remote-debugging-port`` so triage clients can attach later.
 
 On failure the browser is deliberately left running (``keep_browser=True``):
 the page at the failure state IS evidence.
@@ -29,6 +30,8 @@ from playwright.sync_api import (
 )
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect as pw_expect
+
+from testence.config import default_browser_channel
 
 from .capabilities import Capability
 from .protocol import Engine, NetRecord, Target
@@ -76,7 +79,7 @@ class PlaywrightCdpEngine(Engine):
         debug_port: int = 9222,
         api_prefix: str = "/api/",
         timeout_ms: int = _DEFAULT_TIMEOUT_MS,
-        browser_channel: str = "chromium",
+        browser_channel: str | None = None,
         ignore_https_errors: bool = False,
         reduce_motion: bool = False,
         user_data_dir: str | None = None,
@@ -93,7 +96,7 @@ class PlaywrightCdpEngine(Engine):
         self.debug_port = debug_port
         self.api_prefix = api_prefix
         self.timeout_ms = timeout_ms
-        self.browser_channel = browser_channel
+        self.browser_channel = browser_channel or default_browser_channel()
         self.ignore_https_errors = ignore_https_errors
         self.reduce_motion = reduce_motion
         self.user_data_dir = user_data_dir

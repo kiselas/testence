@@ -130,7 +130,7 @@ TESTENCE_VERIFY_TLS=false                        # только изолиров
 |---|---|
 | `TESTENCE_RUNS_ROOT` | каталог запусков, по умолчанию `runs/` |
 | `TESTENCE_KERNELS` | `auto` \| `reference` \| `native` — compute backend ([kernels.md](kernels.md)) |
-| `TESTENCE_BROWSER_CHANNEL` | `chromium` по умолчанию — свежий браузер, поставляемый установленной версией Playwright; `chrome` включает системный Google Chrome |
+| `TESTENCE_BROWSER_CHANNEL` | `chromium` по умолчанию — свежий браузер, поставляемый установленной версией Playwright; `chrome` и `msedge` — системные браузеры, `chromium-headless-shell` — bundled сборка только для headless. Действует и для `Settings` и движков, созданных напрямую, без `Settings.load` |
 | `TESTENCE_CDP_URL` | подключение к запущенному Chrome вместо нового |
 | `TESTENCE_RUN_ID` | имя каталога запуска; plugin задаёт его общим для всех xdist workers ([ADR-0012](adr/0012-parallel-execution.md)) |
 | `ALLURE_TESTPLAN_PATH` | стандартный selective plan Allure версии `1.0`; invalid/unresolved/empty scope отклоняется |
@@ -173,6 +173,15 @@ pytest examples/ -q --testence-headless
 Флаг `--testence-browser-channel chrome` оставляет возможность регрессионного запуска
 на системном Google Chrome. Обычный локальный и CI-путь использует bundled Chromium,
 поэтому версия браузера согласована с версией Playwright и не зависит от состояния ПК.
+
+Если на машине bundled `chrome.exe` не стартует вовсе (например, политика контроля
+приложений Windows отвергает его приватную side-by-side сборку, тогда как
+`chromium-headless-shell` той же ревизии и системный Edge запускаются), задайте для
+этой машины `TESTENCE_BROWSER_CHANNEL=msedge` или `chromium-headless-shell`.
+Переменная действует и на `Settings(...)` и движки, созданные напрямую, а не через
+`Settings.load`, — в том числе на браузерные тесты самого репозитория; явный аргумент
+`browser_channel=`
+по-прежнему сильнее, а CI остаётся на bundled Chromium, потому что переменную не задаёт.
 
 ## Политика сбора evidence
 

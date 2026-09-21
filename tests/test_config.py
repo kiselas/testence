@@ -6,7 +6,8 @@ from testence.config import Settings
 from testence.engine import create_engine
 
 
-def test_defaults_are_inert(tmp_path):
+def test_defaults_are_inert(tmp_path, monkeypatch):
+    monkeypatch.delenv("TESTENCE_BROWSER_CHANNEL", raising=False)
     settings = Settings.load(tmp_path)
     assert settings.auth == "none"
     assert settings.base_url == ""
@@ -25,7 +26,8 @@ def test_project_id_is_explicit_or_derived_from_package_name(tmp_path):
         Settings.load(tmp_path, project_id="Not Valid")
 
 
-def test_bundled_playwright_chromium_is_the_engine_default(tmp_path):
+def test_bundled_playwright_chromium_is_the_engine_default(tmp_path, monkeypatch):
+    monkeypatch.delenv("TESTENCE_BROWSER_CHANNEL", raising=False)
     settings = Settings.load(tmp_path)
     engine = create_engine(settings)
     assert engine.browser_channel == "chromium"
@@ -56,6 +58,21 @@ def test_capture_policy_is_explicit_and_bounded(tmp_path):
 def test_browser_channel_can_be_overridden(tmp_path, monkeypatch):
     monkeypatch.setenv("TESTENCE_BROWSER_CHANNEL", "chrome")
     assert Settings.load(tmp_path).browser_channel == "chrome"
+
+
+def test_direct_construction_honors_the_channel_variable(monkeypatch):
+    from testence.engine.playwright_cdp import PlaywrightCdpEngine
+
+    monkeypatch.delenv("TESTENCE_BROWSER_CHANNEL", raising=False)
+    assert Settings().browser_channel == "chromium"
+    assert PlaywrightCdpEngine(headed=False).browser_channel == "chromium"
+
+    monkeypatch.setenv("TESTENCE_BROWSER_CHANNEL", "msedge")
+    assert Settings().browser_channel == "msedge"
+    assert create_engine(Settings(headed=False)).browser_channel == "msedge"
+    assert PlaywrightCdpEngine(headed=False).browser_channel == "msedge"
+    explicit = PlaywrightCdpEngine(headed=False, browser_channel="chromium")
+    assert explicit.browser_channel == "chromium"
 
 
 def test_settings_file_and_profile_selection(tmp_path):

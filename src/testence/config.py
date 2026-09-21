@@ -37,6 +37,17 @@ SETTINGS_FILES = ("testence.toml", "testence.json")
 ENV_FILES = (".env", ".env.local")
 
 
+def default_browser_channel() -> str:
+    """Browser channel when nothing names one explicitly.
+
+    ``TESTENCE_BROWSER_CHANNEL`` is the same variable ``Settings.load`` merges, so a
+    directly constructed ``Settings(...)`` or ``PlaywrightCdpEngine(...)`` agrees with
+    the loaded one. A host whose bundled Chromium cannot start can point every path at
+    ``msedge`` or ``chromium-headless-shell`` here; unset or empty keeps ``chromium``.
+    """
+    return os.environ.get(f"{ENV_PREFIX}BROWSER_CHANNEL", "").strip() or "chromium"
+
+
 def _default_project_id(root: Path) -> str:
     """Best-effort stable namespace for projects that have not opted in explicitly."""
 
@@ -102,7 +113,8 @@ class Settings:
     # Use the browser revision shipped with this Playwright release instead of a
     # machine-wide Chrome install. ``chromium`` also selects Playwright's regular
     # Chromium in headless mode, keeping headed and CI runs on the same engine.
-    browser_channel: str = "chromium"
+    # ``TESTENCE_BROWSER_CHANNEL`` moves one host elsewhere (see default_browser_channel).
+    browser_channel: str = field(default_factory=default_browser_channel)
     debug_port: int = 9222
     headed: bool = True
     timeout_ms: int = 10_000

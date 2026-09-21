@@ -5,6 +5,11 @@
 
 ## Unreleased
 
+- `TESTENCE_BROWSER_CHANNEL` теперь задаёт канал и для `Settings` и движков, создаваемых
+  напрямую, минуя `Settings.load`: машина, на которой не стартует bundled Chromium,
+  может гонять браузерные тесты на `msedge` или `chromium-headless-shell`; явные
+  аргументы и умолчания CI не меняются.
+
 ## 0.1.0a1 — release candidate
 
 - Контекст iframe теперь одинаково применяется к locator actions, JavaScript evaluation

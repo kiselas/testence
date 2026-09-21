@@ -5,6 +5,11 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ## Unreleased
 
+- `TESTENCE_BROWSER_CHANNEL` now also sets the default for `Settings` and engines
+  constructed directly, so a host whose bundled Chromium cannot start can run the
+  browser tests on `msedge` or `chromium-headless-shell`; explicit arguments and CI
+  defaults are unchanged.
+
 ## 0.1.0a1 — release candidate
 
 ### September release audit

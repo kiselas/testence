@@ -131,7 +131,7 @@ UI and the API see the same thing.
 |---|---|
 | `TESTENCE_RUNS_ROOT` | where run directories are written (default `runs/`) |
 | `TESTENCE_KERNELS` | `auto` \| `reference` \| `native` — compute backend ([kernels.md](kernels.md)) |
-| `TESTENCE_BROWSER_CHANNEL` | defaults to `chromium`, the fresh browser bundled with the installed Playwright release; `chrome` selects system Google Chrome |
+| `TESTENCE_BROWSER_CHANNEL` | defaults to `chromium`, the fresh browser bundled with the installed Playwright release; `chrome` or `msedge` select a system browser, `chromium-headless-shell` the bundled headless-only build. Also the default for `Settings` and engines constructed directly, without `Settings.load` |
 | `TESTENCE_CDP_URL` | attach to a running Chrome instead of launching one |
 | `TESTENCE_RUN_ID` | names the run directory; set by the plugin so every xdist worker shares one ([ADR-0012](adr/0012-parallel-execution.md)) |
 | `ALLURE_TESTPLAN_PATH` | standard Allure `version: 1.0` selective plan; invalid/unresolved/empty scope fails closed |
@@ -174,6 +174,15 @@ pytest examples/ -q --testence-headless
 `--testence-browser-channel chrome` remains available for regression runs against the
 system Google Chrome. Normal local and CI runs use bundled Chromium, so the browser
 revision matches Playwright and does not depend on machine-wide browser state.
+
+If a host cannot start the bundled `chrome.exe` at all (for example a Windows
+application-control policy rejects its private side-by-side assembly while the
+same-revision `chromium-headless-shell` and system Edge start fine), set
+`TESTENCE_BROWSER_CHANNEL=msedge` or `chromium-headless-shell` for that machine. The
+variable also reaches `Settings(...)` and engines constructed directly rather than
+through `Settings.load`, such as the repository's own browser tests; an explicit
+`browser_channel=` argument still
+wins, and CI keeps the bundled Chromium because it does not set the variable.
 
 ## Evidence capture policy
 
