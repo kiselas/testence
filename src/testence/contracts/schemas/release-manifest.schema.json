@@ -49,6 +49,7 @@
   },
   "properties": {
     "schema": {"const": "testence/release-manifest/2"},
+    "release_profile": {"enum": ["r1", "alpha"]},
     "target_version": {"type": "string", "minLength": 1},
     "candidate": {
       "type": "object",
@@ -56,6 +57,7 @@
       "required": ["base_sha", "rc_sha", "tag", "dirty_worktree"],
       "properties": {
         "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "version": {"type": "string", "minLength": 1},
         "rc_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
         "tag": {"type": ["string", "null"]},
         "dirty_worktree": {"type": "boolean"}

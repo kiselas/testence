@@ -12,7 +12,7 @@
   "properties": {
     "schema": {"const": "testence/acceptance-receipt/1"},
     "task_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^S3-[0-9]{2}$"}},
-    "check_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z]+-[0-9]{2}$"}},
+    "check_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^(?:[A-Z]+-[0-9]{2}|R[0-9]{2}|G[1-8])$"}},
     "profile": {"enum": ["local", "rc", "external"]},
     "evidence_kind": {"enum": ["unit", "negative_probe", "consumer", "hosted_ci", "external_review", "pilot"]},
     "producer": {

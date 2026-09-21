@@ -1,34 +1,35 @@
 {
   "schema": "testence/release-manifest/2",
-  "target_version": "0.1.0.dev0",
+  "release_profile": "alpha",
+  "target_version": "0.1.0a1",
   "candidate": {
-    "base_sha": "7be8d025f81d9116ab267c59d440e14b377cfce7",
-    "rc_sha": null,
-    "tag": null,
-    "dirty_worktree": true
+    "base_sha": "ec50114be75a7e9fabb2c0dcd9eb28efab87e64e",
+    "version": "0.1.0a1",
+    "rc_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371",
+    "tag": "v0.1.0a1",
+    "dirty_worktree": false
   },
   "environment": {
     "python": [
       "3.10",
-      "3.12",
-      "3.13"
+      "3.12"
     ],
     "platforms": [
       "windows-latest",
       "ubuntu-latest"
     ],
     "tools": {
-      "pytest": "9.1.1 local; locked matrix >=8.0",
-      "playwright": "1.62.0 local; declared >=1.49",
-      "spdx-tools": "0.8.5",
-      "uv": "0.8.22"
+      "pytest": "9.1.1 locked matrix",
+      "playwright": "1.63.0 candidate environment",
+      "uv": "0.8.22 build workflow",
+      "pip-audit": "2.10.1 local runtime-lock audit"
     }
   },
   "inputs": {
     "dependency_inventory": {
-      "path": "outputs/stage3-local/dependency-inventory.json",
-      "bytes": 3238,
-      "sha256": "3f660b16bc1e75f8f4cedc8c6efa7be9f0b9e8f424ce673288ab6b19e802626a"
+      "path": "release-artifacts/dependency-inventory.json",
+      "bytes": 3145,
+      "sha256": "208f33ae4a4f987db85494c6091f18dc5f7e020ce6024cd38198cb13e071caaa"
     },
     "corpus_registry": {
       "path": "corpus/r1-correctness-v2.json",
@@ -39,210 +40,267 @@
   },
   "artifacts": [
     {
-      "path": "outputs/stage3-release-dist/testence-0.1.0.dev0-py3-none-any.whl",
-      "bytes": 215126,
-      "sha256": "80e7f683981a6185e10d21bf87062999cd27f208cb45c9945dfd1eb0968a0473"
+      "path": "dist/reproducible-build.json",
+      "bytes": 849,
+      "sha256": "2d6f4eb7a787e2de4badc15385cddfa0ac222e038470c250089e4d35c1ef1b8c"
     },
     {
-      "path": "outputs/stage3-release-dist/testence-0.1.0.dev0.tar.gz",
-      "bytes": 248755,
-      "sha256": "94603be0e71af3d798418db1b42e388ef2a2eec67dab3f537d4956c685970808"
+      "path": "dist/testence-0.1.0a1-py3-none-any.whl",
+      "bytes": 231588,
+      "sha256": "b2efc9da7990c1118379b68ffc3f95e1d2e514a29b5b2f1465e3d186b7aece57"
     },
     {
-      "path": "outputs/stage3-local/full-pytest.xml",
-      "bytes": 49203,
-      "sha256": "35aaef9fa77b27a3719fa709e459d4b3c1063ff2435b96ebc11abaf65df1a0f5"
+      "path": "dist/testence-0.1.0a1.tar.gz",
+      "bytes": 269671,
+      "sha256": "bc59143fda1cef03f0a457d86f5cbf1501f9d4b06ea4a7911f9c22ef3366c579"
     },
     {
-      "path": "outputs/stage3-local/reproducible-build.json",
-      "bytes": 865,
-      "sha256": "423163aa5965105b777fdb2dce5242e0aa03e5291e9bcf564d99de9fd5fcd402"
+      "path": "release-artifacts/checksums.sha256",
+      "bytes": 190,
+      "sha256": "02cf278ff06458a54b70cf551656956bee7b3565358132bc8c63b436d02792b8"
     },
     {
-      "path": "outputs/stage3-local/sdist-rebuild.json",
-      "bytes": 746,
-      "sha256": "543ff138d27a6ee5df8c278e39a8271dccbbd1e1fd1a3d25340bdab8b363b86e"
+      "path": "release-artifacts/dependency-inventory.json",
+      "bytes": 3145,
+      "sha256": "208f33ae4a4f987db85494c6091f18dc5f7e020ce6024cd38198cb13e071caaa"
     },
     {
-      "path": "outputs/stage3-local/installed-wheel-smoke.json",
-      "bytes": 1306,
-      "sha256": "544fa5aa80d98d271c9f3039169629479edb132949c030fc923b9150576ad4fe"
+      "path": "release-artifacts/installed-wheel-smoke.json",
+      "bytes": 1300,
+      "sha256": "8bbae90206fa04e339b134fe7b4a9411699f76c1b1521dc598311f964ae5a318"
     },
     {
-      "path": "outputs/stage3-local/dependency-inventory.json",
-      "bytes": 3238,
-      "sha256": "3f660b16bc1e75f8f4cedc8c6efa7be9f0b9e8f424ce673288ab6b19e802626a"
+      "path": "release-artifacts/provenance.json",
+      "bytes": 2321,
+      "sha256": "6cb037236ca689e77d8bf4a1ef8522b06fbc85d88ad5ab52a81790383ea6b964"
     },
     {
-      "path": "outputs/stage3-local/release-artifacts/checksums.sha256",
-      "bytes": 196,
-      "sha256": "df096ba107279f98b38dc0ad6fbfd31a84f8b4db234ff5e1d52ca3ee12b401f8"
+      "path": "release-artifacts/sbom.json",
+      "bytes": 11017,
+      "sha256": "82c622c7d91544fa36210ce1b9d3e5bf8b0a081e0ae24fe284d23a557455e4a6"
     },
     {
-      "path": "outputs/stage3-local/release-artifacts/sbom.json",
-      "bytes": 11511,
-      "sha256": "50833431b87a5a6199ca294f3593044f16d807818406dbcd62e79de2b1ab22ba"
-    },
-    {
-      "path": "outputs/stage3-local/release-artifacts/provenance.json",
-      "bytes": 2216,
-      "sha256": "15a9e1371a3bb4cdbf4d5a617d2f115fa606834b839c621e02021cfb5f39361b"
-    },
-    {
-      "path": "outputs/stage3-local/scale-profile.json",
-      "bytes": 6128,
-      "sha256": "846468470c094243943193b0730197aed1192450471731e03a801b4f81029680"
-    },
-    {
-      "path": "corpus/r1-correctness-v2.freeze.json",
-      "bytes": 1439,
-      "sha256": "b83a6dea563283e298f4537a1f7a2038a6d94f4a65b5d26c5795bea0bd5b5fad"
+      "path": "release-artifacts/sdist-rebuild.json",
+      "bytes": 737,
+      "sha256": "3b07e7097149d46c5a407689c8226ebc52d60b8587fe42c76eed0cde6e879c9d"
     }
   ],
   "requirements": [
     {
       "id": "R01",
       "name": "lifecycle",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R02",
       "name": "identity",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R03",
       "name": "completeness",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R04",
       "name": "claims",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R05",
       "name": "oracle",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R06",
       "name": "auth",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R07",
       "name": "redaction and paths",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R08",
       "name": "evidence budgets",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R09",
       "name": "verdict and repair",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R10",
       "name": "isolation",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R11",
       "name": "browser primitives",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R12",
       "name": "web surface",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R13",
@@ -253,7 +311,7 @@
       ],
       "receipts": [],
       "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+        "Deferred from the 0.1.0a1 alpha profile: Allure requires broader R1 acceptance."
       ]
     },
     {
@@ -265,32 +323,44 @@
       ],
       "receipts": [],
       "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+        "Deferred from the 0.1.0a1 alpha profile: TestOps requires broader R1 acceptance."
       ]
     },
     {
       "id": "R15",
       "name": "CI and export",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R16",
       "name": "agents",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R17",
@@ -301,68 +371,98 @@
       ],
       "receipts": [],
       "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+        "Deferred from the 0.1.0a1 alpha profile: multi-project quality requires broader R1 acceptance."
       ]
     },
     {
       "id": "R18",
       "name": "correctness corpus",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R19",
       "name": "performance",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R20",
       "name": "supply chain",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R21",
       "name": "quality pack integrity",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R22",
       "name": "documentation",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "R23",
@@ -373,58 +473,82 @@
       ],
       "receipts": [],
       "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
+        "Deferred from the 0.1.0a1 alpha profile: adoption requires broader R1 acceptance."
       ]
     },
     {
       "id": "R24",
       "name": "OSS release",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "local implementation evidence exists, but no clean candidate-bound RC receipt has been recorded"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     }
   ],
   "gates": [
     {
       "id": "G1",
       "name": "Truth",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "required clean RC and external acceptance profiles are incomplete"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "G2",
       "name": "Safety",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "required clean RC and external acceptance profiles are incomplete"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "G3",
       "name": "Web reliability",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "required clean RC and external acceptance profiles are incomplete"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "G4",
@@ -435,32 +559,44 @@
       ],
       "receipts": [],
       "missing": [
-        "required clean RC and external acceptance profiles are incomplete"
+        "Deferred from the 0.1.0a1 alpha profile: Integrations requires broader R1 acceptance."
       ]
     },
     {
       "id": "G5",
       "name": "Agent workflow",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "required clean RC and external acceptance profiles are incomplete"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "G6",
       "name": "Measured quality",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "required clean RC and external acceptance profiles are incomplete"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     },
     {
       "id": "G7",
@@ -471,29 +607,47 @@
       ],
       "receipts": [],
       "missing": [
-        "required clean RC and external acceptance profiles are incomplete"
+        "Deferred from the 0.1.0a1 alpha profile: Adoption requires broader R1 acceptance."
       ]
     },
     {
       "id": "G8",
       "name": "Distribution",
-      "status": "incomplete",
+      "status": "passed",
       "required_profiles": [
         "rc"
       ],
-      "receipts": [],
-      "missing": [
-        "required clean RC and external acceptance profiles are incomplete"
-      ]
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a1/alpha-ci.json",
+          "bytes": 3938,
+          "sha256": "90a3b738036ce20a5dbcfa09ecd00186808a2b1a3393d0fb4061b0c717cd4473",
+          "profile": "rc",
+          "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+        }
+      ],
+      "missing": []
     }
   ],
   "exemptions": [],
   "limitations": [
-    "Local evidence is bound to a dirty materialized snapshot of base SHA 7be8d025f81d9116ab267c59d440e14b377cfce7 and cannot authorize an RC.",
-    "Hosted Windows/Linux CI, two OSS target runs, independent truth/security/rights reviews, live TestOps, real-client workflows, and pilot/week-return evidence remain pending.",
-    "The local performance receipt has five repeats on Windows 11/Python 3.13; it is not the 30-repeat reference-host RC profile."
+    "This is an alpha release. Allure/TestOps integration, broader multi-project acceptance, and adoption evidence remain R1 work.",
+    "The NextDish pilot informed the alpha, but its private application artifacts are not distributed with Testence.",
+    "The first PyPI upload still requires protected-environment approval and a post-publication clean-environment smoke test."
   ],
-  "machine_readiness": false,
-  "owner_decision": null,
-  "rollback": "Do not publish a tag or package. Preserve the prior accepted wheel and restore managed quality locks from their verified history snapshots."
+  "machine_readiness": true,
+  "owner_decision": {
+    "status": "go",
+    "owner": "kiselas",
+    "reason": "Owner authorized the public 0.1.0a1 alpha tag after the exact candidate passed the hosted matrix and release artifact checks.",
+    "payload_digest": "sha256:a33bad34ba6504301beea6aaeec06d50ceb1d6e9f37750a16d88b82abea24dda",
+    "receipt": {
+      "path": "release/evidence/v0.1.0a1/owner-go.json",
+      "bytes": 1828,
+      "sha256": "00d77da20f3b5797e333d86a1360b4083381315aabb102a3eda1b49a3c5de619",
+      "profile": "external",
+      "candidate_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371"
+    }
+  },
+  "rollback": "If publication validation fails, do not move the tag. If PyPI upload completes but the package is unusable, yank 0.1.0a1, retain provenance, and publish a new immutable alpha version after correction."
 }

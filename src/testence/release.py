@@ -15,6 +15,30 @@ from testence.managed_paths import ManagedPathError, checked_member
 
 LEGACY_RELEASE_MANIFEST_SCHEMA = "testence/release-manifest/1"
 
+ALPHA_REQUIRED_GATES = {"G1", "G2", "G3", "G5", "G6", "G8"}
+ALPHA_REQUIRED_REQUIREMENTS = {
+    "R01",
+    "R02",
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07",
+    "R08",
+    "R09",
+    "R10",
+    "R11",
+    "R12",
+    "R15",
+    "R16",
+    "R18",
+    "R19",
+    "R20",
+    "R21",
+    "R22",
+    "R24",
+}
+
 
 class ReleaseManifestError(ValueError):
     """A release manifest is malformed, incomplete, or points at invalid evidence."""
@@ -229,13 +253,18 @@ def validate_release_manifest(
         dependency = {}
         corpus = {}
 
+    release_profile = document.get("release_profile", "r1")
+    required_gates = ALPHA_REQUIRED_GATES if release_profile == "alpha" else set(gate_statuses)
+    required_requirements = (
+        ALPHA_REQUIRED_REQUIREMENTS if release_profile == "alpha" else set(requirement_statuses)
+    )
     ready = bool(
         rc_sha
         and candidate["tag"]
         and not candidate["dirty_worktree"]
         and not document["exemptions"]
-        and all(value == "passed" for value in gate_statuses.values())
-        and all(value == "passed" for value in requirement_statuses.values())
+        and all(gate_statuses[item] == "passed" for item in required_gates)
+        and all(requirement_statuses[item] == "passed" for item in required_requirements)
     )
     if document["machine_readiness"] is not ready:
         raise ReleaseManifestError(
@@ -263,6 +292,7 @@ def validate_release_manifest(
     status = "go" if decision is not None and decision["status"] == "go" else "no-go"
     return {
         "schema": RELEASE_MANIFEST_SCHEMA,
+        "release_profile": release_profile,
         "status": status,
         "legacy": False,
         "ready_for_owner_decision": ready,

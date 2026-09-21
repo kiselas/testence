@@ -59,6 +59,13 @@ jobs:
           path: acceptance-bundle
           run-id: ${{ inputs.evidence_run_id }}
           github-token: ${{ github.token }}
+      - name: Add versioned release decision evidence
+        run: |
+          mkdir -p acceptance-bundle/release/evidence/v0.1.0a1 acceptance-bundle/corpus acceptance-bundle/bench
+          cp release/evidence/v0.1.0a1/*.json acceptance-bundle/release/evidence/v0.1.0a1/
+          cp -R corpus/. acceptance-bundle/corpus/
+          cp -R bench/corpus acceptance-bundle/bench/
+          cp -R tests acceptance-bundle/
       - name: Verify the publishing inputs without uploading
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}

@@ -56,12 +56,14 @@ def test_historical_release_manifest_is_strict_valid_but_remains_no_go(capsys):
     assert json.loads(capsys.readouterr().out)["status"] == "no-go"
 
 
-def test_v2_historical_manifest_structure_remains_no_go():
+def test_v2_alpha_manifest_is_ready_and_owner_approved():
     result = validate_release_manifest(MANIFEST_V2, repository_root=ROOT, verify_files=False)
 
     assert result["schema"] == "testence/release-manifest/2"
     assert result["legacy"] is False
-    assert result["ready_for_owner_decision"] is False
+    assert result["release_profile"] == "alpha"
+    assert result["ready_for_owner_decision"] is True
+    assert result["status"] == "go"
     assert len(result["requirements"]) == 24
 
 
@@ -92,6 +94,10 @@ def test_v2_checks_actual_bytes_and_rejects_tampered_or_missing_artifacts(tmp_pa
     document["inputs"]["corpus_registry"] = reference
     for check in [*document["gates"], *document["requirements"]]:
         check["receipts"] = []
+        check["status"] = "incomplete"
+        check["missing"] = ["isolated file-integrity fixture"]
+    document["machine_readiness"] = False
+    document["owner_decision"] = None
     # Corpus semantics have their own tests. Isolate this test to file integrity.
     monkeypatch.setattr(
         "testence.release.validate_corpus_registry",
@@ -126,6 +132,7 @@ def test_clean_complete_v2_fixture_requires_an_exact_bound_owner_decision(tmp_pa
             for profile in check["required_profiles"]
         ]
     document["machine_readiness"] = True
+    document["owner_decision"] = None
     payload = dict(document)
     payload["owner_decision"] = None
     digest = (
@@ -157,6 +164,72 @@ def test_clean_complete_v2_fixture_requires_an_exact_bound_owner_decision(tmp_pa
     document["owner_decision"]["payload_digest"] = "sha256:" + "0" * 64
     path = _write(tmp_path / "stale", document)
     with pytest.raises(ReleaseManifestError, match="not bound"):
+        validate_release_manifest(path, repository_root=ROOT, verify_files=False)
+
+
+def test_alpha_profile_defers_only_non_alpha_checks(tmp_path):
+    document = _document_v2()
+    rc_sha = document["candidate"]["base_sha"]
+    document["release_profile"] = "alpha"
+    document["candidate"].update(
+        version="0.1.0a1", rc_sha=rc_sha, tag="v0.1.0a1", dirty_worktree=False
+    )
+    required = {
+        "G1",
+        "G2",
+        "G3",
+        "G5",
+        "G6",
+        "G8",
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        "R15",
+        "R16",
+        "R18",
+        "R19",
+        "R20",
+        "R21",
+        "R22",
+        "R24",
+    }
+    for check in [*document["requirements"], *document["gates"]]:
+        if check["id"] in required:
+            check["status"] = "passed"
+            check["missing"] = []
+            check["receipts"] = [
+                {
+                    "path": "synthetic/receipt.json",
+                    "bytes": 2,
+                    "sha256": hashlib.sha256(b"{}").hexdigest(),
+                    "profile": "rc",
+                    "candidate_sha": rc_sha,
+                }
+            ]
+            check["required_profiles"] = ["rc"]
+    document["machine_readiness"] = True
+    document["owner_decision"] = None
+    path = _write(tmp_path, document)
+    assert (
+        validate_release_manifest(path, repository_root=ROOT, verify_files=False)[
+            "ready_for_owner_decision"
+        ]
+        is True
+    )
+
+    document["requirements"][0]["status"] = "incomplete"
+    document["requirements"][0]["missing"] = ["required alpha evidence missing"]
+    path = _write(tmp_path / "required-missing", document)
+    with pytest.raises(ReleaseManifestError, match="machine_readiness"):
         validate_release_manifest(path, repository_root=ROOT, verify_files=False)
 
 
