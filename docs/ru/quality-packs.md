@@ -7,8 +7,9 @@ fixture interfaces, oracle recipes или selection rules. Примените т
 testence quality apply ../team-quality-pack . --json
 ```
 
-Команда проверяет каждый byte, отвергает выход path за pack и credential-like files,
-записывает фиксированные name/version/digest в `testence.json` и managed files в
+Команда проверяет каждый byte, отвергает выход path за pack, credential-like files и
+paths, отличающиеся только регистром или Unicode-нормализацией (на файловых системах
+macOS и Windows по умолчанию это один файл), записывает фиксированные name/version/digest в `testence.json` и managed files в
 `.testence/quality-pack.lock.json`. Update заменяет файл только при совпадении с прошлым
 pack. Human edit даёт conflict. Для намеренного local edit нужен
 `.testence/quality-overrides.json` с path, reason, owner и неистёкшей датой `YYYY-MM-DD`;

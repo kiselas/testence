@@ -7,6 +7,11 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Fixed
 
+- Quality packs: a pack listing paths that differ only by letter case or Unicode
+  normalization, such as `quality/A.json` and `quality/a.json`, was accepted. Default
+  macOS and Windows file systems store them as one file, so one file landed while the
+  lock tracked two, or a Linux-built pack failed with a misleading digest mismatch. Such
+  a pack is now refused with the colliding pair named.
 - Evidence: a network capture holding more than one request was redacted by text rules
   only, so a credential field inside a request body could reach `network.jsonl` in clear
   text. JSON Lines are now redacted record by record.

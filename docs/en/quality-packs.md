@@ -7,8 +7,9 @@ fixture-interface, oracle-recipe or selection files. Apply one exact revision:
 testence quality apply ../team-quality-pack . --json
 ```
 
-The command validates every byte, rejects paths outside the pack and credential-like
-files, writes the fixed name/version/digest into `testence.json`, and records managed
+The command validates every byte, rejects paths outside the pack, credential-like files
+and paths that differ only by letter case or Unicode normalization (they are one file on
+default macOS and Windows file systems), writes the fixed name/version/digest into `testence.json`, and records managed
 files in `.testence/quality-pack.lock.json`. Updating replaces a file only when it still
 matches the previous pack. A human edit produces a conflict. A deliberate local edit
 needs `.testence/quality-overrides.json` with path, reason, owner and an unexpired

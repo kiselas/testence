@@ -112,6 +112,51 @@ def test_quality_pack_rejects_digest_traversal_and_credentials(tmp_path):
         load_quality_pack(pack)
 
 
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ("quality/A.json", "quality/a.json"),
+        ("Quality/policy.json", "quality/policy.json"),
+        # NFC and NFD spellings of the same name: one file on APFS.
+        ("quality/café.json", "quality/café.json"),
+    ],
+)
+def test_pack_rejects_paths_that_collide_on_case_insensitive_file_systems(
+    tmp_path: Path, first: str, second: str
+):
+    root = tmp_path / "pack"
+    source = root / first
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"{}")
+    # Only the first spelling needs to exist: the collision is refused before the
+    # second is read, so macOS and Windows see this error, not a digest mismatch.
+    entries = [{"path": path, "sha256": _sha(b"{}")} for path in (first, second)]
+    (root / "quality-pack.json").write_text(
+        json.dumps(
+            {
+                "schema": QUALITY_PACK_SCHEMA,
+                "name": "case",
+                "version": "1",
+                "files": entries,
+                "policy": {"owners": [], "risks": [], "selection": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(QualityPackError, match="name the same file on case-insensitive"):
+        load_quality_pack(root)
+
+
+def test_pack_accepts_distinct_names_that_only_share_a_prefix(tmp_path: Path):
+    pack = _multi_pack(tmp_path / "pack", "1", {"quality/a.json": "a", "quality/ab.json": "b"})
+
+    assert [item["path"] for item in load_quality_pack(pack).files] == [
+        "quality/a.json",
+        "quality/ab.json",
+    ]
+
+
 def test_rollback_rejects_a_corrupt_snapshot_before_changing_files(tmp_path: Path):
     pack_v1 = load_quality_pack(_pack(tmp_path / "pack-v1", "1.0.0", "first"))
     pack_v2 = _pack(tmp_path / "pack-v2", "2.0.0", "second")

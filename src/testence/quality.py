@@ -10,6 +10,7 @@ import re
 import shutil
 import sys
 import time
+import unicodedata
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
@@ -35,6 +36,17 @@ from testence.metrics import load_run
 
 class QualityPackError(ValueError):
     pass
+
+
+def _collision_key(relative: str) -> str:
+    """Identity of a path on case-insensitive, normalization-insensitive file systems.
+
+    Default APFS and NTFS store ``A.json`` and ``a.json`` (or the NFC and NFD
+    spellings of ``é``) as one file, so a pack listing both would land a single file
+    while its lock tracks two. Comparing this key keeps a pack installable on every
+    supported platform, not only on the Linux host that built it.
+    """
+    return unicodedata.normalize("NFC", unicodedata.normalize("NFC", relative).casefold())
 
 
 def _digest(data: bytes) -> str:
@@ -208,7 +220,7 @@ def _commit_transaction(project: Path, operations: list[tuple[str, bytes | None]
     if not operations:
         return
     paths = [relative for relative, _raw in operations]
-    if len(paths) != len(set(paths)):
+    if len({_collision_key(relative) for relative in paths}) != len(paths):
         raise QualityPackError("quality transaction contains duplicate target paths")
     for relative in paths:
         _inside(project, relative)
@@ -315,6 +327,7 @@ def load_quality_pack(path: Path | str) -> QualityPack:
     if not name or not version or not isinstance(files, list) or not isinstance(policy, dict):
         raise QualityPackError("quality pack requires name, version, files and policy")
     seen: set[str] = set()
+    spellings: dict[str, str] = {}
     checked: list[dict[str, Any]] = []
     hash_material = bytearray(raw)
     for index, entry in enumerate(files):
@@ -329,6 +342,12 @@ def load_quality_pack(path: Path | str) -> QualityPack:
             or "/." in relative
         ):
             raise QualityPackError(f"quality pack file path is duplicate or hidden: {relative!r}")
+        other = spellings.setdefault(_collision_key(relative), relative)
+        if other != relative:
+            raise QualityPackError(
+                f"quality pack paths {other!r} and {relative!r} name the same file on "
+                "case-insensitive file systems (default macOS and Windows)"
+            )
         if re.search(r"(^|/)(?:\.env|credentials?|secrets?)(?:\.|/|$)", relative, re.I):
             raise QualityPackError(f"quality pack must not contain credential files: {relative!r}")
         try:
