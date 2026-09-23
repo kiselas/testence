@@ -16,6 +16,7 @@ from pathlib import Path
 from testence.config import Settings
 from testence.distribution import verify_installed_wheel
 from testence.engine import create_engine
+from testence.loopback import LoopbackHTTPServer
 from testence.visual import capture_baseline, compare_baseline, digest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -85,7 +86,7 @@ def main():
                     tree_hash.update(hashlib.sha256(asset.read_bytes()).digest())
             receipt["targets"].append({**target, "build_sha256": tree_hash.hexdigest()})
             handler = functools.partial(Handler, directory=str(checkout / target["web_root"]))
-            server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+            server = LoopbackHTTPServer(("127.0.0.1", 0), handler)
             threading.Thread(target=server.serve_forever, daemon=True).start()
             try:
                 for profile, width, height in (("desktop", 1280, 900), ("mobile", 390, 844)):

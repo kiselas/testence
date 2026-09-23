@@ -1,7 +1,7 @@
 """``testence`` CLI: metrics, reports, benchmarks and fast authoring loops.
 
 Cross-platform by construction: pure Python entry points, no shell wrappers
-(Windows dev machines and Linux CI are both first-class platforms).
+(Windows, Linux and macOS are all first-class platforms, locally and in CI).
 """
 
 from __future__ import annotations

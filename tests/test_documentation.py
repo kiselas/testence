@@ -75,7 +75,16 @@ def test_support_manifest_matches_package_and_ci_contract() -> None:
     assert support["schema"] == "testence/support/1"
     assert f'requires-python = "{support["python"]["requires"]}"' in pyproject
     assert 'python: ["3.10", "3.12"]' in workflow
-    assert set(support["platforms"]["ci"]) == {"ubuntu-latest", "windows-latest"}
+    # Every OS matrix in CI (tests, visual clients) is the declared platform set, so
+    # adding a runner without declaring it, or declaring one CI never runs, fails here.
+    matrices = re.findall(r"^\s+os: \[([^\]]+)\]$", workflow, re.MULTILINE)
+    assert len(matrices) >= 2
+    for matrix in matrices:
+        assert {item.strip() for item in matrix.split(",")} == set(support["platforms"]["ci"])
+    assert set(support["platforms"]["ci"]) == {"ubuntu-latest", "windows-latest", "macos-latest"}
+    for runner in support["platforms"]["ci"]:
+        if runner != "ubuntu-latest":
+            assert f"runs-on: {runner}\n" in workflow, f"no installed-wheel job on {runner}"
 
 
 def test_release_version_is_consistent_across_package_and_public_manifests() -> None:

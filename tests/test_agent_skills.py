@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from testence import SCHEMA_VERSION
 from testence.agent import (
@@ -129,3 +129,19 @@ def test_agent_cli_emits_machine_receipts_and_conflict_exit(tmp_path: Path, caps
     assert main(["agent", "verify", "--project", str(tmp_path), "--json"]) == 3
     drift = json.loads(capsys.readouterr().out)
     assert drift["status"] == "drift"
+
+
+def test_skill_walker_excludes_file_manager_metadata(tmp_path: Path):
+    from testence.agent.install import _walk
+
+    skill = tmp_path / "testence-author"
+    (skill / "references").mkdir(parents=True)
+    (skill / "SKILL.md").write_bytes(b"# skill")
+    (skill / "references" / "guide.md").write_bytes(b"guide")
+    # An editable checkout on macOS reads the source tree, where Finder leaves these.
+    (skill / ".DS_Store").write_bytes(b"Bud1")
+    (skill / "references" / "._guide.md").write_bytes(b"appledouble")
+
+    walked = [item.relative.as_posix() for item in _walk(skill, PurePosixPath("testence-author"))]
+
+    assert walked == ["testence-author/SKILL.md", "testence-author/references/guide.md"]

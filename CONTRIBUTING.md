@@ -26,7 +26,9 @@ uv run playwright install chromium
 uv run pytest -q
 ```
 
-The supported development platforms are Windows and Linux with Python 3.10 or newer.
+The supported development platforms are Windows, Linux and macOS on Apple Silicon with
+Python 3.10 or newer. On macOS and Linux the virtual environment interpreter is
+`.venv/bin/python`; on Windows it is `.venv/Scripts/python`.
 
 ## Required checks
 

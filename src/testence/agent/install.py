@@ -9,7 +9,7 @@ from importlib.resources import files
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from testence.managed_paths import ManagedPathError, checked_member
+from testence.managed_paths import ManagedPathError, checked_member, is_shell_metadata
 
 from .pack import bundled_skills, load_skill_pack
 
@@ -46,6 +46,10 @@ def _walk(root: Any, prefix: PurePosixPath) -> list[SkillFile]:
     result: list[SkillFile] = []
     for child in sorted(root.iterdir(), key=lambda item: item.name):
         relative = prefix / child.name
+        # An editable checkout reads skills from the source tree, where Finder may
+        # have left .DS_Store; it is not part of the pack and must not change its digest.
+        if isinstance(child, Path) and is_shell_metadata(child):
+            continue
         if child.is_dir():
             result.extend(_walk(child, relative))
         elif child.is_file():

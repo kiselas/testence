@@ -136,6 +136,35 @@ def test_delivery_retries_once_and_reuses_successful_receipt(tmp_path):
     assert second.receipt == first.receipt
 
 
+def test_delivery_identity_ignores_file_manager_metadata(tmp_path):
+    run_dir = _run(tmp_path / "runs")
+    artifacts = _artifacts(run_dir, tmp_path / "allure-results")
+    receipt = tmp_path / "delivery.json"
+
+    def deliver():
+        return run_delivery(
+            run_dir=run_dir,
+            run_id="r-ci-1",
+            project_id="shop",
+            launch_id="launch-7",
+            job_run_id="job-9",
+            artifact_dir=artifacts,
+            receipt_path=receipt,
+            command=[sys.executable, "-c", "pass"],
+            retries=0,
+            timeout_s=5,
+        )
+
+    first = deliver()
+    # Opening the results folder in Finder or Explorer must not look like new content.
+    (artifacts / ".DS_Store").write_bytes(b"Bud1")
+    (artifacts / "Thumbs.db").write_bytes(b"thumbs")
+    second = deliver()
+
+    assert first.exit_code == second.exit_code == 0
+    assert second.receipt["idempotency_key"] == first.receipt["idempotency_key"]
+
+
 def test_delivery_timeout_and_preflight_fail_closed(tmp_path):
     run_dir = _run(tmp_path / "runs")
     artifacts = _artifacts(run_dir, tmp_path / "allure-results")

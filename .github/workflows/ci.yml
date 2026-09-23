@@ -63,7 +63,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # macos-latest is Apple Silicon (arm64). Intel macOS has no hosted runner here.
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python: ["3.10", "3.12"]
     steps:
       - name: Check out repository
@@ -85,7 +86,16 @@ jobs:
         if: runner.os != 'Linux'
         run: uv run playwright install chromium
       - name: Run test suite
-        run: uv run pytest -q
+        # Per-test timings make a platform slowdown diagnosable from the artifact
+        # instead of from a second run.
+        run: uv run pytest -q --durations=25 --junitxml=test-timings/junit.xml
+      - name: Save per-test timings
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: testence-${{ github.sha }}-timings-${{ matrix.os }}-py${{ matrix.python }}
+          path: test-timings/junit.xml
+          if-no-files-found: warn
       - name: Run the documented examples
         # `testpaths` covers tests/ only, so a broken example reached the published
         # quick start without any job failing. These are the commands the README
@@ -210,6 +220,43 @@ jobs:
             release-artifacts/installed-wheel-smoke-windows.json
           if-no-files-found: error
 
+  installed-wheel-macos:
+    name: Installed wheel / macOS browser
+    runs-on: macos-latest
+    needs: [quality, tests, minimum-dependencies]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: Download the exact candidate wheel
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: testence-${{ github.sha }}-candidate-distributions
+          path: dist
+      - name: Install exact wheel
+        # macOS needs no --with-deps: the bundled Chromium carries its own frameworks.
+        run: |
+          uv venv .wheel-venv
+          wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          uv pip install --python .wheel-venv/bin/python "$wheel"
+          .wheel-venv/bin/python -m playwright install chromium
+      - name: Run isolated installed-wheel smoke
+        run: |
+          wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          .wheel-venv/bin/python -I scripts/installed_wheel_smoke.py --distribution "$wheel" --output release-artifacts/installed-wheel-smoke-macos.json
+      - name: Save macOS wheel evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: testence-${{ github.sha }}-macos-wheel-smoke
+          path: |
+            release-artifacts/installed-wheel-smoke-macos.json
+          if-no-files-found: error
+
   visual-clients:
     name: Visual client simulation / ${{ matrix.os }}
     needs: quality
@@ -217,7 +264,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -235,6 +282,14 @@ jobs:
           wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
           uv pip install --python .visual-venv/bin/python "${wheel}[visual]"
           .visual-venv/bin/python -m playwright install --with-deps chromium
+          .visual-venv/bin/python -I bench/client_simulation/run.py --distribution "$wheel" --output visual-evidence --repeats 1
+      - name: Install visual wheel and run isolated clients (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          uv venv .visual-venv
+          wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          uv pip install --python .visual-venv/bin/python "${wheel}[visual]"
+          .visual-venv/bin/python -m playwright install chromium
           .visual-venv/bin/python -I bench/client_simulation/run.py --distribution "$wheel" --output visual-evidence --repeats 1
       - name: Install visual wheel and run isolated clients (Windows)
         if: runner.os == 'Windows'

@@ -5,6 +5,12 @@ endings on all platforms; fsync per event (crash-safety is the point, and it cos
 0.5 ms per event). Fields are append-only within a major version; breaking changes
 bump the version and parsers must refuse foreign versions loudly.
 
+The fsync guarantee is the operating system's. On macOS `fsync` hands the data to the
+drive but does not flush the drive's own write cache, which needs `F_FULLFSYNC` and
+costs orders of magnitude more. A crashed or killed process loses nothing there either;
+a power loss can drop the last events. Testence keeps plain `fsync` on every platform
+rather than trade the per-event budget for that case.
+
 **One file per process, never per run.** Under `pytest -n` each worker writes
 `run-<worker>.jsonl` beside the controller's `run.jsonl`, all inside one run
 directory named by `TESTENCE_RUN_ID`. Not a preference: four processes appending to

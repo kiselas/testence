@@ -19,6 +19,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from testence.application import inspect_run
+from testence.loopback import LoopbackHTTPServer
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -97,7 +98,7 @@ def main() -> int:
             target["built_tree_sha256"] = material.hexdigest()
             (output / f"{target['name']}-LICENSE").write_bytes(license_path.read_bytes())
             handler = functools.partial(Handler, directory=str(web_root))
-            server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+            server = LoopbackHTTPServer(("127.0.0.1", 0), handler)
             servers.append(server)
             threading.Thread(target=server.serve_forever, daemon=True).start()
             env["OSS_" + target["name"].upper()] = f"http://127.0.0.1:{server.server_port}"

@@ -14,6 +14,7 @@ from typing import Any
 
 from testence.contracts.versions import CI_RECEIPT_SCHEMA, DELIVERY_RECEIPT_SCHEMA
 from testence.export import LoadedRun
+from testence.managed_paths import is_shell_metadata
 from testence.metrics import load_run
 
 QUALITY_FAILURE_EXIT = 10
@@ -55,7 +56,11 @@ def _atomic_json(path: Path, document: dict[str, Any]) -> None:
 def _artifact_digest(artifact_dir: Path) -> str:
     if not artifact_dir.is_dir():
         raise CIError(f"delivery artifact directory does not exist: {artifact_dir}")
-    files = sorted(path for path in artifact_dir.iterdir() if path.is_file())
+    # A file manager's .DS_Store/Thumbs.db is not delivered content. Counting it would
+    # change the idempotency identity after someone merely opened the folder.
+    files = sorted(
+        path for path in artifact_dir.iterdir() if path.is_file() and not is_shell_metadata(path)
+    )
     result_files = [path for path in files if path.name.endswith("-result.json")]
     if not result_files:
         raise CIError("delivery artifact directory has no Allure result files")

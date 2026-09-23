@@ -31,3 +31,9 @@ outputs/
 .wheel-venv/
 .venv-min/
 scale-profile.json
+test-timings/
+# Desktop file-manager metadata (Finder, Explorer).
+.DS_Store
+._*
+Thumbs.db
+desktop.ini

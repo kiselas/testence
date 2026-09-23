@@ -184,6 +184,13 @@ pytest examples/ -q --testence-headless
 `browser_channel=`
 по-прежнему сильнее, а CI остаётся на bundled Chromium, потому что переменную не задаёт.
 
+На macOS bundled Chromium не требует ничего, кроме `python -m playwright install
+chromium`. Каналы `chrome` и `msedge` запускают приложения из `/Applications`, поэтому
+доступны только там, где установлены Google Chrome или Microsoft Edge. Параллельный
+прогон открывает сразу несколько браузеров, а оболочка macOS может стартовать с мягким
+лимитом файловых дескрипторов всего в 256; если воркеры падают с «Too many open files»,
+проверьте `ulimit -n` и поднимите лимит для этой оболочки.
+
 ## Политика сбора evidence
 
 Network bodies и screenshots отключены, пока проект явно их не разрешит. Текстовые

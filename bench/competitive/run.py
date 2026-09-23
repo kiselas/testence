@@ -36,7 +36,7 @@ def _start_target(port: int) -> subprocess.Popen[str] | None:
     if _listening(port):
         return None
     process = subprocess.Popen(
-        [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"],
+        [sys.executable, "-m", "testence.loopback", str(port)],
         cwd=ROOT / "bench" / "target",
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

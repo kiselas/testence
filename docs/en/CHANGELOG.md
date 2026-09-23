@@ -24,8 +24,25 @@ under `Unreleased`; compatibility is not guaranteed.
   with no channel.
 - The default form-login submit target also matches `<button>` without an explicit
   `type`, which submits its form per the HTML specification.
+- A `.DS_Store` or AppleDouble `._name` file that Finder leaves in an opened folder no
+  longer blocks quality-pack recovery, changes the CI delivery identity of an Allure
+  results folder, or enters the installed skill pack from an editable checkout.
+  Explorer's `Thumbs.db` and `desktop.ini` are skipped the same way.
+- Expected state: a read that the host scheduler delayed past the deadline could
+  complete a positive `stability_ms` window, so a window longer than its deadline could
+  pass without being sampled. A positive window must now be observed within the
+  deadline; a point-in-time check with `stability_ms=0` is unchanged.
+- The demo target server that `testence demo run` writes into a project, the test
+  fixtures and the benchmark servers no longer resolve `127.0.0.1` back to a host name
+  when they bind. On a hosted macOS runner the first such lookup in a process took
+  35 s, so each demo scenario started 35 s late and the `bench/competitive` and
+  `bench/i3_baseline` targets did not listen within their startup wait. New
+  `testence.loopback` provides the server and `python -m testence.loopback PORT`.
 
 ### Changed
+
+- CI runs the test matrix, the installed-wheel smoke and the visual client simulation
+  on macOS (Apple Silicon). `0.1.0a1` was published without macOS receipts.
 
 - `testence init` writes the readiness mapping its generated plan needs, so
   `plan prepare` reports `ready` for a freshly initialized project.

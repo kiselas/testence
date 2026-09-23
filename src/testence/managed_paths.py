@@ -25,6 +25,24 @@ _WINDOWS_RESERVED = {
 }
 
 
+#: Files a desktop shell writes into any folder a person opens: Finder's ``.DS_Store``,
+#: the AppleDouble ``._name`` companions macOS leaves on SMB/exFAT volumes, and
+#: Explorer's ``Thumbs.db``/``desktop.ini``. They carry no Testence state, so a walker
+#: over a managed directory skips them instead of treating them as members.
+_SHELL_METADATA = {".ds_store", "thumbs.db", "desktop.ini"}
+
+
+def is_shell_metadata(path: Path) -> bool:
+    """True for a regular file the OS file manager created, never for a directory."""
+    name = path.name
+    if name.casefold() not in _SHELL_METADATA and not name.startswith("._"):
+        return False
+    try:
+        return stat.S_ISREG(path.lstat().st_mode)
+    except OSError:
+        return False
+
+
 def portable_parts(relative: str | PurePosixPath) -> tuple[str, ...]:
     """Parse one portable, project-relative member without host-specific shortcuts."""
     value = relative.as_posix() if isinstance(relative, PurePosixPath) else relative
@@ -144,5 +162,6 @@ __all__ = [
     "atomic_write_bytes",
     "checked_member",
     "ensure_parent",
+    "is_shell_metadata",
     "portable_parts",
 ]

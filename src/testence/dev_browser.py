@@ -3,10 +3,10 @@
 Iterating on a suite pays browser launch + login on every pytest run; this
 launcher pays both once. Start it, leave it running, and point runs at it:
 
-    .venv/Scripts/python -m testence.dev_browser --profile staging
+    python -m testence.dev_browser --profile staging
 
     # every subsequent run attaches in ~0 s instead of launching + logging in:
-    .venv/Scripts/python -m pytest tests_e2e --testence-profile staging-attached
+    python -m pytest tests_e2e --testence-profile staging-attached
 
 The window is headed on purpose: the same browser is the triage substrate — when
 a case fails, the page is sitting there at the failure state, already yours.

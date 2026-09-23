@@ -23,6 +23,7 @@ from pathlib import Path
 
 from testence.application import inspect_run
 from testence.distribution import verify_installed_wheel
+from testence.loopback import LoopbackHTTPServer
 
 HERE = Path(__file__).resolve().parent
 PHASES = ("healthy", "shift", "invisible", "mobile-clip", "dom-only", "restored")
@@ -105,7 +106,7 @@ def main() -> int:
             self.end_headers()
             self.wfile.write(data)
 
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = LoopbackHTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     # Deliberately do not inherit developer Testence settings or source import paths.
     env = {

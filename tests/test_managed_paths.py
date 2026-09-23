@@ -12,6 +12,7 @@ from testence.managed_paths import (
     ManagedPathError,
     atomic_write_bytes,
     checked_member,
+    is_shell_metadata,
     portable_parts,
 )
 
@@ -106,3 +107,27 @@ def test_project_commands_refuse_a_linked_state_root(tmp_path: Path, action, err
     finally:
         if os.name == "nt" and link.exists():
             os.rmdir(link)
+
+
+@pytest.mark.parametrize(
+    ("name", "directory", "expected"),
+    [
+        (".DS_Store", False, True),
+        ("._screenshot.png", False, True),
+        ("Thumbs.db", False, True),
+        ("desktop.ini", False, True),
+        (".DS_Store", True, False),
+        ("screenshot.png", False, False),
+        ("journal.json", False, False),
+    ],
+)
+def test_shell_metadata_is_only_a_file_manager_file(
+    tmp_path: Path, name: str, directory: bool, expected: bool
+):
+    path = tmp_path / name
+    if directory:
+        path.mkdir()
+    else:
+        path.write_bytes(b"x")
+
+    assert is_shell_metadata(path) is expected

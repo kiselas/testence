@@ -281,7 +281,13 @@ def observe_expected_state(
                 if matches:
                     if stable_since is None:
                         stable_since = now
-                    if (now - stable_since) * 1_000 >= expected.stability_ms:
+                    # A positive window has to be observed inside the deadline. A
+                    # read the host scheduler delayed past it (a 1 ms sleep lasts
+                    # ~15 ms on Windows Python 3.10 and 5 ms can exceed 20 ms on a
+                    # macOS runner) must not complete a window the deadline cannot
+                    # hold: that would be a pass nobody sampled for.
+                    in_deadline = expected.stability_ms == 0 or now <= deadline
+                    if in_deadline and (now - stable_since) * 1_000 >= expected.stability_ms:
                         return OracleObservation(
                             "passed",
                             "matched expected state",

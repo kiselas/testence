@@ -24,7 +24,12 @@ from testence.contracts.versions import (
     QUALITY_SYNC_SCHEMA,
 )
 from testence.export._model import LoadedRun
-from testence.managed_paths import ManagedPathError, atomic_write_bytes, checked_member
+from testence.managed_paths import (
+    ManagedPathError,
+    atomic_write_bytes,
+    checked_member,
+    is_shell_metadata,
+)
 from testence.metrics import load_run
 
 
@@ -118,6 +123,10 @@ def _recover_transactions(project: Path) -> None:
     if not root.is_dir():
         raise QualityPackError("quality transaction state is not a directory")
     for directory in sorted(root.iterdir()):
+        if is_shell_metadata(directory):
+            # Finder leaves .DS_Store in a folder someone opened; it is not a
+            # transaction and must not block recovery of the real ones.
+            continue
         relative = f".testence/quality-transactions/{directory.name}"
         journal = _load_json(_inside(project, relative + "/journal.json"))
         if not journal:

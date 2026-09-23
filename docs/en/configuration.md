@@ -186,6 +186,13 @@ through `Settings.load`, such as the repository's own browser tests; an explicit
 `browser_channel=` argument still
 wins, and CI keeps the bundled Chromium because it does not set the variable.
 
+On macOS the bundled Chromium needs nothing beyond `python -m playwright install
+chromium`. The `chrome` and `msedge` channels launch the applications installed in
+`/Applications`, so they are available only where Google Chrome or Microsoft Edge is
+installed. Parallel runs open several browsers at once, and a macOS shell may start
+with a soft file descriptor limit as low as 256; if workers fail with "Too many open
+files", check `ulimit -n` and raise it for that shell.
+
 ## Evidence capture policy
 
 Network bodies and screenshots are disabled unless the project opts in. Text evidence

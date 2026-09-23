@@ -18,8 +18,10 @@ from __future__ import annotations
 import base64
 import json
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from typing import Any
+
+from testence.loopback import LoopbackHTTPServer
 
 USER = "demo@example.test"
 PASSWORD = "demo-password"
@@ -216,7 +218,7 @@ class MockApp:
     """Context manager yielding ``base_url`` of a live server on a free port."""
 
     def __init__(self) -> None:
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+        self.server = LoopbackHTTPServer(("127.0.0.1", 0), _Handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
 
     @property

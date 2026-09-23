@@ -257,6 +257,24 @@ def test_cleanup_propagates_nontransient_errors(tmp_path: Path, monkeypatch):
     assert directory.exists()
 
 
+def test_recovery_skips_file_manager_metadata_but_not_unknown_entries(tmp_path: Path):
+    v1 = _multi_pack(tmp_path / "v1", "1", {"quality/a": "a1"})
+    v2 = _multi_pack(tmp_path / "v2", "2", {"quality/a": "a2"})
+    project = _project(tmp_path / "project", "catalog")
+    apply_quality_pack(v1, project)
+    transactions = project / ".testence/quality-transactions"
+    transactions.mkdir(exist_ok=True)
+    # Finder writes this as soon as someone opens the hidden folder on macOS.
+    (transactions / ".DS_Store").write_bytes(b"Bud1")
+
+    apply_quality_pack(v2, project)
+
+    assert (project / "quality/a").read_text(encoding="utf-8") == "a2"
+    (transactions / "stray").mkdir()
+    with pytest.raises(QualityPackError, match="incomplete quality transaction journal: stray"):
+        apply_quality_pack(v1, project)
+
+
 def test_apply_rejects_a_concurrent_quality_operation(tmp_path: Path):
     pack = _pack(tmp_path / "pack", "1", "safe")
     project = _project(tmp_path / "project", "catalog").resolve()

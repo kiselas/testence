@@ -35,7 +35,7 @@ STEPS = [
 
 def main() -> None:
     server = subprocess.Popen(
-        [sys.executable, "-m", "http.server", str(PORT), "--bind", "127.0.0.1"],
+        [sys.executable, "-m", "testence.loopback", str(PORT)],
         cwd=str(ROOT / "bench" / "target"),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

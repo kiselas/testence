@@ -1,9 +1,11 @@
 # Support and compatibility
 
-Testence is an alpha candidate. The supported development and CI matrix is Windows and Linux,
-Python 3.10 and 3.12, and the Playwright-bundled Chromium browser. macOS, Firefox,
-WebKit, mobile, hosted dashboards and production-data handling are outside the current
-support promise.
+Testence is an alpha candidate. The supported development and CI matrix is Windows, Linux
+and macOS on Apple Silicon, Python 3.10 and 3.12, and the Playwright-bundled Chromium
+browser. macOS joined the matrix after `0.1.0a1`, so that published alpha carries no macOS
+receipts; the next clean candidate is the first to be verified there. Intel macOS,
+Firefox, WebKit, mobile, hosted dashboards and production-data handling are outside the
+current support promise.
 
 The latest `main` is the only supported development line before the first release.
 After `0.1.x`, the latest patch of the current minor receives bug and critical security

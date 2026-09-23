@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 
 import pytest
 
@@ -27,6 +27,7 @@ from testence.auth import (
 )
 from testence.engine import Target, worker_port_offset
 from testence.engine.playwright_cdp import PlaywrightCdpEngine
+from testence.loopback import LoopbackHTTPServer
 
 from .mock_app import PASSWORD, SESSION_COOKIE, USER, MockApp
 
@@ -308,7 +309,7 @@ def test_http_json_refuses_cross_origin_redirect_before_forwarding_credentials()
             self.send_header("Content-Length", "0")
             self.end_headers()
 
-    sink = ThreadingHTTPServer(("127.0.0.1", 0), Sink)
+    sink = LoopbackHTTPServer(("127.0.0.1", 0), Sink)
     sink_thread = threading.Thread(target=sink.serve_forever, daemon=True)
     sink_thread.start()
     sink_url = f"http://127.0.0.1:{sink.server_address[1]}/collect"
@@ -323,7 +324,7 @@ def test_http_json_refuses_cross_origin_redirect_before_forwarding_credentials()
             self.send_header("Content-Length", "0")
             self.end_headers()
 
-    source = ThreadingHTTPServer(("127.0.0.1", 0), Source)
+    source = LoopbackHTTPServer(("127.0.0.1", 0), Source)
     source_thread = threading.Thread(target=source.serve_forever, daemon=True)
     source_thread.start()
     source_url = f"http://127.0.0.1:{source.server_address[1]}/redirect"

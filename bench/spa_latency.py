@@ -20,7 +20,7 @@ import sys
 import tempfile
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from importlib.metadata import version
 from pathlib import Path
 
@@ -31,6 +31,7 @@ from testence.dsl import Actions  # noqa: E402
 from testence.engine import Target  # noqa: E402
 from testence.engine.playwright_cdp import PlaywrightCdpEngine  # noqa: E402
 from testence.evidence import EvidenceWriter  # noqa: E402
+from testence.loopback import LoopbackHTTPServer  # noqa: E402
 
 ITERATIONS = 20
 NAME = Target("css", "#name")
@@ -93,7 +94,7 @@ def timed(call) -> float:
 
 
 def main() -> None:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = LoopbackHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     host, port = server.server_address[:2]

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import testence.oracle as oracle_module
 from testence.api import ApiClient, Response
 from testence.engine import NetRecord
 from testence.oracle import (
@@ -93,14 +94,39 @@ def test_wrong_binding_is_a_decisive_failed_oracle(actual, reason):
     assert reason in observed.reason
 
 
-def test_state_must_remain_true_through_the_observation_window():
-    responses = iter(
-        [
-            _response(_state()),
-            _response(_state(state="rolled-back")),
-            _response(_state(state="rolled-back")),
-        ]
-    )
+class _Clock:
+    """Virtual monotonic time for the oracle; a sleep may overshoot like a busy host.
+
+    Stability windows are milliseconds long, and real sleeps overshoot them on hosted
+    runners (5 ms took over 20 ms on macOS, 1 ms takes ~15 ms on Windows Python 3.10).
+    Virtual time makes each scheduling case explicit instead of host-dependent.
+    """
+
+    def __init__(self, overshoot_ms: float = 0) -> None:
+        self.now = 0.0
+        self.overshoot = overshoot_ms / 1_000
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds + self.overshoot
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    def install(overshoot_ms: float = 0) -> _Clock:
+        virtual = _Clock(overshoot_ms)
+        monkeypatch.setattr(oracle_module, "time", virtual)
+        return virtual
+
+    return install
+
+
+@pytest.mark.parametrize(("overshoot_ms", "attempts"), [(0, 5), (20, 2)])
+def test_state_must_remain_true_through_the_observation_window(clock, overshoot_ms, attempts):
+    clock(overshoot_ms)
+    responses = iter([_response(_state()), _response(_state(state="rolled-back"))])
 
     observed = observe_expected_state(
         lambda: next(responses, _response(_state(state="rolled-back"))),
@@ -110,11 +136,12 @@ def test_state_must_remain_true_through_the_observation_window():
     )
 
     assert observed.outcome == "failed"
-    assert observed.attempts >= 3
+    assert observed.attempts == attempts
     assert "predicate" in observed.reason
 
 
-def test_negative_predicate_is_observed_for_the_whole_window():
+def test_negative_predicate_is_observed_for_the_whole_window(clock):
+    clock()
     expected = ExpectedState(
         "deleted widget stays absent",
         lambda body: all(item["id"] != "widget-42" for item in body),
@@ -129,10 +156,14 @@ def test_negative_predicate_is_observed_for_the_whole_window():
     )
 
     assert observed.outcome == "passed"
-    assert observed.attempts >= 2
+    assert observed.attempts == 3
 
 
-def test_deadline_shorter_than_stability_window_is_inconclusive():
+@pytest.mark.parametrize("overshoot_ms", [0, 40])
+def test_deadline_shorter_than_stability_window_is_inconclusive(clock, overshoot_ms):
+    # With a 40 ms overshoot the second read lands 41 ms after the first, past the
+    # 5 ms deadline. It must not complete the 30 ms window the deadline cannot hold.
+    clock(overshoot_ms)
     observed = observe_expected_state(
         lambda: _response(_state()),
         _expected(stability_ms=30),
@@ -144,7 +175,20 @@ def test_deadline_shorter_than_stability_window_is_inconclusive():
     assert "remain stable" in observed.reason
 
 
-def test_oracle_loss_during_stability_window_is_inconclusive():
+def test_point_in_time_state_read_after_the_deadline_still_passes(clock):
+    clock(40)
+    responses = iter([_response(_state(revision=1)), _response(_state())])
+
+    observed = observe_expected_state(
+        lambda: next(responses), _expected(), deadline_ms=5, poll_ms=1
+    )
+
+    assert observed.outcome == "passed"
+    assert observed.attempts == 2
+
+
+def test_oracle_loss_during_stability_window_is_inconclusive(clock):
+    clock()
     responses = iter(
         [_response(_state()), _response("<html>lost</html>", content_type="text/html")]
     )

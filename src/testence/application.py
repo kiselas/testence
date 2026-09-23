@@ -162,10 +162,12 @@ def _scaffold(project_id: str) -> dict[str, bytes]:
 '''
     conftest = """import json
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+
+from testence.loopback import LoopbackHTTPServer
 
 
 @pytest.fixture
@@ -212,7 +214,7 @@ def demo_server():
         def log_message(self, format, *args):
             return
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = LoopbackHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:

@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import socketserver
 import time
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -323,13 +324,28 @@ class Handler(BaseHTTPRequestHandler):
         )
 
 
+class _UnresolvedServer(ThreadingHTTPServer):
+    """Skip the reverse DNS lookup in ``HTTPServer.server_bind``.
+
+    It only fills ``server_name`` and takes 35 s on a hosted macOS runner. The SUT stays
+    independent of the framework under test, so it does not import
+    ``testence.loopback``, which does the same.
+    """
+
+    def server_bind(self) -> None:
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = str(host)
+        self.server_port = int(port)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8800)
     parser.add_argument("--host", default="127.0.0.1")
     args = parser.parse_args()
 
-    httpd = ThreadingHTTPServer((args.host, args.port), Handler)
+    httpd = _UnresolvedServer((args.host, args.port), Handler)
     print(
         f"sut on http://{args.host}:{args.port}  ({len(KNOWN)} injectable behaviours)", flush=True
     )

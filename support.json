@@ -8,9 +8,10 @@
     "local_additional": ["3.13"]
   },
   "platforms": {
-    "ci": ["ubuntu-latest", "windows-latest"],
+    "ci": ["ubuntu-latest", "windows-latest", "macos-latest"],
     "browser": "Playwright bundled Chromium",
-    "browser_fallback": "system Chrome by explicit option"
+    "browser_fallback": "system Chrome by explicit option",
+    "macos": "Apple Silicon (arm64) hosted runner; Intel macOS is not exercised"
   },
   "dependency_floors": {
     "jsonschema": "4.23",
@@ -22,6 +23,7 @@
   "security_policy": "SECURITY.md",
   "limitations": [
     "Only the hosted matrix of an exact clean candidate establishes release support.",
-    "Attached and warm browser modes are authoring surfaces; release evidence uses isolated mode."
+    "Attached and warm browser modes are authoring surfaces; release evidence uses isolated mode.",
+    "macOS joined the CI matrix after 0.1.0a1, which was published without macOS receipts."
   ]
 }
