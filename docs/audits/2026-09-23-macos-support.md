@@ -173,7 +173,8 @@ platform. The defect predates this branch.
   the scheduler oversleeps. Sampling density is not enforced.
 - `fcntl.flock` may be unsupported on SMB or NFS mounts; the quality lock would then
   report "another operation is in progress" instead of the real cause.
-- The dependency floors in `support.json` are exercised only on Linux.
+- The dependency floors in `support.json` were exercised only on Linux; the
+  minimum-dependencies job now runs them on Linux, Windows and macOS.
 - `macos-latest` will move to a newer macOS without notice; receipts record
   `platform.platform()`, so the tested version stays traceable.
 

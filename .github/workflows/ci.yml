@@ -103,8 +103,17 @@ jobs:
         run: uv run pytest examples -q --testence-headless
 
   minimum-dependencies:
-    name: Minimum dependencies / Python 3.10
-    runs-on: ubuntu-latest
+    name: Minimum dependencies / ${{ matrix.os }} / Python 3.10
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floors in support.json are declared for every supported platform, so they
+        # are proven on every one, not only on Linux.
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -114,14 +123,26 @@ jobs:
           python-version: "3.10"
       - name: Install uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: Locate the floor environment interpreter
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "FLOOR_PY=.venv-min/Scripts/python.exe" >> "$GITHUB_ENV"
+          else
+            echo "FLOOR_PY=.venv-min/bin/python" >> "$GITHUB_ENV"
+          fi
       - name: Install declared minimum dependencies
         run: |
           uv venv --python 3.10 .venv-min
-          uv pip install --python .venv-min/bin/python "jsonschema==4.23.0" "playwright==1.49.0" "pytest==8.0.0" "pytest-xdist==3.6.1" "spdx-tools==0.8.5" "pillow==12.1.1" .
+          uv pip install --python "$FLOOR_PY" "jsonschema==4.23.0" "playwright==1.49.0" "pytest==8.0.0" "pytest-xdist==3.6.1" "spdx-tools==0.8.5" "pillow==12.1.1" .
       - name: Install minimum Playwright Chromium
-        run: .venv-min/bin/python -m playwright install --with-deps chromium
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            "$FLOOR_PY" -m playwright install --with-deps chromium
+          else
+            "$FLOOR_PY" -m playwright install chromium
+          fi
       - name: Run suite at dependency floor
-        run: .venv-min/bin/python -m pytest -q
+        run: '"$FLOOR_PY" -m pytest -q'
 
   installed-wheel:
     name: Installed wheel / browser / release artifacts
