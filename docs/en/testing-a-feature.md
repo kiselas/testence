@@ -146,7 +146,10 @@ The request expectation can additionally name a GraphQL operation or a custom re
 predicate. Empty/non-JSON/HTML and 401/403/404/500 oracle responses are
 `inconclusive`; a valid stale, wrong-entity, wrong-role or rolled-back state is a failed
 assertion. Negative claims use a negative predicate plus `stability_ms` as their
-observation window.
+observation window. A window passes only when it is observed inside `deadline_ms` and
+at least one matching read falls between its first and last, so `stability_ms` must be
+shorter than `deadline_ms`; a window the deadline cannot hold raises `ValueError`
+before the mutation is sent.
 
 `ex.fill(...)` keeps Playwright's visibility/editability checks and is the default.
 `ex.fill(..., fast=True)` skips those checks but preserves the normal `input` event; use

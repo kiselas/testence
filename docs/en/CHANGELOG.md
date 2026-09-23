@@ -47,6 +47,11 @@ under `Unreleased`; compatibility is not guaranteed.
   35 s, so each demo scenario started 35 s late and the `bench/competitive` and
   `bench/i3_baseline` targets did not listen within their startup wait. New
   `testence.loopback` provides the server and `python -m testence.loopback PORT`.
+- Expected state: two matching reads at the edges of a stability window, with the
+  scheduler asleep in between, completed it. A positive window now also needs a matching
+  read inside it. A window that is not shorter than its deadline, a negative deadline
+  or a non-positive poll interval raise `ValueError`, and `save_and_verify_state` checks
+  them before it clicks save instead of after the mutation was sent.
 
 ### Changed
 

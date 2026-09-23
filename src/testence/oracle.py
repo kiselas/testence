@@ -238,6 +238,17 @@ def _authoritative_value(response: Any, expected: ExpectedState) -> tuple[Any, s
     return value, None
 
 
+def _check_observation_window(expected: ExpectedState, deadline_ms: int, poll_ms: int) -> None:
+    """Refuse an observation that cannot be proved, before anything is mutated."""
+    if deadline_ms < 0 or poll_ms <= 0:
+        raise ValueError("deadline_ms must be non-negative and poll_ms must be positive")
+    if expected.stability_ms and expected.stability_ms >= deadline_ms:
+        raise ValueError(
+            f"stability_ms={expected.stability_ms} must be shorter than "
+            f"deadline_ms={deadline_ms}: a window the deadline cannot hold is never observed"
+        )
+
+
 def observe_expected_state(
     read: Callable[[], Response],
     expected: ExpectedState,
@@ -245,12 +256,17 @@ def observe_expected_state(
     deadline_ms: int = 3_000,
     poll_ms: int = 100,
 ) -> OracleObservation:
-    """Repeat safe reads until state matches for the required observation window."""
-    if deadline_ms < 0 or poll_ms <= 0:
-        raise ValueError("deadline_ms must be non-negative and poll_ms must be positive")
+    """Repeat safe reads until state matches for the required observation window.
+
+    A positive window passes only when it is observed inside the deadline and at
+    least one matching read falls strictly between its first and last read. Two reads
+    at the edges of a window say nothing about the time the scheduler slept through.
+    """
+    _check_observation_window(expected, deadline_ms, poll_ms)
     started = time.monotonic()
     deadline = started + deadline_ms / 1_000
     stable_since: float | None = None
+    stable_reads = 0
     attempts = 0
     actual: Any = None
     last_reason = "deadline elapsed before a usable observation"
@@ -267,6 +283,7 @@ def observe_expected_state(
         if invalid is not None:
             last_reason = invalid
             stable_since = None
+            stable_reads = 0
             last_was_valid = False
         else:
             try:
@@ -274,6 +291,7 @@ def observe_expected_state(
             except _PredicateError as exc:
                 last_reason = str(exc)
                 stable_since = None
+                stable_reads = 0
                 last_was_valid = False
             else:
                 saw_valid = True
@@ -281,13 +299,19 @@ def observe_expected_state(
                 if matches:
                     if stable_since is None:
                         stable_since = now
+                    stable_reads += 1
                     # A positive window has to be observed inside the deadline. A
                     # read the host scheduler delayed past it (a 1 ms sleep lasts
                     # ~15 ms on Windows Python 3.10 and 5 ms can exceed 20 ms on a
                     # macOS runner) must not complete a window the deadline cannot
                     # hold: that would be a pass nobody sampled for.
                     in_deadline = expected.stability_ms == 0 or now <= deadline
-                    if in_deadline and (now - stable_since) * 1_000 >= expected.stability_ms:
+                    sampled = expected.stability_ms == 0 or stable_reads >= 3
+                    if (
+                        in_deadline
+                        and sampled
+                        and (now - stable_since) * 1_000 >= expected.stability_ms
+                    ):
                         return OracleObservation(
                             "passed",
                             "matched expected state",
@@ -297,6 +321,7 @@ def observe_expected_state(
                         )
                 else:
                     stable_since = None
+                    stable_reads = 0
         if now >= deadline:
             break
         time.sleep(min(poll_ms / 1_000, max(0.0, deadline - now)))
@@ -477,6 +502,8 @@ def save_and_verify_state(
     """Perform one mutation, bind its response, then prove stable persisted state."""
     assertion_source = _source_location()
     _assertion_identity(assertion_id, claim_id)
+    # A misconfigured window must fail before the mutation, not after it was sent.
+    _check_observation_window(expected, deadline_ms, poll_ms)
     mark = actions.engine.net_mark()
     actions.click(save_target, intent=f"save {name}")
     response = actions.engine.wait_for_response(

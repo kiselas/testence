@@ -145,7 +145,10 @@ Request expectation также может указывать GraphQL operation �
 network record. Пустой/non-JSON/HTML ответ и 401/403/404/500 от oracle дают
 `inconclusive`; валидное stale-состояние, неверная entity/role или rollback дают failed
 assertion. Для negative claims используйте отрицательный predicate и `stability_ms` как
-observation window.
+observation window. Окно проходит, только если оно наблюдалось в пределах `deadline_ms`
+и хотя бы одно совпавшее чтение пришлось между первым и последним, поэтому `stability_ms`
+должно быть короче `deadline_ms`; окно, которое дедлайн не вмещает, даёт `ValueError`
+до отправки мутации.
 
 `ex.fill(...)` по умолчанию сохраняет проверки visibility/editability Playwright.
 `ex.fill(..., fast=True)` пропускает их, но сохраняет нормальный `input` event; используйте

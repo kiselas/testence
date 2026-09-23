@@ -159,20 +159,46 @@ def test_negative_predicate_is_observed_for_the_whole_window(clock):
     assert observed.attempts == 3
 
 
-@pytest.mark.parametrize("overshoot_ms", [0, 40])
-def test_deadline_shorter_than_stability_window_is_inconclusive(clock, overshoot_ms):
+@pytest.mark.parametrize(("stability_ms", "deadline_ms"), [(30, 5), (20, 20)])
+def test_window_the_deadline_cannot_hold_is_refused(stability_ms, deadline_ms):
+    with pytest.raises(ValueError, match="must be shorter than deadline_ms"):
+        observe_expected_state(
+            lambda: _response(_state()),
+            _expected(stability_ms=stability_ms),
+            deadline_ms=deadline_ms,
+        )
+
+
+@pytest.mark.parametrize(("overshoot_ms", "outcome"), [(0, "passed"), (40, "inconclusive")])
+def test_read_delayed_past_the_deadline_cannot_complete_a_window(clock, overshoot_ms, outcome):
     # With a 40 ms overshoot the second read lands 41 ms after the first, past the
-    # 5 ms deadline. It must not complete the 30 ms window the deadline cannot hold.
+    # 35 ms deadline, and must not complete the 30 ms window from there.
     clock(overshoot_ms)
     observed = observe_expected_state(
         lambda: _response(_state()),
         _expected(stability_ms=30),
-        deadline_ms=5,
+        deadline_ms=35,
         poll_ms=1,
     )
 
-    assert observed.outcome == "inconclusive"
-    assert "remain stable" in observed.reason
+    assert observed.outcome == outcome
+    if outcome == "inconclusive":
+        assert "remain stable" in observed.reason
+
+
+def test_window_needs_a_read_between_its_first_and_last(clock):
+    # Reads land at 0, 25 and 50 ms. The 25 ms read alone spans the 10 ms window, but
+    # nothing observed the state inside it; the 50 ms read closes it with one that did.
+    clock(20)
+    observed = observe_expected_state(
+        lambda: _response(_state()),
+        _expected(stability_ms=10),
+        deadline_ms=100,
+        poll_ms=5,
+    )
+
+    assert observed.outcome == "passed"
+    assert observed.attempts == 3
 
 
 def test_point_in_time_state_read_after_the_deadline_still_passes(clock):
@@ -196,7 +222,7 @@ def test_oracle_loss_during_stability_window_is_inconclusive(clock):
     observed = observe_expected_state(
         lambda: next(responses, _response("<html>lost</html>", content_type="text/html")),
         _expected(stability_ms=20),
-        deadline_ms=5,
+        deadline_ms=50,
         poll_ms=1,
     )
 
@@ -352,6 +378,34 @@ def test_save_and_verify_state_executes_mutation_once_then_polls_read():
 
     assert actions.clicks == 1
     assert observed.outcome == "passed"
+
+
+@pytest.mark.parametrize(
+    ("stability_ms", "deadline_ms", "poll_ms", "message"),
+    [
+        (500, 500, 100, "must be shorter than deadline_ms"),
+        (0, -1, 100, "deadline_ms must be non-negative"),
+        (0, 100, 0, "poll_ms must be positive"),
+    ],
+)
+def test_save_and_verify_refuses_an_unprovable_window_before_the_mutation(
+    stability_ms, deadline_ms, poll_ms, message
+):
+    actions = ActionsProbe([_mutation()])
+
+    with pytest.raises(ValueError, match=message):
+        save_and_verify_state(
+            actions,
+            SimpleNamespace(),
+            name="widget",
+            request=RequestExpectation("/api/widgets", "POST", origin="https://app.example"),
+            read=lambda: _response(_state()),
+            expected=_expected(stability_ms=stability_ms),
+            deadline_ms=deadline_ms,
+            poll_ms=poll_ms,
+        )
+
+    assert actions.clicks == 0
 
 
 def test_duplicate_mutation_is_a_failed_oracle_and_is_not_retried():
