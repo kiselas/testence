@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -327,6 +328,26 @@ def test_apply_rejects_a_concurrent_quality_operation(tmp_path: Path):
     with quality_module._quality_lock(project):
         with pytest.raises(QualityPackError, match="operation is in progress"):
             apply_quality_pack(pack, project)
+
+
+@pytest.mark.parametrize("code", [errno.ENOLCK, getattr(errno, "ENOTSUP", errno.EINVAL)])
+def test_unsupported_file_locking_is_not_reported_as_a_concurrent_operation(
+    tmp_path: Path, monkeypatch, code: int
+):
+    # An SMB or NFS mount can refuse flock outright. That is not "someone else holds
+    # the lock", and saying so sends the user after a process that does not exist.
+    pack = _pack(tmp_path / "pack", "1", "safe")
+    project = _project(tmp_path / "project", "catalog").resolve()
+
+    def unsupported(_fileno: int) -> None:
+        raise OSError(code, os.strerror(code))
+
+    monkeypatch.setattr(quality_module, "_try_lock", unsupported)
+
+    with pytest.raises(QualityPackError, match="may not support file locks") as caught:
+        apply_quality_pack(pack, project)
+    assert "in progress" not in str(caught.value)
+    assert not (project / "quality/policy.json").exists()
 
 
 def test_recovery_preserves_a_human_change_and_keeps_snapshots(tmp_path: Path, monkeypatch):

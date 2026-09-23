@@ -17,6 +17,10 @@ under `Unreleased`; compatibility is not guaranteed.
   text. JSON Lines are now redacted record by record.
 - Lifecycle: a browser start that failed halfway left its Playwright driver process
   running, one per failed run. `start()` now releases what it created.
+- Quality packs: when the file system refused the operation lock, as SMB and NFS mounts
+  can, the command reported "another quality pack operation is in progress". Only real
+  contention says that now; other lock failures name the lock file, the system error and
+  the network file system as a likely cause.
 - `switch_page()` did not re-attach the evidence taps, so a second tab produced an
   empty network and console section.
 - `TESTENCE_DEBUG_PORT=0` advertised `127.0.0.1:0` in the triage manifest. The engine

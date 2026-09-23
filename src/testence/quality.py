@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import importlib
 import json
@@ -74,6 +75,22 @@ def _json_bytes(document: dict[str, Any]) -> bytes:
     ).encode()
 
 
+#: Errors that mean another holder has the lock. flock reports EWOULDBLOCK (EAGAIN);
+#: msvcrt.locking reports EACCES, or EDEADLOCK once its retries run out. Anything
+#: else, such as ENOTSUP or ENOLCK from an SMB/NFS mount, means locking itself failed.
+_LOCK_CONTENDED = {errno.EAGAIN, errno.EWOULDBLOCK, errno.EACCES, errno.EDEADLK}
+
+
+def _try_lock(fileno: int) -> None:
+    if sys.platform == "win32":
+        import msvcrt
+
+        msvcrt.locking(fileno, msvcrt.LK_NBLCK, 1)
+    else:
+        fcntl = importlib.import_module("fcntl")
+        fcntl.flock(fileno, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
 @contextmanager
 def _quality_lock(project: Path) -> Iterator[None]:
     """Hold a process-scoped nonblocking lock; the OS releases it after a crash."""
@@ -87,15 +104,14 @@ def _quality_lock(project: Path) -> Iterator[None]:
             handle.flush()
         handle.seek(0)
         try:
-            if sys.platform == "win32":
-                import msvcrt
-
-                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-            else:
-                fcntl = importlib.import_module("fcntl")
-                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            _try_lock(handle.fileno())
         except OSError as exc:
-            raise QualityPackError("another quality pack operation is in progress") from exc
+            if exc.errno in _LOCK_CONTENDED:
+                raise QualityPackError("another quality pack operation is in progress") from exc
+            raise QualityPackError(
+                f"cannot lock {lock_path}: {exc.strerror or exc}. Network file systems "
+                "(SMB, NFS) may not support file locks; keep the project on a local disk"
+            ) from exc
         yield
     finally:
         try:
