@@ -1140,6 +1140,11 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
         payload["pack"] = pack
     if item.stash.get(_FINAL_SCREENSHOT_KEY, ""):
         payload["screenshot"] = item.stash[_FINAL_SCREENSHOT_KEY]
+    engine = item.stash.get(_ENGINE_KEY, None)
+    recordings = getattr(engine, "_testence_state", {}).get("recordings") if engine else None
+    if recordings:
+        # Run-relative paths of the trace and video files; stored raw (redaction: none).
+        payload["recordings"] = recordings
     if xfail_reason:
         payload["xfail_reason"] = xfail_reason
         payload["xfail"] = any(
@@ -1282,7 +1287,11 @@ def testence_writer(request: pytest.FixtureRequest) -> EvidenceWriter:
 
 
 @pytest.fixture
-def testence_engine(testence_settings: Settings) -> Iterator[Engine]:
+def testence_engine(
+    request: pytest.FixtureRequest,
+    testence_settings: Settings,
+    testence_writer: EvidenceWriter,
+) -> Iterator[Engine]:
     global _WARM_ENGINE_ANY_FAILED
     mode = (
         "warm"
@@ -1314,6 +1323,29 @@ def testence_engine(testence_settings: Settings) -> Iterator[Engine]:
     try:
         yield engine
     finally:
+        finish = getattr(engine, "finish_recording", None)
+        if callable(finish):
+            try:
+                state["recordings"] = [
+                    {
+                        **entry,
+                        "path": Path(entry["path"])
+                        .resolve()
+                        .relative_to(testence_writer.run_dir.resolve())
+                        .as_posix(),
+                    }
+                    for entry in finish(
+                        failed=bool(state["any_failed"]),
+                        directory=testence_writer.test_dir(request.node.nodeid),
+                    )
+                ]
+            except Exception as exc:  # noqa: BLE001 - a recording never changes the result
+                testence_writer.emit(
+                    "note",
+                    test=request.node.nodeid,
+                    text="trace/video could not be saved",
+                    error=f"{type(exc).__name__}: {exc}",
+                )
         if warm:
             _WARM_ENGINE_ANY_FAILED = _WARM_ENGINE_ANY_FAILED or state["any_failed"]
         else:

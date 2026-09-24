@@ -14,6 +14,9 @@
   объявляет ID кейсов в системах управления тестированием; они попадают в JUnit
   (`test_id`, `test_key`, `testrail_result_step`, `tms.<system>`), метки Allure и
   labels CTRF.
+- `evidence.trace` и `evidence.video` (`off`, `on`, `retain-on-failure`) сохраняют trace
+  Playwright и видео теста; они перечислены в `test.end` в поле `recordings`, не
+  маскируются (`redaction: none`) и попадают только в полный экспорт.
 - настройка `emulation`: дескрипторы устройств, локаль, часовой пояс, геолокация (вместе с
   разрешением), permissions, цветовая схема и user agent для каждого контекста, который
   создаёт Testence; записывается в fingerprint прогона, capability `browser.emulation`.

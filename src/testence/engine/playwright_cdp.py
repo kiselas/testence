@@ -14,7 +14,9 @@ the page at the failure state IS evidence.
 from __future__ import annotations
 
 import re
+import shutil
 import socket
+import tempfile
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
@@ -89,6 +91,9 @@ def _free_tcp_port() -> int:
         return int(probe.getsockname()[1])
 
 
+#: ``evidence.trace`` / ``evidence.video``: never, always, or kept only for a failure.
+RECORDING_POLICIES = ("off", "on", "retain-on-failure")
+
 _EMULATION_KEYS = frozenset(
     {"device", "locale", "timezone_id", "geolocation", "permissions", "color_scheme", "user_agent"}
 )
@@ -162,6 +167,8 @@ class PlaywrightCdpEngine(Engine):
         viewport: dict[str, int] | None = None,
         screenshot_masks: tuple[Target, ...] = (),
         emulation: dict[str, Any] | None = None,
+        trace: str = "off",
+        video: str = "off",
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.cdp_url = cdp_url
@@ -182,6 +189,18 @@ class PlaywrightCdpEngine(Engine):
         if viewport is not None and cdp_url:
             raise ValueError("configure viewport in the owner of an attached browser")
         self.viewport = dict(viewport) if viewport is not None else None
+        if trace not in RECORDING_POLICIES or video not in RECORDING_POLICIES:
+            raise ValueError("trace and video must be one of " + ", ".join(RECORDING_POLICIES))
+        if (trace != "off" or video != "off") and (cdp_url or user_data_dir):
+            raise ValueError(
+                "trace and video record a browser context Testence owns and closes per test; "
+                "an attached browser or a persistent profile is not one"
+            )
+        #: Playwright trace and video policies (``evidence.trace``/``evidence.video``).
+        self.trace = trace
+        self.video = video
+        self._tracing = False
+        self._video_dir: Path | None = None
         #: Context options for device, locale, time zone and the rest (``emulation``).
         self.emulation = _check_emulation(emulation)
         if self.emulation and cdp_url:
@@ -309,9 +328,13 @@ class PlaywrightCdpEngine(Engine):
         scale factor, touch, mobile); explicit keys override it. Geolocation is useless
         without the permission, so it is granted along with the position.
         """
-        if not self.emulation:
-            return {}
         options: dict[str, Any] = {}
+        if self.video != "off":
+            if self._video_dir is None:
+                self._video_dir = Path(tempfile.mkdtemp(prefix="testence-video-"))
+            options["record_video_dir"] = str(self._video_dir)
+        if not self.emulation:
+            return options
         device = self.emulation.get("device")
         if device:
             devices = self._pw.devices if self._pw is not None else {}
@@ -337,6 +360,10 @@ class PlaywrightCdpEngine(Engine):
         if self._context is None:
             raise RuntimeError("browser context was not created")
         self._context.set_default_timeout(self.timeout_ms)
+        if self.trace != "off":
+            # Screenshots and DOM snapshots per action: what the trace viewer replays.
+            self._context.tracing.start(screenshots=True, snapshots=True, sources=False)
+            self._tracing = True
         if self.reduce_motion:
             # Both hints, because apps honour either: the media feature for
             # prefers-reduced-motion-aware CSS, the init script for the rest.
@@ -382,6 +409,43 @@ class PlaywrightCdpEngine(Engine):
     def capabilities(self) -> frozenset[str]:
         return frozenset(cap.value for cap in Capability)
 
+    def finish_recording(self, *, failed: bool, directory: Path) -> list[dict[str, str]]:
+        """Save or discard this context's trace and video; return what was saved.
+
+        Called once per test, before the context closes: a video is complete only
+        after its page closes, so this closes the context when video is on. Files are
+        written raw — DOM snapshots, network and pixels as the page showed them — and
+        the returned entries say so (``redaction: none``).
+        """
+        saved: list[dict[str, str]] = []
+        context = self._context
+        if context is None:
+            return saved
+        directory.mkdir(parents=True, exist_ok=True)
+        if self._tracing:
+            self._tracing = False
+            if self.trace == "on" or failed:
+                target = directory / "trace.zip"
+                context.tracing.stop(path=str(target))
+                saved.append({"kind": "trace", "path": str(target), "redaction": "none"})
+            else:
+                context.tracing.stop()
+        if self.video != "off":
+            videos = [page.video for page in context.pages if page.video is not None]
+            with suppress(Exception):
+                context.close()
+            self._context = None
+            self._page = None
+            keep = self.video == "on" or failed
+            for index, video in enumerate(videos):
+                if keep:
+                    target = directory / f"video-{index + 1}.webm"
+                    video.save_as(str(target))
+                    saved.append({"kind": "video", "path": str(target), "redaction": "none"})
+                with suppress(Exception):
+                    video.delete()
+        return saved
+
     def stop(self, *, keep_browser: bool = False) -> None:
         if keep_browser:
             # Leave the crime scene intact; only detach our client if we attached.
@@ -402,6 +466,9 @@ class PlaywrightCdpEngine(Engine):
         if self._pw:
             with suppress(Exception):
                 self._pw.stop()
+        if self._video_dir is not None:
+            shutil.rmtree(self._video_dir, ignore_errors=True)
+            self._video_dir = None
 
     # -- taps --------------------------------------------------------------
 

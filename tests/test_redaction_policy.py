@@ -338,7 +338,7 @@ def test_settings_resolve_policy_values_and_masks(monkeypatch):
         ({"mask": [{"kind": "xpath", "value": "//x"}]}, "screenshot_masks", "unknown target"),
         ({"mask": [{"kind": "css", "value": "#x", "color": "red"}]}, "screenshot_masks", "kind"),
         ({"redact": {"env": "TOKEN"}}, "redaction_values", "list of variable names"),
-        ({"trace": True}, "redaction_policy", "unknown evidence field"),
+        ({"har": True}, "redaction_policy", "unknown evidence field"),
     ],
 )
 def test_invalid_evidence_settings_are_rejected(evidence, method, message):

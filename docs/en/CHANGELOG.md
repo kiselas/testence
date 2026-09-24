@@ -13,6 +13,9 @@ under `Unreleased`; compatibility is not guaranteed.
 - `@pytest.mark.testence(tms={"testrail": "C123", "xray": "PROJ-12", ...})`
   declares test-management case ids; they reach JUnit (`test_id`, `test_key`,
   `testrail_result_step`, `tms.<system>`), Allure labels and CTRF labels.
+- `evidence.trace` and `evidence.video` (`off`, `on`, `retain-on-failure`) keep a
+  Playwright trace and a video per test, listed on `test.end` as `recordings`. They
+  are raw, marked `redaction: none`, and only a full export ships them.
 - `emulation` settings: device descriptors, locale, time zone, geolocation (granted with
   its position), permissions, colour scheme and user agent for every context Testence
   creates, recorded in the run fingerprint, behind a new `browser.emulation` capability.

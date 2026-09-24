@@ -51,6 +51,8 @@ MIME_TYPES = {
     ".json": "application/json",
     ".jsonl": "text/plain",
     ".png": "image/png",
+    ".zip": "application/zip",
+    ".webm": "video/webm",
 }
 
 
@@ -150,6 +152,8 @@ class Test:
     screenshot: str = ""
     #: Test-management case ids by system (``testrail``, ``xray``, ...), as declared.
     tms: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    #: Playwright trace and video files (``evidence.trace``/``video``), stored raw.
+    recordings: list[dict[str, str]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.nodeid:
@@ -394,6 +398,12 @@ class LoadedRun:
                 test.error = doc.get("error") or test.error
                 test.error_kind = str(doc.get("error_kind") or test.error_kind)
                 test.error_trace = str(doc.get("error_trace") or test.error_trace)
+                if isinstance(doc.get("recordings"), list):
+                    test.recordings = [
+                        {str(key): str(value) for key, value in entry.items()}
+                        for entry in doc["recordings"]
+                        if isinstance(entry, dict) and entry.get("path")
+                    ]
                 test.screenshot = str(doc.get("screenshot") or test.screenshot)
                 if doc.get("pack"):
                     test.pack_dir = doc["pack"]
@@ -453,6 +463,12 @@ def copy_attachments(run: LoadedRun, test: Test, out_dir: Path) -> list[Exported
     final = run.run_file(test.screenshot) if run.ships("screenshot.png") else None
     if final is not None:
         shipped.append(("final-screenshot.png", final.read_bytes()))
+    # Trace and video are raw (redaction: none); only a full export ships them.
+    if run.attachments == "full":
+        for recording in test.recordings:
+            source = run.run_file(recording.get("path", ""))
+            if source is not None:
+                shipped.append((source.name, source.read_bytes()))
     if test.oracles and run.attachments != "none":
         oracles = json.dumps(test.oracles, ensure_ascii=False, indent=1) + "\n"
         shipped.append(("oracles.json", oracles.encode("utf-8")))

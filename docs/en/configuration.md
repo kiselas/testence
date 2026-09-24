@@ -298,6 +298,23 @@ The ledger records the policy (names only) in `run.start`. `testence export` and
 `testence report` apply it again, so a run written before a rule existed does not leave
 in clear text. Invalid settings stop the session before any test runs.
 
+### Playwright trace and video
+
+```json
+{"evidence": {"trace": "retain-on-failure", "video": "retain-on-failure"}}
+```
+
+`off` (default), `on` or `retain-on-failure` for each. A kept trace is the test's
+`trace.zip`, opened with `npx playwright show-trace`; a kept video is `video-1.webm`
+per page. Both are listed on `test.end` as `recordings`.
+
+**They are not redacted.** A trace holds DOM snapshots, network traffic and
+screenshots exactly as the page showed them, a video holds the pixels; redaction and
+`evidence.mask` do not reach inside either. Enable them where the data a test touches
+may be kept, and note each file is marked `redaction: none`. Only
+`testence export --attachments full` ships them. They need a context Testence owns, so
+an attached browser or a persistent profile refuses them.
+
 ## Running in parallel
 
 ```bash

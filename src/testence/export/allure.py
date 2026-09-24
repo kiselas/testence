@@ -60,6 +60,8 @@ _MIME = {
     # in the browser, which is the point of attaching it at all.
     ".jsonl": "text/plain",
     ".png": "image/png",
+    ".zip": "application/zip",
+    ".webm": "video/webm",
 }
 
 
@@ -389,6 +391,23 @@ def _attachments(
         target = _write_bytes(out_dir / target_name, final.read_bytes())
         written.append(target)
         attachments.append({"name": "screenshot.png", "source": target_name, "type": "image/png"})
+    # Trace and video are raw by nature (DOM snapshots, network, pixels); the run
+    # opted into them, and only a full export ships them.
+    if run.attachments == "full":
+        for recording in test.recordings:
+            source = run.run_file(recording["path"])
+            if source is None:
+                continue
+            suffix = source.suffix
+            target_name = f"{_uuid_for(test_uuid, recording['path'])}-attachment{suffix}"
+            written.append(_write_bytes(out_dir / target_name, source.read_bytes()))
+            attachments.append(
+                {
+                    "name": source.name,
+                    "source": target_name,
+                    "type": _MIME.get(suffix, "application/octet-stream"),
+                }
+            )
     if test.oracles and run.attachments != "none":
         target_name = f"{_uuid_for(test_uuid, 'oracles')}-attachment.json"
         written.append(_write_json(out_dir / target_name, test.oracles))
