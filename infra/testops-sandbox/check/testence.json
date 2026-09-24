@@ -1,0 +1,8 @@
+{
+  "project_id": "testops-sandbox",
+  "debug_port": 0,
+  "headed": false,
+  "extra": {
+    "capture_policy": {"screenshots": true}
+  }
+}

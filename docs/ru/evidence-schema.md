@@ -60,11 +60,11 @@ events одной попытки также создают явную проек
 
 | Kind | Поля payload |
 |---|---|
-| `run.start` | `testence` (version), `fingerprint` {os, python, base_url, attach, worker}, optional `redaction` (`testence/redaction-policy/1`: `keys`, `allow_keys`, `url_params`, `pii` — только имена) |
+| `run.start` | `testence` (version), `fingerprint` {os, python, base_url, attach, worker}, optional `redaction` (`testence/redaction-policy/1`: `keys`, `allow_keys`, `url_params`, `pii` — только имена), `allure_naming` (`allure-pytest`/`nodeid`), `allure_parameters` (`values`/`digest`) |
 | `run.end` | `duration_ms`, `exit_code`, `run_status`, counts `passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run` |
-| `test.start` | `display_name`, `file`, `code` (12-hex digest файла теста), `nodeid`, `markers`, optional `owner` PlanSpec, `risk` scenario, `requirements` и `issues` |
+| `test.start` | `display_name`, `file`, `code` (12-hex digest файла теста), `nodeid`, `markers`, optional `owner` PlanSpec, `risk` scenario, `requirements` и `issues`; `allure` {`full_name`, `test_case_id`, `history_id` (формулы allure-pytest), `title_path`, `package`, `suite`, `test_class`, `test_method`, `labels`, `links`, `tags`, `parameters` (замаскированные пары name/value), optional `title`, `description`, `description_html`, `docstring`, `plan_scenario` {title, claims, plan}} |
 | `test.phase` | `nodeid`, `display_name`, `phase`, pytest phase status, duration и optional error/xfail/xpass metadata |
-| `test.end` | `nodeid`, `display_name`, canonical `status` (`passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run`), `phase`, `duration_ms`, optional `pack`/error/xfail/xpass metadata |
+| `test.end` | `nodeid`, `display_name`, canonical `status` (`passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run`), `phase`, `duration_ms`, optional `pack`/error/xfail/xpass metadata, `error_kind` (`assertion`/`oracle`/`infrastructure`/`test_code`), `error_trace` (ограниченный, замаскированный), `screenshot` (относительно прогона, `evidence.screenshots: always`) |
 | `test.waits` | `waited_ms`, `ops` (count), `by_op` {op: {ms, n}}, `top` (5 самых медленных) |
 | `step.start` | `step` (id), `intent` (фраза человека), `target`? (описание), `depth` |
 | `step.end` | `step`, `status`, `duration_ms`, `depth`, `children`, `fingerprint`? (green runs), `error`? |
@@ -73,6 +73,7 @@ events одной попытки также создают явную проек
 | `oracle` | `name`, `ok`, `diff`? либо typed `expected`/`actual`, `observation` и связанная `operation` |
 | `assertion` | `assertion_id`, `claim_id`, `oracle_kind`, `outcome`, typed/redacted `expected`, `actual` и `source` |
 | `pack` | `dir` (relative), `sections_est_tokens` {aria, network, console, oracle}, `error` |
+| `testplan.unresolved` | `count`, `policy` (`warn`/`fail`), `entries` [{`id`?, `selector`?}] — записи test plan Allure без совпавшего теста |
 | `note` | `text` и произвольные поля |
 | `ledger.damage` | созданные reader поля `integrity_code`, `error` и optional shard `path`; raw ledgers не меняются |
 

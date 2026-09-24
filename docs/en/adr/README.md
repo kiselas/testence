@@ -33,6 +33,8 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 
 | [0023](0023-visual-baseline-proof.md) | Digest-pinned visual assertions and installed-client simulation | implemented (engineering) |
 | [0024](0024-evidence-redaction-policy.md) | Part- and shape-based evidence redaction with a recorded policy | accepted |
+| [0025](0025-parameter-display-values.md) | Redacted parameter display values in the ledger | accepted |
+| [0026](0026-streaming-allure-export.md) | Stream Allure results as tests end | accepted |
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.

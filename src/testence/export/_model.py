@@ -128,6 +128,14 @@ class Test:
     oracles: list[dict[str, Any]] = field(default_factory=list)
     pack_dir: str | None = None
     pack_sections: dict[str, int] = field(default_factory=dict)
+    #: allure-pytest-compatible identity and declared metadata (``test.start.allure``).
+    allure: dict[str, Any] = field(default_factory=dict)
+    #: ``assertion``/``oracle`` (the product disagreed) or ``infrastructure``/``test_code``.
+    error_kind: str = ""
+    #: Bounded, redacted pytest failure representation.
+    error_trace: str = ""
+    #: Run-relative screenshot of a passing test (``evidence.screenshots: always``).
+    screenshot: str = ""
 
     def __post_init__(self) -> None:
         if not self.nodeid:
@@ -155,7 +163,13 @@ class LoadedRun:
     stop: datetime | None = None
     duration_ms: float = 0.0
     run_status: str = "unknown"
+    #: ``allure-pytest`` (default) or ``nodeid``, as the run recorded it.
+    allure_naming: str = "allure-pytest"
+    #: ``values`` (redacted display values, default) or ``digest``.
+    allure_parameters: str = "values"
     integrity_errors: list[dict[str, str]] = field(default_factory=list)
+    #: Allure test plan entries that matched no collected test (``testplan.unresolved``).
+    testplan_unresolved: list[dict[str, str]] = field(default_factory=list)
     tests: list[Test] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
     run_dir: Path = Path()
@@ -204,6 +218,18 @@ class LoadedRun:
             return None
         return candidate if candidate.is_file() else None
 
+    def run_file(self, relative: str) -> Path | None:
+        """A file inside the run directory, or None for missing or escaping paths."""
+        if not relative:
+            return None
+        try:
+            run_root = self.run_dir.resolve()
+            candidate = (self.run_dir / relative).resolve()
+            candidate.relative_to(run_root)
+        except (OSError, RuntimeError, ValueError):
+            return None
+        return candidate if candidate.is_file() else None
+
     def ships(self, filename: str) -> bool:
         """Whether the attachment policy lets an export carry this pack file."""
         if self.attachments == "none":
@@ -244,6 +270,10 @@ class LoadedRun:
                 run.schema = doc.get("v", run.schema)
                 run.testence_version = doc.get("testence", "")
                 run.fingerprint = doc.get("fingerprint") or {}
+                if doc.get("allure_naming") in ("allure-pytest", "nodeid"):
+                    run.allure_naming = str(doc["allure_naming"])
+                if doc.get("allure_parameters") in ("values", "digest"):
+                    run.allure_parameters = str(doc["allure_parameters"])
                 run.start = run.start or parse_ts(doc.get("ts"))
                 continue
             if kind == "run.end":
@@ -255,6 +285,14 @@ class LoadedRun:
                     for item in doc.get("integrity_errors") or ()
                     if isinstance(item, dict)
                 ]
+                continue
+
+            if kind == "testplan.unresolved":
+                run.testplan_unresolved.extend(
+                    {str(key): str(value) for key, value in entry.items()}
+                    for entry in doc.get("entries") or ()
+                    if isinstance(entry, dict)
+                )
                 continue
 
             raw_test_id = doc.get("test")
@@ -295,6 +333,8 @@ class LoadedRun:
                 test.nodeid = doc.get("nodeid") or test_id
                 test.markers = tuple(doc.get("markers") or ())
                 test.allure_id = str(doc.get("allure_id") or "")
+                if isinstance(doc.get("allure"), dict):
+                    test.allure = dict(doc["allure"])
                 test.owner = str(doc.get("owner") or "")
                 test.risk = str(doc.get("risk") or "")
                 test.requirements = _links(doc.get("requirements"))
@@ -332,6 +372,9 @@ class LoadedRun:
                 test.duration_ms = float(doc.get("duration_ms") or 0.0)
                 test.stop = parse_ts(doc.get("ts"))
                 test.error = doc.get("error") or test.error
+                test.error_kind = str(doc.get("error_kind") or test.error_kind)
+                test.error_trace = str(doc.get("error_trace") or test.error_trace)
+                test.screenshot = str(doc.get("screenshot") or test.screenshot)
                 if doc.get("pack"):
                     test.pack_dir = doc["pack"]
             elif kind == "step.start":

@@ -136,7 +136,9 @@ UI and the API see the same thing.
 | `TESTENCE_BROWSER_CHANNEL` | defaults to `chromium`, the fresh browser bundled with the installed Playwright release; `chrome` or `msedge` select a system browser, `chromium-headless-shell` the bundled headless-only build. Also the default for `Settings` and engines constructed directly, without `Settings.load` |
 | `TESTENCE_CDP_URL` | attach to a running Chrome instead of launching one |
 | `TESTENCE_RUN_ID` | names the run directory; set by the plugin so every xdist worker shares one ([ADR-0012](adr/0012-parallel-execution.md)) |
-| `ALLURE_TESTPLAN_PATH` | standard Allure `version: 1.0` selective plan; invalid/unresolved/empty scope fails closed |
+| `ALLURE_TESTPLAN_PATH` | standard Allure `version: 1.0` selective plan; invalid plans fail, unresolved entries are reported ([reporting](reporting.md#selecting-tests-from-a-testops-plan)) |
+| `TESTENCE_TESTPLAN_UNRESOLVED` | `warn` (default) or `fail` for plan entries that match no collected test |
+| `TESTENCE_ALLURE_RESULTS` | stream Allure results into this directory as tests end (`--testence-allure-results`) |
 | `TESTENCE_EMPTY_TESTPLAN` | `fail` (default) or explicit `noop`; the CLI equivalent is `--testence-empty-testplan=noop` |
 
 For a repeated agent-authoring loop, launch and authenticate the browser once, then
@@ -255,6 +257,9 @@ Projects extend these rules in `testence.json`:
   addition to the login and password variables. The values are never written.
 - `pii` opts into email and phone redaction. They are off by default because tests often
   assert the signed-in user's email.
+- `screenshots`: `on-failure` (default) keeps a screenshot in the failure pack;
+  `always` also captures the passing page for reports (needs
+  `capture_policy.screenshots`).
 - `mask` paints the listed elements black in every screenshot, including visual
   baselines. A baseline records its masks, so changing them makes the baseline an
   incompatible profile rather than a pixel verdict.

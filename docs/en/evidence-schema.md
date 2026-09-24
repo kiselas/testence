@@ -61,11 +61,11 @@ a deterministic source-derived fallback that does not promise stability across r
 
 | kind | payload fields |
 |---|---|
-| `run.start` | `testence` (version), `fingerprint` {os, python, base_url, attach, worker}, optional `redaction` (`testence/redaction-policy/1`: `keys`, `allow_keys`, `url_params`, `pii` — names only) |
+| `run.start` | `testence` (version), `fingerprint` {os, python, base_url, attach, worker}, optional `redaction` (`testence/redaction-policy/1`: `keys`, `allow_keys`, `url_params`, `pii` — names only), `allure_naming` (`allure-pytest`/`nodeid`), `allure_parameters` (`values`/`digest`) |
 | `run.end` | `duration_ms`, `exit_code`, `run_status`, counts for `passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run` |
-| `test.start` | `display_name`, `file`, `code` (12-hex digest of the test file), `nodeid`, `markers`, optional PlanSpec `owner`, scenario `risk`, `requirements` and `issues` |
+| `test.start` | `display_name`, `file`, `code` (12-hex digest of the test file), `nodeid`, `markers`, optional PlanSpec `owner`, scenario `risk`, `requirements` and `issues`; `allure` {`full_name`, `test_case_id`, `history_id` (allure-pytest formulas), `title_path`, `package`, `suite`, `test_class`, `test_method`, `labels`, `links`, `tags`, `parameters` (redacted name/value display), optional `title`, `description`, `description_html`, `docstring`, `plan_scenario` {title, claims, plan}} |
 | `test.phase` | `nodeid`, `display_name`, `phase`, pytest phase status, duration, optional error/xfail/xpass metadata |
-| `test.end` | `nodeid`, `display_name`, canonical `status` (`passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run`), `phase`, `duration_ms`, optional `pack`/error/xfail/xpass metadata |
+| `test.end` | `nodeid`, `display_name`, canonical `status` (`passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run`), `phase`, `duration_ms`, optional `pack`/error/xfail/xpass metadata, `error_kind` (`assertion`/`oracle`/`infrastructure`/`test_code`), `error_trace` (bounded, redacted), `screenshot` (run-relative, `evidence.screenshots: always`) |
 | `test.waits` | `waited_ms`, `ops` (count), `by_op` {op: {ms, n}}, `top` (5 slowest) |
 | `step.start` | `step` (id), `intent` (human sentence), `target`? (described), `depth` |
 | `step.end` | `step`, `status`, `duration_ms`, `depth`, `children`, `fingerprint`? (green runs), `error`? |
@@ -74,6 +74,7 @@ a deterministic source-derived fallback that does not promise stability across r
 | `oracle` | `name`, `ok`, `diff`?, or typed `expected`/`actual` plus `observation` and bound `operation` |
 | `assertion` | `assertion_id`, `claim_id`, `oracle_kind`, `outcome`, typed/redacted `expected` and `actual`, `source` |
 | `pack` | `dir` (rel.), `sections_est_tokens` {aria, network, console, oracle}, `error` |
+| `testplan.unresolved` | `count`, `policy` (`warn`/`fail`), `entries` [{`id`?, `selector`?}] — Allure test plan entries that matched no collected test |
 | `note` | `text` + free fields |
 | `ledger.damage` | reader-created `integrity_code`, `error`, optional shard `path`; raw ledgers remain unchanged |
 

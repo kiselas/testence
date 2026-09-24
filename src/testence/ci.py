@@ -232,10 +232,13 @@ def evaluate_ci(
     ctrf_path: Path | str | None = None,
     junit_path: Path | str | None = None,
     allow_empty: bool = False,
+    testplan_unresolved: str = "warn",
 ) -> dict[str, Any]:
     run = _load_run(run_dir, run_id=run_id)
     if quality_mode not in {"execution", "assurance"}:
         raise CIError("quality mode must be execution or assurance")
+    if testplan_unresolved not in {"warn", "fail"}:
+        raise CIError("testplan_unresolved must be warn or fail")
     quality_errors: list[str] = []
     if run.run_status != "passed":
         quality_errors.append(f"run status is {run.run_status!r}")
@@ -243,6 +246,10 @@ def evaluate_ci(
         quality_errors.append("run has integrity errors")
     if not run.tests and not allow_empty:
         quality_errors.append("run contains no tests")
+    if run.testplan_unresolved and testplan_unresolved == "fail":
+        quality_errors.append(
+            f"{len(run.testplan_unresolved)} Allure test plan entries did not run"
+        )
     disallowed = [test.nodeid for test in run.tests if test.status not in {"passed", "skipped"}]
     if disallowed:
         quality_errors.append("non-passing execution: " + ", ".join(disallowed))
@@ -294,6 +301,7 @@ def evaluate_ci(
             "mode": quality_mode,
             "exit_code": quality_exit,
             "errors": quality_errors,
+            **({"testplan_unresolved": run.testplan_unresolved} if run.testplan_unresolved else {}),
         },
         "delivery": delivery,
         "final_exit": final_exit,

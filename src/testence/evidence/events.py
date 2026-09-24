@@ -40,6 +40,7 @@ KINDS = frozenset(
         "collection.error",
         "collection.skip",
         "collection.deselected",
+        "testplan.unresolved",
         "worker.crash",
         "test.start",
         "test.phase",

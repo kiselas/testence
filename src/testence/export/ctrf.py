@@ -67,6 +67,11 @@ def _summary(run: LoadedRun) -> dict[str, Any]:
                 "project_id": run.project_id,
                 "run_status": run.run_status,
                 "integrity_errors": run.integrity_errors,
+                **(
+                    {"testplan_unresolved": run.testplan_unresolved}
+                    if run.testplan_unresolved
+                    else {}
+                ),
             }
         },
     }

@@ -45,6 +45,13 @@ def test_a_substring_of_the_value_does_not_satisfy_the_assertion(engine):
         engine.expect_text(COUNTER, "4", timeout_ms=500)
 
 
+def test_text_that_never_appears_is_an_assertion_failure(engine):
+    """A completed wait is the product disagreeing, not the environment failing:
+    reports file it as ``failed``, like ``expect_visible``, never as ``broken``."""
+    with pytest.raises(AssertionError, match="expected text '4' exactly"):
+        engine.expect_text(COUNTER, "4", timeout_ms=300)
+
+
 def test_the_whole_value_satisfies_it(engine):
     engine.expect_text(COUNTER, "48", timeout_ms=1_000)
     engine.expect_text(EXACT, "4", timeout_ms=1_000)

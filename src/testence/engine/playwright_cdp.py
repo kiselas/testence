@@ -738,9 +738,18 @@ class PlaywrightCdpEngine(Engine):
         # exact=False where the element genuinely carries surrounding text.
         matcher: Any = re.compile(rf"^\s*{re.escape(text)}\s*$") if exact else text
         with self._timed("expect_text", f"{target.describe()} {'==' if exact else '~'} {text!r}"):
-            self._locate(target).filter(has_text=matcher).wait_for(
-                state="visible", timeout=timeout_ms or self.timeout_ms
-            )
+            try:
+                self._locate(target).filter(has_text=matcher).wait_for(
+                    state="visible", timeout=timeout_ms or self.timeout_ms
+                )
+            except PlaywrightTimeoutError as exc:
+                # A completed wait for text that never appeared is the product
+                # disagreeing with the test, exactly as in expect_visible; reports
+                # must not file it as an environment failure.
+                raise AssertionError(
+                    f"expected text {text!r} {'exactly' if exact else 'within'} "
+                    f"{target.describe()}, which did not appear"
+                ) from exc
 
     def expect_visible(self, target: Target, timeout_ms: int | None = None) -> None:
         with self._timed("expect_visible", target.describe()):

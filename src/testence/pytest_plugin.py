@@ -11,6 +11,7 @@ import hashlib
 import os
 import platform
 import time
+import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from testence import __version__, kernels
+from testence import __version__, allure_compat, kernels
 from testence.api import ApiClient
 from testence.assurance import POLICY_DIGEST
 from testence.auth import AuthContext, from_settings
@@ -33,10 +34,11 @@ from testence.identity import TestIdentity, proof_id, source_case_id, variant_id
 from testence.isolation import TestNamespace
 from testence.testplan import (
     ALLURE_TESTPLAN_ENV,
+    UNRESOLVED_POLICIES,
     SelectionCandidate,
     TestPlanError,
     load_testplan,
-    select_candidates,
+    resolve,
 )
 from testence.triage import assemble_pack
 from testence.triage.heal import propose
@@ -118,6 +120,23 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=os.environ.get("TESTENCE_EMPTY_TESTPLAN", "fail"),
         help="policy for an explicitly empty Allure test plan (default: fail)",
     )
+    group.addoption(
+        "--testence-allure-results",
+        default=os.environ.get("TESTENCE_ALLURE_RESULTS") or None,
+        help=(
+            "write Allure results into this directory as each test ends, for "
+            "allurectl watch (same bytes as testence export --to allure)"
+        ),
+    )
+    group.addoption(
+        "--testence-testplan-unresolved",
+        choices=UNRESOLVED_POLICIES,
+        default=os.environ.get("TESTENCE_TESTPLAN_UNRESOLVED", "warn"),
+        help=(
+            "Allure test plan entries that match no collected test: warn and run the "
+            "rest (default), or fail before execution"
+        ),
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -130,7 +149,8 @@ def pytest_configure(config: pytest.Config) -> None:
     """
     config.addinivalue_line(
         "markers",
-        "testence(plan, case_id, claims, allure_id): bind a test to a PlanSpec case",
+        "testence(plan, claims, case_id, allure_id, title, description, severity, labels, "
+        "links): bind a test to a PlanSpec case and/or describe it for reports",
     )
     os.environ.setdefault(RUN_ID_ENV, new_run_id())
 
@@ -141,7 +161,6 @@ class _TestContract:
     path: str
     claims: tuple[str, ...]
     case_id: str
-    allure_id: str | None = None
 
     def ledger_context(self) -> dict[str, Any]:
         assertions = [
@@ -165,6 +184,12 @@ class _TestContract:
                 "digest": self.plan.digest,
             },
             "claims": list(self.claims),
+            "scenario_title": scenario.title,
+            "claim_statements": [
+                {"id": claim.id, "statement": claim.statement}
+                for claim in self.plan.claims
+                if claim.id in self.claims
+            ],
             "assertions": assertions,
             "plan_digest": self.plan.digest,
             "policy_digest": POLICY_DIGEST,
@@ -179,10 +204,104 @@ class _TestContract:
                 {"id": item.id, **({"url": item.url} if item.url else {})}
                 for item in self.plan.issues
             ],
-            **({"allure_id": self.allure_id} if self.allure_id else {}),
         }
 
 
+_SEVERITIES = ("blocker", "critical", "normal", "minor", "trivial")
+_METADATA_FIELDS = frozenset({"allure_id", "title", "description", "severity", "labels", "links"})
+_CONTRACT_FIELDS = frozenset({"plan", "claims", "case_id"})
+
+
+@dataclass(frozen=True)
+class _TestMetadata:
+    """How a test is described to people and reporting tools. No plan required."""
+
+    allure_id: str | None = None
+    title: str | None = None
+    description: str | None = None
+    labels: tuple[tuple[str, str], ...] = ()
+    links: tuple[tuple[str, str, str], ...] = ()
+
+    def allure_overrides(self) -> dict[str, Any]:
+        document: dict[str, Any] = {}
+        if self.title:
+            document["title"] = self.title
+        if self.description:
+            document["description"] = self.description
+        if self.labels:
+            document["labels"] = [{"name": name, "value": value} for name, value in self.labels]
+        if self.links:
+            document["links"] = [
+                {"type": kind, "url": url, "name": name} for kind, url, name in self.links
+            ]
+        return document
+
+
+def _optional_text(kwargs: dict[str, Any], field: str) -> str | None:
+    value = kwargs.get(field)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ContractError(f"@pytest.mark.testence {field} must be a non-empty string")
+    return value.strip()
+
+
+def _resolve_metadata(item: pytest.Item) -> _TestMetadata:
+    marker = item.get_closest_marker("testence")
+    kwargs = dict(marker.kwargs) if marker is not None else {}
+    raw_allure_id = kwargs.get("allure_id")
+    if raw_allure_id is not None and (
+        isinstance(raw_allure_id, bool) or not isinstance(raw_allure_id, (str, int))
+    ):
+        raise ContractError("@pytest.mark.testence allure_id must be a string or integer")
+    allure_id = str(raw_allure_id).strip() if raw_allure_id is not None else None
+    if raw_allure_id is not None and not allure_id:
+        raise ContractError("@pytest.mark.testence allure_id must not be empty")
+    labels: list[tuple[str, str]] = []
+    severity = _optional_text(kwargs, "severity")
+    if severity is not None:
+        if severity not in _SEVERITIES:
+            raise ContractError(
+                "@pytest.mark.testence severity must be one of " + ", ".join(_SEVERITIES)
+            )
+        labels.append(("severity", severity))
+    raw_labels = kwargs.get("labels", {})
+    if not isinstance(raw_labels, dict):
+        raise ContractError("@pytest.mark.testence labels must be a mapping of name to value(s)")
+    for name, value in raw_labels.items():
+        values = value if isinstance(value, (list, tuple)) else [value]
+        if not isinstance(name, str) or not name.strip() or not values:
+            raise ContractError("@pytest.mark.testence labels need non-empty names and values")
+        for entry in values:
+            if not isinstance(entry, (str, int)) or isinstance(entry, bool) or not str(entry):
+                raise ContractError(
+                    f"@pytest.mark.testence label {name!r} values must be strings or integers"
+                )
+            labels.append((name.strip(), str(entry)))
+    raw_links = kwargs.get("links", [])
+    if not isinstance(raw_links, (list, tuple)):
+        raise ContractError("@pytest.mark.testence links must be a list")
+    links: list[tuple[str, str, str]] = []
+    for entry in raw_links:
+        if isinstance(entry, str):
+            entry = {"url": entry}
+        if not isinstance(entry, dict) or not isinstance(entry.get("url"), str):
+            raise ContractError("@pytest.mark.testence links must be URLs or {url, name, type}")
+        url = entry["url"].strip()
+        kind = str(entry.get("type") or "link")
+        if not url or kind not in {"link", "issue", "tms"}:
+            raise ContractError("@pytest.mark.testence link type must be link, issue or tms")
+        links.append((kind, url, str(entry.get("name") or url)))
+    return _TestMetadata(
+        allure_id=allure_id or allure_compat.allure_id(item),
+        title=_optional_text(kwargs, "title"),
+        description=_optional_text(kwargs, "description"),
+        labels=tuple(labels),
+        links=tuple(links),
+    )
+
+
+_METADATA_KEY = pytest.StashKey[_TestMetadata]()
 _CONTRACT_KEY = pytest.StashKey[_TestContract | None]()
 _IDENTITY_KEY = pytest.StashKey[dict[str, Any]]()
 _TESTPLAN_NOOP_KEY = pytest.StashKey[bool]()
@@ -198,9 +317,12 @@ def _resolve_contract(
         return None
     if marker.args:
         raise ContractError("@pytest.mark.testence accepts keyword arguments only")
-    unknown = sorted(set(marker.kwargs) - {"plan", "claims", "case_id", "allure_id"})
+    unknown = sorted(set(marker.kwargs) - _CONTRACT_FIELDS - _METADATA_FIELDS)
     if unknown:
         raise ContractError("unknown testence marker field(s): " + ", ".join(unknown))
+    if not _CONTRACT_FIELDS & set(marker.kwargs):
+        # Metadata only: a test described for reports without a PlanSpec.
+        return None
     plan_value = marker.kwargs.get("plan")
     if not isinstance(plan_value, str) or not plan_value.strip():
         raise ContractError("@pytest.mark.testence requires plan='specs/<feature>.md'")
@@ -231,20 +353,11 @@ def _resolve_contract(
             raise ContractError(
                 f"case {case_id!r} requires unsupported engine capability: {', '.join(missing)}"
             )
-    raw_allure_id = marker.kwargs.get("allure_id")
-    if raw_allure_id is not None and (
-        isinstance(raw_allure_id, bool) or not isinstance(raw_allure_id, (str, int))
-    ):
-        raise ContractError("@pytest.mark.testence allure_id must be a string or integer")
-    allure_id = str(raw_allure_id).strip() if raw_allure_id is not None else None
-    if raw_allure_id is not None and not allure_id:
-        raise ContractError("@pytest.mark.testence allure_id must not be empty")
     return _TestContract(
         plan,
         candidate.relative_to(root).as_posix(),
         claims,
         case_id,
-        allure_id,
     )
 
 
@@ -260,6 +373,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
                 item, Path(config.rootpath), available_capabilities=available_capabilities
             )
             item.stash[_CONTRACT_KEY] = contract
+            item.stash[_METADATA_KEY] = _resolve_metadata(item)
             project_id = (
                 contract.plan.project_id
                 if contract is not None and contract.plan.project_id != "legacy"
@@ -277,7 +391,57 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             }
         except ContractError as exc:
             raise pytest.UsageError(f"{item.nodeid}: invalid Testence contract: {exc}") from exc
+    _warn_about_allure_identity(config, items)
     _apply_testplan(config, items)
+
+
+def _warn_about_allure_identity(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Two different tests claiming one TestOps case merge their histories."""
+    owners: dict[str, set[str]] = {}
+    for item in items:
+        metadata = item.stash.get(_METADATA_KEY, None)
+        if metadata is None or not metadata.allure_id:
+            continue
+        owners.setdefault(metadata.allure_id, set()).add(
+            allure_compat.full_name(item.nodeid, getattr(item, "originalname", None))
+        )
+    for allure_id, names in sorted(owners.items()):
+        if len(names) > 1:
+            warnings.warn(
+                pytest.PytestWarning(
+                    f"Allure ID {allure_id} is set on {len(names)} different tests "
+                    f"({', '.join(sorted(names))}); their TestOps results will share one case"
+                ),
+                stacklevel=1,
+            )
+    from testence.evidence.sanitize import is_sensitive_key
+
+    for item in items:
+        params = getattr(getattr(item, "callspec", None), "params", {}) or {}
+        for name, value in params.items():
+            if (
+                is_sensitive_key(name)
+                and isinstance(value, (str, int))
+                and str(value)
+                and str(value) in item.nodeid
+            ):
+                warnings.warn(
+                    pytest.PytestWarning(
+                        f"{item.nodeid}: parameter {name!r} puts its value into the test id, "
+                        "which every report and upload shows; give parametrize ids=..."
+                    ),
+                    stacklevel=1,
+                )
+    if config.pluginmanager.hasplugin("allure_pytest") and getattr(
+        config.option, "allure_report_dir", None
+    ):
+        warnings.warn(
+            pytest.PytestWarning(
+                "allure-pytest is also writing results (--alluredir); uploading both it and "
+                "the Testence export creates duplicate results in Allure"
+            ),
+            stacklevel=1,
+        )
 
 
 def _apply_testplan(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -303,24 +467,58 @@ def _apply_testplan(config: pytest.Config, items: list[pytest.Item]) -> None:
         candidates: list[SelectionCandidate] = []
         for item in items:
             identity = item.stash[_IDENTITY_KEY]
-            contract = item.stash.get(_CONTRACT_KEY, None)
+            metadata = item.stash.get(_METADATA_KEY, None)
             candidates.append(
                 SelectionCandidate(
                     nodeid=item.nodeid,
                     project_id=str(identity["project_id"]),
                     case_id=str(identity["case_id"]),
                     variant_id=str(identity["variant_id"]),
-                    allure_id=contract.allure_id if contract is not None else None,
+                    allure_id=metadata.allure_id if metadata is not None else None,
+                    full_name=allure_compat.full_name(
+                        item.nodeid, getattr(item, "originalname", None)
+                    ),
                 )
             )
-        selected_indices = select_candidates(plan, candidates)
+        selection = resolve(
+            plan, candidates, unresolved=config.getoption("--testence-testplan-unresolved")
+        )
     except TestPlanError as exc:
         raise pytest.UsageError(str(exc)) from exc
+    for message in plan.warnings:
+        warnings.warn(pytest.PytestWarning(message), stacklevel=1)
+    if selection.unresolved:
+        _report_unresolved(config, selection.unresolved)
+    selected_indices = selection.selected
     selected = [item for index, item in enumerate(items) if index in selected_indices]
     deselected = [item for index, item in enumerate(items) if index not in selected_indices]
     items[:] = selected
     if deselected:
         config.hook.pytest_deselected(items=deselected)
+
+
+def _report_unresolved(config: pytest.Config, entries: tuple[Any, ...]) -> None:
+    """A stale plan entry is visible in the terminal, the ledger, exports and CI."""
+    described = [entry.describe() for entry in entries]
+    shown = "; ".join(
+        ", ".join(f"{key}={value}" for key, value in item.items()) for item in described[:10]
+    )
+    more = f" and {len(described) - 10} more" if len(described) > 10 else ""
+    warnings.warn(
+        pytest.PytestWarning(
+            f"{len(described)} Allure test plan entr{'y' if len(described) == 1 else 'ies'} "
+            f"matched no collected test and did not run: {shown}{more}"
+        ),
+        stacklevel=1,
+    )
+    state = config.stash.get(_LIFECYCLE_KEY, None)
+    if state is not None and not state.closed:
+        state.writer.emit(
+            "testplan.unresolved",
+            count=len(described),
+            policy=config.getoption("--testence-testplan-unresolved"),
+            entries=described,
+        )
 
 
 def _code_digest(path: Any) -> str:
@@ -362,6 +560,13 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
         payload["xpass"] = bool(report.passed or report.failed)
     if report.failed or report.skipped:
         payload["error"] = _report_error(report)
+    if report.failed and not item.stash.get(_ERROR_KEY, None):
+        item.stash[_ERROR_KEY] = {
+            "error_kind": _error_kind(call.excinfo.value if call.excinfo else None),
+            "error_trace": _report_trace(report),
+        }
+    if report.when == "call" and report.passed:
+        _final_screenshot(item, state)
     state.writer.emit("test.phase", test=_test_id(item), **payload)
     if report.failed:
         engine = item.stash.get(_ENGINE_KEY, None)
@@ -377,6 +582,9 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
 
 
 _REPORTS_KEY = pytest.StashKey[dict]()
+_ERROR_KEY = pytest.StashKey[dict[str, Any]]()
+_FINAL_SCREENSHOT_KEY = pytest.StashKey[str]()
+_PLAN_SCENARIO_KEY = pytest.StashKey[dict[str, Any]]()
 
 
 @dataclass
@@ -420,6 +628,33 @@ def _settings_from_config(config: pytest.Config) -> Settings:
     )
 
 
+_ALLURE_NAMINGS = ("allure-pytest", "nodeid")
+
+
+def _allure_naming(settings: Settings) -> str:
+    """``export.allure.naming``: allure-pytest identities (default) or 0.1.0a1 nodeids."""
+    export = settings.extra.get("export") or {}
+    allure = export.get("allure") if isinstance(export, dict) else None
+    naming = (
+        (allure or {}).get("naming", "allure-pytest")
+        if isinstance(allure, dict)
+        else "allure-pytest"
+    )
+    if naming not in _ALLURE_NAMINGS:
+        raise pytest.UsageError("export.allure.naming must be one of " + ", ".join(_ALLURE_NAMINGS))
+    return str(naming)
+
+
+def _allure_parameters(settings: Settings) -> str:
+    """``export.allure.parameters``: redacted display values (default) or digests only."""
+    export = settings.extra.get("export") or {}
+    allure = export.get("allure") if isinstance(export, dict) else None
+    value = (allure or {}).get("parameters", "values") if isinstance(allure, dict) else "values"
+    if value not in ("values", "digest"):
+        raise pytest.UsageError("export.allure.parameters must be values or digest")
+    return str(value)
+
+
 def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
     settings = _settings_from_config(config)
     try:
@@ -433,12 +668,19 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         redact_values=redact_values,
         redaction_policy=redaction_policy,
     )
+    stream_dir = config.getoption("--testence-allure-results")
+    if stream_dir:
+        from testence.export.stream import AllureStream
+
+        writer.add_listener(AllureStream(Path(stream_dir), writer.run_dir))
     writer.emit(
         "run.start",
         testence=__version__,
         # Names only: export applies the same policy again to evidence written
         # before a rule existed (ADR-0024).
         redaction=redaction_policy.to_json(),
+        allure_naming=_allure_naming(settings),
+        allure_parameters=_allure_parameters(settings),
         fingerprint={
             "os": f"{platform.system()} {platform.release()}",
             "python": platform.python_version(),
@@ -526,6 +768,9 @@ def pytest_collection_finish(session: pytest.Session) -> None:
         contract = item.stash.get(_CONTRACT_KEY, None)
         if contract is not None:
             identity.update(contract.ledger_context())
+        metadata = item.stash.get(_METADATA_KEY, None)
+        if metadata is not None and metadata.allure_id:
+            identity["allure_id"] = metadata.allure_id
         cases.append(identity)
     state.writer.emit(
         "collection.end",
@@ -554,6 +799,65 @@ def _report_error(report: pytest.TestReport | pytest.CollectReport) -> str:
     return str(getattr(report, "longrepr", ""))[-4000:]
 
 
+def _error_kind(exc: BaseException | None) -> str:
+    """Why a phase failed, as Allure separates ``failed`` from ``broken``.
+
+    ``assertion`` and ``oracle`` are the product disagreeing with the test; anything
+    else is the environment (``infrastructure``) or the test's own code. A DSL step
+    failure is classified by what it wraps.
+    """
+    from testence.dsl.steps import StepFailed
+    from testence.oracle import OracleFailed, OracleInconclusive
+
+    seen = 0
+    while isinstance(exc, StepFailed) and seen < 32:
+        exc, seen = exc.cause, seen + 1
+    if exc is None:
+        return "test_code"
+    if isinstance(exc, OracleFailed):
+        return "oracle"
+    if isinstance(exc, OracleInconclusive):
+        # The authoritative source gave no usable answer: nothing was disproved.
+        return "infrastructure"
+    if isinstance(exc, AssertionError) or isinstance(exc, pytest.fail.Exception):
+        return "assertion"
+    module = type(exc).__module__ or ""
+    if module.startswith("playwright") or isinstance(exc, (TimeoutError, ConnectionError)):
+        return "infrastructure"
+    return "test_code"
+
+
+def _report_trace(report: pytest.TestReport) -> str:
+    text = getattr(report, "longreprtext", None) or str(getattr(report, "longrepr", "") or "")
+    return str(text)[-8000:]
+
+
+def _final_screenshot(item: pytest.Item, state: _LifecycleState) -> None:
+    """``evidence.screenshots: always``: the passing page, taken while fixtures live."""
+    if _screenshot_policy(state.settings) != "always":
+        return
+    engine = item.stash.get(_ENGINE_KEY, None)
+    if engine is None or not getattr(engine, "capture_screenshots", False):
+        return
+    target = state.writer.test_dir(_test_id(item)) / "final.png"
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        engine.screenshot(str(target))
+    except Exception as exc:  # noqa: BLE001 - evidence must never change the result
+        state.writer.emit(
+            "note",
+            test=_test_id(item),
+            text="final screenshot failed",
+            error=f"{type(exc).__name__}: {exc}",
+        )
+        return
+    item.stash[_FINAL_SCREENSHOT_KEY] = target.relative_to(state.writer.run_dir).as_posix()
+
+
+def _screenshot_policy(settings: Settings) -> str:
+    return str(settings.evidence_config().get("screenshots", "on-failure"))
+
+
 def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
     if item.nodeid in state.started and item.nodeid not in state.finished:
         return
@@ -561,6 +865,8 @@ def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
     item.stash[_REPORTS_KEY] = {}
     item.stash[_PACK_ATTEMPTED_KEY] = False
     item.stash[_PACK_KEY] = ""
+    item.stash[_ERROR_KEY] = {}
+    item.stash[_FINAL_SCREENSHOT_KEY] = ""
     test_id = _test_id(item)
     contract = item.stash.get(_CONTRACT_KEY, None)
     static_identity = item.stash.get(
@@ -596,6 +902,18 @@ def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
         parameters=parameters,
     )
     context = contract.ledger_context() if contract is not None else {}
+    item.stash[_PLAN_SCENARIO_KEY] = (
+        {
+            "title": context["scenario_title"],
+            "claims": context["claim_statements"],
+            "plan": context["plan"]["path"],
+        }
+        if contract is not None
+        else {}
+    )
+    metadata = item.stash.get(_METADATA_KEY, None) or _TestMetadata()
+    if metadata.allure_id:
+        context["allure_id"] = metadata.allure_id
     node_path = getattr(item, "path", "")
     test_digest_value = _code_digest(node_path)
     test_digest = f"sha256:{test_digest_value}" if test_digest_value else "unknown"
@@ -623,7 +941,27 @@ def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
         code=test_digest_value[:12],
         nodeid=item.nodeid,
         markers=sorted({mark.name for mark in item.iter_markers()}),
+        allure=_allure_record(item, metadata),
     )
+
+
+def _allure_record(item: pytest.Item, metadata: _TestMetadata) -> dict[str, Any]:
+    """allure-pytest-compatible identity plus the metadata the test declares.
+
+    Best effort: a report field must never cost the test its lifecycle record.
+    """
+    try:
+        document = allure_compat.record(item)
+    except Exception:  # noqa: BLE001 - foreign item types and unusual marks
+        return {}
+    overrides = metadata.allure_overrides()
+    document["labels"] = [*document["labels"], *overrides.pop("labels", [])]
+    document["links"] = [*document["links"], *overrides.pop("links", [])]
+    document.update(overrides)
+    scenario = item.stash.get(_PLAN_SCENARIO_KEY, None)
+    if scenario:
+        document["plan_scenario"] = scenario
+    return document
 
 
 def _execution_outcome(reports: dict[str, pytest.TestReport]) -> tuple[str, str]:
@@ -722,8 +1060,12 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
     }
     if error:
         payload["error"] = error
+        error_details: dict[str, Any] = item.stash.get(_ERROR_KEY, {})
+        payload.update(error_details)
     if pack:
         payload["pack"] = pack
+    if item.stash.get(_FINAL_SCREENSHOT_KEY, ""):
+        payload["screenshot"] = item.stash[_FINAL_SCREENSHOT_KEY]
     if xfail_reason:
         payload["xfail_reason"] = xfail_reason
         payload["xfail"] = any(

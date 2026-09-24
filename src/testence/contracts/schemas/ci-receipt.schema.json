@@ -17,7 +17,14 @@
       "properties": {
         "mode": {"enum": ["execution", "assurance"]},
         "exit_code": {"type": "integer"},
-        "errors": {"type": "array", "items": {"type": "string"}}
+        "errors": {"type": "array", "items": {"type": "string"}},
+        "testplan_unresolved": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "properties": {"id": {"type": "string"}, "selector": {"type": "string"}}
+          }
+        }
       }
     },
     "delivery": {

@@ -13,6 +13,16 @@ under `Unreleased`; compatibility is not guaranteed.
   including visual baselines ([ADR-0024](adr/0024-evidence-redaction-policy.md)).
 - `testence export --attachments full|minimal|none` limits which pack files an export
   ships.
+- Allure TestOps: `--testence-allure-results DIR` streams each result as its test ends,
+  byte-identical to the post-run export, so `allurectl watch` fills the launch live and a
+  killed job keeps its finished results ([ADR-0026](adr/0026-streaming-allure-export.md)).
+- Allure: identities follow allure-pytest (`export.allure.naming: allure-pytest`), so a
+  migrated suite keeps its TestOps cases and history; `@allure.*` metadata is read without
+  allure installed; `@pytest.mark.testence(allure_id=..., title=..., severity=...,
+  labels=..., links=...)` works without a PlanSpec. Cards gain the suite tree, readable
+  redacted parameters ([ADR-0025](adr/0025-parameter-display-values.md)), failed/broken
+  status, the full trace, PlanSpec scenario titles and claims, `categories.json`, the
+  failure screenshot on the failed step and `evidence.screenshots: always`.
 
 ### Security
 
@@ -26,6 +36,9 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Fixed
 
+- `expect_text` raised Playwright's `TimeoutError` when the text never appeared, so a
+  product disagreement was reported like an environment failure (`broken`). It now
+  raises `AssertionError`, as `expect_visible` already did.
 - Quality packs: a pack listing paths that differ only by letter case or Unicode
   normalization, such as `quality/A.json` and `quality/a.json`, was accepted. Default
   macOS and Windows file systems store them as one file, so one file landed while the
@@ -73,6 +86,18 @@ under `Unreleased`; compatibility is not guaranteed.
   them before it clicks save instead of after the mutation was sent.
 
 ### Changed
+
+- Allure test plans: an entry that matches no collected test is reported (warning,
+  `testplan.unresolved` event, export, CI receipt) and the rest of the plan runs;
+  `--testence-testplan-unresolved=fail` restores the strict behaviour. An `allure_id` on a
+  parametrized test selects every variant, an allure-pytest `fullName` selects every
+  variant, overlapping entries select a test once, unknown plan fields are ignored with a
+  warning. A plan in which nothing resolves still fails.
+- Allure export: `fullName`, `testCaseId` and `historyId` follow allure-pytest for tests
+  without an explicit PlanSpec case (`export.allure.naming: nodeid` restores 0.1.0a1);
+  only user markers without arguments become tags; parameters show redacted values
+  (`export.allure.parameters: digest` restores digests); a non-assertion error in the
+  test body is `broken`.
 
 - CI runs the test matrix, the installed-wheel smoke and the visual client simulation
   on macOS (Apple Silicon). `0.1.0a1` was published without macOS receipts.

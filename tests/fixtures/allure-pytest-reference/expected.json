@@ -1,0 +1,375 @@
+{
+ "producer": "allure-pytest 2.16.1",
+ "cases": [
+  {
+   "fullName": "suites.checkout.test_reference#test_decorated",
+   "testCaseId": "8b2c1660f78074dd739a7c590c70ff20",
+   "historyId": "8b2c1660f78074dd739a7c590c70ff20",
+   "name": "test_decorated",
+   "description": "Explicit description wins over the docstring.",
+   "titlePath": [
+    "suites",
+    "checkout",
+    "test_reference.py"
+   ],
+   "parameters": [],
+   "labels": [
+    {
+     "name": "as_id",
+     "value": "1042"
+    },
+    {
+     "name": "feature",
+     "value": "Cart"
+    },
+    {
+     "name": "layer",
+     "value": "payments"
+    },
+    {
+     "name": "package",
+     "value": "suites.checkout.test_reference"
+    },
+    {
+     "name": "parentSuite",
+     "value": "suites.checkout"
+    },
+    {
+     "name": "severity",
+     "value": "critical"
+    },
+    {
+     "name": "story",
+     "value": "Pay by card"
+    },
+    {
+     "name": "suite",
+     "value": "test_reference"
+    },
+    {
+     "name": "tag",
+     "value": "smoke"
+    }
+   ],
+   "links": [
+    {
+     "name": "TMS-1042",
+     "url": "https://tms.example.test/case/1042",
+     "type": "tms"
+    },
+    {
+     "name": "PAY-7",
+     "url": "https://tracker.example.test/PAY-7",
+     "type": "issue"
+    }
+   ]
+  },
+  {
+   "fullName": "suites.checkout.test_reference#test_documented",
+   "testCaseId": "543ea580d2b6d8647eda0cb84b2fdd9f",
+   "historyId": "543ea580d2b6d8647eda0cb84b2fdd9f",
+   "name": "test_documented",
+   "description": "Paying with a saved card charges it once.",
+   "titlePath": [
+    "suites",
+    "checkout",
+    "test_reference.py"
+   ],
+   "parameters": [],
+   "labels": [
+    {
+     "name": "package",
+     "value": "suites.checkout.test_reference"
+    },
+    {
+     "name": "parentSuite",
+     "value": "suites.checkout"
+    },
+    {
+     "name": "suite",
+     "value": "test_reference"
+    }
+   ],
+   "links": []
+  },
+  {
+   "fullName": "suites.checkout.test_reference#test_parametrized",
+   "testCaseId": "b4231e4f120a2061951287912fa5a044",
+   "historyId": "7ae2d836e6c32e25fdea9a48f87b6afe",
+   "name": "test_parametrized[viewer-3]",
+   "description": null,
+   "titlePath": [
+    "suites",
+    "checkout",
+    "test_reference.py"
+   ],
+   "parameters": [
+    {
+     "name": "attempts",
+     "value": "3"
+    },
+    {
+     "name": "role",
+     "value": "'viewer'"
+    }
+   ],
+   "labels": [
+    {
+     "name": "package",
+     "value": "suites.checkout.test_reference"
+    },
+    {
+     "name": "parentSuite",
+     "value": "suites.checkout"
+    },
+    {
+     "name": "suite",
+     "value": "test_reference"
+    }
+   ],
+   "links": []
+  },
+  {
+   "fullName": "suites.checkout.test_reference#test_parametrized",
+   "testCaseId": "b4231e4f120a2061951287912fa5a044",
+   "historyId": "834bd2ade5f13cef0cf5c2314adafc90",
+   "name": "test_parametrized[admin-1]",
+   "description": null,
+   "titlePath": [
+    "suites",
+    "checkout",
+    "test_reference.py"
+   ],
+   "parameters": [
+    {
+     "name": "attempts",
+     "value": "1"
+    },
+    {
+     "name": "role",
+     "value": "'admin'"
+    }
+   ],
+   "labels": [
+    {
+     "name": "package",
+     "value": "suites.checkout.test_reference"
+    },
+    {
+     "name": "parentSuite",
+     "value": "suites.checkout"
+    },
+    {
+     "name": "suite",
+     "value": "test_reference"
+    }
+   ],
+   "links": []
+  },
+  {
+   "fullName": "suites.checkout.test_reference#test_plain",
+   "testCaseId": "f764b79e381b3fb76ed2d62916cb620b",
+   "historyId": "f764b79e381b3fb76ed2d62916cb620b",
+   "name": "test_plain",
+   "description": null,
+   "titlePath": [
+    "suites",
+    "checkout",
+    "test_reference.py"
+   ],
+   "parameters": [],
+   "labels": [
+    {
+     "name": "package",
+     "value": "suites.checkout.test_reference"
+    },
+    {
+     "name": "parentSuite",
+     "value": "suites.checkout"
+    },
+    {
+     "name": "suite",
+     "value": "test_reference"
+    }
+   ],
+   "links": []
+  },
+  {
+   "fullName": "suites.checkout.test_reference#test_titled",
+   "testCaseId": "4d07e58fa91d5bc437e4af59fe9a37c1",
+   "historyId": "1086b56cf0328154c45bc76e856a9486",
+   "name": "Signs in as guest",
+   "description": null,
+   "titlePath": [
+    "suites",
+    "checkout",
+    "test_reference.py"
+   ],
+   "parameters": [
+    {
+     "name": "role",
+     "value": "'guest'"
+    }
+   ],
+   "labels": [
+    {
+     "name": "package",
+     "value": "suites.checkout.test_reference"
+    },
+    {
+     "name": "parentSuite",
+     "value": "suites.checkout"
+    },
+    {
+     "name": "suite",
+     "value": "test_reference"
+    }
+   ],
+   "links": []
+  },
+  {
+   "fullName": "suites.checkout.test_reference#test_titled",
+   "testCaseId": "4d07e58fa91d5bc437e4af59fe9a37c1",
+   "historyId": "49f2f9f73c985c619e57ae63f82ba14e",
+   "name": "Signs in as admin",
+   "description": null,
+   "titlePath": [
+    "suites",
+    "checkout",
+    "test_reference.py"
+   ],
+   "parameters": [
+    {
+     "name": "role",
+     "value": "'admin'"
+    }
+   ],
+   "labels": [
+    {
+     "name": "package",
+     "value": "suites.checkout.test_reference"
+    },
+    {
+     "name": "parentSuite",
+     "value": "suites.checkout"
+    },
+    {
+     "name": "suite",
+     "value": "test_reference"
+    }
+   ],
+   "links": []
+  },
+  {
+   "fullName": "suites.checkout.test_reference.TestBasket#test_method",
+   "testCaseId": "4a9268d0ac550874b5ccc0b7837ead6f",
+   "historyId": "4a9268d0ac550874b5ccc0b7837ead6f",
+   "name": "test_method",
+   "description": null,
+   "titlePath": [
+    "suites",
+    "checkout",
+    "test_reference.py",
+    "TestBasket"
+   ],
+   "parameters": [],
+   "labels": [
+    {
+     "name": "package",
+     "value": "suites.checkout.test_reference"
+    },
+    {
+     "name": "parentSuite",
+     "value": "suites.checkout"
+    },
+    {
+     "name": "subSuite",
+     "value": "TestBasket"
+    },
+    {
+     "name": "suite",
+     "value": "test_reference"
+    }
+   ],
+   "links": []
+  },
+  {
+   "fullName": "suites.checkout.test_reference.TestBasket.TestNested#test_nested",
+   "testCaseId": "2383c14d1665d7aae092d3268803e570",
+   "historyId": "61871314a09cc1122304887e31e788a2",
+   "name": "test_nested[10.5]",
+   "description": null,
+   "titlePath": [
+    "suites",
+    "checkout",
+    "test_reference.py",
+    "TestBasket",
+    "TestNested"
+   ],
+   "parameters": [
+    {
+     "name": "amount",
+     "value": "10.5"
+    }
+   ],
+   "labels": [
+    {
+     "name": "package",
+     "value": "suites.checkout.test_reference"
+    },
+    {
+     "name": "parentSuite",
+     "value": "suites.checkout"
+    },
+    {
+     "name": "subSuite",
+     "value": "TestBasket > TestNested"
+    },
+    {
+     "name": "suite",
+     "value": "test_reference"
+    }
+   ],
+   "links": []
+  },
+  {
+   "fullName": "suites.checkout.test_reference.TestBasket.TestNested#test_nested",
+   "testCaseId": "2383c14d1665d7aae092d3268803e570",
+   "historyId": "a60506a5144ac2b60f494de7dc829576",
+   "name": "test_nested[0]",
+   "description": null,
+   "titlePath": [
+    "suites",
+    "checkout",
+    "test_reference.py",
+    "TestBasket",
+    "TestNested"
+   ],
+   "parameters": [
+    {
+     "name": "amount",
+     "value": "0"
+    }
+   ],
+   "labels": [
+    {
+     "name": "package",
+     "value": "suites.checkout.test_reference"
+    },
+    {
+     "name": "parentSuite",
+     "value": "suites.checkout"
+    },
+    {
+     "name": "subSuite",
+     "value": "TestBasket > TestNested"
+    },
+    {
+     "name": "suite",
+     "value": "test_reference"
+    }
+   ],
+   "links": []
+  }
+ ]
+}

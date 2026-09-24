@@ -1,0 +1,4 @@
+# Local check output: results, plans and the fingerprint store never belong in Git.
+ap-results/
+testplan.json
+.testence/

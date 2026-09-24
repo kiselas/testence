@@ -134,7 +134,9 @@ TESTENCE_VERIFY_TLS=false                        # только изолиров
 | `TESTENCE_BROWSER_CHANNEL` | `chromium` по умолчанию — свежий браузер, поставляемый установленной версией Playwright; `chrome` и `msedge` — системные браузеры, `chromium-headless-shell` — bundled сборка только для headless. Действует и для `Settings` и движков, созданных напрямую, без `Settings.load` |
 | `TESTENCE_CDP_URL` | подключение к запущенному Chrome вместо нового |
 | `TESTENCE_RUN_ID` | имя каталога запуска; plugin задаёт его общим для всех xdist workers ([ADR-0012](adr/0012-parallel-execution.md)) |
-| `ALLURE_TESTPLAN_PATH` | стандартный selective plan Allure версии `1.0`; invalid/unresolved/empty scope отклоняется |
+| `ALLURE_TESTPLAN_PATH` | стандартный selective plan Allure версии `1.0`; неверный план отклоняется, несовпавшие записи попадают в отчёт ([отчётность](reporting.md#выбор-тестов-по-плану-testops)) |
+| `TESTENCE_TESTPLAN_UNRESOLVED` | `warn` (по умолчанию) или `fail` для записей плана без совпавшего теста |
+| `TESTENCE_ALLURE_RESULTS` | потоковая запись результатов Allure в этот каталог по мере окончания тестов (`--testence-allure-results`) |
 | `TESTENCE_EMPTY_TESTPLAN` | `fail` по умолчанию или явный `noop`; CLI-эквивалент — `--testence-empty-testplan=noop` |
 
 Для повторяющегося agent-authoring loop один раз запустите и аутентифицируйте browser,
@@ -252,6 +254,9 @@ Evidence маскируется до записи. Имена полей соп�
   встречаются, — в дополнение к переменным логина и пароля. Сами значения не пишутся.
 - `pii` включает маскировку email и телефонов. По умолчанию она выключена: тесты часто
   проверяют email вошедшего пользователя.
+- `screenshots`: `on-failure` (по умолчанию) оставляет скриншот в pack падения;
+  `always` снимает и страницу прошедшего теста для отчётов (нужен
+  `capture_policy.screenshots`).
 - `mask` закрашивает перечисленные элементы чёрным на каждом скриншоте, включая
   визуальные эталоны. Эталон записывает свои маски, поэтому их смена делает эталон
   несовместимым профилем, а не пиксельным вердиктом.

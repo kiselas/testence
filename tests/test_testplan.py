@@ -9,12 +9,16 @@ from pathlib import Path
 import pytest
 
 from testence.evidence import RUN_ID_ENV
+from testence.export import export_run
 from testence.metrics import load_run
 from testence.testplan import (
     SelectionCandidate,
     load_testplan,
+    resolve,
     select_candidates,
 )
+from testence.testplan import TestPlan as Plan
+from testence.testplan import TestPlanEntry as PlanEntry
 from testence.testplan import TestPlanError as PlanError
 
 ROOT = Path(__file__).parents[1]
@@ -113,7 +117,7 @@ def test_selector_targets_one_parameter_variant(tmp_path):
         (json.dumps({"version": "1.0", "tests": [{}]}), "requires id or selector"),
         (
             json.dumps({"version": "1.0", "tests": [{"selector": "missing::test"}]}),
-            "did not resolve",
+            "no Allure test plan entry resolved",
         ),
     ],
 )
@@ -152,7 +156,7 @@ def test_empty_plan_fails_unless_explicit_noop_policy(tmp_path):
     assert next(event for event in events if event["kind"] == "run.end")["run_status"] == "passed"
 
 
-def test_namespaced_selector_and_allure_id_are_exact_and_unambiguous(tmp_path):
+def test_namespaced_selector_and_allure_id_select_every_matching_candidate(tmp_path):
     plan = _write_plan(
         tmp_path / "testplan.json",
         [{"selector": "testence://shop/create/default"}, {"id": 42}],
@@ -164,8 +168,137 @@ def test_namespaced_selector_and_allure_id_are_exact_and_unambiguous(tmp_path):
 
     assert select_candidates(load_testplan(plan), candidates) == {0, 1}
 
-    with pytest.raises(PlanError, match="ambiguous"):
-        select_candidates(
-            load_testplan(_write_plan(plan, [{"id": "42"}])),
-            [*candidates, SelectionCandidate("test_c", "shop", "edit", "default", "42")],
-        )
+    # One TestOps case over several variants selects all of them: that is what
+    # rerunning a parametrized case from TestOps means.
+    shared = [*candidates, SelectionCandidate("test_c", "shop", "edit", "default", "42")]
+    assert select_candidates(load_testplan(_write_plan(plan, [{"id": "42"}])), shared) == {1, 2}
+
+
+def _stale_project(tmp_path: Path) -> Path:
+    project = tmp_path / "stale"
+    project.mkdir()
+    (project / "test_shop.py").write_text(
+        "import pytest\n\n"
+        "def test_cart(): assert True\n\n"
+        "def test_other(): assert True\n\n"
+        "@pytest.mark.testence(allure_id=123)\n"
+        "@pytest.mark.parametrize('role', ['admin', 'viewer'])\n"
+        "def test_login(role): assert role\n\n"
+        "@pytest.mark.parametrize('size', [1, 2, 3])\n"
+        "def test_sizes(size): assert size\n",
+        encoding="utf-8",
+    )
+    return project
+
+
+def _ended(events: list[dict]) -> list[str]:
+    return sorted(event["nodeid"] for event in events if event["kind"] == "test.end")
+
+
+def test_a_stale_entry_is_reported_while_the_rest_of_the_plan_runs(tmp_path):
+    project = _stale_project(tmp_path)
+    plan = _write_plan(
+        project / "testplan.json",
+        [
+            {"selector": "test_shop.py::test_cart"},
+            {"id": "999", "selector": "test_shop.py::test_renamed_last_week"},
+        ],
+    )
+    result, events = _run(project, tmp_path / "runs", plan)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _ended(events) == ["test_shop.py::test_cart"]
+    assert "1 Allure test plan entry matched no collected test" in result.stdout
+    (unresolved,) = [event for event in events if event["kind"] == "testplan.unresolved"]
+    assert unresolved["count"] == 1
+    assert unresolved["entries"] == [
+        {"id": "999", "selector": "test_shop.py::test_renamed_last_week"}
+    ]
+
+    run_dir = next((tmp_path / "runs").iterdir())
+    export_run(run_dir, "allure", tmp_path / "allure")
+    properties = (tmp_path / "allure" / "environment.properties").read_text(encoding="utf-8")
+    assert "testence.testplan_unresolved=1" in properties
+    export_run(run_dir, "ctrf", tmp_path / "ctrf")
+    ctrf = json.loads((tmp_path / "ctrf" / "ctrf-report.json").read_text(encoding="utf-8"))
+    assert ctrf["results"]["summary"]["extra"]["testence"]["testplan_unresolved"] == [
+        {"id": "999", "selector": "test_shop.py::test_renamed_last_week"}
+    ]
+
+
+def test_strict_policy_refuses_a_stale_entry_before_execution(tmp_path):
+    project = _stale_project(tmp_path)
+    plan = _write_plan(
+        project / "testplan.json",
+        [{"selector": "test_shop.py::test_cart"}, {"selector": "test_shop.py::test_gone"}],
+    )
+    result, events = _run(project, tmp_path / "runs", plan, "--testence-testplan-unresolved=fail")
+    assert result.returncode == 4
+    assert "did not resolve" in result.stderr
+    assert not any(event["kind"] == "test.start" for event in events)
+
+
+def test_rerunning_a_parametrized_case_by_allure_id_runs_every_variant(tmp_path):
+    project = _stale_project(tmp_path)
+    plan = _write_plan(project / "testplan.json", [{"id": 123}])
+    result, events = _run(project, tmp_path / "runs", plan)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _ended(events) == [
+        "test_shop.py::test_login[admin]",
+        "test_shop.py::test_login[viewer]",
+    ]
+
+
+def test_an_allure_pytest_full_name_selects_every_variant(tmp_path):
+    project = _stale_project(tmp_path)
+    plan = _write_plan(project / "testplan.json", [{"selector": "test_shop#test_sizes"}])
+    result, events = _run(project, tmp_path / "runs", plan)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _ended(events) == [f"test_shop.py::test_sizes[{size}]" for size in (1, 2, 3)]
+
+
+def test_overlapping_and_repeated_entries_select_each_test_once(tmp_path):
+    project = _stale_project(tmp_path)
+    plan = _write_plan(
+        project / "testplan.json",
+        [
+            {"selector": "test_shop#test_sizes"},
+            {"selector": "test_shop.py::test_sizes[2]"},
+            {"selector": "test_shop.py::test_sizes[2]"},
+        ],
+    )
+    result, events = _run(project, tmp_path / "runs", plan)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert len(_ended(events)) == 3
+
+
+def test_unknown_plan_fields_are_ignored_with_a_warning(tmp_path):
+    project = _stale_project(tmp_path)
+    plan = project / "testplan.json"
+    plan.write_text(
+        json.dumps(
+            {
+                "version": "1.0",
+                "tests": [{"selector": "test_shop.py::test_cart", "priority": "high"}],
+                "generatedBy": "testops",
+            }
+        ),
+        encoding="utf-8",
+    )
+    result, events = _run(project, tmp_path / "runs", plan)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _ended(events) == ["test_shop.py::test_cart"]
+    assert "ignored unknown Allure test plan field(s): generatedBy" in result.stdout
+    assert "ignored unknown Allure test plan entry field(s): priority" in result.stdout
+
+
+def test_resolve_reports_unresolved_entries_and_refuses_a_plan_that_selects_nothing():
+    candidates = [SelectionCandidate("t.py::a", "p", "a", "default", full_name="t#a")]
+    plan = Plan("1.0", (PlanEntry(selector="t#a"), PlanEntry(id="7")))
+    selection = resolve(plan, candidates)
+    assert selection.selected == frozenset({0})
+    assert selection.unresolved == (PlanEntry(id="7"),)
+    with pytest.raises(PlanError, match="did not resolve"):
+        resolve(plan, candidates, unresolved="fail")
+    with pytest.raises(PlanError, match="no Allure test plan entry resolved"):
+        resolve(Plan("1.0", (PlanEntry(id="7"),)), candidates)

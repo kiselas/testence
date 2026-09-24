@@ -4,7 +4,7 @@
 Q1–Q4; см. раздел 9).
 Исходная точка: `main` на `91440a9`, опубликованный пакет `0.1.0a1` (собран с `b3b1004`).
 Целевые пакеты: `0.1.0a2` (все P0 и безопасность) и `0.1.0a3` (остальные P1 и P2).
-Статус: **в работе** — фаза 0 выполнена, фаза 1 (L02) реализована на ветке `stage4/l02-evidence-redaction`.
+Статус: **в работе** — фаза 0 выполнена; фаза 1 (L02) — PR #22; фаза 2 (L07, L03, L08, L09) реализована на ветке `stage4/phase2-testops`.
 
 Основание — ревью проекта перед массовой рекламой (24.09.2026): 16 замечаний P0–P2.
 Здесь у каждого замечания есть ID `L01`–`L17`, решение, зависимости, затрагиваемые
@@ -745,10 +745,10 @@ Playwright Test (+27,5%, [competitive.md](../../en/benchmark/competitive.md)). �
 |---|---|---|---|---|
 | Фаза 0 | выполнено | — | `91440a9`, Windows 11, Python 3.12, `TESTENCE_BROWSER_CHANNEL=msedge`: 484 passed, 2 skipped, 322 с | правка `sanitize.py` началась во время прогона; тесты, запускающие подпроцессы, могли подхватить новый код |
 | L02 | реализовано, ждёт PR | — | см. раздел 8.1 | trace/video с пометкой `redaction: "none"` — вместе с L12 |
-| L07 | не начато | — | — | — |
-| L03 | не начато | — | — | — |
-| L08 | не начато | — | — | — |
-| L09 | не начато | — | — | — |
+| L07 | реализовано, ждёт PR | — | см. раздел 8.2 | — |
+| L03 | реализовано, ждёт PR | — | см. раздел 8.2 | — |
+| L08 | реализовано, ждёт PR | — | см. раздел 8.2 | — |
+| L09 | реализовано, ждёт PR | — | см. раздел 8.2 | — |
 | L06 | не начато | — | — | — |
 | L14 | не начато | — | — | — |
 | L17 | не начато | — | — | — |
@@ -787,6 +787,41 @@ Playwright Test (+27,5%, [competitive.md](../../en/benchmark/competitive.md)). �
   `Cookie: <redacted>`. Замороженный источник не менялся.
 - Бюджет `bench/scale_profile.py --repeats 3 --check` пройден после изменений.
 - Итоговая проверка на ветке (Windows 11, Python 3.12, `TESTENCE_BROWSER_CHANNEL=msedge`): `ruff format --check`, `ruff check`, `mypy src scripts` чистые; `pytest -q` — 507 passed, 2 skipped, 205 с; `pytest examples --testence-headless` — 5 passed, 1 skipped; `testence corpus validate … --structure-only` — exit 0.
+
+### 8.2. Фаза 2 (L07, L03, L08, L09) — что сделано
+
+- **L07.** `src/testence/allure_compat.py` воспроизводит `fullName`, `testCaseId`,
+  `historyId`, метки, ссылки, title и description allure-pytest без импорта `allure`.
+  Эталон — настоящий allure-pytest 2.16.1 на проекте
+  `tests/fixtures/allure-pytest-reference/` (`regenerate.py`, `expected.json`);
+  `tests/test_allure_compat.py` сверяет с ним идентичности, имя, description, метки,
+  дерево, теги, `titlePath` и параметры. Маркер `testence` принимает метаданные без
+  `plan`. Явный `case_id` PlanSpec сохраняет свою идентичность. Режим
+  `export.allure.naming: nodeid` — прежнее поведение.
+- **L03.** `resolve()` в `src/testence/testplan.py`: устаревшие записи попадают в отчёт
+  (предупреждение, событие `testplan.unresolved`, экспорт, квитанция CI), `allure_id`
+  и `fullName` выбирают все варианты, перекрытия дедуплицируются, неизвестные поля
+  игнорируются с предупреждением, полностью неразрешённый план падает. Строгий режим —
+  `--testence-testplan-unresolved=fail`; `ci evaluate --testplan-unresolved fail`.
+- **L08.** Статус `failed`/`broken` по `error_kind`, полный трейс, имя и описание из
+  PlanSpec, дерево сьютов и `titlePath`, теги по правилу allure-pytest, читаемые
+  замаскированные параметры (ADR-0025, `export.allure.parameters: digest`),
+  `categories.json`, скриншот падения на упавшем шаге, `evidence.screenshots: always`.
+  Найдено при реализации: значение параметра с именем секрета попадает в pytest-id;
+  маскировать id нельзя (идентичность), поэтому при сборе выдаётся предупреждение с
+  советом задать `ids=`.
+- **L09.** `--testence-allure-results` / `TESTENCE_ALLURE_RESULTS`: слушатель evidence
+  writer (`src/testence/export/stream.py`) пишет результат теста на `test.end` через
+  staging-каталог процесса и атомарное переименование (ADR-0026). Тесты: побайтное
+  совпадение с экспортом после прогона, файлы появляются по одному, убитый прогон
+  оставляет готовые результаты, под `-n 2` без потерь и дублей (три прогона подряд).
+  Найдено при реализации: общий staging-каталог давал гонку под xdist; теперь он свой
+  у каждого процесса и потока.
+- **L04.** Фраза о непроверенном живом тенанте TestOps убрана из `reporting.md`.
+- Проверка на ветке (Windows 11, Python 3.12, `TESTENCE_BROWSER_CHANNEL=msedge`): `ruff format --check`, `ruff check`, `mypy src scripts` чистые; `pytest -q` — 538 passed, 2 skipped, 270 с; тесты документации, контрактов и корпуса после правок документов — 43 passed; `pytest examples --testence-headless` — 5 passed, 1 skipped; заморозка корпуса — exit 0; `bench/scale_profile.py --repeats 3 --check` — бюджет пройден.
+- Документация en/ru: `reporting.md` (раздел TestOps переписан: потоковый рецепт с
+  `allurectl job-run plan`, миграция с allure-pytest, карточка, выбор по плану),
+  `configuration.md`, `evidence-schema.md`, ADR-0025, ADR-0026, CHANGELOG.
 
 ## 9. История версий плана
 

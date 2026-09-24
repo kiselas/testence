@@ -29,7 +29,7 @@ redacted), `minimal` (no `network.jsonl`, `aria.txt` or screenshot) or `none`.
 
 | exporter | writes | carries |
 |---|---|---|
-| `allure` | `<n>-result.json` per attempt, fixture containers, attachments, `environment.properties` | case/history/result identities, parameters, owner/risk/requirement/issue links, nested steps and redacted evidence |
+| `allure` | `<n>-result.json` per attempt, fixture containers, attachments, `environment.properties`, `categories.json` | allure-pytest-compatible identities, `@allure.*` and marker metadata, suite tree, readable redacted parameters, failed/broken status with full trace, owner/risk/requirement/issue links, nested steps and redacted evidence |
 | `ctrf` | one `ctrf-report.json` | summary counts, tags, flattened step intents, pack path |
 
 JUnit XML is deliberately **not** an exporter: `pytest --junitxml=…` already emits it
@@ -37,28 +37,45 @@ correctly, including under `-n`, and GitLab/Jenkins/GitHub parse it natively.
 
 ## Uploading results to Allure TestOps
 
-`allure` writes the *results directory* format, not the SDK's in-process model, and
-`allurectl` can upload that directory. Preserve the pytest exit code explicitly: a
-successful export or upload must not turn a failed or incomplete test run green. Give
-the run an explicit id as well, so parallel jobs never select a stale directory.
+Two ways to feed TestOps, both writing the standard Allure *results directory*:
+
+- **Streaming** (recommended): `--testence-allure-results DIR` (or
+  `TESTENCE_ALLURE_RESULTS`) writes each result the moment its test ends, so
+  `allurectl watch` shows the launch filling in and a job killed halfway keeps the
+  results it finished. Files appear atomically, attachments before the result that
+  references them, and the bytes equal a post-run `testence export --to allure`.
+- **Post-run**: `testence export <run> --to allure`, then `allurectl upload`.
+
+Preserve the pytest exit code explicitly: a successful upload must not turn a failed
+run green. Give the run an explicit id, so parallel jobs never pick a stale directory.
+When TestOps starts the job, fetch its test plan first:
 
 ```yaml
 run_tests:
   script:
     - |
       export TESTENCE_RUN_ID="r-${CI_PIPELINE_ID}-${CI_JOB_ID}"
+      RUN="runs/${TESTENCE_RUN_ID}"
+      export ALLURE_TESTPLAN_PATH="$PWD/testplan.json"
+      if [ -n "${ALLURE_JOB_RUN_ID:-}" ]; then
+        allurectl job-run plan --output-file "$ALLURE_TESTPLAN_PATH"
+      else
+        unset ALLURE_TESTPLAN_PATH
+      fi
       set +e
-      pytest tests_e2e/ -q
+      allurectl watch --results "$RUN/allure-results" -- \
+        pytest tests_e2e/ -q --testence-allure-results "$RUN/allure-results"
       TEST_EXIT=$?
       set -e
-      RUN="runs/${TESTENCE_RUN_ID}"
-      testence export "$RUN" --to allure
-      allurectl upload "$RUN/allure-results"
       exit "$TEST_EXIT"
   artifacts:
     when: always
     paths: [runs/]
 ```
+
+Check the flag names against your `allurectl` version (`allurectl watch --help`). The
+post-run variant replaces the `watch` line with `pytest tests_e2e/ -q`, then
+`testence export "$RUN" --to allure` and `allurectl upload "$RUN/allure-results"`.
 
 For a retryable upload with a machine receipt, keep every identity explicit. Options
 for `delivery run` precede the run directory because the remaining arguments are the
@@ -83,22 +100,80 @@ The delivery receipt is idempotent for the run/project/launch/job-run plus the e
 artifact digest. A successful receipt is reused; timeouts and nonzero uploader exits
 are retried within the stated cap. `ci evaluate` records test, quality and delivery
 exits separately and returns the first failing axis, so a successful upload cannot hide
-a failed or incomplete run. Missing attachments, wrong project, stale run identity and
-CTRF/JUnit inventory drift fail before the job becomes green.
+a failed or incomplete run.
 
-The exporter preserves these consumer identities and dimensions:
+### Moving an allure-pytest suite
 
-- **Marker names.** Markers become Allure tags verbatim. Saved filters, dashboards and
-  dashboards and saved filters key on those strings, so renaming them would quietly
-  empty someone's filter.
-- **Identity and retries.** `testCaseId` follows `(project, case)`; `historyId` adds the
-  variant; result UUID adds run and attempt. Every retry remains a separate result in
-  one history instead of replacing the earlier attempt.
-- **Plan metadata.** PlanSpec `owner`, scenario `risk`, requirements and issues become
-  labels and standard Allure `tms`/`issue` links. Digest-only parameters remain safe to
-  group without exporting raw secrets.
-- **Fixtures.** Pytest setup and teardown phases become deterministic Allure container
-  entries with their status, timing and error.
+By default (`export.allure.naming: allure-pytest`) results land on the identities
+allure-pytest creates: `fullName` is `package.module[.Class]#test` without parameters,
+and `testCaseId`/`historyId` use allure-pytest's formulas. Existing TestOps test cases,
+their history and manual-to-automated links carry over. `@allure.feature`, `story`,
+`severity`, `id`, `label`, `link`, `issue`, `testcase`, `title` and `description` are
+read from the marks they create, with or without allure-pytest installed. A test bound
+to a PlanSpec case keeps its Testence identity, because that id survives a rename.
+`export.allure.naming: nodeid` restores the identities Testence 0.1.0a1 exported.
+
+```json
+{"export": {"allure": {"naming": "allure-pytest", "parameters": "values"}}}
+```
+
+Describe a test for reports without a PlanSpec:
+
+```python
+@pytest.mark.testence(
+    allure_id=1042,
+    title="Paying with a saved card charges it once",
+    severity="critical",
+    labels={"feature": "Cart", "story": ["Pay by card"]},
+    links=["https://docs.example.test/pay", {"url": "https://jira.example.test/PAY-7", "type": "issue"}],
+)
+def test_pay_with_saved_card(ex): ...
+```
+
+Two different tests with one `allure_id` get a warning: their results would share one
+TestOps case. Running allure-pytest with `--alluredir` next to a Testence upload gets a
+warning too: it would duplicate every result.
+
+### What the card shows
+
+- **Status.** An assertion or oracle disagreement is `failed`; a browser, network or
+  timeout problem, an inconclusive oracle and an error in the test's own code are
+  `broken`. `categories.json` groups them the same way.
+- **Trace.** The full pytest failure, bounded and redacted, not only its first line.
+- **Name and description.** An explicit title (`@allure.title` or the marker), then the
+  PlanSpec scenario title, then the pytest name. An explicit description, then the
+  PlanSpec claims with their statements, then the docstring.
+- **Tree.** `parentSuite`/`suite`/`subSuite`, `package`, `testClass`, `testMethod` and
+  `titlePath`, as allure-pytest writes them.
+- **Tags.** User markers without arguments, as allure-pytest does; `parametrize`,
+  `usefixtures`, `skip`, `xfail` and Testence's own marks are not tags.
+- **Parameters.** Readable, redacted values; a parameter named like a secret is
+  `masked`. `export.allure.parameters: digest` restores digest-only values. pytest puts
+  parameter values into test ids, which every report shows: Testence warns when a
+  secret-named parameter's value is in an id, so give that `parametrize` an `ids=`.
+- **Attachments.** The redacted evidence pack of a failure, the screenshot also on the
+  failed step, and with `evidence.screenshots: always` the passing page.
+- **Fixtures, retries and plan metadata.** Setup and teardown become container
+  entries; every retry is a separate result in one history; PlanSpec owner, risk,
+  requirements and issues become labels and `tms`/`issue` links.
+
+### Selecting tests from a TestOps plan
+
+`ALLURE_TESTPLAN_PATH` (format `1.0`) is applied at collection. An entry selects by
+`id` (every variant carrying that `allure_id`, so rerunning a parametrized case runs all
+its variants) or by `selector`: an allure-pytest `fullName` (every variant), an exact
+pytest nodeid (one variant) or `testence://<project>/<case>/<variant>`. Overlapping and
+repeated entries select a test once; unknown fields are ignored with a warning.
+
+An entry that matches no collected test (a case renamed or deleted since the plan was
+built) is reported and the rest of the plan runs: a pytest warning, a
+`testplan.unresolved` ledger event, `testence.testplan_unresolved` in
+`environment.properties`, the CTRF summary and the CI receipt. Pipelines that must fail
+instead pass `--testence-testplan-unresolved=fail` (or
+`TESTENCE_TESTPLAN_UNRESOLVED=fail`), and `testence ci evaluate
+--testplan-unresolved fail` turns reported entries into a quality failure. A plan in
+which nothing resolves always fails before execution. An intentionally empty plan
+requires `--testence-empty-testplan=noop`.
 
 The T15 consumer check uses pinned Allure Report 3.14.3:
 
@@ -106,17 +181,6 @@ The T15 consumer check uses pinned Allure Report 3.14.3:
 testence export <run-dir> --to allure -o allure-results
 npx --yes allure@3.14.3 awesome allure-results -o allure-report --single-file
 ```
-
-Testence consumes the standard `ALLURE_TESTPLAN_PATH` format at collection time. The
-plan version must be `1.0`; entries select by exact pytest `fullName`, `allure_id`, or
-`testence://<project>/<case>/<variant>`. Invalid, unresolved, ambiguous and empty plans
-fail before test execution. An intentionally empty plan requires
-`--testence-empty-testplan=noop`, which produces a successful zero-test run manifest.
-The offline selector is verified; a real TestOps tenant select/upload/history round trip
-remains an external acceptance gate. Results appear at export time, not streamed during the run
-(`allurectl watch` has nothing to watch). For suites that finish in seconds to minutes
-this may be acceptable; if it blocks adoption, ADR-0013's tripwire calls for
-incremental export on each `test.end` rather than for an SDK.
 
 ## Writing your own exporter
 

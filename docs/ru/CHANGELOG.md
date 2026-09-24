@@ -14,6 +14,17 @@
   ([ADR-0024](adr/0024-evidence-redaction-policy.md)).
 - `testence export --attachments full|minimal|none` ограничивает, какие файлы pack
   попадают в экспорт.
+- Allure TestOps: `--testence-allure-results DIR` пишет каждый результат сразу по окончании
+  теста, побайтно как экспорт после прогона, поэтому `allurectl watch` заполняет запуск в
+  реальном времени, а убитый job сохраняет готовые результаты
+  ([ADR-0026](adr/0026-streaming-allure-export.md)).
+- Allure: идентичности следуют allure-pytest (`export.allure.naming: allure-pytest`), поэтому
+  перенесённый набор сохраняет кейсы и историю TestOps; метаданные `@allure.*` читаются без
+  установленного allure; `@pytest.mark.testence(allure_id=..., title=..., severity=...,
+  labels=..., links=...)` работает без PlanSpec. В карточке — дерево сьютов, читаемые
+  замаскированные параметры ([ADR-0025](adr/0025-parameter-display-values.md)), статус
+  failed/broken, полный трейс, заголовки сценариев и claims PlanSpec, `categories.json`,
+  скриншот падения на упавшем шаге и `evidence.screenshots: always`.
 
 ### Безопасность
 
@@ -27,6 +38,9 @@
 
 ### Исправлено
 
+- `expect_text` поднимал `TimeoutError` Playwright, когда текст так и не появлялся, и
+  расхождение с продуктом выглядело как сбой окружения (`broken`). Теперь он поднимает
+  `AssertionError`, как уже делал `expect_visible`.
 - Quality packs: пак с путями, различающимися только регистром или Unicode-нормализацией,
   например `quality/A.json` и `quality/a.json`, принимался. Файловые системы macOS и
   Windows по умолчанию хранят их как один файл: на диск попадал один файл, а lock учитывал
@@ -73,6 +87,18 @@
   после отправки мутации.
 
 ### Изменено
+
+- Test plan Allure: запись без совпавшего теста попадает в отчёт (предупреждение, событие
+  `testplan.unresolved`, экспорт, квитанция CI), а остальной план выполняется;
+  `--testence-testplan-unresolved=fail` возвращает строгое поведение. `allure_id` на
+  параметризованном тесте выбирает все варианты, `fullName` в стиле allure-pytest — тоже,
+  перекрывающиеся записи выбирают тест один раз, неизвестные поля плана игнорируются с
+  предупреждением. План, в котором ничего не нашлось, по-прежнему падает.
+- Экспорт Allure: `fullName`, `testCaseId` и `historyId` следуют allure-pytest для тестов без
+  явного кейса PlanSpec (`export.allure.naming: nodeid` возвращает поведение 0.1.0a1);
+  тегами становятся только пользовательские маркеры без аргументов; параметры показывают
+  замаскированные значения (`export.allure.parameters: digest` возвращает digest);
+  ошибка в теле теста, не являющаяся ассертом, — `broken`.
 
 - CI гоняет тестовую матрицу, smoke установленного wheel и визуальную симуляцию
   клиентов на macOS (Apple Silicon). `0.1.0a1` опубликован без macOS-квитанций.

@@ -24,7 +24,7 @@ import threading
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, Callable, TextIO
 
 from testence.contracts.versions import RUN_MANIFEST_SCHEMA
 from testence.identity import UNKNOWN_PROJECT_ID, proof_id, source_case_id
@@ -95,6 +95,7 @@ class EvidenceWriter:
         self._seq = 0
         self._redact_values = tuple(value for value in redact_values if value)
         self._policy = redaction_policy
+        self._listeners: list[Callable[[dict[str, Any]], None]] = []
         self._test_context: dict[str, dict[str, Any]] = {}
         self._failed_oracle_diffs: dict[str, list[dict[str, Any]]] = {}
 
@@ -148,7 +149,27 @@ class EvidenceWriter:
             self._test_context.pop(test_id, None)
             self._failed_oracle_diffs.pop(test_id, None)
 
+    def add_listener(self, listener: Callable[[dict[str, Any]], None]) -> None:
+        """Receive every event document after it is written (redacted, as persisted)."""
+        self._listeners.append(listener)
+
     def emit(self, kind: str, test: str | None = None, **payload: Any) -> Event:
+        event = self._emit(kind, test, **payload)
+        if self._listeners:
+            document = json.loads(event.to_json())
+            for listener in list(self._listeners):
+                try:
+                    listener(document)
+                except Exception as exc:  # noqa: BLE001 - a sink never changes the run
+                    if kind != "note":
+                        self._emit(
+                            "note",
+                            text="evidence listener failed",
+                            error=f"{type(exc).__name__}: {exc}",
+                        )
+        return event
+
+    def _emit(self, kind: str, test: str | None = None, **payload: Any) -> Event:
         with self._lock:
             merged: dict[str, Any] = {}
             if test is not None:

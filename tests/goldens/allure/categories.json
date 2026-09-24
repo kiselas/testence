@@ -1,0 +1,28 @@
+[
+ {
+  "matchedStatuses": [
+   "failed"
+  ],
+  "messageRegex": ".*(OracleFailed|UI and API disagree).*",
+  "name": "Product disagreed with the test (oracle)"
+ },
+ {
+  "matchedStatuses": [
+   "failed"
+  ],
+  "name": "Assertion failed"
+ },
+ {
+  "matchedStatuses": [
+   "broken"
+  ],
+  "messageRegex": ".*(Timeout|playwright|Target .*closed|net::|ECONNREFUSED).*",
+  "name": "Environment or browser (infrastructure)"
+ },
+ {
+  "matchedStatuses": [
+   "broken"
+  ],
+  "name": "Test code error"
+ }
+]

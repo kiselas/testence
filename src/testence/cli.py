@@ -341,6 +341,12 @@ def main(argv: list[str] | None = None) -> int:
     p_ci_evaluate.add_argument("--ctrf", type=Path, default=None)
     p_ci_evaluate.add_argument("--junit", type=Path, default=None)
     p_ci_evaluate.add_argument("--allow-empty", action="store_true")
+    p_ci_evaluate.add_argument(
+        "--testplan-unresolved",
+        choices=("warn", "fail"),
+        default="warn",
+        help="fail when Allure test plan entries matched no collected test (default: warn)",
+    )
     p_ci_evaluate.add_argument("-o", "--out", type=Path, required=True)
     p_ci_evaluate.add_argument("--json", dest="json_output", action="store_true")
 
@@ -872,6 +878,7 @@ def main(argv: list[str] | None = None) -> int:
                 ctrf_path=args.ctrf,
                 junit_path=args.junit,
                 allow_empty=args.allow_empty,
+                testplan_unresolved=args.testplan_unresolved,
             )
             write_ci_receipt(args.out, receipt)
         except CIError as exc:
