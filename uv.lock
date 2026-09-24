@@ -1128,7 +1128,7 @@ requires-dist = [
     { name = "jsonschema", specifier = ">=4.23" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
     { name = "pillow", marker = "extra == 'visual'", specifier = ">=12.1.1,<13" },
-    { name = "playwright", specifier = ">=1.49" },
+    { name = "playwright", specifier = ">=1.49,<2" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-xdist", marker = "extra == 'parallel'", specifier = ">=3.6" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },

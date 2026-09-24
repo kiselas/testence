@@ -1,84 +1,514 @@
 {
- "schema": "testence/competitive-replay/1",
- "captured_at": "2026-08-28T12:45:53+0300",
+ "schema": "testence/competitive-replay/2",
+ "captured_at": "2026-09-24T13:01:21+0300",
+ "revision": "26ce56e1c0d0805e296bb0db418e9bded96648f2",
  "scenario": "six intent-bearing steps on bench/target/index.html",
- "timing_boundary": "fresh runner process; discovery, browser launch, test, reporting and shutdown; SUT startup excluded",
+ "timing_boundary": "fresh runner process; discovery, browser launch, test, reporting and shutdown; target startup excluded",
  "policy": {
   "warmups_per_arm": 1,
-  "measured_repeats_per_arm": 7,
+  "measured_repeats_per_arm": 30,
+  "order": "rounds, each arm once per round, shuffled with seed 20260924",
   "workers": 1,
   "retries": 0,
   "tracing": "off",
   "video": "off",
-  "arms_run": "serial"
+  "channel": "chrome"
  },
  "environment": {
-  "os": "Windows-11-10.0.26200-SP0",
+  "os": "Windows-11-10.0.26100-SP0",
   "machine": "AMD64",
-  "logical_cpu_count": 16,
-  "python": "3.12.13",
-  "node": "v22.22.0",
-  "browser": "Playwright Chromium 151.0.7922.34",
-  "python_playwright": "1.62.0",
-  "pytest": "9.1.1",
-  "node_playwright_test": "1.62.1",
-  "benchmark_revision": "bfb33ea0cdd84b03"
+  "logical_cpu_count": 20,
+  "python": "3.12.4",
+  "node": "v24.19.0",
+  "playwright_browser": "chrome 153.0.8010.53",
+  "tools": {
+   "testence": {
+    "python_playwright": "1.62.0",
+    "pytest": "9.1.1"
+   },
+   "playwright_test": {
+    "@playwright/test": "1.63.0"
+   },
+   "pytest_playwright": {
+    "pytest": "9.1.1",
+    "pytest-playwright": "0.9.0",
+    "playwright": "1.63.0"
+   },
+   "cypress": {
+    "cypress": "15.21.1"
+   },
+   "seleniumbase": {
+    "pytest": "9.1.1",
+    "seleniumbase": "4.54.11",
+    "selenium": "4.49.0"
+   }
+  },
+  "benchmark_revision": "a767c797cb1f673f"
  },
+ "rounds": [
+  [
+   "cypress",
+   "seleniumbase",
+   "pytest_playwright",
+   "playwright_test",
+   "testence"
+  ],
+  [
+   "testence",
+   "seleniumbase",
+   "playwright_test",
+   "pytest_playwright",
+   "cypress"
+  ],
+  [
+   "testence",
+   "cypress",
+   "playwright_test",
+   "pytest_playwright",
+   "seleniumbase"
+  ],
+  [
+   "cypress",
+   "testence",
+   "pytest_playwright",
+   "playwright_test",
+   "seleniumbase"
+  ],
+  [
+   "seleniumbase",
+   "testence",
+   "cypress",
+   "playwright_test",
+   "pytest_playwright"
+  ],
+  [
+   "seleniumbase",
+   "cypress",
+   "playwright_test",
+   "pytest_playwright",
+   "testence"
+  ],
+  [
+   "cypress",
+   "seleniumbase",
+   "playwright_test",
+   "pytest_playwright",
+   "testence"
+  ],
+  [
+   "testence",
+   "pytest_playwright",
+   "playwright_test",
+   "cypress",
+   "seleniumbase"
+  ],
+  [
+   "pytest_playwright",
+   "testence",
+   "playwright_test",
+   "seleniumbase",
+   "cypress"
+  ],
+  [
+   "testence",
+   "cypress",
+   "pytest_playwright",
+   "playwright_test",
+   "seleniumbase"
+  ],
+  [
+   "pytest_playwright",
+   "playwright_test",
+   "testence",
+   "cypress",
+   "seleniumbase"
+  ],
+  [
+   "testence",
+   "seleniumbase",
+   "pytest_playwright",
+   "cypress",
+   "playwright_test"
+  ],
+  [
+   "cypress",
+   "pytest_playwright",
+   "testence",
+   "playwright_test",
+   "seleniumbase"
+  ],
+  [
+   "testence",
+   "seleniumbase",
+   "pytest_playwright",
+   "playwright_test",
+   "cypress"
+  ],
+  [
+   "pytest_playwright",
+   "playwright_test",
+   "seleniumbase",
+   "testence",
+   "cypress"
+  ],
+  [
+   "pytest_playwright",
+   "seleniumbase",
+   "cypress",
+   "testence",
+   "playwright_test"
+  ],
+  [
+   "testence",
+   "pytest_playwright",
+   "seleniumbase",
+   "playwright_test",
+   "cypress"
+  ],
+  [
+   "pytest_playwright",
+   "playwright_test",
+   "testence",
+   "cypress",
+   "seleniumbase"
+  ],
+  [
+   "cypress",
+   "seleniumbase",
+   "testence",
+   "pytest_playwright",
+   "playwright_test"
+  ],
+  [
+   "playwright_test",
+   "pytest_playwright",
+   "seleniumbase",
+   "testence",
+   "cypress"
+  ],
+  [
+   "testence",
+   "playwright_test",
+   "seleniumbase",
+   "pytest_playwright",
+   "cypress"
+  ],
+  [
+   "seleniumbase",
+   "playwright_test",
+   "cypress",
+   "testence",
+   "pytest_playwright"
+  ],
+  [
+   "cypress",
+   "playwright_test",
+   "pytest_playwright",
+   "seleniumbase",
+   "testence"
+  ],
+  [
+   "cypress",
+   "testence",
+   "pytest_playwright",
+   "playwright_test",
+   "seleniumbase"
+  ],
+  [
+   "cypress",
+   "pytest_playwright",
+   "testence",
+   "playwright_test",
+   "seleniumbase"
+  ],
+  [
+   "playwright_test",
+   "cypress",
+   "testence",
+   "seleniumbase",
+   "pytest_playwright"
+  ],
+  [
+   "pytest_playwright",
+   "playwright_test",
+   "cypress",
+   "testence",
+   "seleniumbase"
+  ],
+  [
+   "cypress",
+   "pytest_playwright",
+   "testence",
+   "playwright_test",
+   "seleniumbase"
+  ],
+  [
+   "cypress",
+   "playwright_test",
+   "pytest_playwright",
+   "testence",
+   "seleniumbase"
+  ],
+  [
+   "seleniumbase",
+   "cypress",
+   "playwright_test",
+   "pytest_playwright",
+   "testence"
+  ]
+ ],
  "arms": {
   "testence": {
-   "n": 7,
-   "median_ms": 1743.5,
+   "n": 30,
+   "median_ms": 3461.5,
    "median_ci95_ms": [
-    1695.0,
-    1783.6
+    3222.1,
+    3741.9
    ],
-   "p95_ms": 1812.3,
-   "min_ms": 1659.6,
-   "max_ms": 1824.6,
+   "p95_ms": 5412.0,
+   "min_ms": 2509.2,
+   "max_ms": 6070.6,
    "samples_ms": [
-    1824.6,
-    1740.2,
-    1695.0,
-    1783.6,
-    1763.4,
-    1659.6,
-    1743.5
+    3488.3,
+    2859.9,
+    5264.4,
+    3641.6,
+    3737.8,
+    3924.5,
+    3054.4,
+    2940.0,
+    5186.2,
+    5532.8,
+    2935.7,
+    3746.0,
+    3679.6,
+    2509.2,
+    3204.8,
+    3051.0,
+    2777.8,
+    3812.4,
+    3239.4,
+    3123.4,
+    3425.2,
+    5162.5,
+    6070.6,
+    4126.6,
+    3434.7,
+    3249.5,
+    3411.6,
+    3605.6,
+    3754.6,
+    2702.8
    ],
+   "browser": "Playwright chrome",
    "source": {
     "path": "bench/competitive/testence/test_flow.py",
-    "bytes": 605,
+    "bytes": 604,
     "nonblank_noncomment_lines": 13
    }
   },
   "playwright_test": {
-   "n": 7,
-   "median_ms": 2404.6,
+   "n": 30,
+   "median_ms": 2499.4,
    "median_ci95_ms": [
-    2034.1,
-    2454.1
+    2356.4,
+    2865.9
    ],
-   "p95_ms": 2462.7,
-   "min_ms": 2007.9,
-   "max_ms": 2466.4,
+   "p95_ms": 3633.3,
+   "min_ms": 2147.1,
+   "max_ms": 4842.2,
    "samples_ms": [
-    2454.1,
-    2441.5,
-    2034.1,
-    2466.4,
-    2106.0,
-    2007.9,
-    2404.6
+    2732.3,
+    2526.0,
+    2342.7,
+    2233.3,
+    3512.1,
+    2408.9,
+    3565.3,
+    3656.7,
+    2370.0,
+    2419.4,
+    2249.0,
+    2336.0,
+    3604.8,
+    2827.3,
+    2967.9,
+    2147.1,
+    2218.2,
+    3143.4,
+    3124.2,
+    2318.5,
+    2472.8,
+    4842.2,
+    2404.5,
+    2597.2,
+    2942.7,
+    2904.5,
+    2552.8,
+    2213.0,
+    2173.2,
+    2340.1
    ],
+   "browser": "Playwright chrome",
    "source": {
     "path": "bench/node/competitive/playwright_flow.spec.mjs",
-    "bytes": 842,
+    "bytes": 841,
     "nonblank_noncomment_lines": 21
+   }
+  },
+  "pytest_playwright": {
+   "n": 30,
+   "median_ms": 3017.9,
+   "median_ci95_ms": [
+    2724.6,
+    3327.3
+   ],
+   "p95_ms": 4867.1,
+   "min_ms": 2045.7,
+   "max_ms": 5288.1,
+   "samples_ms": [
+    4218.5,
+    2487.0,
+    2912.8,
+    3214.2,
+    2803.6,
+    3033.9,
+    2565.6,
+    2190.9,
+    3657.1,
+    2645.7,
+    2045.7,
+    3313.5,
+    3187.7,
+    4457.6,
+    5202.2,
+    5288.1,
+    2285.9,
+    4008.4,
+    3868.6,
+    2411.2,
+    2967.6,
+    3663.3,
+    3053.7,
+    3002.0,
+    3617.1,
+    3341.1,
+    2122.9,
+    2821.2,
+    2469.7,
+    2510.6
+   ],
+   "browser": "Playwright chrome",
+   "source": {
+    "path": "bench/competitive/pytest_playwright_arm/test_flow.py",
+    "bytes": 514,
+    "nonblank_noncomment_lines": 9
+   }
+  },
+  "cypress": {
+   "n": 30,
+   "median_ms": 20140.9,
+   "median_ci95_ms": [
+    19305.8,
+    20707.1
+   ],
+   "p95_ms": 23219.4,
+   "min_ms": 15702.7,
+   "max_ms": 24333.7,
+   "samples_ms": [
+    20717.2,
+    24333.7,
+    21854.4,
+    21481.4,
+    19323.3,
+    20609.2,
+    21688.0,
+    20218.5,
+    20063.2,
+    19328.3,
+    20569.6,
+    23182.9,
+    20570.2,
+    21186.2,
+    18695.6,
+    17233.1,
+    20697.1,
+    23249.3,
+    21434.8,
+    22105.1,
+    17995.6,
+    17439.0,
+    19740.8,
+    19975.7,
+    18263.7,
+    15914.0,
+    19288.3,
+    18415.8,
+    15922.1,
+    15702.7
+   ],
+   "browser": "Cypress chrome",
+   "source": {
+    "path": "bench/node/cypress/flow.cy.mjs",
+    "bytes": 414,
+    "nonblank_noncomment_lines": 10
+   }
+  },
+  "seleniumbase": {
+   "n": 30,
+   "median_ms": 6717.3,
+   "median_ci95_ms": [
+    6358.7,
+    7167.4
+   ],
+   "p95_ms": 8593.4,
+   "min_ms": 5491.8,
+   "max_ms": 9082.6,
+   "samples_ms": [
+    9071.8,
+    6017.2,
+    6399.3,
+    6645.2,
+    7619.3,
+    7866.2,
+    7024.0,
+    7234.1,
+    5948.2,
+    5974.3,
+    6535.0,
+    6199.1,
+    6614.3,
+    6259.8,
+    6967.6,
+    6318.2,
+    6138.4,
+    7150.2,
+    6789.4,
+    5491.8,
+    6497.9,
+    7184.7,
+    9082.6,
+    5885.9,
+    8008.7,
+    7215.7,
+    7239.0,
+    6199.4,
+    6935.9,
+    7785.1
+   ],
+   "browser": "SeleniumBase chrome",
+   "source": {
+    "path": "bench/competitive/seleniumbase_arm/test_flow.py",
+    "bytes": 508,
+    "nonblank_noncomment_lines": 12
    }
   }
  },
  "derived": {
-  "testence_vs_playwright_median_ratio": 0.725,
-  "testence_median_overhead_pct": -27.5
+  "testence_vs_playwright_test_median_ratio": 1.385,
+  "testence_vs_pytest_playwright_median_ratio": 1.147,
+  "testence_vs_cypress_median_ratio": 0.172,
+  "testence_vs_seleniumbase_median_ratio": 0.515
  },
- "authoring_note": "source size is a transparent proxy only; elapsed authoring and review time were not measured in this replay experiment"
+ "authoring_note": "source size is a transparent proxy only; elapsed authoring and review time are measured separately (docs/en/benchmark/competitive.md, authoring protocol)"
 }

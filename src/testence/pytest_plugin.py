@@ -1223,7 +1223,18 @@ def testence_engine(testence_settings: Settings) -> Iterator[Engine]:
         else:  # compatibility path for pre-R1 custom engines
             engine.reset_taps()
     else:
-        engine.start()
+        try:
+            engine.start()
+        except Exception as exc:
+            from testence.engine import browser_launch_hint
+
+            channel = str(getattr(testence_settings, "browser_channel", ""))
+            message = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+            raise RuntimeError(
+                f"the {channel!r} browser did not start ({message}); "
+                f"fix: {browser_launch_hint(channel, str(exc))}; "
+                "run `testence doctor` for a full check"
+            ) from exc
     state: dict[str, Any] = {"any_failed": False, "mode": mode}
     engine._testence_state = state  # type: ignore[attr-defined]
     try:

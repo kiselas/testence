@@ -22,9 +22,7 @@
 
 - [Architecture](architecture.md)
 - [Architecture decision records](adr/README.md)
-- [Product positioning](product-positioning.md)
 - [Roadmap](roadmap.md)
-- [Competitive landscape](competitive-landscape.md)
 
 ## Measurement and claims
 
@@ -42,9 +40,12 @@ These describe how the project is built and released, not how to use it. They ar
 working documents, partly in Russian, and they are not a support promise.
 
 - [Launch Thesis](launch-thesis.md)
+- [Product positioning](product-positioning.md)
+- [Competitive landscape](competitive-landscape.md)
 - [Project audit](project-audit.md)
 - [Open-source readiness](open-source-readiness.md)
 - [Pilot protocol](pilot-protocol.md)
-- [Audits](../audits/2026-09-13/README.md) and [release stages](../stages/03-r1-release/README.md)
+- [Audits](../audits/2026-09-13/README.md) and release stages
+  ([3](../stages/03-r1-release/README.md), [4](../stages/04-public-launch/README.md))
 
 [Русская документация](../ru/README.md)

@@ -399,13 +399,10 @@ def _browser_failure(stderr: str) -> str:
     return "browser did not start"
 
 
-def _browser_fix(channel: str) -> str:
-    if channel in {"chromium", "chromium-headless-shell"}:
-        return f"python -m playwright install {channel}"
-    return (
-        f"install the {channel!r} browser, or point Testence at another one with "
-        "TESTENCE_BROWSER_CHANNEL"
-    )
+def _browser_fix(channel: str, failure: str = "Executable doesn't exist") -> str:
+    from testence.engine import browser_launch_hint
+
+    return browser_launch_hint(channel, failure)
 
 
 def doctor(root: Path | str) -> dict[str, Any]:
@@ -457,9 +454,8 @@ def doctor(root: Path | str) -> dict[str, Any]:
         if started:
             detail += f"; {browser_probe.stdout.strip()}"
         else:
-            detail += (
-                f"; {_browser_failure(browser_probe.stderr)}; fix: {_browser_fix(browser_channel)}"
-            )
+            failure = _browser_failure(browser_probe.stderr)
+            detail += f"; {failure}; fix: {_browser_fix(browser_channel, failure)}"
         check("browser", started, detail)
     except Exception as exc:
         check("browser", False, f"{type(exc).__name__}: {exc}")

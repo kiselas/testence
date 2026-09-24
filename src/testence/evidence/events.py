@@ -41,6 +41,7 @@ KINDS = frozenset(
         "collection.skip",
         "collection.deselected",
         "testplan.unresolved",
+        "native.used",
         "worker.crash",
         "test.start",
         "test.phase",

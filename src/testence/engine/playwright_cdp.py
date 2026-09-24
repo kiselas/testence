@@ -1012,6 +1012,15 @@ class PlaywrightCdpEngine(Engine):
         else:
             page.screenshot(path=path, full_page=False)
 
+    def native_page(self) -> Page:
+        """The Playwright page behind this engine, for ``Actions.native`` only.
+
+        The one sanctioned place where a Playwright type leaves the engine
+        (ADR-0027): the DSL records the step around it, so evidence still knows an
+        unrecorded interaction happened and why.
+        """
+        return self._require_page()
+
     def current_url(self) -> str:
         return self._require_page().url
 

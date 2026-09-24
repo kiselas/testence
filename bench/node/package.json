@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "playwright": "^1.63.0",
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "cypress": "^15.21.1",
+    "playwright": "^1.63.0"
   }
 }

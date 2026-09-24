@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Testence is currently an alpha candidate. Security fixes are applied to the latest `main` only.
+Testence is in alpha. Security fixes are applied to the latest `main` only.
 There is no supported stable release line. After the first `0.1.x` release, its latest
 patch receives critical security fixes until 90 days after the next minor release.
 
@@ -24,9 +24,16 @@ guarantee.
 
 ## Evidence safety
 
-The current development tree sanitizes common structured credentials and configured
-Testence credentials before writing text evidence, bounds captured text, validates
-session-cache identity and keeps API authentication on explicit origins. These controls
-do not yet cover arbitrary personal/proprietary text or visual secrets in screenshots.
-Until the full evidence-redaction review and cross-platform safety matrix are complete, do not run
-Testence against sensitive production data. Review every artifact before sharing it.
+Evidence is redacted before it is written. Field names are matched by their parts, so
+`authToken`, `X-Api-Key` or `dbPassword` are treated as credentials; secret-shaped values
+(JWTs, common provider token prefixes, payment card numbers), sensitive URL parameters
+and the configured login values are removed wherever they appear. The policy is recorded
+in the run and applied again by `testence export` and `testence report`. Network bodies
+and screenshots are captured only when a project enables them.
+
+Projects extend the rules in `evidence.redact` and mask elements in screenshots with
+`evidence.mask` ([configuration](docs/en/configuration.md#redaction-and-screenshot-masks));
+`testence export --attachments minimal|none` limits what leaves the machine. Arbitrary
+personal or proprietary text is protected as far as the configured policy reaches, and
+pixels where a mask is configured. Review an evidence pack before sharing it outside your
+team, and report any credential you find in evidence as a security issue.

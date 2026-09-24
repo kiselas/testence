@@ -1,0 +1,3 @@
+# SeleniumBase arm of bench/competitive/run.py: its ordinary install, pinned.
+seleniumbase==4.54.11
+selenium==4.49.0

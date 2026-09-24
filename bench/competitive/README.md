@@ -1,10 +1,11 @@
 # Competitive replay benchmark
 
-This benchmark compares the deterministic replay path of Testence with the closest
-open, runnable baseline: Playwright Test. It deliberately does **not** turn the result
-into a composite product score.
+This benchmark compares the deterministic replay path of Testence with four
+code-first runners: Playwright Test (TypeScript), pytest-playwright (Python), Cypress
+and SeleniumBase. It deliberately does **not** turn the result into a composite product
+score.
 
-Both arms execute the same six intent-bearing steps against `bench/target/index.html`:
+Every arm executes the same six intent-bearing steps against `bench/target/index.html`:
 
 1. open the page;
 2. click the increment button;
@@ -13,23 +14,49 @@ Both arms execute the same six intent-bearing steps against `bench/target/index.
 5. click add;
 6. assert that the row appeared.
 
-The target server is started before timing. Every measured sample is a fresh runner
-process and includes test discovery, browser launch, the test, reporting and shutdown.
-One warm-up run per arm is excluded. Arms run serially so they do not compete for CPU.
-Retries, tracing and video are disabled. Testence still writes its normal pass-run
-ledger; Playwright uses its normal line reporter.
+Each arm is written the way its documentation recommends (`bench/competitive/*/`,
+`bench/node/competitive/`, `bench/node/cypress/`). The target server is started before
+timing. Every measured sample is a fresh runner process and includes test discovery,
+browser launch, the test, reporting and shutdown. One warm-up run per arm is excluded.
+Samples are taken in rounds: each round runs every arm once, in an order shuffled with a
+fixed seed. Retries, tracing, video and screenshots are disabled. Testence still writes
+its normal pass-run ledger; the other arms use their normal reporters.
 
-Run from the repository root:
+## Setup
 
-```powershell
-.venv\Scripts\python bench\competitive\run.py --repeats 7
+Each competitor runs in its own environment with its ordinary install, so no arm pays
+for another's plugins (SeleniumBase alone brings pytest-html, xdist and rerunfailures).
+
+```bash
+uv sync --locked --extra dev
+uv venv .tmp/bench-pytest-playwright --python 3.12
+uv pip install --python .tmp/bench-pytest-playwright/<bin>/python -r bench/competitive/requirements-pytest-playwright.txt
+uv venv .tmp/bench-seleniumbase --python 3.12
+uv pip install --python .tmp/bench-seleniumbase/<bin>/python -r bench/competitive/requirements-seleniumbase.txt
+npm ci --prefix bench/node
+npx --prefix bench/node cypress install
 ```
 
-The machine-readable result is written to `bench/results/competitive-replay.json` and
-contains environment metadata, raw samples, median, p95 and a transparent source-size
-proxy. Source size is **not authoring time**. A valid authoring benchmark requires
-fresh, isolated agent sessions, the same prompt and acceptance tests, and review-time
-measurement; the product benchmark protocol documents that separate experiment.
+`<bin>` is `Scripts` on Windows and `bin` elsewhere.
+
+## Run
+
+```bash
+uv run python bench/competitive/run.py --repeats 30 --channel chrome
+```
+
+`--channel` picks one browser for every arm that can use it: `chrome` (system Chrome,
+used by the hosted workflow `.github/workflows/benchmarks.yml`) and `msedge` put all
+five arms on the same build; `chromium` is Playwright's bundled browser, which Cypress
+and SeleniumBase cannot drive, so on it they fall back to Electron and system Chrome.
+The browser of every arm is recorded in the result. `--arms` runs a subset.
+
+The machine-readable result (`testence/competitive-replay/2`) is written to
+`bench/results/competitive-replay.json`: git revision, environment, every tool's
+version, the round order, raw samples, median with a bootstrap 95% interval, p95, and a
+transparent source-size proxy. Source size is **not authoring time**; authoring and
+maintenance are measured separately with agent sessions, as the benchmark protocol
+describes.
 
 Commercial agentic platforms are not silently approximated here. Momentic, mabl,
 KaneAI, Reflect and similar hosted arms require an account, a disclosed plan/model and

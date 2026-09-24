@@ -19,6 +19,7 @@ from testence.engine import (
     Engine,
     Target,
     UnsupportedCapability,
+    engine_capabilities,
     require_capabilities,
 )
 from testence.evidence import EvidenceWriter
@@ -344,6 +345,31 @@ class Actions:
             require_capabilities(self.engine, "frame", Capability.DOM, Capability.FRAMES)
             with self.engine.frame(target):
                 yield
+
+    @contextmanager
+    def native(self, intent: str) -> Iterator[Any]:
+        """Hand the engine's own page object to code the DSL does not express.
+
+        ``with ex.native("drag the card to Done") as page: page.mouse...`` runs as one
+        recorded step: its intent, duration and failure land in the ledger like any
+        other, and a ``native.used`` event marks that the interactions inside were not
+        recorded one by one. Healing is not proposed for a failure inside, because no
+        target was addressed through the DSL. An engine without the ``browser.native``
+        capability refuses before the block runs (ADR-0027).
+        """
+        if not isinstance(intent, str) or not intent.strip():
+            raise ValueError("ex.native needs an intent saying what the native code does")
+        with self.step(intent):
+            require_capabilities(self.engine, "native", Capability.NATIVE)
+            provider = getattr(self.engine, "native_page", None)
+            if not callable(provider):
+                raise UnsupportedCapability(
+                    "native",
+                    {Capability.NATIVE.value},
+                    set(engine_capabilities(self.engine)) - {Capability.NATIVE.value},
+                )
+            self.writer.emit("native.used", test=self.test_id, intent=intent)
+            yield provider()
 
     def verify(
         self,

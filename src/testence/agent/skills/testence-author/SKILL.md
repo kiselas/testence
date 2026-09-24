@@ -31,6 +31,9 @@ For automated screenshot regression or an isolated client simulation, also read
 - Never replace an independent oracle with only rendered UI or an HTTP acknowledgement.
 - Avoid arbitrary sleeps, broad text matches, unbounded retries, and silent locator fallback.
 - Do not modify product code merely to make the generated test pass.
+- Prefer the DSL. When it cannot express an interaction (canvas, a custom drag widget,
+  a key chord), use `with ex.native("<what the code does>") as page:` with raw
+  Playwright inside, keep the block minimal and assert through the DSL afterwards.
 - Keep accepted replay free of an LLM; discovery is authoring-time only.
 
 ## Completion gate

@@ -379,7 +379,11 @@ def main(argv: list[str] | None = None) -> int:
         "--project", type=Path, default=Path("."), help="project whose scaffold to run"
     )
     p_run.add_argument("--run-id", default=None, help="explicit run id; generated when omitted")
-    p_run.add_argument("pytest_args", nargs=argparse.REMAINDER)
+    p_run.add_argument(
+        "pytest_args",
+        nargs=argparse.REMAINDER,
+        help="passed to pytest unchanged, after an optional --; default: the onboarding test",
+    )
 
     p_inspect = sub.add_parser("inspect", help="inspect one explicit run directory")
     p_inspect.add_argument("run_dir", type=Path, help="run directory, for example runs/r-123")
@@ -452,6 +456,28 @@ def main(argv: list[str] | None = None) -> int:
     p_release_validate.add_argument("--structure-only", action="store_true")
     p_release_validate.add_argument("--json", dest="json_output", action="store_true")
 
+    _examples = {
+        p_doctor: ["testence doctor", "testence doctor --json"],
+        p_init: ["testence init .", "testence init path/to/project --json"],
+        p_run: [
+            "testence run --project .",
+            "testence run --project . --run-id r-local -- tests_e2e -q -k checkout",
+        ],
+        p_inspect: ["testence inspect runs/r-local", "testence inspect runs/r-local --json"],
+        p_report: ["testence report runs/r-local"],
+        p_export: [
+            "testence export --list",
+            "testence export runs/r-local --to allure",
+            "testence export runs/r-local --to ctrf -o build/ctrf --attachments minimal",
+        ],
+        p_plan_prepare: ["testence plan prepare specs/checkout.md --project ."],
+        p_demo_run: ["testence demo run --project testence-demo --json"],
+        p_capabilities: ["testence capabilities --project . --json"],
+    }
+    for _subparser, _lines in _examples.items():
+        _subparser.formatter_class = argparse.RawDescriptionHelpFormatter
+        _subparser.epilog = "examples:\n" + "\n".join(f"  {line}" for line in _lines)
+
     args = parser.parse_args(argv)
 
     if args.command == "metrics":
@@ -497,7 +523,8 @@ def main(argv: list[str] | None = None) -> int:
         project = args.project.resolve()
         run_id = args.run_id or new_run_id()
         pytest_args = [part for part in args.pytest_args if part != "--"]
-        if not pytest_args:
+        quick_start = not pytest_args
+        if quick_start:
             pytest_args = [".testence/examples/test_onboarding.py", "-q"]
         environment = dict(os.environ)
         environment[RUN_ID_ENV] = run_id
@@ -508,6 +535,15 @@ def main(argv: list[str] | None = None) -> int:
             env=environment,
             check=False,
         )
+        if quick_start and completed.returncode == 0:
+            demo = project / ".testence" / "examples" / "test_demo_failure.py"
+            if demo.is_file():
+                print(
+                    "next: see Testence catch a false green (the UI says saved, the API "
+                    "disagrees):\n"
+                    "  testence run -- .testence/examples/test_demo_failure.py -q\n"
+                    "then read its evidence: testence inspect runs/<new run id>"
+                )
         return int(completed.returncode)
 
     if args.command == "inspect":
@@ -521,9 +557,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.json_output:
             print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
         else:
+            assurance = result["assurance"]
+            if isinstance(assurance, dict):
+                assurance = ", ".join(
+                    f"{count} {name}" for name, count in sorted(assurance.items())
+                )
             print(
                 f"{result['run_id']} {result['run_status']}: "
-                f"{result['tests']} tests, {result['assurance']}"
+                f"{result['tests']} tests ({assurance or 'no assurance recorded'})"
             )
         return 0
 

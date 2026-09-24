@@ -14,7 +14,7 @@
   <a href="https://pypi.org/project/testence/"><img alt="PyPI" src="https://img.shields.io/pypi/v/testence?color=3775A9&amp;logo=pypi&amp;logoColor=white"></a>
   <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&amp;logoColor=white">
   <a href="https://github.com/kiselas/testence/blob/main/LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/License-Apache--2.0-6C63FF"></a>
-  <img alt="Status: alpha candidate" src="https://img.shields.io/badge/status-alpha%20candidate-F59E0B">
+  <img alt="Status: alpha" src="https://img.shields.io/badge/status-alpha-F59E0B">
 </p>
 
 <p align="center">
@@ -24,9 +24,8 @@
   <a href="https://github.com/kiselas/testence/blob/main/docs/en/benchmark/launch-protocol.md">Benchmark protocol</a>
 </p>
 
-The machine-readable [support matrix](https://github.com/kiselas/testence/blob/main/support.json) is the source of truth for the
-declared Python, operating-system and dependency floors. Hosted receipts for the exact
-clean candidate are still required before a platform is called release-verified.
+Supported Python versions, operating systems and dependency floors are listed in the
+machine-readable [support matrix](https://github.com/kiselas/testence/blob/main/support.json).
 
 ---
 
@@ -71,6 +70,10 @@ testence init .
 testence plan prepare .testence/specs/onboarding.md --project .
 testence run --project . --run-id r-onboarding
 testence inspect runs/r-onboarding
+
+# see it catch a false green: the UI says saved, the API disagrees
+testence run --project . --run-id r-demo-failure -- .testence/examples/test_demo_failure.py -q
+testence report runs/r-demo-failure
 ```
 
 `testence init` writes `testence.json` and a `.testence/` scaffold: one synthetic plan and
@@ -236,7 +239,7 @@ Start from [AGENTS.md](https://github.com/kiselas/testence/blob/main/AGENTS.md),
 Optional `testence[visual]` adds digest-pinned viewport comparisons and manifested
 expected/actual/diff evidence. The [client simulation](https://github.com/kiselas/testence/blob/main/bench/client_simulation/README.md)
 exercises two adapter layouts from an installed wheel, including visual defects
-and harmless controls; it does not claim independent model/client acceptance.
+and harmless controls.
 See [Agent Skills](https://github.com/kiselas/testence/blob/main/docs/en/agent-skills.md) and the
 [agent workflow](https://github.com/kiselas/testence/blob/main/docs/en/agent-workflow.md).
 
@@ -280,17 +283,16 @@ environment and failure criteria is deliberately not treated as a product claim.
 
 ## Project status
 
-Testence is an **alpha release candidate**. PlanSpec propagation, verdict validation,
-portable skills, deterministic execution and evidence packs are implemented. Public
-agent bootstrap and managed verdict submission are implemented through the CLI;
-independent client and public release acceptance are pending. APIs may change.
-
-Do not use the current preview against sensitive production data. Systematic evidence
-redaction and the remaining security review are release gates. API credentials are
-origin-bound and the opt-in session cache has TTL and identity checks, but the complete
-canary/path/retention matrix from the release specification is not yet accepted. See
-[SECURITY.md](https://github.com/kiselas/testence/blob/main/SECURITY.md), [CONTRIBUTING.md](https://github.com/kiselas/testence/blob/main/CONTRIBUTING.md) and the
+Testence is in **alpha**: the workflow is complete, and APIs may still change between
+releases. See the [changelog](https://github.com/kiselas/testence/blob/main/docs/en/CHANGELOG.md) and the
 [roadmap](https://github.com/kiselas/testence/blob/main/docs/en/roadmap.md).
+
+Evidence is redacted before it is written and again when it is exported; screenshot
+masks and PII redaction are configured per project
+([configuration](https://github.com/kiselas/testence/blob/main/docs/en/configuration.md#redaction-and-screenshot-masks)).
+Review an evidence pack before sharing it outside your team. See
+[SECURITY.md](https://github.com/kiselas/testence/blob/main/SECURITY.md) and
+[CONTRIBUTING.md](https://github.com/kiselas/testence/blob/main/CONTRIBUTING.md).
 
 ## License
 

@@ -133,6 +133,31 @@ def main() -> int:
 
     checkpoint()
     try:
+        # A freshly installed browser's first launch and navigation on a hosted runner
+        # can take longer than the 5 s the scenarios allow (the executable was downloaded
+        # seconds earlier and is still being scanned). Pay that once, untimed by any
+        # scenario, and record it; a warm-up failure is evidence, not a verdict.
+        warmup_code = (
+            "from testence.config import Settings\n"
+            "from testence.engine import create_engine\n"
+            "import sys\n"
+            "engine = create_engine(Settings(base_url=sys.argv[1], headed=False, "
+            "debug_port=0, timeout_ms=60000))\n"
+            "engine.start()\n"
+            "try:\n"
+            "    engine.goto('/')\n"
+            "finally:\n"
+            "    engine.stop()\n"
+        )
+        warmup_log = output / "warmup.log"
+        code, elapsed = invoke(
+            [sys.executable, "-I", "-c", warmup_code, f"http://127.0.0.1:{server.server_port}"],
+            output,
+            warmup_log,
+            env,
+        )
+        receipt["warmup"] = {"exit_code": code, "wall_ms": elapsed}
+        checkpoint()
         for client in ("codex", "claude"):
             for profile, width, height in (("desktop", 1280, 900), ("mobile", 390, 844)):
                 project = output / f"{client}-{profile}"

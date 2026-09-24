@@ -212,10 +212,61 @@ def test_init_and_inspect_cli_return_clean_json(tmp_path, capsys):
     assert initialized["schema"] == "testence/scaffold-manifest/1"
 
     assert main(["run", "--project", str(project), "--run-id", "r-cli"]) == 0
-    capsys.readouterr()
+    # The green quick start points at the step that shows what Testence is for.
+    assert "testence run -- .testence/examples/test_demo_failure.py" in capsys.readouterr().out
     assert main(["inspect", str(project / "runs" / "r-cli"), "--json"]) == 0
     inspected = json.loads(capsys.readouterr().out)
     assert inspected["run_id"] == "r-cli"
+    assert main(["inspect", str(project / "runs" / "r-cli")]) == 0
+    human = capsys.readouterr().out
+    assert "{" not in human and "1 verified" in human
+
+
+def test_browser_launch_hint_tells_a_missing_browser_from_one_that_will_not_start():
+    from testence.engine import browser_launch_hint
+
+    missing = "BrowserType.launch: Executable doesn't exist at C:\\ms-playwright\\chrome.exe"
+    assert browser_launch_hint("chromium", missing) == "python -m playwright install chromium"
+    assert "install the 'chrome' browser" in browser_launch_hint("chrome", missing)
+    crashed = "BrowserType.launch: spawn UNKNOWN"
+    hint = browser_launch_hint("chromium", crashed)
+    assert "installed but did not start" in hint
+    assert "TESTENCE_BROWSER_CHANNEL=" in hint
+    assert "playwright install" not in hint
+
+
+def test_a_browser_that_will_not_start_names_the_fix_in_the_test_failure(tmp_path):
+    project = tmp_path / "nobrowser"
+    project.mkdir()
+    (project / "testence.json").write_text(
+        '{"browser_channel": "no-such-channel", "headed": false, "debug_port": 0}',
+        encoding="utf-8",
+    )
+    (project / "test_ui.py").write_text("def test_ui(ex):\n    pass\n", encoding="utf-8")
+    env = dict(os.environ, PYTEST_DISABLE_PLUGIN_AUTOLOAD="1")
+    env.pop("TESTENCE_BROWSER_CHANNEL", None)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "testence.pytest_plugin",
+            "--rootdir",
+            str(project),
+            "-p",
+            "no:cacheprovider",
+            "-q",
+        ],
+        cwd=project,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "browser did not start" in result.stdout
+    assert "testence doctor" in result.stdout
 
 
 def test_demo_run_accepts_green_and_expected_failure_and_renders_reports(tmp_path):

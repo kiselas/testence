@@ -7,6 +7,10 @@
 
 ### Добавлено
 
+- Skill pack 0.1.5: `testence-author` предпочитает DSL и объясняет, когда использовать `ex.native`.
+- `with ex.native("<intent>") as page:` передаёт страницу Playwright коду, который DSL не
+  выражает, внутри одного записанного шага с событием `native.used`
+  ([ADR-0027](adr/0027-native-escape-hatch.md)).
 - Evidence: `evidence.redact` в `testence.json` добавляет или исключает имена полей и
   параметров URL, перечисляет переменные окружения, значения которых маскируются, и
   включает маскировку email и телефонов. `evidence.mask` закрашивает перечисленные

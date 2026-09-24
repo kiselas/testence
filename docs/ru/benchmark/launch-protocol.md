@@ -320,8 +320,11 @@ AI testing framework» и рейтинги непроверенных commercial
 
 На 2026-08-28 уже измерено:
 
-- 7 replay samples после warm-up: Testence median `1 743,5 ms`, Playwright Test
-  `2 404,6 ms`, разница `-27,5%` на одном synthetic fresh-process scenario;
+- replay одного synthetic шестишагового сценария; 2026-09-24 заменён замером пяти
+  участников в 30 раундах на одной сборке браузера ([competitive](competitive.md)):
+  Testence `3 462 ms`, Playwright Test `2 499 ms`, pytest-playwright `3 018 ms`,
+  SeleniumBase `6 717 ms`, Cypress `20 141 ms` (августовские `-27,5%` двух участников
+  не воспроизвелись);
 - 51 synthetic item-run: outcome accuracy `1.0`, false green/red `0`, right reason
   `1.0`, heal recall `1.0`;
 - authoring time, review time, cross-client portability и L1 real-app breadth не

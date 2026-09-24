@@ -29,7 +29,7 @@ classifiers = [
 # no cloud-mandatory services, no LLM SDKs in the runner (ADR-0006).
 dependencies = [
     "jsonschema>=4.23",
-    "playwright>=1.49",
+    "playwright>=1.49,<2",
     "pytest>=8.0",
 ]
 

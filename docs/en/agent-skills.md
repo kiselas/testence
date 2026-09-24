@@ -2,7 +2,7 @@
 
 Testence ships one versioned skill pack inside the Python distribution. The pack is the workflow layer between a user's intent and Testence's deterministic contracts; it contains no model SDK, provider credentials, or client-specific business logic.
 
-Current pack: `testence/skill-pack/1`, version `0.1.4`.
+Current pack: `testence/skill-pack/1`, version `0.1.5`.
 
 ## The four phases
 
@@ -76,10 +76,6 @@ Metrics are task success, contract-valid output, policy violations, unnecessary 
 ## Current boundary
 
 The portable pack, conflict-safe client installer, integrity verifier, metadata,
-manifest, and wheel distribution checks are implemented. The required release receipt
-must exercise the installed `testence-triage` skill with real Codex and Claude Code
-clients against one immutable evidence pack, then validate and submit both verdicts.
-That independent client receipt remains pending.
-Broader trigger precision and the independent benchmark corpus remain release gates.
+manifest, and wheel distribution checks are implemented.
 
 References: [OpenAI skills](https://learn.chatgpt.com/docs/build-skills), [Claude Code skills](https://code.claude.com/docs/en/skills), [OpenCode skills](https://opencode.ai/docs/skills).

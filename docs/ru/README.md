@@ -22,9 +22,7 @@
 
 - [Архитектура](architecture.md)
 - [Архитектурные решения](adr/README.md)
-- [Позиционирование продукта](product-positioning.md)
 - [Дорожная карта](roadmap.md)
-- [Конкурентный ландшафт](competitive-landscape.md)
 
 ## Измерения и публичные заявления
 
@@ -42,9 +40,12 @@
 пользоваться. Они рабочие и не являются обещанием поддержки.
 
 - [Launch Thesis](launch-thesis.md)
+- [Позиционирование продукта](product-positioning.md)
+- [Конкурентный ландшафт](competitive-landscape.md)
 - [Аудит проекта](project-audit.md)
 - [Готовность к open source](open-source-readiness.md)
 - [Протокол пилота](pilot-protocol.md)
-- [Аудиты](../audits/2026-09-13/README.md) и [этапы релиза](../stages/03-r1-release/README.md)
+- [Аудиты](../audits/2026-09-13/README.md) и этапы релиза
+  ([3](../stages/03-r1-release/README.md), [4](../stages/04-public-launch/README.md))
 
 [English documentation](../en/README.md)

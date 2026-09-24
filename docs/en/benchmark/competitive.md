@@ -22,22 +22,33 @@ outcome; its labor economics are not directly comparable to a DIY framework.
 
 ## Completed replay measurement
 
-`bench/competitive/run.py` runs Testence and Playwright Test against the same static SUT
-and six intent-bearing steps. Each sample is a fresh runner process including discovery,
-Chromium launch, test execution, reporting and shutdown; SUT startup is excluded. Arms run
-serially with one worker, no retries, trace or video, and one discarded warm-up.
+`bench/competitive/run.py` runs five arms — Testence, Playwright Test, pytest-playwright,
+Cypress and SeleniumBase — against the same static SUT and six intent-bearing steps
+([bench/competitive/README.md](../../../bench/competitive/README.md)). Each sample is a
+fresh runner process including discovery, browser launch, test execution, reporting and
+shutdown; SUT startup is excluded. Every arm runs in its own pinned environment with one
+worker, no retries, trace, video or screenshots; one warm-up per arm is discarded, and
+samples are taken in seeded shuffled rounds.
 
-On Windows 11, Playwright Chromium 151.0.7922.34, Python 3.12.13 and Node 22.22.0,
-seven measured repeats gave:
+Windows 11, 8 logical CPUs, system Chrome 153.0.8010.53 for every arm, revision
+`26ce56e`, 30 rounds (`bench/results/competitive-replay.json`):
 
-| arm | median | p95 | scenario source |
-|---|---:|---:|---:|
-| Testence | 1,743.5 ms | 1,812.3 ms | 13 meaningful lines |
-| Playwright Test | 2,404.6 ms | 2,462.7 ms | 21 meaningful lines |
+| arm | median | 95% CI of median | p95 | scenario source |
+|---|---:|---:|---:|---:|
+| Playwright Test 1.63.0 | 2,499 ms | 2,356–2,866 | 3,633 | 21 lines |
+| pytest-playwright 0.9.0 | 3,018 ms | 2,725–3,327 | 4,867 | 9 lines |
+| Testence (Playwright 1.62.0) | 3,462 ms | 3,222–3,742 | 5,412 | 13 lines |
+| SeleniumBase 4.54.11 | 6,717 ms | 6,359–7,167 | 8,593 | 12 lines |
+| Cypress 15.21.1 | 20,141 ms | 19,306–20,707 | 23,219 | 10 lines |
 
-Testence's median was **27.5% lower** (ratio `0.725`). This is fresh-process replay on
-one host, not a real-suite speed claim. Source size is a transparent proxy, not authoring time. Raw samples,
-versions and the method revision are in `bench/results/competitive-replay.json`.
+Fresh-process replay of one six-step test: Testence was 1.9× faster than SeleniumBase
+and 5.8× faster than Cypress, and 15% slower than pytest-playwright and 39% slower than
+Playwright Test. The Playwright engine lifecycle itself matches plain Playwright; the
+difference is in the session and in the evidence each DSL step records. This is one
+host and one short test, not a real-suite speed claim. An earlier two-arm snapshot
+(August 2026, bundled Chromium 151, seven repeats) measured Testence 27.5% below
+Playwright Test; it did not reproduce here and is superseded. Source size is a
+transparent proxy, not authoring time.
 
 The seeded-behaviour corpus was also run three times: 51 item-runs with
 `outcome_accuracy=1.0`, `false_green_rate=0.0`, `false_red_rate=0.0`,

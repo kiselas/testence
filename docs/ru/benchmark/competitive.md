@@ -23,25 +23,34 @@ Managed service QA Wolf сравнивается отдельным треком
 
 ## Уже выполненный replay-замер
 
-`bench/competitive/run.py` запускает Testence и Playwright Test на одном статическом
-SUT и одинаковом шестишаговом сценарии. Каждый sample — новый процесс runner; в
-границу входят discovery, запуск Chromium, тест, reporting и shutdown. Запуск SUT не
-входит. Arms выполняются последовательно, с одним worker, без retries, trace и video;
-один warm-up отбрасывается.
+`bench/competitive/run.py` запускает пять участников — Testence, Playwright Test,
+pytest-playwright, Cypress и SeleniumBase — на одном статическом SUT и одинаковом
+шестишаговом сценарии ([bench/competitive/README.md](../../../bench/competitive/README.md)).
+Каждый sample — новый процесс runner; в границу входят discovery, запуск браузера, тест,
+reporting и shutdown, запуск SUT не входит. Каждый участник работает в своём закреплённом
+окружении, с одним worker, без retries, trace, video и скриншотов; один warm-up на
+участника отбрасывается, samples берутся раундами в перемешанном с фиксированным seed
+порядке.
 
-На Windows 11, Playwright Chromium 151.0.7922.34, Python 3.12.13 и Node 22.22.0,
-семь измеренных повторов дали:
+Windows 11, 8 логических CPU, системный Chrome 153.0.8010.53 у всех участников,
+ревизия `26ce56e`, 30 раундов (`bench/results/competitive-replay.json`):
 
-| arm | median | p95 | исходник сценария |
-|---|---:|---:|---:|
-| Testence | 1 743,5 ms | 1 812,3 ms | 13 содержательных строк |
-| Playwright Test | 2 404,6 ms | 2 462,7 ms | 21 содержательная строка |
+| Участник | Медиана | 95% ДИ медианы | p95 | Исходник сценария |
+|---|---:|---:|---:|---:|
+| Playwright Test 1.63.0 | 2 499 ms | 2 356–2 866 | 3 633 | 21 строка |
+| pytest-playwright 0.9.0 | 3 018 ms | 2 725–3 327 | 4 867 | 9 строк |
+| Testence (Playwright 1.62.0) | 3 462 ms | 3 222–3 742 | 5 412 | 13 строк |
+| SeleniumBase 4.54.11 | 6 717 ms | 6 359–7 167 | 8 593 | 12 строк |
+| Cypress 15.21.1 | 20 141 ms | 19 306–20 707 | 23 219 | 10 строк |
 
-Медиана Testence оказалась **на 27,5% ниже** (ratio `0,725`). Это измерение
-fresh-process replay на одном host, а не доказательство скорости реального suite.
-Размер исходника — только прозрачный proxy,
-а не время написания. Raw samples, версии и revision методики находятся в
-`bench/results/competitive-replay.json`.
+Fresh-process replay одного шестишагового теста: Testence в 1,9 раза быстрее SeleniumBase
+и в 5,8 раза быстрее Cypress, на 15% медленнее pytest-playwright и на 39% медленнее
+Playwright Test. Жизненный цикл движка Playwright совпадает с чистым Playwright; разница —
+в сессии и в evidence, которое записывает каждый шаг DSL. Это один host и один короткий
+тест, а не заявление о скорости реального набора. Прежний снимок на двух участниках
+(август 2026, bundled Chromium 151, семь повторов) показывал Testence на 27,5% быстрее
+Playwright Test; здесь он не воспроизвёлся и заменён. Размер исходника — прозрачный
+proxy, а не время написания.
 
 Корпус seeded behaviours дополнительно выполнен тремя повторами: 51 item-run,
 `outcome_accuracy=1.0`, `false_green_rate=0.0`, `false_red_rate=0.0`,

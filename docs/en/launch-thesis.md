@@ -213,8 +213,8 @@ Allowed message progression:
 3. **After independent reproduction:** “External participants reproduced the result.”
 4. **Only after real-app breadth:** a comparative product-advantage claim.
 
-The current `27.5%` replay result and `200×` operation-level experiment are not launch
-headlines. They answer narrow engineering questions, not how quickly users reach a
+The replay measurement ([competitive](benchmark/competitive.md)) and the `200×`
+operation-level experiment are not launch headlines. They answer narrow engineering questions, not how quickly users reach a
 trustworthy outcome.
 
 ## Distribution

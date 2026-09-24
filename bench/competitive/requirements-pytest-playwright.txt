@@ -1,0 +1,4 @@
+# pytest-playwright arm of bench/competitive/run.py: its ordinary install, pinned.
+pytest==9.1.1
+pytest-playwright==0.9.0
+playwright==1.63.0

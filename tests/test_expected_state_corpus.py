@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import types
 from pathlib import Path
 
 import pytest
 
+from testence import oracle
 from testence.api import Response
 from testence.oracle import ExpectedState, observe_expected_state
 
@@ -13,8 +15,26 @@ CORPUS = json.loads(
 )
 
 
+@pytest.fixture
+def clock(monkeypatch):
+    """Classify each case by its documents, not by the host scheduler.
+
+    The windows are milliseconds wide: one read that a loaded Windows runner stalled
+    past the 15 ms deadline turned ``rollback-during-window`` into ``inconclusive``.
+    Virtual time moves only when the oracle sleeps, as in ``test_expected_state``.
+    """
+    now = [0.0]
+
+    def sleep(seconds: float) -> None:
+        now[0] += seconds
+
+    monkeypatch.setattr(
+        oracle, "time", types.SimpleNamespace(monotonic=lambda: now[0], sleep=sleep)
+    )
+
+
 @pytest.mark.parametrize("case", CORPUS["cases"], ids=lambda case: case["id"])
-def test_expected_state_corpus(case):
+def test_expected_state_corpus(case, clock):
     documents = iter(case["responses"])
     last = case["responses"][-1]
 

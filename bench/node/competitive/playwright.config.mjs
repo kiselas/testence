@@ -12,7 +12,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.BENCH_BASE_URL,
     browserName: "chromium",
-    channel: "chromium",
+    channel: process.env.BENCH_CHANNEL || "chromium",
     headless: true,
     trace: "off",
     screenshot: "off",

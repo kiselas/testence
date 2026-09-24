@@ -81,6 +81,38 @@ def create_engine(settings: Any, backend: str = "playwright-cdp") -> Engine:
     )
 
 
+_MISSING_BROWSER = (
+    "Executable doesn't exist",
+    "Looks like Playwright was just installed",
+    "is not found at",
+)
+
+
+def browser_launch_hint(channel: str, failure: str) -> str:
+    """What to do when the browser for ``channel`` failed to launch with ``failure``.
+
+    A missing executable is fixed by installing it. A browser that exists but does not
+    start (a crash on spawn, an application-control or antivirus policy, a broken
+    profile) is not: reinstalling the same executable changes nothing, while another
+    channel usually runs at once.
+    """
+    if any(marker in failure for marker in _MISSING_BROWSER):
+        if channel in {"chromium", "chromium-headless-shell"}:
+            return f"python -m playwright install {channel}"
+        return (
+            f"install the {channel!r} browser, or point Testence at another one with "
+            "TESTENCE_BROWSER_CHANNEL"
+        )
+    other = "msedge" if os.name == "nt" and channel != "msedge" else "chrome"
+    if channel in {"chrome", "msedge"} and other == channel:
+        other = "chromium"
+    return (
+        f"the {channel!r} browser is installed but did not start; try "
+        f"TESTENCE_BROWSER_CHANNEL={other}, and check antivirus or application-control "
+        "policies for the Playwright browser directory"
+    )
+
+
 def _screenshot_masks(settings: Any) -> tuple[Target, ...]:
     masks = getattr(settings, "screenshot_masks", None)
     return tuple(masks()) if callable(masks) else ()
@@ -98,6 +130,7 @@ __all__ = [
     "Target",
     "UnsupportedCapability",
     "capability_document",
+    "browser_launch_hint",
     "create_engine",
     "dump_net",
     "engine_capabilities",

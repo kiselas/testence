@@ -2,7 +2,7 @@
 
 Testence поставляет один версионированный набор skills внутри Python-дистрибутива. Это слой рабочего процесса между намерением пользователя и детерминированными контрактами Testence; в нём нет SDK конкретной модели, учётных данных провайдера или клиентской бизнес-логики.
 
-Текущий набор: `testence/skill-pack/1`, версия `0.1.4`.
+Текущий набор: `testence/skill-pack/1`, версия `0.1.5`.
 
 ## Четыре фазы
 
@@ -76,9 +76,6 @@ Testence. Команда фиксирует digest pack и каждого при
 ## Текущая граница
 
 Переносимый pack, безопасный при конфликтах installer, проверка целостности,
-метаданные, manifest и проверки wheel реализованы. Требуемый release receipt должен запускать
-установленный `testence-triage` в реальных Codex и Claude Code на одном неизменяемом
-evidence pack, затем валидирует и отправляет оба verdict через Testence. Более широкая
-точность trigger и независимый benchmark corpus остаются release gates.
+метаданные, manifest и проверки wheel реализованы.
 
 Ссылки: [OpenAI skills](https://learn.chatgpt.com/docs/build-skills), [Claude Code skills](https://code.claude.com/docs/en/skills), [OpenCode skills](https://opencode.ai/docs/skills).

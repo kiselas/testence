@@ -36,6 +36,7 @@
 | [0024](0024-evidence-redaction-policy.md) | Маскировка evidence по частям имён и форме значений с записанной политикой | accepted |
 | [0025](0025-parameter-display-values.md) | Замаскированные отображаемые значения параметров в ledger | accepted |
 | [0026](0026-streaming-allure-export.md) | Потоковая выдача результатов Allure по окончании тестов | accepted |
+| [0027](0027-native-escape-hatch.md) | Единственный записываемый выход на прямой Playwright | accepted |
 
 Формат: Контекст → Рассмотренные варианты → Решение → Последствия → Tripwire.
 Имена метрик определяются рядом с их реализацией и benchmark-документацией.

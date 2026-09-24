@@ -21,6 +21,8 @@ class Capability(str, Enum):
     POPUPS = "browser.popups"
     FILES = "browser.files"
     DIALOGS = "browser.dialogs"
+    #: The engine's own page object for what the DSL does not express (ADR-0027).
+    NATIVE = "browser.native"
     EVIDENCE = "evidence"
 
 

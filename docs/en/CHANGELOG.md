@@ -7,6 +7,10 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Added
 
+- Skill pack 0.1.5: `testence-author` prefers the DSL and says when to use `ex.native`.
+- `with ex.native("<intent>") as page:` hands the Playwright page to code the DSL does
+  not express, inside one recorded step with a `native.used` event
+  ([ADR-0027](adr/0027-native-escape-hatch.md)).
 - Evidence: `evidence.redact` in `testence.json` adds or exempts field names and URL
   parameters, names environment variables whose values are redacted, and opts into email
   and phone redaction. `evidence.mask` paints listed elements black in every screenshot,
