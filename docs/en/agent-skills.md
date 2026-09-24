@@ -2,7 +2,7 @@
 
 Testence ships one versioned skill pack inside the Python distribution. The pack is the workflow layer between a user's intent and Testence's deterministic contracts; it contains no model SDK, provider credentials, or client-specific business logic.
 
-Current pack: `testence/skill-pack/1`, version `0.1.6`.
+Current pack: `testence/skill-pack/1`, version `0.1.7`.
 
 ## The four phases
 

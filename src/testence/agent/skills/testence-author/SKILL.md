@@ -34,7 +34,9 @@ For automated screenshot regression or an isolated client simulation, also read
 - Prefer the DSL. Check state with its exact checks — `expect_text`, `expect_value`,
   `expect_count`, `expect_visible`/`expect_hidden`, `expect_enabled`/`expect_disabled`,
   `expect_checked`, `expect_attribute`, `expect_url` — and act with `click`, `fill`,
-  `press`, `check`/`uncheck`, `hover` and `select(..., label=...)`. When it cannot express
+  `press`, `check`/`uncheck`, `hover` and `select(..., label=...)`. Group independent
+  facts of one screen in `with ex.soft(...)`; drive timers with `ex.clock` instead of
+  sleeping; reach app-opened tabs with `ex.switch_page(url_contains=...)`. When it cannot express
   an interaction (canvas, a custom drag widget), use
   `with ex.native("<what the code does>") as page:` with raw Playwright inside, keep the
   block minimal and assert through the DSL afterwards.

@@ -169,6 +169,9 @@ never appears within the timeout raises `AssertionError`, which reports file as
 | Navigate | `goto(url)`, `navigate(url, hard=False)` |
 | Act | `click`, `fill`, `press(key, target=None)`, `check`, `uncheck`, `hover`, `select(target, value)` or `select(target, label=...)`, `focus`, `scroll_into_view`, `upload`, `download`, `popup`, `dialog`, `with frame(...)` |
 | Check the page | `expect_text(target, text, exact=True)`, `expect_value`, `expect_count`, `expect_visible`, `expect_hidden`, `expect_enabled`, `expect_disabled`, `expect_checked(checked=True)`, `expect_attribute(target, name, value)`, `expect_url(contains=... \| equals=...)`, `expect_screenshot` |
+| Several checks at once | `with ex.soft("the order summary"):` runs every check inside and fails once at the end, listing each failed one; actions and browser errors still stop the test |
+| Tabs | `switch_page(index)`, `switch_page(url_contains=...)` (waits for a tab the app is opening), `close_page()` |
+| Time | `ex.clock.install(time=None)`, `fast_forward(ticks)`, `pause_at(time)`, `resume()`, `set_fixed_time(time)` — instead of sleeping through a timer |
 | Check the data | `verify`, `verify_state` (section 4 above) |
 | Everything else | `with ex.native("intent") as page:` — the Playwright page, recorded as a native step (ADR-0027) |
 

@@ -14,13 +14,21 @@
   объявляет ID кейсов в системах управления тестированием; они попадают в JUnit
   (`test_id`, `test_key`, `testrail_result_step`, `tms.<system>`), метки Allure и
   labels CTRF.
+- `with ex.soft("<intent>"):` выполняет все проверки блока и падает один раз в конце
+  с `SoftAssertionsFailed` и списком провалившихся; каждая остаётся упавшим шагом с
+  пометкой `soft`. Действия и ошибки браузера не смягчаются.
+- Вкладки: `ex.switch_page(index)` или `ex.switch_page(url_contains=...)`, который
+  ждёт вкладку, открываемую приложением, и `ex.close_page()`.
+- Поддельное время: `ex.clock.install`, `fast_forward`, `pause_at`, `resume` и
+  `set_fixed_time` поверх clock Playwright, за новой capability `browser.clock`.
 - Проверки DSL `expect_value`, `expect_count`, `expect_enabled`, `expect_disabled`,
   `expect_checked`, `expect_attribute` и `expect_url(contains= | equals=)`, шаги
   `press(key, target=None)`, `check`, `uncheck`, `hover` и
   `select(target, label=...)`. Каждый — шаг с intent и evidence; проверки точные.
   Весь словарь — в [Тестировании функции](testing-a-feature.md).
-- Skill pack 0.1.6: `testence-author` предпочитает DSL, перечисляет его проверки и действия
-  и объясняет, когда использовать `ex.native`.
+- Skill pack 0.1.7: `testence-author` предпочитает DSL, перечисляет его проверки и действия,
+  собирает факты одного экрана в `ex.soft`, ведёт таймеры через `ex.clock` и объясняет,
+  когда использовать `ex.native`.
 - `with ex.native("<intent>") as page:` передаёт страницу Playwright коду, который DSL не
   выражает, внутри одного записанного шага с событием `native.used`
   ([ADR-0027](adr/0027-native-escape-hatch.md)).

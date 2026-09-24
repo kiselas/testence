@@ -47,6 +47,19 @@ class StepFailure:
     error: str
 
 
+class SoftAssertionsFailed(AssertionError):
+    """Checks that failed inside ``with ex.soft(...)``, raised once at its end."""
+
+    def __init__(self, intent: str, failures: list[StepFailure]) -> None:
+        self.intent = intent
+        self.failures = list(failures)
+        listed = "\n".join(f"  - {failure.intent}: {failure.error}" for failure in failures)
+        count = len(failures)
+        super().__init__(
+            f"{count} check{'s' if count != 1 else ''} failed in {intent!r}:\n{listed}"
+        )
+
+
 class Actions:
     """Engine + evidence, bound to one test. Projects build ActionMaps on top."""
 
@@ -71,6 +84,8 @@ class Actions:
         #: half of them (48 of 95 step starts in a recent run were nested, and the
         #: step total came out larger than the test total, which cannot be true).
         self._children: list[int] = []
+        #: Failed checks collected by the open ``ex.soft`` block, if any.
+        self._soft: list[StepFailure] | None = None
 
     # -- core wrapper ------------------------------------------------------
 
@@ -81,7 +96,10 @@ class Actions:
         target: Target | None = None,
         *,
         weakenings: tuple[str, ...] = (),
+        check: bool = False,
     ) -> Iterator[None]:
+        """One recorded step. ``check=True`` marks an assertion, which an open
+        ``ex.soft`` block records and lets the test continue past."""
         self._step_no += 1
         step_id = f"s{self._step_no}"
         depth = len(self._children)
@@ -103,6 +121,14 @@ class Actions:
         except Exception as exc:
             error = f"{exc.__class__.__name__}: {exc}"
             self.last_failure = StepFailure(intent=intent, target=target, error=error)
+            # Only a completed check that disagreed is softened: an action that failed,
+            # an unavailable engine or a broken browser still stops the test.
+            softened = (
+                check
+                and self._soft is not None
+                and isinstance(exc, AssertionError)
+                and not isinstance(exc, UnsupportedCapability)
+            )
             self.writer.emit(
                 "step.end",
                 test=self.test_id,
@@ -112,7 +138,12 @@ class Actions:
                 error=error,
                 depth=depth,
                 children=self._children.pop(),
+                **({"soft": True} if softened else {}),
             )
+            if softened:
+                assert self._soft is not None
+                self._soft.append(self.last_failure)
+                return
             if isinstance(exc, UnsupportedCapability):
                 raise
             raise StepFailed(intent, exc, target) from exc
@@ -249,7 +280,7 @@ class Actions:
     def expect_text(
         self, target: Target, text: str, intent: str | None = None, *, exact: bool = True
     ) -> None:
-        with self.step(intent or f"expect {text!r} at {target.describe()}", target):
+        with self.step(intent or f"expect {text!r} at {target.describe()}", target, check=True):
             require_capabilities(self.engine, "expect_text", Capability.DOM)
             self.engine.expect_text(target, text, exact=exact)
 
@@ -266,7 +297,7 @@ class Actions:
 
         bound = _assertion_identity(assertion_id, claim_id)
         source = _source_location()
-        with self.step(intent or f"expect {target.describe()} visible", target):
+        with self.step(intent or f"expect {target.describe()} visible", target, check=True):
             require_capabilities(self.engine, "expect_visible", Capability.DOM)
             try:
                 self.engine.expect_visible(target)
@@ -301,7 +332,7 @@ class Actions:
                 )
 
     def expect_hidden(self, target: Target, intent: str | None = None) -> None:
-        with self.step(intent or f"expect {target.describe()} gone", target):
+        with self.step(intent or f"expect {target.describe()} gone", target, check=True):
             require_capabilities(self.engine, "expect_hidden", Capability.DOM)
             method = getattr(self.engine, "expect_hidden", None)
             if callable(method):
@@ -316,22 +347,24 @@ class Actions:
 
     def expect_value(self, target: Target, value: str, intent: str | None = None) -> None:
         """A form control holds exactly ``value`` (inputs have no text to match)."""
-        with self.step(intent or f"expect {target.describe()} to hold {value!r}", target):
+        with self.step(
+            intent or f"expect {target.describe()} to hold {value!r}", target, check=True
+        ):
             require_capabilities(self.engine, "expect_value", Capability.DOM)
             self._engine_method("expect_value")(target, value)
 
     def expect_count(self, target: Target, count: int, intent: str | None = None) -> None:
-        with self.step(intent or f"expect {count} of {target.describe()}", target):
+        with self.step(intent or f"expect {count} of {target.describe()}", target, check=True):
             require_capabilities(self.engine, "expect_count", Capability.DOM)
             self._engine_method("expect_count")(target, count)
 
     def expect_enabled(self, target: Target, intent: str | None = None) -> None:
-        with self.step(intent or f"expect {target.describe()} enabled", target):
+        with self.step(intent or f"expect {target.describe()} enabled", target, check=True):
             require_capabilities(self.engine, "expect_enabled", Capability.DOM)
             self._engine_method("expect_enabled")(target, True)
 
     def expect_disabled(self, target: Target, intent: str | None = None) -> None:
-        with self.step(intent or f"expect {target.describe()} disabled", target):
+        with self.step(intent or f"expect {target.describe()} disabled", target, check=True):
             require_capabilities(self.engine, "expect_disabled", Capability.DOM)
             self._engine_method("expect_enabled")(target, False)
 
@@ -339,14 +372,16 @@ class Actions:
         self, target: Target, intent: str | None = None, *, checked: bool = True
     ) -> None:
         state = "checked" if checked else "unchecked"
-        with self.step(intent or f"expect {target.describe()} {state}", target):
+        with self.step(intent or f"expect {target.describe()} {state}", target, check=True):
             require_capabilities(self.engine, "expect_checked", Capability.DOM)
             self._engine_method("expect_checked")(target, checked)
 
     def expect_attribute(
         self, target: Target, name: str, value: str, intent: str | None = None
     ) -> None:
-        with self.step(intent or f"expect {target.describe()} [{name}] == {value!r}", target):
+        with self.step(
+            intent or f"expect {target.describe()} [{name}] == {value!r}", target, check=True
+        ):
             require_capabilities(self.engine, "expect_attribute", Capability.DOM)
             self._engine_method("expect_attribute")(target, name, value)
 
@@ -361,7 +396,7 @@ class Actions:
         if (contains is None) == (equals is None):
             raise ValueError("expect_url takes exactly one of contains= or equals=")
         shown = f"to contain {contains!r}" if contains is not None else f"to be {equals!r}"
-        with self.step(intent or f"expect the URL {shown}"):
+        with self.step(intent or f"expect the URL {shown}", check=True):
             require_capabilities(self.engine, "expect_url", Capability.NAVIGATION)
             self._engine_method("expect_url")(contains=contains, equals=equals)
 
@@ -382,7 +417,7 @@ class Actions:
 
         source = _source_location()
         expected = {"baseline_digest": baseline_digest}
-        with self.step(intent):
+        with self.step(intent, check=True):
             try:
                 result = compare_baseline(
                     self.engine,
@@ -465,6 +500,61 @@ class Actions:
             require_capabilities(self.engine, "frame", Capability.DOM, Capability.FRAMES)
             with self.engine.frame(target):
                 yield
+
+    @contextmanager
+    def soft(self, intent: str) -> Iterator[None]:
+        """Run every check in the block, then fail once listing the ones that failed.
+
+        ``with ex.soft("the order summary"):`` suits a screen of independent facts —
+        totals, badges, labels — where the first wrong one should not hide the rest.
+        Each failed check is still its own failed step in the ledger (marked
+        ``soft``). Actions, unavailable engines and browser errors are not softened:
+        they stop the test at once, as outside the block. Blocks do not nest.
+        """
+        if not isinstance(intent, str) or not intent.strip():
+            raise ValueError("ex.soft needs an intent naming what the checks describe")
+        if self._soft is not None:
+            raise RuntimeError("ex.soft blocks do not nest")
+        with self.step(intent):
+            self._soft = []
+            try:
+                yield
+            finally:
+                failures, self._soft = self._soft, None
+            if failures:
+                raise SoftAssertionsFailed(intent, failures)
+
+    def switch_page(
+        self,
+        index: int | None = None,
+        intent: str | None = None,
+        *,
+        url_contains: str | None = None,
+    ) -> None:
+        """Continue on another open page (tab): by position, or by part of its URL.
+
+        ``url_contains`` waits for a tab the application is still opening.
+        """
+        if (index is None) == (url_contains is None):
+            raise ValueError("switch_page takes exactly one of index or url_contains=")
+        shown = f"page {index}" if index is not None else f"the page at {url_contains!r}"
+        with self.step(intent or f"switch to {shown}"):
+            require_capabilities(self.engine, "switch_page", Capability.POPUPS)
+            if index is not None:
+                self.engine.switch_page(index)
+            else:
+                self._engine_method("switch_page_matching")(url_contains)
+
+    def close_page(self, intent: str | None = None) -> None:
+        """Close the current page and continue on the most recently opened one left."""
+        with self.step(intent or "close the current page"):
+            require_capabilities(self.engine, "close_page", Capability.POPUPS)
+            self._engine_method("close_page")()
+
+    @property
+    def clock(self) -> Clock:
+        """Fake time for the page: ``ex.clock.install(...)``, ``fast_forward``, ..."""
+        return Clock(self)
 
     @contextmanager
     def native(self, intent: str) -> Iterator[Any]:
@@ -553,3 +643,39 @@ class Actions:
 
     def note(self, text: str, **data: Any) -> None:
         self.writer.emit("note", test=self.test_id, text=text, **data)
+
+
+class Clock:
+    """``ex.clock``: the page's fake timers, each call a recorded step.
+
+    Install before the page reads the time (before ``goto`` for a page that renders
+    it on load). ``fast_forward`` runs the timers due in the interval;
+    ``pause_at`` stops time at a moment; ``set_fixed_time`` pins ``Date.now()``
+    while timers keep running. Times are Playwright's: an ISO string, a
+    ``datetime`` or epoch milliseconds; ticks are milliseconds or ``"mm:ss"``.
+    """
+
+    def __init__(self, actions: Actions) -> None:
+        self._actions = actions
+
+    def _run(self, intent: str, operation: str, *args: Any) -> None:
+        actions = self._actions
+        with actions.step(intent):
+            require_capabilities(actions.engine, operation, Capability.CLOCK)
+            actions._engine_method(operation)(*args)
+
+    def install(self, time: Any = None, intent: str | None = None) -> None:
+        shown = f" at {time!r}" if time is not None else ""
+        self._run(intent or f"install the clock{shown}", "clock_install", time)
+
+    def fast_forward(self, ticks: int | str, intent: str | None = None) -> None:
+        self._run(intent or f"fast-forward the clock by {ticks!r}", "clock_fast_forward", ticks)
+
+    def pause_at(self, time: Any, intent: str | None = None) -> None:
+        self._run(intent or f"pause the clock at {time!r}", "clock_pause_at", time)
+
+    def resume(self, intent: str | None = None) -> None:
+        self._run(intent or "resume the clock", "clock_resume")
+
+    def set_fixed_time(self, time: Any, intent: str | None = None) -> None:
+        self._run(intent or f"fix the time at {time!r}", "clock_set_fixed_time", time)

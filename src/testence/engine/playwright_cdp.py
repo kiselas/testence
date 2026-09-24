@@ -703,6 +703,83 @@ class PlaywrightCdpEngine(Engine):
         # evidence, and a pack for a second tab looks like nothing ever happened.
         self._attach_taps(self._page)
 
+    def page_count(self) -> int:
+        if self._context is None:
+            raise RuntimeError("engine not started")
+        return len(self._context.pages)
+
+    def switch_page_matching(self, url_contains: str, timeout_ms: int | None = None) -> None:
+        """Switch to the open page whose URL contains ``url_contains``.
+
+        A tab opened by the application appears a moment after the click that opens
+        it, so this waits for it; more than one match is an error, like a locator.
+        """
+        if self._context is None:
+            raise RuntimeError("engine not started")
+        context = self._context
+        deadline = time.monotonic() + (timeout_ms or self.timeout_ms) / 1000
+        with self._timed("switch_page", f"url contains {url_contains!r}"):
+            while True:
+                matches = [
+                    index for index, page in enumerate(context.pages) if url_contains in page.url
+                ]
+                if len(matches) > 1:
+                    raise RuntimeError(
+                        f"{len(matches)} open pages have a URL containing {url_contains!r}; "
+                        "switch by index instead"
+                    )
+                if matches:
+                    self.switch_page(matches[0])
+                    return
+                if time.monotonic() >= deadline:
+                    raise AssertionError(f"no open page has a URL containing {url_contains!r}")
+                # Page events arrive on the Playwright connection; a short wait
+                # on the current page lets them be dispatched.
+                self._require_page().wait_for_timeout(50)
+
+    def close_page(self) -> None:
+        """Close the current page and continue on the most recently opened one left."""
+        if self._context is None or self._page is None:
+            raise RuntimeError("engine not started")
+        if len(self._context.pages) < 2:
+            raise RuntimeError("cannot close the only open page")
+        with self._timed("close_page", self._page.url):
+            self._page.close()
+        self.switch_page(len(self._context.pages) - 1)
+
+    # -- clock -----------------------------------------------------------------
+    #
+    # Playwright's fake timers (Page.clock, 1.45+) for the context: Date, timers and
+    # animation frames follow the test instead of the wall clock.
+
+    def _clock(self) -> Any:
+        if self._context is None:
+            raise RuntimeError("engine not started")
+        return self._context.clock
+
+    def clock_install(self, moment: Any = None) -> None:
+        with self._timed("clock_install", repr(moment)):
+            if moment is None:
+                self._clock().install()
+            else:
+                self._clock().install(time=moment)
+
+    def clock_fast_forward(self, ticks: int | str) -> None:
+        with self._timed("clock_fast_forward", repr(ticks)):
+            self._clock().fast_forward(ticks)
+
+    def clock_pause_at(self, moment: Any) -> None:
+        with self._timed("clock_pause_at", repr(moment)):
+            self._clock().pause_at(moment)
+
+    def clock_resume(self) -> None:
+        with self._timed("clock_resume"):
+            self._clock().resume()
+
+    def clock_set_fixed_time(self, moment: Any) -> None:
+        with self._timed("clock_set_fixed_time", repr(moment)):
+            self._clock().set_fixed_time(moment)
+
     def click_with_dialog(
         self, target: Target, *, accept: bool = True, prompt: str | None = None
     ) -> str:

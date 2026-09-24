@@ -1,6 +1,6 @@
 {
   "schema": "testence/skill-pack/1",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "minimum_testence": "0.1.0a1",
   "contracts": {
     "plan": "testence/planspec/2",
