@@ -7,6 +7,12 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Added
 
+- `testence export --to junit`: JUnit XML with Testence identity and case-id
+  properties, `<failure>`/`<error>` split like Allure, step intents and redacted
+  evidence files ([ADR-0028](adr/0028-junit-exporter.md)).
+- `@pytest.mark.testence(tms={"testrail": "C123", "xray": "PROJ-12", ...})`
+  declares test-management case ids; they reach JUnit (`test_id`, `test_key`,
+  `testrail_result_step`, `tms.<system>`), Allure labels and CTRF labels.
 - Skill pack 0.1.5: `testence-author` prefers the DSL and says when to use `ex.native`.
 - `with ex.native("<intent>") as page:` hands the Playwright page to code the DSL does
   not express, inside one recorded step with a `native.used` event
@@ -91,6 +97,9 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Changed
 
+- CTRF: steps, attachments, the suite path, labels, parameters and the trace use CTRF's
+  own fields; `extra.steps` (a list of indented intent strings) is replaced by `steps`.
+  `summary.start`/`stop` are always present, as the schema requires.
 - Allure test plans: an entry that matches no collected test is reported (warning,
   `testplan.unresolved` event, export, CI receipt) and the rest of the plan runs;
   `--testence-testplan-unresolved=fail` restores the strict behaviour. An `allure_id` on a

@@ -7,6 +7,13 @@
 
 ### Добавлено
 
+- `testence export --to junit`: JUnit XML со свойствами идентичности Testence и ID
+  кейсов, разделением `<failure>`/`<error>` как в Allure, intent шагов и
+  замаскированными файлами evidence ([ADR-0028](adr/0028-junit-exporter.md)).
+- `@pytest.mark.testence(tms={"testrail": "C123", "xray": "PROJ-12", ...})`
+  объявляет ID кейсов в системах управления тестированием; они попадают в JUnit
+  (`test_id`, `test_key`, `testrail_result_step`, `tms.<system>`), метки Allure и
+  labels CTRF.
 - Skill pack 0.1.5: `testence-author` предпочитает DSL и объясняет, когда использовать `ex.native`.
 - `with ex.native("<intent>") as page:` передаёт страницу Playwright коду, который DSL не
   выражает, внутри одного записанного шага с событием `native.used`
@@ -92,6 +99,9 @@
 
 ### Изменено
 
+- CTRF: шаги, вложения, путь сьюта, labels, параметры и трейс пишутся в штатные поля
+  CTRF; `extra.steps` (список строк intent с отступами) заменён на `steps`.
+  `summary.start`/`stop` присутствуют всегда, как требует схема.
 - Test plan Allure: запись без совпавшего теста попадает в отчёт (предупреждение, событие
   `testplan.unresolved`, экспорт, квитанция CI), а остальной план выполняется;
   `--testence-testplan-unresolved=fail` возвращает строгое поведение. `allure_id` на

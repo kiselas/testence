@@ -30,10 +30,32 @@ redacted), `minimal` (no `network.jsonl`, `aria.txt` or screenshot) or `none`.
 | exporter | writes | carries |
 |---|---|---|
 | `allure` | `<n>-result.json` per attempt, fixture containers, attachments, `environment.properties`, `categories.json` | allure-pytest-compatible identities, `@allure.*` and marker metadata, suite tree, readable redacted parameters, failed/broken status with full trace, owner/risk/requirement/issue links, nested steps and redacted evidence |
-| `ctrf` | one `ctrf-report.json` | summary counts, tags, flattened step intents, pack path |
+| `ctrf` | `ctrf-report.json` and `attachments/` | CTRF's own fields: steps, suite path, labels (identity, Allure labels, case ids), parameters, trace, attachments, start/stop; Testence identity and assurance in `extra` |
+| `junit` | `junit.xml` and `attachments/` | one suite per file, `<failure>`/`<error>`/`<skipped>` as Allure splits failed and broken, `testence.*` identity and case-id properties, step intents and `[[ATTACHMENT\|path]]` lines in `<system-out>` ([ADR-0028](adr/0028-junit-exporter.md)) |
 
-JUnit XML is deliberately **not** an exporter: `pytest --junitxml=…` already emits it
-correctly, including under `-n`, and GitLab/Jenkins/GitHub parse it natively.
+`pytest --junitxml=…` stays the simplest choice when a job only needs pass/fail.
+`--to junit` adds what that file cannot carry: the identity, case ids, steps and
+evidence. Its XML is pytest's default dialect (`junit_family=xunit1`).
+
+### Test-management case ids
+
+Declare the case a test implements in the systems your team reports into; the ids
+travel with every export:
+
+```python
+@pytest.mark.testence(tms={"testrail": "C1042", "xray": "SHOP-12"})
+def test_checkout_charges_the_card_once(ex): ...
+```
+
+| System key | JUnit property | Also |
+|---|---|---|
+| `testrail` (`C123` or `123`, one or more) | `test_id` — `trcli`'s property case matcher; plus `testrail_result_step` per leaf step and `testrail_attachment` per evidence file | Allure label, CTRF `labels["tms.testrail"]` |
+| `xray` (one Test key, `PROJ-12`) | `test_key`, and `requirements` from the PlanSpec | Allure label, CTRF `labels["tms.xray"]` |
+| any other lowercase name | `tms.<system>` | Allure label, CTRF `labels["tms.<system>"]` |
+
+Property names follow the `trcli` and Xray JUnit documentation. `test_id` means a
+TestRail case in `trcli` and a numeric issue id in Xray, so declare only the systems a
+report is meant for.
 
 ## Uploading results to Allure TestOps
 

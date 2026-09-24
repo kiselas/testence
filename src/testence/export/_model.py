@@ -9,6 +9,8 @@ events into the ``testence/2`` reader model and marks missing proof unverified.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -40,6 +42,16 @@ PACK_FILES = (
 ATTACHMENT_POLICIES = ("full", "minimal", "none")
 _MINIMAL_EXCLUDED = frozenset({"network.jsonl", "aria.txt", "screenshot.png"})
 _TEXT_SUFFIXES = frozenset({".json", ".jsonl", ".txt", ".md"})
+
+#: Media types for shipped pack files. ``.jsonl`` has no registered type a report
+#: viewer renders; text/plain keeps it readable in the browser.
+MIME_TYPES = {
+    ".txt": "text/plain",
+    ".md": "text/markdown",
+    ".json": "application/json",
+    ".jsonl": "text/plain",
+    ".png": "image/png",
+}
 
 
 def parse_ts(ts: str | None) -> datetime | None:
@@ -136,6 +148,8 @@ class Test:
     error_trace: str = ""
     #: Run-relative screenshot of a passing test (``evidence.screenshots: always``).
     screenshot: str = ""
+    #: Test-management case ids by system (``testrail``, ``xray``, ...), as declared.
+    tms: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.nodeid:
@@ -335,6 +349,12 @@ class LoadedRun:
                 test.allure_id = str(doc.get("allure_id") or "")
                 if isinstance(doc.get("allure"), dict):
                     test.allure = dict(doc["allure"])
+                if isinstance(doc.get("tms"), dict):
+                    test.tms = {
+                        str(system): tuple(str(value) for value in values)
+                        for system, values in doc["tms"].items()
+                        if isinstance(values, list)
+                    }
                 test.owner = str(doc.get("owner") or "")
                 test.risk = str(doc.get("risk") or "")
                 test.requirements = _links(doc.get("requirements"))
@@ -403,6 +423,52 @@ class LoadedRun:
 
         run.tests = list(tests.values())
         return run
+
+
+@dataclass(frozen=True)
+class ExportedFile:
+    """A pack file an exporter copied next to its report."""
+
+    name: str
+    #: Path relative to the exporter's output directory.
+    path: str
+    media_type: str
+
+
+def copy_attachments(run: LoadedRun, test: Test, out_dir: Path) -> list[ExportedFile]:
+    """Copy a test's shippable evidence under ``out_dir/attachments/<test>/``.
+
+    For exporters that reference files by path (JUnit, CTRF). Everything goes
+    through :meth:`LoadedRun.attachment_bytes`, so the attachment policy and the
+    export-time redaction apply exactly as they do for Allure — a report must never
+    point at the raw pack of a run recorded before a redaction rule existed.
+    """
+    key = test.proof_id or test.nodeid or test.name
+    folder = Path("attachments") / hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+    shipped: list[tuple[str, bytes]] = []
+    for filename in PACK_FILES:
+        content = run.attachment_bytes(test, filename)
+        if content is not None:
+            shipped.append((filename, content))
+    final = run.run_file(test.screenshot) if run.ships("screenshot.png") else None
+    if final is not None:
+        shipped.append(("final-screenshot.png", final.read_bytes()))
+    if test.oracles and run.attachments != "none":
+        oracles = json.dumps(test.oracles, ensure_ascii=False, indent=1) + "\n"
+        shipped.append(("oracles.json", oracles.encode("utf-8")))
+    exported: list[ExportedFile] = []
+    for filename, content in shipped:
+        target = out_dir / folder / filename
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+        exported.append(
+            ExportedFile(
+                name=filename,
+                path=(folder / filename).as_posix(),
+                media_type=MIME_TYPES.get(Path(filename).suffix, "text/plain"),
+            )
+        )
+    return exported
 
 
 def _links(value: Any) -> tuple[dict[str, str], ...]:

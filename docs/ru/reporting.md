@@ -30,10 +30,32 @@ testence export runs/r-20260827-083736-29ae2f --to ctrf -o build/ctrf
 | Exporter | Что пишет | Что переносит |
 |---|---|---|
 | `allure` | `<n>-result.json` на attempt, fixture containers, attachments, `environment.properties`, `categories.json` | идентичности, совместимые с allure-pytest, метаданные `@allure.*` и маркера, дерево сьютов, читаемые замаскированные параметры, статус failed/broken с полным трейсом, owner/risk/requirement/issue links, steps и redacted evidence |
-| `ctrf` | один `ctrf-report.json` | summary counts, tags, плоские step intents и путь pack |
+| `ctrf` | `ctrf-report.json` и `attachments/` | штатные поля CTRF: шаги, путь сьюта, labels (идентичность, метки Allure, ID кейсов), параметры, трейс, вложения, start/stop; идентичность и assurance Testence — в `extra` |
+| `junit` | `junit.xml` и `attachments/` | сьют на каждый файл, `<failure>`/`<error>`/`<skipped>` так же, как Allure делит failed и broken, свойства идентичности `testence.*` и ID кейсов, intent шагов и строки `[[ATTACHMENT\|path]]` в `<system-out>` ([ADR-0028](adr/0028-junit-exporter.md)) |
 
-JUnit XML намеренно не является exporter: `pytest --junitxml=…` уже создаёт его
-корректно, в том числе под `-n`, а GitLab/Jenkins/GitHub читают его напрямую.
+`pytest --junitxml=…` остаётся самым простым выбором, если задаче нужен только
+результат. `--to junit` добавляет то, чего в том файле нет: идентичность, ID кейсов,
+шаги и evidence. Его XML — диалект pytest по умолчанию (`junit_family=xunit1`).
+
+### ID кейсов в системах управления тестированием
+
+Укажите кейс, который реализует тест, в тех системах, куда отчитывается команда; ID
+переносятся во все экспорты:
+
+```python
+@pytest.mark.testence(tms={"testrail": "C1042", "xray": "SHOP-12"})
+def test_checkout_charges_the_card_once(ex): ...
+```
+
+| Ключ системы | Свойство JUnit | Ещё |
+|---|---|---|
+| `testrail` (`C123` или `123`, один или несколько) | `test_id` — сопоставление по свойству в `trcli`; а также `testrail_result_step` на каждый шаг-лист и `testrail_attachment` на каждый файл evidence | метка Allure, CTRF `labels["tms.testrail"]` |
+| `xray` (один ключ Test, `PROJ-12`) | `test_key` и `requirements` из PlanSpec | метка Allure, CTRF `labels["tms.xray"]` |
+| любое другое имя строчными буквами | `tms.<system>` | метка Allure, CTRF `labels["tms.<system>"]` |
+
+Имена свойств взяты из документации JUnit для `trcli` и Xray. `test_id` в `trcli` — это
+кейс TestRail, а в Xray — числовой ID задачи, поэтому указывайте только те системы, для
+которых предназначен отчёт.
 
 ## Загрузка результатов в Allure TestOps
 

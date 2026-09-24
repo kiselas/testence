@@ -220,7 +220,7 @@ def test_exports_a_ledger_without_the_newer_fields(tmp_path, name):
 
     files = export_run(writer.run_dir, name, tmp_path / f"legacy-{name}")
     assert files
-    blob = "\n".join(p.read_text(encoding="utf-8") for p in files if p.suffix == ".json")
+    blob = "\n".join(p.read_text(encoding="utf-8") for p in files if p.suffix in (".json", ".xml"))
     assert "test_legacy" in blob
 
 
@@ -402,7 +402,7 @@ def test_pack_path_rejects_a_directory_link_that_escapes_the_run(tmp_path):
 def test_ctrf_summary_and_tests(tmp_path):
     run_dir = build_ledger(tmp_path)
     files = export_run(run_dir, "ctrf", tmp_path / "ctrf-results")
-    assert len(files) == 1
+    assert files[0].name == "ctrf-report.json"
 
     doc = json.loads(files[0].read_text(encoding="utf-8"))
     assert doc["reportFormat"] == "CTRF"
@@ -414,14 +414,21 @@ def test_ctrf_summary_and_tests(tmp_path):
     green = tests["tests/test_login.py::test_login"]
     assert green["status"] == "passed"
     assert green["tags"] == ["Login", "Smoke"]
-    # nesting a flat format cannot express, kept readable via indentation
-    assert green["extra"]["steps"] == ["log in as admin", "  fill the password field"]
+    # the native step list, nesting kept in extra.depth
+    assert [(step["name"], step["extra"]["depth"]) for step in green["steps"]] == [
+        ("log in as admin", 0),
+        ("fill the password field", 1),
+    ]
 
     red = tests["tests/test_hosts.py::test_hosts"]
     assert red["status"] == "failed"
     assert "boom" in red["message"]
     assert red["extra"]["evidence_pack"] == "test_hosts/pack"
-    assert "[FAILED]" in red["extra"]["steps"][0]
+    assert red["steps"][0]["status"] == "failed"
+    # attachments are copies next to the report, with the export-time redaction
+    shipped = {item["name"]: item for item in red["attachments"]}
+    assert "pack.json" in shipped
+    assert (files[0].parent / shipped["pack.json"]["path"]).is_file()
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -467,20 +474,30 @@ def test_output_matches_its_golden(tmp_path, name):
     Regenerate deliberately with ``TESTENCE_UPDATE_GOLDENS=1``, then read the diff;
     that diff *is* the review.
     """
-    produced_paths = export_run(GOLDEN_LEDGER, name, tmp_path / name)
+    out = tmp_path / name
+    produced_paths = export_run(GOLDEN_LEDGER, name, out)
     golden = GOLDEN_DIR / name
+
+    # Keyed by the path below the output directory: JUnit and CTRF copy evidence
+    # into per-test folders, where the same file name repeats.
+    def relative(path: Path, base: Path) -> str:
+        return path.relative_to(base).as_posix()
 
     if os.environ.get("TESTENCE_UPDATE_GOLDENS"):
         shutil.rmtree(golden, ignore_errors=True)
         golden.mkdir(parents=True)
         for path in produced_paths:
-            shutil.copyfile(path, golden / path.name)
+            target = golden / relative(path, out)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, target)
 
     if not golden.is_dir():
         pytest.fail(f"no goldens for {name!r}; generate them with TESTENCE_UPDATE_GOLDENS=1")
 
-    produced = {path.name: path.read_bytes() for path in produced_paths}
-    expected = {p.name: p.read_bytes() for p in sorted(golden.iterdir()) if p.is_file()}
+    produced = {relative(path, out): path.read_bytes() for path in produced_paths}
+    expected = {
+        relative(p, golden): p.read_bytes() for p in sorted(golden.rglob("*")) if p.is_file()
+    }
     assert sorted(produced) == sorted(expected), f"{name}: the set of exported files drifted"
     for filename in sorted(expected):
         assert produced[filename] == expected[filename], (

@@ -29,10 +29,38 @@
     "name": "tests/test_login.py::test_login",
     "status": "passed",
     "duration": 400,
+    "start": 1767268800100,
+    "stop": 1767268800500,
+    "suite": [
+     "tests",
+     "test_login.py"
+    ],
     "filePath": "tests/test_login.py",
     "tags": [
      "Login",
      "Smoke"
+    ],
+    "labels": {
+     "case_id": "case-9817ba5837851b9abc31"
+    },
+    "steps": [
+     {
+      "name": "log in as admin",
+      "status": "passed",
+      "extra": {
+       "depth": 0,
+       "duration": 250
+      }
+     },
+     {
+      "name": "fill the password field",
+      "status": "passed",
+      "extra": {
+       "depth": 1,
+       "duration": 60,
+       "target": "textbox 'Password'"
+      }
+     }
     ],
     "extra": {
      "testence_identity": {
@@ -49,22 +77,38 @@
        "no required assertion inventory is bound",
        "missing or stale proof digests: plan_digest, test_digest, policy_digest"
       ]
-     },
-     "steps": [
-      "log in as admin",
-      "  fill the password field"
-     ]
+     }
     }
    },
    {
     "name": "tests/test_hosts.py::test_hosts",
     "status": "failed",
     "duration": 1200,
+    "start": 1767268800600,
+    "stop": 1767268801800,
+    "suite": [
+     "tests",
+     "test_hosts.py"
+    ],
     "filePath": "tests/test_hosts.py",
     "tags": [
      "Regression"
     ],
+    "labels": {
+     "case_id": "case-e19a3059f3d3dbe2d2ca"
+    },
     "message": "AssertionError: expected 4 hosts, saw 3",
+    "steps": [
+     {
+      "name": "create a host",
+      "status": "failed",
+      "extra": {
+       "depth": 0,
+       "duration": 900,
+       "error": "locator resolved to 0 elements"
+      }
+     }
+    ],
     "extra": {
      "testence_identity": {
       "project_id": "legacy",
@@ -80,9 +124,6 @@
        "execution failed without a decisive assertion"
       ]
      },
-     "steps": [
-      "create a host [FAILED]"
-     ],
      "evidence_pack": "test_hosts/pack",
      "oracles": [
       {
@@ -110,7 +151,39 @@
        "nodeid": "tests/test_hosts.py::test_hosts"
       }
      ]
-    }
+    },
+    "attachments": [
+     {
+      "name": "pack.json",
+      "contentType": "application/json",
+      "path": "attachments/b23a6a8439c0dde5/pack.json"
+     },
+     {
+      "name": "TRIAGE.md",
+      "contentType": "text/markdown",
+      "path": "attachments/b23a6a8439c0dde5/TRIAGE.md"
+     },
+     {
+      "name": "aria.txt",
+      "contentType": "text/plain",
+      "path": "attachments/b23a6a8439c0dde5/aria.txt"
+     },
+     {
+      "name": "network.jsonl",
+      "contentType": "text/plain",
+      "path": "attachments/b23a6a8439c0dde5/network.jsonl"
+     },
+     {
+      "name": "console.txt",
+      "contentType": "text/plain",
+      "path": "attachments/b23a6a8439c0dde5/console.txt"
+     },
+     {
+      "name": "oracles.json",
+      "contentType": "application/json",
+      "path": "attachments/b23a6a8439c0dde5/oracles.json"
+     }
+    ]
    }
   ]
  }

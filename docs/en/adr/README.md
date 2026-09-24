@@ -36,6 +36,7 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 | [0025](0025-parameter-display-values.md) | Redacted parameter display values in the ledger | accepted |
 | [0026](0026-streaming-allure-export.md) | Stream Allure results as tests end | accepted |
 | [0027](0027-native-escape-hatch.md) | One recorded escape hatch to raw Playwright | accepted |
+| [0028](0028-junit-exporter.md) | A JUnit exporter beside `--junitxml` | accepted |
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.

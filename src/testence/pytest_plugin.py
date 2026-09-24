@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import os
 import platform
+import re
 import time
 import warnings
 from collections.abc import Iterator
@@ -154,7 +155,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "testence(plan, claims, case_id, allure_id, title, description, severity, labels, "
-        "links): bind a test to a PlanSpec case and/or describe it for reports",
+        "links, tms): bind a test to a PlanSpec case and/or describe it for reports",
     )
     os.environ.setdefault(RUN_ID_ENV, new_run_id())
 
@@ -212,7 +213,16 @@ class _TestContract:
 
 
 _SEVERITIES = ("blocker", "critical", "normal", "minor", "trivial")
-_METADATA_FIELDS = frozenset({"allure_id", "title", "description", "severity", "labels", "links"})
+_METADATA_FIELDS = frozenset(
+    {"allure_id", "title", "description", "severity", "labels", "links", "tms"}
+)
+
+#: Case-id shapes of the systems whose JUnit properties Testence writes by name.
+#: Any other system is accepted verbatim and exported as ``tms.<system>``.
+_TMS_PATTERNS = {
+    "testrail": re.compile(r"^C?[1-9][0-9]*$"),
+    "xray": re.compile(r"^[A-Z][A-Z0-9_]*-[1-9][0-9]*$"),
+}
 _CONTRACT_FIELDS = frozenset({"plan", "claims", "case_id"})
 
 
@@ -225,6 +235,7 @@ class _TestMetadata:
     description: str | None = None
     labels: tuple[tuple[str, str], ...] = ()
     links: tuple[tuple[str, str, str], ...] = ()
+    tms: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     def allure_overrides(self) -> dict[str, Any]:
         document: dict[str, Any] = {}
@@ -302,7 +313,50 @@ def _resolve_metadata(item: pytest.Item) -> _TestMetadata:
         description=_optional_text(kwargs, "description"),
         labels=tuple(labels),
         links=tuple(links),
+        tms=_resolve_tms(kwargs.get("tms", {})),
     )
+
+
+def _resolve_tms(raw: Any) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """``tms={"testrail": "C123", "xray": "PROJ-12", ...}``: case ids per system.
+
+    TestRail ids gain their ``C`` prefix; an Xray result names exactly one Test
+    issue, so Xray takes a single key.
+    """
+    if not isinstance(raw, dict):
+        raise ContractError("@pytest.mark.testence tms must be a mapping of system to case id(s)")
+    resolved: list[tuple[str, tuple[str, ...]]] = []
+    for system, value in raw.items():
+        if not isinstance(system, str) or not re.fullmatch(r"[a-z][a-z0-9_-]*", system):
+            raise ContractError(
+                f"@pytest.mark.testence tms system {system!r} must be a lowercase name"
+            )
+        values = list(value) if isinstance(value, (list, tuple)) else [value]
+        ids: list[str] = []
+        for entry in values:
+            if (
+                isinstance(entry, bool)
+                or not isinstance(entry, (str, int))
+                or not str(entry).strip()
+            ):
+                raise ContractError(
+                    f"@pytest.mark.testence tms {system!r} ids must be strings or integers"
+                )
+            case = str(entry).strip()
+            pattern = _TMS_PATTERNS.get(system)
+            if pattern is not None and not pattern.fullmatch(case):
+                raise ContractError(
+                    f"@pytest.mark.testence tms {system!r} id {case!r} is malformed"
+                )
+            if system == "testrail" and not case.startswith("C"):
+                case = f"C{case}"
+            ids.append(case)
+        if not ids:
+            raise ContractError(f"@pytest.mark.testence tms {system!r} needs at least one id")
+        if system == "xray" and len(ids) != 1:
+            raise ContractError("@pytest.mark.testence tms 'xray' takes exactly one Test key")
+        resolved.append((system, tuple(ids)))
+    return tuple(sorted(resolved))
 
 
 _METADATA_KEY = pytest.StashKey[_TestMetadata]()
@@ -946,6 +1000,7 @@ def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
         nodeid=item.nodeid,
         markers=sorted({mark.name for mark in item.iter_markers()}),
         allure=_allure_record(item, metadata),
+        **({"tms": {system: list(ids) for system, ids in metadata.tms}} if metadata.tms else {}),
     )
 
 

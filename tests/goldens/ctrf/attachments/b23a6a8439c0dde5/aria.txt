@@ -1,0 +1,4 @@
+dialog "Create host"
+  textbox "FQDN" value="web-01"
+  combobox "Subnet" value="Network"
+  button "Save"

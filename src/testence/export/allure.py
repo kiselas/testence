@@ -285,6 +285,10 @@ def _labels(test: Test, run: LoadedRun | None = None) -> list[dict[str, str]]:
     labels.extend({"name": "tag", "value": name} for name in names)
     labels.extend({"name": "requirement", "value": item["id"]} for item in test.requirements)
     labels.extend({"name": "issue", "value": item["id"]} for item in test.issues)
+    # Case ids in other test-management systems, one label per id (``tms=`` marker).
+    labels.extend(
+        {"name": system, "value": case} for system, ids in sorted(test.tms.items()) for case in ids
+    )
     # @allure.feature/story/severity/id/label and the testence marker's labels.
     labels.extend(
         {"name": str(item["name"]), "value": str(item["value"])}

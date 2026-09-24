@@ -53,6 +53,7 @@ __all__ = [
 BUILTIN_EXPORTERS: dict[str, str] = {
     "allure": "testence.export.allure",
     "ctrf": "testence.export.ctrf",
+    "junit": "testence.export.junit",
 }
 
 #: Entry-point group third-party exporters register under.
