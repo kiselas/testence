@@ -13,6 +13,9 @@ under `Unreleased`; compatibility is not guaranteed.
 - `@pytest.mark.testence(tms={"testrail": "C123", "xray": "PROJ-12", ...})`
   declares test-management case ids; they reach JUnit (`test_id`, `test_key`,
   `testrail_result_step`, `tms.<system>`), Allure labels and CTRF labels.
+- `emulation` settings: device descriptors, locale, time zone, geolocation (granted with
+  its position), permissions, colour scheme and user agent for every context Testence
+  creates, recorded in the run fingerprint, behind a new `browser.emulation` capability.
 - `with ex.soft("<intent>"):` runs every check in the block and fails once at the
   end with `SoftAssertionsFailed` listing the failed ones; each is still a failed step
   marked `soft`. Actions and browser errors are not softened.

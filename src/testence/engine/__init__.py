@@ -77,6 +77,7 @@ def create_engine(settings: Any, backend: str = "playwright-cdp") -> Engine:
         admitted_body_content_types=tuple(admitted),
         body_cap_bytes=int(capture.get("body_cap_bytes", 64 * 1024)),
         viewport=settings.extra.get("viewport"),
+        emulation=settings.extra.get("emulation"),
         screenshot_masks=_screenshot_masks(settings),
     )
 

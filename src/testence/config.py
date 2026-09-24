@@ -248,6 +248,9 @@ class Settings:
             "debug_port": self.debug_port,
             "headed": self.headed,
             "verify_tls": self.verify_tls,
+            # Device, locale and the rest change what the page renders; a result is
+            # only comparable with runs that emulated the same.
+            **({"emulation": self.extra["emulation"]} if self.extra.get("emulation") else {}),
         }
 
     def evidence_config(self) -> dict[str, Any]:

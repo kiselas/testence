@@ -89,6 +89,57 @@ def _free_tcp_port() -> int:
         return int(probe.getsockname()[1])
 
 
+_EMULATION_KEYS = frozenset(
+    {"device", "locale", "timezone_id", "geolocation", "permissions", "color_scheme", "user_agent"}
+)
+_COLOR_SCHEMES = ("light", "dark", "no-preference")
+
+
+def _check_emulation(value: Any) -> dict[str, Any]:
+    """Validate the ``emulation`` settings object before any browser starts."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("emulation must be an object")
+    unknown = sorted(set(value) - _EMULATION_KEYS)
+    if unknown:
+        raise ValueError(
+            "unknown emulation field(s): "
+            + ", ".join(unknown)
+            + "; known: "
+            + ", ".join(sorted(_EMULATION_KEYS))
+        )
+    for key in ("device", "locale", "timezone_id", "user_agent"):
+        if key in value and (not isinstance(value[key], str) or not value[key].strip()):
+            raise ValueError(f"emulation.{key} must be a non-empty string")
+    if "color_scheme" in value and value["color_scheme"] not in _COLOR_SCHEMES:
+        raise ValueError("emulation.color_scheme must be one of " + ", ".join(_COLOR_SCHEMES))
+    if "permissions" in value and (
+        not isinstance(value["permissions"], list)
+        or not all(isinstance(item, str) and item for item in value["permissions"])
+    ):
+        raise ValueError("emulation.permissions must be a list of permission names")
+    if "geolocation" in value:
+        position = value["geolocation"]
+        if (
+            not isinstance(position, dict)
+            or not {"latitude", "longitude"}
+            <= set(position)
+            <= {"latitude", "longitude", "accuracy"}
+            or not all(
+                isinstance(position[key], (int, float)) and not isinstance(position[key], bool)
+                for key in position
+            )
+            or not -90 <= position["latitude"] <= 90
+            or not -180 <= position["longitude"] <= 180
+        ):
+            raise ValueError(
+                "emulation.geolocation needs numeric latitude (-90..90) and longitude "
+                "(-180..180), optionally accuracy"
+            )
+    return dict(value)
+
+
 class PlaywrightCdpEngine(Engine):
     def __init__(
         self,
@@ -110,6 +161,7 @@ class PlaywrightCdpEngine(Engine):
         body_cap_bytes: int = _BODY_CAP_BYTES,
         viewport: dict[str, int] | None = None,
         screenshot_masks: tuple[Target, ...] = (),
+        emulation: dict[str, Any] | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.cdp_url = cdp_url
@@ -130,6 +182,13 @@ class PlaywrightCdpEngine(Engine):
         if viewport is not None and cdp_url:
             raise ValueError("configure viewport in the owner of an attached browser")
         self.viewport = dict(viewport) if viewport is not None else None
+        #: Context options for device, locale, time zone and the rest (``emulation``).
+        self.emulation = _check_emulation(emulation)
+        if self.emulation and cdp_url:
+            raise ValueError(
+                "emulation applies to a browser context Testence creates; configure it in "
+                "the owner of an attached browser"
+            )
         #: Painted over in every screenshot: text redaction cannot reach pixels.
         self.screenshot_masks = tuple(screenshot_masks)
         #: DOM attribute that ``Target("testid", ...)`` resolves against. Apps
@@ -225,6 +284,7 @@ class PlaywrightCdpEngine(Engine):
                 headless=not self.headed,
                 args=[f"--remote-debugging-port={self.debug_port}"],
                 ignore_https_errors=self.ignore_https_errors,
+                **self._context_options(),
             )
             self._browser = self._context.browser
             self._launched_here = True
@@ -236,9 +296,42 @@ class PlaywrightCdpEngine(Engine):
                 args=[f"--remote-debugging-port={self.debug_port}"],
             )
             self._launched_here = True
-            self._context = self._browser.new_context(ignore_https_errors=self.ignore_https_errors)
+            self._context = self._browser.new_context(
+                ignore_https_errors=self.ignore_https_errors, **self._context_options()
+            )
             self._owns_context = True
         self._configure_context()
+
+    def _context_options(self) -> dict[str, Any]:
+        """``new_context`` keyword arguments for the configured emulation.
+
+        A named ``device`` expands to Playwright's descriptor (viewport, user agent,
+        scale factor, touch, mobile); explicit keys override it. Geolocation is useless
+        without the permission, so it is granted along with the position.
+        """
+        if not self.emulation:
+            return {}
+        options: dict[str, Any] = {}
+        device = self.emulation.get("device")
+        if device:
+            devices = self._pw.devices if self._pw is not None else {}
+            if device not in devices:
+                close = sorted(name for name in devices if device.lower() in name.lower())[:5]
+                hint = f"; did you mean {', '.join(close)}" if close else ""
+                raise ValueError(f"unknown emulation device {device!r}{hint}")
+            options.update(devices[device])
+            options.pop("default_browser_type", None)
+        for key in ("locale", "timezone_id", "color_scheme", "user_agent"):
+            if self.emulation.get(key):
+                options[key] = self.emulation[key]
+        permissions = list(self.emulation.get("permissions") or [])
+        if self.emulation.get("geolocation"):
+            options["geolocation"] = dict(self.emulation["geolocation"])
+            if "geolocation" not in permissions:
+                permissions.append("geolocation")
+        if permissions:
+            options["permissions"] = permissions
+        return options
 
     def _configure_context(self) -> None:
         if self._context is None:
@@ -280,7 +373,9 @@ class PlaywrightCdpEngine(Engine):
             raise RuntimeError("engine is not started")
         if self._context is not None and self._owns_context:
             self._context.close()
-        self._context = self._browser.new_context(ignore_https_errors=self.ignore_https_errors)
+        self._context = self._browser.new_context(
+            ignore_https_errors=self.ignore_https_errors, **self._context_options()
+        )
         self._owns_context = True
         self._configure_context()
 

@@ -195,6 +195,36 @@ installed. Parallel runs open several browsers at once, and a macOS shell may st
 with a soft file descriptor limit as low as 256; if workers fail with "Too many open
 files", check `ulimit -n` and raise it for that shell.
 
+## Device, locale and time-zone emulation
+
+`emulation` in a settings file or profile (it lands in `settings.extra`) makes every browser context Testence
+creates look like the given device and place:
+
+```json
+{
+  "profiles": {
+    "mobile-berlin": {
+      "emulation": {
+        "device": "iPhone 13",
+        "locale": "de-DE",
+        "timezone_id": "Europe/Berlin",
+        "geolocation": {"latitude": 52.52, "longitude": 13.405},
+        "permissions": ["clipboard-read"],
+        "color_scheme": "dark"
+      }
+    }
+  }
+}
+```
+
+`device` is one of Playwright's device descriptors (viewport, user agent, scale factor,
+touch, mobile); the other keys, `user_agent` among them, override it. A geolocation is granted along with its
+position. Unknown keys, an unknown device (the error lists close names) and malformed
+values fail before a browser starts. Emulation applies to launched and persistent
+browsers, not to an attached one, whose owner decides. The run fingerprint records it,
+so results are compared only with runs that emulated the same. `viewport` still
+sets the page size and wins over the device's.
+
 ## Evidence capture policy
 
 Network bodies and screenshots are disabled unless the project opts in. Text evidence

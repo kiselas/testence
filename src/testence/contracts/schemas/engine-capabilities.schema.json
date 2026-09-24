@@ -17,7 +17,7 @@
           "browser.network", "browser.websocket", "visual.screenshot",
           "browser.accessibility", "browser.javascript", "browser.keyboard",
           "browser.frames", "browser.popups", "browser.files", "browser.dialogs",
-          "browser.native", "browser.clock",
+          "browser.native", "browser.clock", "browser.emulation",
           "evidence"
         ]
       }

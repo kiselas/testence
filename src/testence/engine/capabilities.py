@@ -23,6 +23,8 @@ class Capability(str, Enum):
     DIALOGS = "browser.dialogs"
     #: Fake timers: install, fast-forward, pause and resume page time.
     CLOCK = "browser.clock"
+    #: Device, locale, time zone, geolocation, permissions, colour scheme, user agent.
+    EMULATION = "browser.emulation"
     #: The engine's own page object for what the DSL does not express (ADR-0027).
     NATIVE = "browser.native"
     EVIDENCE = "evidence"
