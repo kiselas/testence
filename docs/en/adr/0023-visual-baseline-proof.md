@@ -31,7 +31,9 @@ or tune thresholds during replay. Limits: 16 MiB per PNG and 8 million decoded p
 Pixel mismatch does not establish intent, usability, accessibility or backend truth.
 Profiles record OS, user agent, viewport, DPR, locale and media preferences; fonts
 and OS patch-level rendering still require a controlled host. No perceptual masking,
-automatic region discovery or anti-aliasing exemption is claimed. Viewport configuration
+automatic region discovery or anti-aliasing exemption is claimed; explicitly configured
+redaction masks ([ADR-0024](0024-evidence-redaction-policy.md)) are recorded in the
+baseline profile. Viewport configuration
 is explicit for owned browsers; attached browser sizing belongs to its owner.
 
 The installed-wheel client simulation proves package and deterministic proof plumbing.

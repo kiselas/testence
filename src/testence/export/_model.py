@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from testence.evidence.reconcile import reconcile_events
+from testence.evidence.sanitize import DEFAULT_POLICY, RedactionPolicy, redact_document_text
 from testence.status import execution_failed, normalize_execution_status
 
 # Files an evidence pack may contain, in the order a reader should meet them:
@@ -33,6 +34,12 @@ PACK_FILES = (
     "browser.json",
     "screenshot.png",
 )
+
+#: Which pack files an export may ship. ``minimal`` drops the sections most likely
+#: to carry application data: raw traffic, the visible page text and pixels.
+ATTACHMENT_POLICIES = ("full", "minimal", "none")
+_MINIMAL_EXCLUDED = frozenset({"network.jsonl", "aria.txt", "screenshot.png"})
+_TEXT_SUFFIXES = frozenset({".json", ".jsonl", ".txt", ".md"})
 
 
 def parse_ts(ts: str | None) -> datetime | None:
@@ -152,6 +159,8 @@ class LoadedRun:
     tests: list[Test] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
     run_dir: Path = Path()
+    redaction_policy: RedactionPolicy = DEFAULT_POLICY
+    attachments: str = "full"
 
     @property
     def passed(self) -> int:
@@ -182,8 +191,8 @@ class LoadedRun:
         return sum(1 for test in self.tests if test.status not in known)
 
     def pack_path(self, test: Test, filename: str) -> Path | None:
-        """Resolved in-run pack file, or None for missing/escaping paths."""
-        if not test.pack_dir:
+        """Resolved in-run pack file, or None for missing, escaping or excluded paths."""
+        if not test.pack_dir or not self.ships(filename):
             return None
         try:
             run_root = self.run_dir.resolve()
@@ -194,6 +203,28 @@ class LoadedRun:
         except (OSError, RuntimeError, ValueError):
             return None
         return candidate if candidate.is_file() else None
+
+    def ships(self, filename: str) -> bool:
+        """Whether the attachment policy lets an export carry this pack file."""
+        if self.attachments == "none":
+            return False
+        return not (self.attachments == "minimal" and filename in _MINIMAL_EXCLUDED)
+
+    def attachment_bytes(self, test: Test, filename: str) -> bytes | None:
+        """A pack file as an export should ship it: redacted again with the run's
+        policy (text files) or verbatim (images), or None when not shipped."""
+        source = self.pack_path(test, filename)
+        if source is None:
+            return None
+        raw = source.read_bytes()
+        if source.suffix not in _TEXT_SUFFIXES:
+            return raw
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        cleaned = redact_document_text(text, suffix=source.suffix, policy=self.redaction_policy)
+        return raw if cleaned == text else cleaned.encode("utf-8")
 
     @classmethod
     def from_events(cls, events: list[dict[str, Any]], run_dir: Path | str = "") -> LoadedRun:

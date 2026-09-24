@@ -32,6 +32,7 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 | [0022](0022-engine-capability-negotiation.md) | Versioned engine capabilities and strict action preflight | accepted |
 
 | [0023](0023-visual-baseline-proof.md) | Digest-pinned visual assertions and installed-client simulation | implemented (engineering) |
+| [0024](0024-evidence-redaction-policy.md) | Part- and shape-based evidence redaction with a recorded policy | accepted |
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.

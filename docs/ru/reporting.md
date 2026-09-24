@@ -20,6 +20,13 @@ testence export runs/r-20260827-083736-29ae2f --to ctrf -o build/ctrf
 
 Без `-o` результат записывается в `<run-dir>/<name>-results`.
 
+Экспорт повторно применяет политику маскировки прогона к каждому событию и текстовому
+вложению ([настройки](configuration.md#маскировка-секретов-и-маски-скриншотов)), поэтому
+прогон, записанный до появления правила, не уходит наружу в открытом виде. Сам каталог
+прогона не переписывается. `--attachments` выбирает, какие файлы pack попадут в экспорт:
+`full` (по умолчанию, замаскированные), `minimal` (без `network.jsonl`, `aria.txt` и
+скриншота) или `none`.
+
 | Exporter | Что пишет | Что переносит |
 |---|---|---|
 | `allure` | `<n>-result.json` на attempt, fixture containers, attachments, `environment.properties` | case/history/result identities, parameters, owner/risk/requirement/issue links, steps и redacted evidence |

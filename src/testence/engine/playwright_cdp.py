@@ -109,6 +109,7 @@ class PlaywrightCdpEngine(Engine):
         admitted_body_content_types: tuple[str, ...] = ("application/json",),
         body_cap_bytes: int = _BODY_CAP_BYTES,
         viewport: dict[str, int] | None = None,
+        screenshot_masks: tuple[Target, ...] = (),
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.cdp_url = cdp_url
@@ -129,6 +130,8 @@ class PlaywrightCdpEngine(Engine):
         if viewport is not None and cdp_url:
             raise ValueError("configure viewport in the owner of an attached browser")
         self.viewport = dict(viewport) if viewport is not None else None
+        #: Painted over in every screenshot: text redaction cannot reach pixels.
+        self.screenshot_masks = tuple(screenshot_masks)
         #: DOM attribute that ``Target("testid", ...)`` resolves against. Apps
         #: rarely ship `data-testid`; they do ship something stable (this project's
         #: tables carry `data-key` with the row's id). Pointing the test-id
@@ -993,7 +996,12 @@ class PlaywrightCdpEngine(Engine):
         return snapshot or "<page rendered no accessible content>"
 
     def screenshot(self, path: str) -> None:
-        self._require_page().screenshot(path=path, full_page=False)
+        page = self._require_page()
+        masks = [self._locate(target) for target in self.screenshot_masks]
+        if masks:
+            page.screenshot(path=path, full_page=False, mask=masks, mask_color="#000000")
+        else:
+            page.screenshot(path=path, full_page=False)
 
     def current_url(self) -> str:
         return self._require_page().url
@@ -1100,6 +1108,7 @@ class PlaywrightCdpEngine(Engine):
             "capture": {
                 "network_bodies": self.capture_network_bodies,
                 "screenshots": self.capture_screenshots,
+                "screenshot_masks": [target.describe() for target in self.screenshot_masks],
                 "admitted_body_content_types": list(self.admitted_body_content_types),
                 "body_cap_bytes": self.body_cap_bytes,
                 "record_cap": _TAP_RECORD_CAP,

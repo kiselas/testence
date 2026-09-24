@@ -33,9 +33,10 @@ import importlib
 from pathlib import Path
 from typing import Any, Protocol
 
-from ._model import LoadedRun, Step, Test
+from ._model import ATTACHMENT_POLICIES, LoadedRun, Step, Test
 
 __all__ = [
+    "ATTACHMENT_POLICIES",
     "BUILTIN_EXPORTERS",
     "ENTRY_POINT_GROUP",
     "Exporter",
@@ -132,17 +133,36 @@ def default_out_dir(run_dir: Path, name: str) -> Path:
     return Path(run_dir) / f"{name}-results"
 
 
-def export_run(run_dir: Path | str, name: str, out_dir: Path | str | None = None) -> list[Path]:
+def export_run(
+    run_dir: Path | str,
+    name: str,
+    out_dir: Path | str | None = None,
+    *,
+    attachments: str = "full",
+) -> list[Path]:
     """Render one integration format from a finished run.
 
     The ledger is read through :func:`testence.metrics.load_run`, so shard merging
-    (ADR-0012) applies here exactly as it does for metrics and the HTML report.
+    (ADR-0012) applies here exactly as it does for metrics and the HTML report. The
+    run's recorded redaction policy is applied again before any exporter sees it, so
+    evidence written before a rule existed does not leave in clear text (ADR-0024).
+    ``attachments`` selects which pack files exporters may ship: ``full``,
+    ``minimal`` (no network, ARIA or screenshot) or ``none``.
     """
+    from testence.evidence.sanitize import recorded_policy, redact_events
     from testence.metrics import load_run
 
+    if attachments not in ATTACHMENT_POLICIES:
+        raise ExporterError(
+            f"unknown attachment policy {attachments!r}; use {', '.join(ATTACHMENT_POLICIES)}"
+        )
     run_path = Path(run_dir)
     exporter = load(name)
     target = Path(out_dir) if out_dir is not None else default_out_dir(run_path, name)
-    run = LoadedRun.from_events(load_run(run_path), run_path)
+    events = load_run(run_path)
+    policy = recorded_policy(events)
+    run = LoadedRun.from_events(redact_events(events, policy), run_path)
+    run.redaction_policy = policy
+    run.attachments = attachments
     target.mkdir(parents=True, exist_ok=True)
     return exporter.export(run, target)

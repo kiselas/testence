@@ -77,7 +77,13 @@ def create_engine(settings: Any, backend: str = "playwright-cdp") -> Engine:
         admitted_body_content_types=tuple(admitted),
         body_cap_bytes=int(capture.get("body_cap_bytes", 64 * 1024)),
         viewport=settings.extra.get("viewport"),
+        screenshot_masks=_screenshot_masks(settings),
     )
+
+
+def _screenshot_masks(settings: Any) -> tuple[Target, ...]:
+    masks = getattr(settings, "screenshot_masks", None)
+    return tuple(masks()) if callable(masks) else ()
 
 
 __all__ = [

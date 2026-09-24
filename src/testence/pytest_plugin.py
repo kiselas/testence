@@ -422,19 +422,23 @@ def _settings_from_config(config: pytest.Config) -> Settings:
 
 def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
     settings = _settings_from_config(config)
-    redact_values = tuple(
-        value
-        for variable in (settings.user_var, settings.password_var)
-        if (value := os.environ.get(variable) or settings.env_values.get(variable))
-    )
+    try:
+        redaction_policy = settings.redaction_policy()
+        redact_values = settings.redaction_values()
+    except ValueError as exc:
+        raise pytest.UsageError(f"invalid Testence evidence settings: {exc}") from exc
     writer = EvidenceWriter(
         settings.runs_root,
         project_id=settings.project_id,
         redact_values=redact_values,
+        redaction_policy=redaction_policy,
     )
     writer.emit(
         "run.start",
         testence=__version__,
+        # Names only: export applies the same policy again to evidence written
+        # before a rule existed (ADR-0024).
+        redaction=redaction_policy.to_json(),
         fingerprint={
             "os": f"{platform.system()} {platform.release()}",
             "python": platform.python_version(),
@@ -952,6 +956,7 @@ def testence_fingerprints(
     store = FingerprintStore(
         Path(request.config.rootpath) / DEFAULT_STORE,
         redact_values=testence_writer.redact_values,
+        redaction_policy=testence_writer.redaction_policy,
     )
     yield store
     store.flush()

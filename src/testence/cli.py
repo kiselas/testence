@@ -229,6 +229,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_export.add_argument("-o", "--out", type=Path, default=None)
     p_export.add_argument(
+        "--attachments",
+        choices=("full", "minimal", "none"),
+        default="full",
+        help="pack files to ship: full (redacted), minimal (no network/ARIA/screenshot), none",
+    )
+    p_export.add_argument(
         "--list", dest="list_", action="store_true", help="list registered exporters and exit"
     )
 
@@ -649,7 +655,7 @@ def main(argv: list[str] | None = None) -> int:
             p_export.error("needs a run directory and --to <exporter>, or --list")
         out = args.out or default_out_dir(args.run_dir, args.to)
         try:
-            files = export_run(args.run_dir, args.to, out)
+            files = export_run(args.run_dir, args.to, out, attachments=args.attachments)
         except ExporterError as exc:
             print(f"export failed: {exc}", file=sys.stderr)
             return 2

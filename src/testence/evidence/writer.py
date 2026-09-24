@@ -30,7 +30,7 @@ from testence.contracts.versions import RUN_MANIFEST_SCHEMA
 from testence.identity import UNKNOWN_PROJECT_ID, proof_id, source_case_id
 
 from .events import Event
-from .sanitize import sanitize, sanitize_text
+from .sanitize import DEFAULT_POLICY, RedactionPolicy, sanitize, sanitize_text
 
 #: Environment variable carrying the run id to every xdist worker, so all of them
 #: write into one run directory instead of inventing a directory each.
@@ -81,6 +81,7 @@ class EvidenceWriter:
         worker: str | None = None,
         project_id: str = UNKNOWN_PROJECT_ID,
         redact_values: tuple[str, ...] | list[str] = (),
+        redaction_policy: RedactionPolicy = DEFAULT_POLICY,
     ) -> None:
         self.run_id = run_id or os.environ.get(RUN_ID_ENV) or new_run_id()
         self.worker = worker if worker is not None else os.environ.get(WORKER_ENV, "")
@@ -93,6 +94,7 @@ class EvidenceWriter:
         self._lock = threading.Lock()
         self._seq = 0
         self._redact_values = tuple(value for value in redact_values if value)
+        self._policy = redaction_policy
         self._test_context: dict[str, dict[str, Any]] = {}
         self._failed_oracle_diffs: dict[str, list[dict[str, Any]]] = {}
 
@@ -166,9 +168,9 @@ class EvidenceWriter:
                         }
                     )
             merged.update(payload)
-            merged = sanitize(merged, secrets=self._redact_values)
+            merged = sanitize(merged, secrets=self._redact_values, policy=self._policy)
             safe_test = (
-                sanitize_text(test, secrets=self._redact_values, limit=500)
+                sanitize_text(test, secrets=self._redact_values, policy=self._policy, limit=500)
                 if test is not None
                 else None
             )
@@ -241,7 +243,7 @@ class EvidenceWriter:
             document["exit_code"] = payload.get("exit_code")
             document["completed_at"] = event.ts
 
-        document = sanitize(document, secrets=self._redact_values)
+        document = sanitize(document, secrets=self._redact_values, policy=self._policy)
         temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
         with open(temporary, "w", encoding="utf-8", newline="\n") as stream:
             stream.write(json.dumps(document, ensure_ascii=False, indent=1) + "\n")
@@ -251,15 +253,21 @@ class EvidenceWriter:
 
     def sanitized(self, value: Any, *, limit: int = 16_384) -> Any:
         """Sanitize a pack value with the same policy as the ledger."""
-        return sanitize(value, secrets=self._redact_values, limit=limit)
+        return sanitize(value, secrets=self._redact_values, policy=self._policy, limit=limit)
 
     @property
     def redact_values(self) -> tuple[str, ...]:
         return self._redact_values
 
+    @property
+    def redaction_policy(self) -> RedactionPolicy:
+        return self._policy
+
     def test_dir(self, test_id: str) -> Path:
         """Per-test directory for large artifacts (screenshots, bodies, packs)."""
-        redacted_id = sanitize_text(test_id, secrets=self._redact_values, limit=80)
+        redacted_id = sanitize_text(
+            test_id, secrets=self._redact_values, policy=self._policy, limit=80
+        )
         safe = "".join(c if c.isalnum() or c in "-_." else "_" for c in redacted_id)[:80]
         d = self.run_dir / safe
         d.mkdir(parents=True, exist_ok=True)

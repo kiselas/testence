@@ -30,7 +30,11 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from testence.engine.protocol import Target
+    from testence.evidence.sanitize import RedactionPolicy
 
 ENV_PREFIX = "TESTENCE_"
 SETTINGS_FILES = ("testence.toml", "testence.json")
@@ -245,6 +249,63 @@ class Settings:
             "headed": self.headed,
             "verify_tls": self.verify_tls,
         }
+
+    def evidence_config(self) -> dict[str, Any]:
+        """The ``evidence`` object of the settings file (redaction, masks)."""
+        value = self.extra.get("evidence", {}) or {}
+        if not isinstance(value, dict):
+            raise ValueError("evidence must be an object")
+        unknown = sorted(set(value) - {"redact", "mask"})
+        if unknown:
+            raise ValueError("unknown evidence field(s): " + ", ".join(unknown))
+        return value
+
+    def redaction_policy(self) -> RedactionPolicy:
+        """Project additions to built-in redaction, as names only (ADR-0024)."""
+        from testence.evidence.sanitize import RedactionPolicy
+
+        return RedactionPolicy.from_config(self.evidence_config().get("redact"))
+
+    def redaction_values(self) -> tuple[str, ...]:
+        """Secret values redacted wherever they appear: the login pair plus
+        ``evidence.redact.env``. Never written anywhere; only used to replace."""
+        redact = self.evidence_config().get("redact") or {}
+        names = redact.get("env", []) if isinstance(redact, dict) else []
+        if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+            raise ValueError("evidence.redact.env must be a list of variable names")
+        values: list[str] = []
+        for variable in (self.user_var, self.password_var, *names):
+            value = os.environ.get(variable) or self.env_values.get(variable)
+            if value:
+                values.append(value)
+        return tuple(values)
+
+    def screenshot_masks(self) -> tuple[Target, ...]:
+        """Elements painted over in every screenshot (``evidence.mask``)."""
+        from testence.engine.protocol import Target
+
+        raw = self.evidence_config().get("mask", [])
+        if not isinstance(raw, list):
+            raise ValueError("evidence.mask must be a list of targets")
+        masks: list[Target] = []
+        for index, spec in enumerate(raw):
+            if not isinstance(spec, dict) or set(spec) - {"kind", "value", "name", "nth"}:
+                raise ValueError(
+                    f"evidence.mask[{index}] must be an object with kind, value and "
+                    "optional name, nth"
+                )
+            try:
+                masks.append(
+                    Target(
+                        kind=str(spec.get("kind", "")),
+                        value=str(spec.get("value", "")),
+                        name=spec.get("name"),
+                        nth=spec.get("nth"),
+                    )
+                )
+            except ValueError as exc:
+                raise ValueError(f"evidence.mask[{index}]: {exc}") from exc
+        return tuple(masks)
 
 
 def _as_bool(value: Any) -> bool:

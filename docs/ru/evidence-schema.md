@@ -60,7 +60,7 @@ events одной попытки также создают явную проек
 
 | Kind | Поля payload |
 |---|---|
-| `run.start` | `testence` (version), `fingerprint` {os, python, base_url, attach, worker} |
+| `run.start` | `testence` (version), `fingerprint` {os, python, base_url, attach, worker}, optional `redaction` (`testence/redaction-policy/1`: `keys`, `allow_keys`, `url_params`, `pii` — только имена) |
 | `run.end` | `duration_ms`, `exit_code`, `run_status`, counts `passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run` |
 | `test.start` | `display_name`, `file`, `code` (12-hex digest файла теста), `nodeid`, `markers`, optional `owner` PlanSpec, `risk` scenario, `requirements` и `issues` |
 | `test.phase` | `nodeid`, `display_name`, `phase`, pytest phase status, duration и optional error/xfail/xpass metadata |

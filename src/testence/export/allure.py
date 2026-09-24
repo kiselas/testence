@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import uuid
 from pathlib import Path
 from typing import Any
@@ -205,13 +204,13 @@ def _attachments(
     attachments: list[dict[str, str]] = []
     written: list[Path] = []
     for filename in PACK_FILES:
-        source = run.pack_path(test, filename)
-        if source is None:
+        content = run.attachment_bytes(test, filename)
+        if content is None:
             continue
-        suffix = source.suffix or ".txt"
+        suffix = Path(filename).suffix or ".txt"
         target_name = f"{_uuid_for(test_uuid, filename)}-attachment{suffix}"
         target = out_dir / target_name
-        shutil.copyfile(source, target)
+        target.write_bytes(content)
         written.append(target)
         attachments.append(
             {
@@ -220,7 +219,7 @@ def _attachments(
                 "type": _MIME.get(suffix, "text/plain"),
             }
         )
-    if test.oracles:
+    if test.oracles and run.attachments != "none":
         target_name = f"{_uuid_for(test_uuid, 'oracles')}-attachment.json"
         written.append(_write_json(out_dir / target_name, test.oracles))
         attachments.append(

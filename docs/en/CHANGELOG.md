@@ -5,6 +5,25 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ## Unreleased
 
+### Added
+
+- Evidence: `evidence.redact` in `testence.json` adds or exempts field names and URL
+  parameters, names environment variables whose values are redacted, and opts into email
+  and phone redaction. `evidence.mask` paints listed elements black in every screenshot,
+  including visual baselines ([ADR-0024](adr/0024-evidence-redaction-policy.md)).
+- `testence export --attachments full|minimal|none` limits which pack files an export
+  ships.
+
+### Security
+
+- Evidence redaction matched only exact key names, so `authToken`, `sessionToken`,
+  `X-Api-Key`, `csrfToken`, `pwd`, OAuth `code` and `session` URL parameters, JWTs and
+  provider tokens in free text, card numbers, and secrets named in data such as an
+  oracle diff `{"field": "authToken", ...}` could reach the ledger, the pack and an
+  Allure upload in clear text. Names are now matched by their parts and values by their
+  shape. Export and report apply the recorded policy again, so evidence written by an
+  earlier release leaves redacted.
+
 ### Fixed
 
 - Quality packs: a pack listing paths that differ only by letter case or Unicode

@@ -21,6 +21,12 @@ testence export runs/r-20260827-083736-29ae2f --to ctrf -o build/ctrf
 
 Without `-o`, output lands in `<run-dir>/<name>-results`.
 
+Export applies the run's redaction policy again to every event and text attachment
+([configuration](configuration.md#redaction-and-screenshot-masks)), so a run written
+before a rule existed does not leave in clear text. The run directory itself is never
+rewritten. `--attachments` chooses which pack files an export ships: `full` (default,
+redacted), `minimal` (no `network.jsonl`, `aria.txt` or screenshot) or `none`.
+
 | exporter | writes | carries |
 |---|---|---|
 | `allure` | `<n>-result.json` per attempt, fixture containers, attachments, `environment.properties` | case/history/result identities, parameters, owner/risk/requirement/issue links, nested steps and redacted evidence |

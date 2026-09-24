@@ -58,7 +58,14 @@ def _profile(engine: Engine) -> dict[str, Any]:
     result = engine.eval_js(PROFILE_JS)
     if not isinstance(result, dict) or not result.get("width") or not result.get("height"):
         raise VisualUnavailable("browser visual profile unavailable")
-    return {**result, "os": platform.system()}
+    profile = {**result, "os": platform.system()}
+    # Masked regions are part of what a baseline shows. Recording them makes a mask
+    # change an incompatible profile instead of a pixel verdict; an unmasked profile
+    # keeps its earlier shape, so existing baselines stay valid (ADR-0024).
+    masks = getattr(engine, "screenshot_masks", ())
+    if masks:
+        profile["screenshot_masks"] = [target.describe() for target in masks]
+    return profile
 
 
 def _stable_capture(engine: Engine, first: Path, second: Path) -> None:

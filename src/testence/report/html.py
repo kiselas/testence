@@ -12,6 +12,7 @@ import html
 import json
 from pathlib import Path
 
+from testence.evidence.sanitize import redact_events
 from testence.metrics import load_run
 
 _TEMPLATE = """<!doctype html>
@@ -205,7 +206,7 @@ for (const [name, events] of byTest) {
 
 
 def render_report(run_dir: Path, out: Path) -> Path:
-    events = load_run(run_dir)
+    events = redact_events(load_run(run_dir))
     run_id = str(next((e.get("run_id") or e.get("run") for e in events), run_dir.name))
     page = _TEMPLATE.replace("__RUN_ID__", html.escape(run_id)).replace(
         "__EVENTS__", json.dumps(events, ensure_ascii=False)

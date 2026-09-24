@@ -217,6 +217,52 @@ or declared size above the limit is omitted before Testence asks Playwright to
 materialize it. The pack records disabled/error/omission state. Screenshot capture is
 separate because text redaction cannot sanitize pixels.
 
+### Redaction and screenshot masks
+
+Evidence is redacted before it is written. Field names are matched by their parts, so
+`authToken`, `session_token`, `X-Api-Key`, `csrfToken`, `pwd` and `dbPassword` are all
+treated as credentials, while `passage`, `author` or `pinned` are not. Values that are
+secrets by their shape — JWTs, common provider token prefixes, payment card numbers —
+are removed wherever they appear, and so are sensitive URL parameters such as an OAuth
+`code`, `session` or `sig`. A record that names its field in data, such as an oracle diff
+`{"field": "authToken", "ui": …}` or a header `{"name": "Authorization", "value": …}`,
+has its value redacted as well.
+
+Projects extend these rules in `testence.json`:
+
+```json
+{
+  "evidence": {
+    "redact": {
+      "keys": ["tenant_ref"],
+      "allow_keys": ["session_status"],
+      "url_params": ["ticket"],
+      "env": ["SHOP_API_TOKEN"],
+      "pii": ["email", "phone"]
+    },
+    "mask": [
+      {"kind": "testid", "value": "card-number"},
+      {"kind": "role", "value": "textbox", "name": "Passport"}
+    ]
+  }
+}
+```
+
+- `keys` adds field names or name parts; `allow_keys` exempts a field that the rules
+  would otherwise hide.
+- `url_params` adds query parameter names.
+- `env` names environment variables whose values are replaced wherever they appear, in
+  addition to the login and password variables. The values are never written.
+- `pii` opts into email and phone redaction. They are off by default because tests often
+  assert the signed-in user's email.
+- `mask` paints the listed elements black in every screenshot, including visual
+  baselines. A baseline records its masks, so changing them makes the baseline an
+  incompatible profile rather than a pixel verdict.
+
+The ledger records the policy (names only) in `run.start`. `testence export` and
+`testence report` apply it again, so a run written before a rule existed does not leave
+in clear text. Invalid settings stop the session before any test runs.
+
 ## Running in parallel
 
 ```bash

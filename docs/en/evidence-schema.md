@@ -61,7 +61,7 @@ a deterministic source-derived fallback that does not promise stability across r
 
 | kind | payload fields |
 |---|---|
-| `run.start` | `testence` (version), `fingerprint` {os, python, base_url, attach, worker} |
+| `run.start` | `testence` (version), `fingerprint` {os, python, base_url, attach, worker}, optional `redaction` (`testence/redaction-policy/1`: `keys`, `allow_keys`, `url_params`, `pii` — names only) |
 | `run.end` | `duration_ms`, `exit_code`, `run_status`, counts for `passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run` |
 | `test.start` | `display_name`, `file`, `code` (12-hex digest of the test file), `nodeid`, `markers`, optional PlanSpec `owner`, scenario `risk`, `requirements` and `issues` |
 | `test.phase` | `nodeid`, `display_name`, `phase`, pytest phase status, duration, optional error/xfail/xpass metadata |

@@ -33,6 +33,7 @@
 | [0022](0022-engine-capability-negotiation.md) | Версионированные capabilities и strict action preflight | accepted |
 
 | [0023](0023-visual-baseline-proof.md) | Визуальный контракт с фиксированным эталоном и клиентская эмуляция | implemented (engineering) |
+| [0024](0024-evidence-redaction-policy.md) | Маскировка evidence по частям имён и форме значений с записанной политикой | accepted |
 
 Формат: Контекст → Рассмотренные варианты → Решение → Последствия → Tripwire.
 Имена метрик определяются рядом с их реализацией и benchmark-документацией.

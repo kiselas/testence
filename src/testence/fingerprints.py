@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from testence.evidence import WORKER_ENV, sanitize, sanitize_text
+from testence.evidence.sanitize import DEFAULT_POLICY, RedactionPolicy
 
 DEFAULT_STORE = Path(".testence") / "fingerprints.json"
 
@@ -35,9 +36,11 @@ class FingerprintStore:
         path: Path | str = DEFAULT_STORE,
         worker: str | None = None,
         redact_values: tuple[str, ...] | list[str] = (),
+        redaction_policy: RedactionPolicy = DEFAULT_POLICY,
     ) -> None:
         self.path = Path(path)
         self._redact_values = tuple(value for value in redact_values if value)
+        self._policy = redaction_policy
         self.worker = worker if worker is not None else os.environ.get(WORKER_ENV, "")
         self.write_path = (
             self.path.with_name(f"{self.path.stem}.{self.worker}{self.path.suffix}")
@@ -61,8 +64,8 @@ class FingerprintStore:
 
     def _key(self, test_id: str, intent: str) -> str:
         return self.key(
-            sanitize_text(test_id, secrets=self._redact_values, limit=500),
-            sanitize_text(intent, secrets=self._redact_values, limit=500),
+            sanitize_text(test_id, secrets=self._redact_values, policy=self._policy, limit=500),
+            sanitize_text(intent, secrets=self._redact_values, policy=self._policy, limit=500),
         )
 
     def get(self, test_id: str, intent: str) -> dict[str, Any] | None:
@@ -78,8 +81,8 @@ class FingerprintStore:
         if not fingerprint:
             return
         self._data[self._key(test_id, intent)] = {
-            "target": sanitize_text(target, secrets=self._redact_values),
-            "fingerprint": sanitize(fingerprint, secrets=self._redact_values),
+            "target": sanitize_text(target, secrets=self._redact_values, policy=self._policy),
+            "fingerprint": sanitize(fingerprint, secrets=self._redact_values, policy=self._policy),
         }
         self._dirty = True
 
