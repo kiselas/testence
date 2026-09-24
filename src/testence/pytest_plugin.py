@@ -713,6 +713,20 @@ def _allure_parameters(settings: Settings) -> str:
     return str(value)
 
 
+def _xdist_worker(config: pytest.Config) -> str:
+    """This session's xdist worker id; ``""`` for the controller or a plain run.
+
+    Read from xdist's own worker input, not ``PYTEST_XDIST_WORKER``: a pytest started
+    as a subprocess by a test inside an xdist worker inherits that variable without
+    being a worker, and wrote a ``run-gw3.jsonl`` shard with no controller ledger —
+    a run that no reader can finish.
+    """
+    workerinput = getattr(config, "workerinput", None)
+    if isinstance(workerinput, dict):
+        return str(workerinput.get("workerid") or "")
+    return ""
+
+
 def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
     settings = _settings_from_config(config)
     try:
@@ -722,6 +736,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         raise pytest.UsageError(f"invalid Testence evidence settings: {exc}") from exc
     writer = EvidenceWriter(
         settings.runs_root,
+        worker=_xdist_worker(config),
         project_id=settings.project_id,
         redact_values=redact_values,
         redaction_policy=redaction_policy,
@@ -1346,7 +1361,7 @@ def testence_namespace(
 ) -> TestNamespace:
     """Stable per-attempt marker for project-owned seed and cleanup adapters."""
     role = str(testence_settings.extra.get("session_expected_role") or "anonymous")
-    worker = os.environ.get("PYTEST_XDIST_WORKER", "controller")
+    worker = _xdist_worker(request.config) or "controller"
     return TestNamespace(
         project_id=testence_settings.project_id,
         run_id=testence_writer.run_id,

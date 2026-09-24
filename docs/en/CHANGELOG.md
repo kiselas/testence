@@ -13,7 +13,13 @@ under `Unreleased`; compatibility is not guaranteed.
 - `@pytest.mark.testence(tms={"testrail": "C123", "xray": "PROJ-12", ...})`
   declares test-management case ids; they reach JUnit (`test_id`, `test_key`,
   `testrail_result_step`, `tms.<system>`), Allure labels and CTRF labels.
-- Skill pack 0.1.5: `testence-author` prefers the DSL and says when to use `ex.native`.
+- DSL checks `expect_value`, `expect_count`, `expect_enabled`, `expect_disabled`,
+  `expect_checked`, `expect_attribute` and `expect_url(contains= | equals=)`, and
+  steps `press(key, target=None)`, `check`, `uncheck`, `hover` and
+  `select(target, label=...)`. Each is an intent step with evidence; checks are
+  exact. [Testing a feature](testing-a-feature.md) lists the whole vocabulary.
+- Skill pack 0.1.6: `testence-author` prefers the DSL, lists its checks and actions, and
+  says when to use `ex.native`.
 - `with ex.native("<intent>") as page:` hands the Playwright page to code the DSL does
   not express, inside one recorded step with a `native.used` event
   ([ADR-0027](adr/0027-native-escape-hatch.md)).
@@ -46,6 +52,11 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Fixed
 
+- A pytest started as a subprocess by a test inside an xdist worker inherited
+  `PYTEST_XDIST_WORKER` and wrote a worker shard with no controller ledger, so its run
+  never completed. The worker id now comes from xdist itself.
+- `expect_hidden` timed out with Playwright's `TimeoutError`, so an element that
+  never went away was reported `broken`. It now raises `AssertionError`.
 - `expect_text` raised Playwright's `TimeoutError` when the text never appeared, so a
   product disagreement was reported like an environment failure (`broken`). It now
   raises `AssertionError`, as `expect_visible` already did.

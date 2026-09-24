@@ -156,6 +156,24 @@ observation window. Окно проходит, только если оно на
 ledger в `test.waits` показывает, уходит ли время на navigation, actionability, response
 synchronization, assertions или evidence capture.
 
+### Словарь шагов
+
+Каждый вызов ниже — один шаг в ledger с intent, целью и fingerprint элемента. Проверки
+сравнивают точно, если вызов не говорит иного, а состояние, которое не наступило за
+таймаут, поднимает `AssertionError`: в отчётах это `failed`, а не `broken`.
+
+| Назначение | Шаги |
+|---|---|
+| Навигация | `goto(url)`, `navigate(url, hard=False)` |
+| Действия | `click`, `fill`, `press(key, target=None)`, `check`, `uncheck`, `hover`, `select(target, value)` или `select(target, label=...)`, `focus`, `scroll_into_view`, `upload`, `download`, `popup`, `dialog`, `with frame(...)` |
+| Проверки страницы | `expect_text(target, text, exact=True)`, `expect_value`, `expect_count`, `expect_visible`, `expect_hidden`, `expect_enabled`, `expect_disabled`, `expect_checked(checked=True)`, `expect_attribute(target, name, value)`, `expect_url(contains=... \| equals=...)`, `expect_screenshot` |
+| Проверки данных | `verify`, `verify_state` (выше в разделе 4) |
+| Всё остальное | `with ex.native("intent") as page:` — страница Playwright, шаг записывается как native (ADR-0027) |
+
+`expect_url(equals="/cart")` разрешает относительный URL от `base_url`, как `goto`.
+`press("Enter", target=SEARCH)` сначала ставит фокус на цель, чтобы клавиша попала туда,
+куда указал тест.
+
 ## 5. Докажите, что тест правильно падает
 
 Зелёный тест ещё не доказывает полезность assertion. Перед принятием сценария:

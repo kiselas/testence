@@ -132,6 +132,22 @@ class Actions:
             children=self._children.pop(),
         )
 
+    def _engine_method(self, name: str) -> Callable[..., Any]:
+        """An engine operation added after the first Engine protocol.
+
+        A third-party engine written earlier may not have it; it then gets the same
+        UnsupportedCapability as a missing capability, naming the operation, rather
+        than an AttributeError from deep inside a step.
+        """
+        method = getattr(self.engine, name, None)
+        if not callable(method):
+            raise UnsupportedCapability(
+                name,
+                {f"{name} (not implemented by {type(self.engine).__name__})"},
+                set(engine_capabilities(self.engine)),
+            )
+        return method  # type: ignore[no-any-return]
+
     # -- primitives ------------------------------------------------------------
 
     def goto(self, url: str, intent: str | None = None) -> None:
@@ -181,10 +197,54 @@ class Actions:
                 # whose pre-fast signature accepted only target and value.
                 self.engine.fill(target, value)
 
-    def select(self, target: Target, value: str, intent: str | None = None) -> None:
-        with self.step(intent or f"select {value!r} in {target.describe()}", target):
+    def select(
+        self,
+        target: Target,
+        value: str | None = None,
+        intent: str | None = None,
+        *,
+        label: str | None = None,
+    ) -> None:
+        """Choose an option by its ``value`` attribute, or by the ``label`` people read."""
+        if (value is None) == (label is None):
+            raise ValueError("select takes exactly one of value or label=")
+        shown = repr(value) if value is not None else f"label {label!r}"
+        with self.step(intent or f"select {shown} in {target.describe()}", target):
             require_capabilities(self.engine, "select", Capability.DOM)
-            self.engine.select(target, value)
+            if label is not None:
+                self._engine_method("select_label")(target, label)
+            else:
+                self.engine.select(target, str(value))
+
+    def press(self, key: str, target: Target | None = None, intent: str | None = None) -> None:
+        """Press a key (``"Enter"``, ``"Control+A"``), on ``target`` when given.
+
+        With a target the control is focused first, so the key lands where the test
+        says rather than wherever focus happens to be.
+        """
+        where = f" in {target.describe()}" if target is not None else ""
+        with self.step(intent or f"press {key}{where}", target):
+            if target is not None:
+                require_capabilities(self.engine, "press", Capability.DOM, Capability.KEYBOARD)
+                self.engine.focus(target)
+            else:
+                require_capabilities(self.engine, "press", Capability.KEYBOARD)
+            self.engine.press(key)
+
+    def check(self, target: Target, intent: str | None = None) -> None:
+        with self.step(intent or f"check {target.describe()}", target):
+            require_capabilities(self.engine, "check", Capability.DOM)
+            self._engine_method("set_checked")(target, True)
+
+    def uncheck(self, target: Target, intent: str | None = None) -> None:
+        with self.step(intent or f"uncheck {target.describe()}", target):
+            require_capabilities(self.engine, "uncheck", Capability.DOM)
+            self._engine_method("set_checked")(target, False)
+
+    def hover(self, target: Target, intent: str | None = None) -> None:
+        with self.step(intent or f"hover {target.describe()}", target):
+            require_capabilities(self.engine, "hover", Capability.DOM)
+            self._engine_method("hover")(target)
 
     def expect_text(
         self, target: Target, text: str, intent: str | None = None, *, exact: bool = True
@@ -243,7 +303,67 @@ class Actions:
     def expect_hidden(self, target: Target, intent: str | None = None) -> None:
         with self.step(intent or f"expect {target.describe()} gone", target):
             require_capabilities(self.engine, "expect_hidden", Capability.DOM)
-            self.engine.wait_while_visible(target)
+            method = getattr(self.engine, "expect_hidden", None)
+            if callable(method):
+                method(target)
+            else:  # engines written before expect_hidden: a wait, reported as before
+                self.engine.wait_while_visible(target)
+
+    # -- state assertions --------------------------------------------------------
+    #
+    # Exact by default, like expect_text. A state that never holds is a failed
+    # assertion (AssertionError), which reports file as ``failed``.
+
+    def expect_value(self, target: Target, value: str, intent: str | None = None) -> None:
+        """A form control holds exactly ``value`` (inputs have no text to match)."""
+        with self.step(intent or f"expect {target.describe()} to hold {value!r}", target):
+            require_capabilities(self.engine, "expect_value", Capability.DOM)
+            self._engine_method("expect_value")(target, value)
+
+    def expect_count(self, target: Target, count: int, intent: str | None = None) -> None:
+        with self.step(intent or f"expect {count} of {target.describe()}", target):
+            require_capabilities(self.engine, "expect_count", Capability.DOM)
+            self._engine_method("expect_count")(target, count)
+
+    def expect_enabled(self, target: Target, intent: str | None = None) -> None:
+        with self.step(intent or f"expect {target.describe()} enabled", target):
+            require_capabilities(self.engine, "expect_enabled", Capability.DOM)
+            self._engine_method("expect_enabled")(target, True)
+
+    def expect_disabled(self, target: Target, intent: str | None = None) -> None:
+        with self.step(intent or f"expect {target.describe()} disabled", target):
+            require_capabilities(self.engine, "expect_disabled", Capability.DOM)
+            self._engine_method("expect_enabled")(target, False)
+
+    def expect_checked(
+        self, target: Target, intent: str | None = None, *, checked: bool = True
+    ) -> None:
+        state = "checked" if checked else "unchecked"
+        with self.step(intent or f"expect {target.describe()} {state}", target):
+            require_capabilities(self.engine, "expect_checked", Capability.DOM)
+            self._engine_method("expect_checked")(target, checked)
+
+    def expect_attribute(
+        self, target: Target, name: str, value: str, intent: str | None = None
+    ) -> None:
+        with self.step(intent or f"expect {target.describe()} [{name}] == {value!r}", target):
+            require_capabilities(self.engine, "expect_attribute", Capability.DOM)
+            self._engine_method("expect_attribute")(target, name, value)
+
+    def expect_url(
+        self,
+        *,
+        contains: str | None = None,
+        equals: str | None = None,
+        intent: str | None = None,
+    ) -> None:
+        """The page URL contains ``contains``, or equals ``equals`` (relative to base_url)."""
+        if (contains is None) == (equals is None):
+            raise ValueError("expect_url takes exactly one of contains= or equals=")
+        shown = f"to contain {contains!r}" if contains is not None else f"to be {equals!r}"
+        with self.step(intent or f"expect the URL {shown}"):
+            require_capabilities(self.engine, "expect_url", Capability.NAVIGATION)
+            self._engine_method("expect_url")(contains=contains, equals=equals)
 
     def expect_screenshot(
         self,

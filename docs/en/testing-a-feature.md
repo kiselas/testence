@@ -157,6 +157,25 @@ it only after a readiness assertion has already proved the control actionable. T
 ledger in `test.waits` shows whether time is being spent in navigation, actionability,
 response synchronization, assertions or evidence capture.
 
+### Step vocabulary
+
+Every call below is one step in the ledger, with its intent, target and a fingerprint
+of the element. Checks match exactly unless the call says otherwise, and a state that
+never appears within the timeout raises `AssertionError`, which reports file as
+`failed`, not `broken`.
+
+| Purpose | Steps |
+|---|---|
+| Navigate | `goto(url)`, `navigate(url, hard=False)` |
+| Act | `click`, `fill`, `press(key, target=None)`, `check`, `uncheck`, `hover`, `select(target, value)` or `select(target, label=...)`, `focus`, `scroll_into_view`, `upload`, `download`, `popup`, `dialog`, `with frame(...)` |
+| Check the page | `expect_text(target, text, exact=True)`, `expect_value`, `expect_count`, `expect_visible`, `expect_hidden`, `expect_enabled`, `expect_disabled`, `expect_checked(checked=True)`, `expect_attribute(target, name, value)`, `expect_url(contains=... \| equals=...)`, `expect_screenshot` |
+| Check the data | `verify`, `verify_state` (section 4 above) |
+| Everything else | `with ex.native("intent") as page:` — the Playwright page, recorded as a native step (ADR-0027) |
+
+`expect_url(equals="/cart")` resolves a relative URL against `base_url`, as `goto`
+does. `press("Enter", target=SEARCH)` focuses the target first, so the key lands where
+the test says.
+
 ## 5. Prove the test can fail correctly
 
 A green test is not evidence that the assertion is useful. Before accepting a case:

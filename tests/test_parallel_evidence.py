@@ -6,6 +6,12 @@ but one, nested steps double-counted into the latency metric, and authoring
 churn reported as flakiness.
 """
 
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
 from testence.engine import worker_port_offset
@@ -69,6 +75,52 @@ def test_run_id_comes_from_the_environment_so_workers_share_a_directory(tmp_path
     writer = EvidenceWriter(tmp_path)
     writer.close()
     assert writer.run_dir.name == "r-from-env"
+
+
+def test_a_pytest_started_inside_a_worker_is_not_that_worker(tmp_path):
+    """A test in an xdist worker that runs pytest as a subprocess hands it
+    PYTEST_XDIST_WORKER. The child used to write a worker shard with no controller
+    ledger, which no reader can finish; xdist's own worker input decides now."""
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "test_child.py").write_text("def test_ok():\n    assert True\n", encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if k != RUN_ID_ENV}
+    env.update(
+        {
+            WORKER_ENV: "gw7",
+            RUN_ID_ENV: "r-child",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+            "PYTHONPATH": str(Path(__file__).parents[1] / "src"),
+        }
+    )
+    runs = tmp_path / "runs"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "testence.pytest_plugin",
+            "-q",
+            "--rootdir",
+            str(project),
+            "--testence-runs-root",
+            str(runs),
+            "-p",
+            "no:cacheprovider",
+        ],
+        cwd=project,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    run_dir = runs / "r-child"
+    assert [path.name for path in ledger_paths(run_dir)] == ["run.jsonl"]
+    events = [json.loads(line) for line in (run_dir / "run.jsonl").read_text().splitlines()]
+    assert {event["worker"] for event in events} == {"controller"}
+    assert json.loads((run_dir / "manifest.json").read_text())["run_status"] == "passed"
 
 
 # -- the metrics those ledgers feed ------------------------------------------

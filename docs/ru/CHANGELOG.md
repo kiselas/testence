@@ -14,7 +14,13 @@
   объявляет ID кейсов в системах управления тестированием; они попадают в JUnit
   (`test_id`, `test_key`, `testrail_result_step`, `tms.<system>`), метки Allure и
   labels CTRF.
-- Skill pack 0.1.5: `testence-author` предпочитает DSL и объясняет, когда использовать `ex.native`.
+- Проверки DSL `expect_value`, `expect_count`, `expect_enabled`, `expect_disabled`,
+  `expect_checked`, `expect_attribute` и `expect_url(contains= | equals=)`, шаги
+  `press(key, target=None)`, `check`, `uncheck`, `hover` и
+  `select(target, label=...)`. Каждый — шаг с intent и evidence; проверки точные.
+  Весь словарь — в [Тестировании функции](testing-a-feature.md).
+- Skill pack 0.1.6: `testence-author` предпочитает DSL, перечисляет его проверки и действия
+  и объясняет, когда использовать `ex.native`.
 - `with ex.native("<intent>") as page:` передаёт страницу Playwright коду, который DSL не
   выражает, внутри одного записанного шага с событием `native.used`
   ([ADR-0027](adr/0027-native-escape-hatch.md)).
@@ -49,6 +55,12 @@
 
 ### Исправлено
 
+- pytest, запущенный подпроцессом из теста внутри воркера xdist, наследовал
+  `PYTEST_XDIST_WORKER` и писал шард воркера без ledger контроллера, поэтому прогон
+  не завершался. Номер воркера теперь берётся у самого xdist.
+- `expect_hidden` по таймауту поднимал `TimeoutError` Playwright, и элемент,
+  который так и не исчез, попадал в отчёт как `broken`. Теперь это
+  `AssertionError`.
 - `expect_text` поднимал `TimeoutError` Playwright, когда текст так и не появлялся, и
   расхождение с продуктом выглядело как сбой окружения (`broken`). Теперь он поднимает
   `AssertionError`, как уже делал `expect_visible`.

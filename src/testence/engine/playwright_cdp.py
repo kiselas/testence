@@ -642,6 +642,20 @@ class PlaywrightCdpEngine(Engine):
     def select(self, target: Target, value: str) -> None:
         self._locate(target).select_option(value)
 
+    def select_label(self, target: Target, label: str) -> None:
+        """Choose the option a person reads, not its ``value`` attribute."""
+        with self._timed("select_label", f"{target.describe()} {label!r}"):
+            self._locate(target).select_option(label=label)
+
+    def hover(self, target: Target) -> None:
+        with self._timed("hover", target.describe()):
+            self._locate(target).hover()
+
+    def set_checked(self, target: Target, checked: bool) -> None:
+        """Check or uncheck; a no-op when the control is already in that state."""
+        with self._timed("check" if checked else "uncheck", target.describe()):
+            self._locate(target).set_checked(checked)
+
     def press(self, key: str) -> None:
         self._require_page().keyboard.press(key)
 
@@ -759,6 +773,104 @@ class PlaywrightCdpEngine(Engine):
                 )
             except PlaywrightTimeoutError as exc:
                 raise AssertionError(f"target did not become visible: {target.describe()}") from exc
+
+    # -- state assertions ---------------------------------------------------
+    #
+    # Each is one Playwright web-first assertion: it retries until the state holds or
+    # the timeout ends, and a completed wait that never saw the state raises
+    # AssertionError — the product disagreeing, reported as ``failed``, never as an
+    # environment failure (the rule expect_text and expect_visible follow).
+
+    def _assert_state(self, op: str, detail: str, check: Callable[[], None]) -> None:
+        with self._timed(op, detail):
+            try:
+                check()
+            except AssertionError as exc:
+                # Playwright appends its call log; the first lines carry the verdict.
+                lines = [line for line in str(exc).splitlines() if line.strip()]
+                summary = "; ".join(lines[:3]) if lines else type(exc).__name__
+                raise AssertionError(f"{op} {detail}: {summary}") from exc
+
+    def expect_hidden(self, target: Target, timeout_ms: int | None = None) -> None:
+        timeout = timeout_ms or self.timeout_ms
+        self._assert_state(
+            "expect_hidden",
+            target.describe(),
+            lambda: pw_expect(self._locate(target)).to_be_hidden(timeout=timeout),
+        )
+
+    def expect_value(self, target: Target, value: str, timeout_ms: int | None = None) -> None:
+        timeout = timeout_ms or self.timeout_ms
+        self._assert_state(
+            "expect_value",
+            f"{target.describe()} == {value!r}",
+            lambda: pw_expect(self._locate(target)).to_have_value(value, timeout=timeout),
+        )
+
+    def expect_count(self, target: Target, count: int, timeout_ms: int | None = None) -> None:
+        timeout = timeout_ms or self.timeout_ms
+        self._assert_state(
+            "expect_count",
+            f"{target.describe()} == {count}",
+            lambda: pw_expect(self._locate(target)).to_have_count(count, timeout=timeout),
+        )
+
+    def expect_enabled(
+        self, target: Target, enabled: bool = True, timeout_ms: int | None = None
+    ) -> None:
+        timeout = timeout_ms or self.timeout_ms
+        self._assert_state(
+            "expect_enabled" if enabled else "expect_disabled",
+            target.describe(),
+            lambda: pw_expect(self._locate(target)).to_be_enabled(enabled=enabled, timeout=timeout),
+        )
+
+    def expect_checked(
+        self, target: Target, checked: bool = True, timeout_ms: int | None = None
+    ) -> None:
+        timeout = timeout_ms or self.timeout_ms
+        self._assert_state(
+            "expect_checked" if checked else "expect_unchecked",
+            target.describe(),
+            lambda: pw_expect(self._locate(target)).to_be_checked(checked=checked, timeout=timeout),
+        )
+
+    def expect_attribute(
+        self, target: Target, name: str, value: str, timeout_ms: int | None = None
+    ) -> None:
+        timeout = timeout_ms or self.timeout_ms
+        self._assert_state(
+            "expect_attribute",
+            f"{target.describe()} [{name}] == {value!r}",
+            lambda: pw_expect(self._locate(target)).to_have_attribute(name, value, timeout=timeout),
+        )
+
+    def expect_url(
+        self,
+        *,
+        contains: str | None = None,
+        equals: str | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
+        """The page URL contains a fragment, or equals a URL (relative to base_url)."""
+        if (contains is None) == (equals is None):
+            raise ValueError("expect_url takes exactly one of contains= or equals=")
+        timeout = timeout_ms or self.timeout_ms
+        if equals is not None:
+            expected: Any = (
+                equals
+                if _URL_SCHEME.match(equals) or not self.base_url
+                else f"{self.base_url}{equals}"
+            )
+            detail = f"== {expected!r}"
+        else:
+            expected = re.compile(re.escape(str(contains)))
+            detail = f"contains {contains!r}"
+        self._assert_state(
+            "expect_url",
+            detail,
+            lambda: pw_expect(self._require_page()).to_have_url(expected, timeout=timeout),
+        )
 
     def wait_while_visible(self, target: Target, timeout_ms: int | None = None) -> None:
         with self._timed("wait_while_visible", target.describe()):
