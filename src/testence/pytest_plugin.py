@@ -15,12 +15,11 @@ import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from testence import __version__, allure_compat, kernels
-from testence.api import ApiClient
+from testence import __version__, allure_compat, host, kernels
 from testence.assurance import POLICY_DIGEST
 from testence.auth import AuthContext, from_settings
 from testence.config import Settings
@@ -42,6 +41,11 @@ from testence.testplan import (
 )
 from testence.triage import assemble_pack
 from testence.triage.heal import propose
+
+if TYPE_CHECKING:
+    # urllib.request and http.client cost start-up that a run without the API
+    # fixture never uses; the fixture imports the client when it is requested.
+    from testence.api import ApiClient
 
 _WARM_ENGINE: Engine | None = None
 _WARM_ENGINE_KEY: tuple[Any, ...] | None = None
@@ -682,7 +686,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         allure_naming=_allure_naming(settings),
         allure_parameters=_allure_parameters(settings),
         fingerprint={
-            "os": f"{platform.system()} {platform.release()}",
+            "os": host.os_name(),
             "python": platform.python_version(),
             "kernels": kernels.active_backend(),
             "worker": writer.worker or "(single)",
@@ -1274,6 +1278,8 @@ def testence_auth(
 @pytest.fixture
 def testence_api(testence_settings: Settings, testence_auth: AuthContext) -> ApiClient:
     """API client sharing the browser's session — for oracles and seeding."""
+    from testence.api import ApiClient
+
     return ApiClient.from_settings(testence_settings, testence_auth)
 
 

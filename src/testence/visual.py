@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-import platform
 import uuid
 from pathlib import Path
 from typing import Any
 
+from testence import host
 from testence.engine import Capability, Engine, require_capabilities
 
 MAX_BYTES = 16 * 1024 * 1024
@@ -58,7 +58,7 @@ def _profile(engine: Engine) -> dict[str, Any]:
     result = engine.eval_js(PROFILE_JS)
     if not isinstance(result, dict) or not result.get("width") or not result.get("height"):
         raise VisualUnavailable("browser visual profile unavailable")
-    profile = {**result, "os": platform.system()}
+    profile = {**result, "os": host.system()}
     # Masked regions are part of what a baseline shows. Recording them makes a mask
     # change an incompatible profile instead of a pixel verdict; an unmasked profile
     # keeps its earlier shape, so existing baselines stay valid (ADR-0024).

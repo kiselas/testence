@@ -90,6 +90,14 @@ class EvidenceWriter:
         self.run_dir.mkdir(parents=True, exist_ok=True)
         name = f"run-{self.worker}.jsonl" if self.worker else "run.jsonl"
         self.path = self.run_dir / name
+        # The manifest digests this ledger at every checkpoint. The writer owns the
+        # file, so it hashes what it appends instead of reading it back: rereading a
+        # file just written is the slow part on Windows, where the scanner opens it
+        # first. A run id reused by a later session in this process appends, so the
+        # hash starts from whatever the file already holds.
+        existing = self.path.read_bytes() if self.path.is_file() else b""
+        self._ledger_sha = hashlib.sha256(existing)
+        self._ledger_bytes = len(existing)
         self._fh: TextIO = open(self.path, "a", encoding="utf-8", newline="\n")
         self._lock = threading.Lock()
         self._seq = 0
@@ -98,6 +106,7 @@ class EvidenceWriter:
         self._listeners: list[Callable[[dict[str, Any]], None]] = []
         self._test_context: dict[str, dict[str, Any]] = {}
         self._failed_oracle_diffs: dict[str, list[dict[str, Any]]] = {}
+        self._manifest: dict[str, Any] | None = None
 
     def bind_test(
         self,
@@ -205,9 +214,13 @@ class EvidenceWriter:
             )
             self._seq += 1
             event.stamp(self._seq)
-            self._fh.write(event.to_json() + "\n")
+            line = event.to_json() + "\n"
+            self._fh.write(line)
             self._fh.flush()
             os.fsync(self._fh.fileno())
+            encoded = line.encode("utf-8")
+            self._ledger_sha.update(encoded)
+            self._ledger_bytes += len(encoded)
             if not self.worker and kind in {"run.start", "collection.end", "run.end"}:
                 self._write_run_manifest(kind, event, merged)
             if (
@@ -226,25 +239,27 @@ class EvidenceWriter:
         """Atomically checkpoint controller-owned run identity and shard digests."""
 
         target = self.run_dir / "manifest.json"
-        previous: dict[str, Any] = {}
-        if target.is_file():
-            try:
-                loaded = json.loads(target.read_text(encoding="utf-8"))
-                if isinstance(loaded, dict):
-                    previous = loaded
-            except (OSError, json.JSONDecodeError):
-                previous = {}
+        previous = self._manifest
+        if previous is None:
+            # Read once: after this checkpoint the controller is its only writer.
+            previous = {}
+            if target.is_file():
+                try:
+                    loaded = json.loads(target.read_text(encoding="utf-8"))
+                    if isinstance(loaded, dict):
+                        previous = loaded
+                except (OSError, json.JSONDecodeError):
+                    previous = {}
 
+        own = self.path.resolve()
         ledgers = []
         for path in ledger_paths(self.run_dir):
-            content = path.read_bytes()
-            ledgers.append(
-                {
-                    "path": path.name,
-                    "bytes": len(content),
-                    "sha256": hashlib.sha256(content).hexdigest(),
-                }
-            )
+            if path == own:
+                size, digest = self._ledger_bytes, self._ledger_sha.hexdigest()
+            else:  # a worker's ledger, written by another process
+                content = path.read_bytes()
+                size, digest = len(content), hashlib.sha256(content).hexdigest()
+            ledgers.append({"path": path.name, "bytes": size, "sha256": digest})
         document: dict[str, Any] = {
             "schema": RUN_MANIFEST_SCHEMA,
             "project_id": self.project_id,
@@ -265,6 +280,7 @@ class EvidenceWriter:
             document["completed_at"] = event.ts
 
         document = sanitize(document, secrets=self._redact_values, policy=self._policy)
+        self._manifest = document
         temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
         with open(temporary, "w", encoding="utf-8", newline="\n") as stream:
             stream.write(json.dumps(document, ensure_ascii=False, indent=1) + "\n")

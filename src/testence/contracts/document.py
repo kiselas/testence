@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import functools
 import json
 from importlib.resources import files
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from jsonschema import Draft202012Validator
+if TYPE_CHECKING:
+    from jsonschema import Draft202012Validator
 
 
 class DocumentError(ValueError):
@@ -57,14 +59,25 @@ def packaged_schema(filename: str) -> dict[str, Any]:
     document = loads_document(resource.read_bytes())
     if not isinstance(document, dict):
         raise DocumentError(f"packaged schema {filename!r} must be an object")
+    # Imported here: jsonschema is 64 ms of start-up, and a plain pytest run that
+    # loads the plugin never validates a document.
+    from jsonschema import Draft202012Validator
+
     Draft202012Validator.check_schema(document)
     return document
 
 
+@functools.lru_cache(maxsize=None)
+def _validator(schema_filename: str) -> Draft202012Validator:
+    """One checked validator per packaged schema; the schemas ship read-only."""
+    from jsonschema import Draft202012Validator
+
+    return Draft202012Validator(packaged_schema(schema_filename))
+
+
 def validate_document(document: Any, schema_filename: str) -> None:
-    schema = packaged_schema(schema_filename)
     errors = sorted(
-        Draft202012Validator(schema).iter_errors(document),
+        _validator(schema_filename).iter_errors(document),
         key=lambda item: tuple(str(part) for part in item.absolute_path),
     )
     if errors:
