@@ -1,10 +1,13 @@
 # Этап 4. Подготовка к публичному запуску
 
-Версия плана: **1.3, 24 сентября 2026** (1.1: ревью плана, 1.2: ответы владельца на
-Q1–Q4, 1.3: повторный аудит после фаз 1–3; см. раздел 9).
+Версия плана: **1.4, 24 сентября 2026** (1.1: ревью плана, 1.2: ответы владельца на
+Q1–Q4, 1.3: повторный аудит после фаз 1–3, 1.4: пул фазы 4 влит, репозиторий
+пересоздан; см. раздел 9).
 Исходная точка: `main` на `91440a9`, опубликованный пакет `0.1.0a1` (собран с `b3b1004`).
 Целевые пакеты: `0.1.0a2` (все P0 и безопасность) и `0.1.0a3` (остальные P1 и P2).
-Статус: **в работе** — фазы 0–3 влиты в `main` (#22, #23, #24); фаза 4 начата с L18.
+Статус: **в работе** — фазы 0–3 и первый пул фазы 4 (L18, L19, L20, L10 ч. 1, L12 п. 1–7)
+влиты в `main`. Номера PR #22–#30 в этом документе относятся к репозиторию, удалённому
+24.09.2026 (раздел 9, версия 1.4); в новом `kiselas/testence` нумерация начата заново.
 
 Основание — ревью проекта перед массовой рекламой (24.09.2026): 16 замечаний P0–P2.
 Здесь у каждого замечания есть ID `L01`–`L17`, решение, зависимости, затрагиваемые
@@ -124,9 +127,9 @@ uv run pytest examples -q --testence-headless
 | ADR-0025 | Отображаемые значения параметров в ledger | ADR-0019 |
 | ADR-0026 | Потоковый Allure-экспорт (tripwire ADR-0013) | ADR-0013 |
 | ADR-0027 | Native escape hatch | ADR-0001 |
-| ADR-0028 | Несколько браузеров | ADR-0001, ADR-0022 |
-| ADR-0029 | MCP-сервер | ADR-0015 |
-| ADR-0030 | JUnit-экспортер | ADR-0013 |
+| ADR-0028 | JUnit-экспортер (принят, #28) | ADR-0013 |
+| ADR-0029 | Несколько браузеров | ADR-0001, ADR-0022 |
+| ADR-0030 | MCP-сервер | ADR-0015 |
 
 Номера идут в порядке фаз, чтобы публичный индекс ADR не имел пропусков.
 
@@ -545,7 +548,7 @@ Chromium: при другом браузере — понятная ошибка
 `src/testence/engine/capabilities.py`, `src/testence/pytest_plugin.py`,
 `src/testence/application.py` (doctor), `.github/workflows/ci.yml` (установка
 браузеров; Linux: firefox и webkit на examples и браузерном поднаборе; macOS: webkit),
-`support.json` и его тест в `tests/test_documentation.py`, ADR-0028,
+`support.json` и его тест в `tests/test_documentation.py`, ADR-0029,
 `docs/{en,ru}/configuration.md`, `docs/{en,ru}/engine-capabilities.md`.
 
 **Приёмка.** `examples/` и браузерный поднабор зелёные на трёх браузерах в CI. Evidence
@@ -555,16 +558,15 @@ pack (aria, network, console, скриншот) собирается во все
 ### L10 (P1). Другие платформы, CTRF и JUnit
 
 **Проблема.** Экспортеров два: Allure и CTRF. TestRail, Xray и Zephyr получают только
-JUnit от pytest, без ID кейсов и шагов. Для ReportPortal нет ничего. CTRF устарел:
-`specVersion "0.0.0"` ([ctrf.py:25](../../../src/testence/export/ctrf.py)), а шаги,
+JUnit от pytest, без ID кейсов и шагов. Для ReportPortal нет ничего. В CTRF шаги,
 вложения, ретраи и flaky уходят в `extra`, хотя в схеме это штатные поля.
 
 **Решение.**
 
-1. **CTRF:** актуальная `specVersion` и штатные поля `steps`, `attachments`, `retries`,
+1. **CTRF:** штатные поля `steps`, `attachments`, `retries`,
    `flaky`, `trace`, `browser`, `parameters`, `labels`, `suite`. Проверка по
    зафиксированной копии схемы в `tests/` (лицензию схемы уточнить и указать).
-2. **JUnit-экспортер** `--to junit` (ADR-0030, уточняет ADR-0013). Он нужен, потому что
+2. **JUnit-экспортер** `--to junit` (ADR-0028, уточняет ADR-0013). Он нужен, потому что
    `--junitxml` не несёт шагов, ID и вложений: `<properties>` с идентичностью Testence,
    `allure_id` и TMS-ID, шаги в `system-out`, вложения в формате `[[ATTACHMENT|path]]`,
    `failure` с message, type и trace. Фраза «JUnit deliberately not an exporter» в
@@ -584,7 +586,7 @@ JUnit от pytest, без ID кейсов и шагов. Для ReportPortal н�
 **Файлы.** `src/testence/export/ctrf.py`, `src/testence/export/junit.py` (новый),
 `src/testence/export/__init__.py`, `src/testence/pytest_plugin.py`,
 `tests/test_export.py`, `tests/goldens/{ctrf,junit}/`, `docs/{en,ru}/reporting.md`,
-`docs/internal/integrations/`, ADR-0030.
+`docs/internal/integrations/`, ADR-0028.
 
 **Приёмка.** CTRF проходит валидацию по схеме, JUnit — по XSD Jenkins (или GitLab). Для
 каждого рецепта есть golden, воспроизводящий команду рецепта до шага загрузки.
@@ -615,7 +617,7 @@ Testence), `browser_click`, `browser_fill`, `browser_screenshot` (с маска�
 
 **Файлы.** `src/testence/mcp/` (новый), `src/testence/cli.py`,
 `src/testence/agent/install.py`, навыки (упоминание инструментов), `pyproject.toml`,
-`bench/client_simulation/`, ADR-0029, `docs/{en,ru}/agent-workflow.md`,
+`bench/client_simulation/`, ADR-0030, `docs/{en,ru}/agent-workflow.md`,
 `docs/{en,ru}/agent-skills.md`.
 
 **Приёмка.** Внутрипроцессный MCP-клиент проходит сценарий «открыть → снимок → найти
@@ -831,15 +833,15 @@ ledger; на каждое действие — тест на `tests/mock_app.py`
 | L17 | влито | #24 | — | — |
 | L04 | у владельца | — | — | живая проверка на кандидате `a2` |
 | L01 | не начато | — | — | подтверждение публикации владельцем |
-| L12 | не начато | — | — | — |
+| L12 | п. 1–7 влиты | #26, #27, #29, #30 | `tests/test_dsl_vocabulary.py`, `test_dsl_soft_tabs_clock.py`, `test_emulation.py`, `test_trace_video.py` | п. 1 drag, п. 8 ретраи, п. 9 карантин |
 | L11 | не начато | — | — | — |
-| L10 | не начато | — | — | живые проверки платформ (владелец) |
+| L10 | ч. 1 влита | #28 | `tests/test_export_junit.py`; JUnit сверен с `junit-4.xsd` через lxml | рецепты в `docs/internal/integrations/` ждут живых проверок; Zephyr Scale не выяснен; Test IT, Qase, ReportPortal |
 | L13 | не начато | — | — | — |
 | L05 | мини-часть влита | #24 | 30 раундов, пять участников, `26ce56e` | README-блок по решению владельца; корректность и авторинг — фаза 6 |
 | L15 | не начато | — | — | — |
-| L18 | реализовано, ждёт PR | — | `tests/test_startup_cost.py`; раздел L18 | повторный замер replay на Ubuntu |
-| L19 | не начато | — | — | — |
-| L20 | не начато | — | — | — |
+| L18 | ч. 1 влита | #25 | Ubuntu, 30 раундов: Testence / pytest-playwright 1,167 → 1,118; Testence быстрее Playwright Test (0,82), SeleniumBase (0,68), Cypress (0,24) | до критерия «не хуже pytest-playwright» ~150 мс: fingerprint и fsync ledger на шаг (evidence, ADR-0003) — вопрос владельцу |
+| L19 | влито | #26 | `tests/test_dsl_vocabulary.py` | — |
+| L20 | влито | #26 | `tests/test_parallel_evidence.py` | — |
 | L16 | не начато | — | — | действия владельца в GitHub |
 
 ### 8.1. L02 — что сделано
@@ -960,3 +962,23 @@ ledger; на каждое действие — тест на `tests/mock_app.py`
   тестировщик уходит в `ex.native`) и L20 (тесты жизненного цикла под `-n`).
 - Порядок фазы 4: L18 → L01 (`a2`) → L19 → L12 → L11. Релиз `a2` готовится сразу после
   L18; публикация — по подтверждению владельца.
+
+### Версия 1.4 — первый пул фазы 4 и пересоздание репозитория
+
+- Влиты L18 ч. 1 (#25), L19 и L20 (#26), L10 ч. 1 (#28), L12 п. 3, 5, 7 (#27), п. 4
+  (#29), п. 6 (#30). Итоговое дерево `main` совпало с проверенным локально.
+- Исправлены ошибки плана: спецификация CTRF сама имеет версию 0.0.0, так что
+  `specVersion` не устарел; JUnit-экспортер занял ADR-0028, поэтому несколько
+  браузеров — ADR-0029, MCP — ADR-0030.
+- 24.09.2026 репозиторий `kiselas/testence` удалён и создан заново: коммиты веток PR
+  были подписаны корпоративным сертификатом, а ссылки `refs/pull/*` на GitHub не
+  переписываются. `main` и тег `v0.1.0a1` перенесены с прежними SHA; настройки
+  (окружение `pypi` только для `main`, права Actions, описание, темы, правила слияния)
+  восстановлены. Издатель PyPI (Trusted Publishing: `kiselas/testence`, `publish.yml`,
+  `pypi`) не менялся; проверяется при выпуске `0.1.0a2`. История запусков Actions
+  утрачена: артефакты запуска `35608566072`, на который ссылаются квитанции `0.1.0a1`,
+  сохранены у владельца.
+- CI: у джобов `ci.yml` появился `timeout-minutes: 30` (зависший macOS-джоб держал
+  раннер больше 30 минут). Проверка touch в `test_emulation.py` заменена проверкой
+  опций контекста: headless Chromium на macOS-раннерах нестабильно отдаёт
+  `maxTouchPoints`.

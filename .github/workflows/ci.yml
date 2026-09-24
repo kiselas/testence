@@ -13,10 +13,13 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Every job has timeout-minutes: 30. A hung browser test once held a macOS runner for
+# over 30 minutes, and GitHub's default limit is six hours.
 jobs:
   quality:
     name: Quality and package
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,6 +63,7 @@ jobs:
   tests:
     name: ${{ matrix.os }} / Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -105,6 +109,7 @@ jobs:
   minimum-dependencies:
     name: Minimum dependencies / ${{ matrix.os }} / Python 3.10
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -147,6 +152,7 @@ jobs:
   installed-wheel:
     name: Installed wheel / browser / release artifacts
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [quality, tests, minimum-dependencies]
     permissions:
       contents: read
@@ -206,6 +212,7 @@ jobs:
   installed-wheel-windows:
     name: Installed wheel / Windows browser
     runs-on: windows-latest
+    timeout-minutes: 30
     needs: [quality, tests, minimum-dependencies]
     steps:
       - name: Check out repository
@@ -244,6 +251,7 @@ jobs:
   installed-wheel-macos:
     name: Installed wheel / macOS browser
     runs-on: macos-latest
+    timeout-minutes: 30
     needs: [quality, tests, minimum-dependencies]
     steps:
       - name: Check out repository
@@ -282,6 +290,7 @@ jobs:
     name: Visual client simulation / ${{ matrix.os }}
     needs: quality
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
