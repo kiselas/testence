@@ -138,8 +138,10 @@ def test_the_windows_session_cache_is_readable_by_its_owner_only(tmp_path, monke
     user = os.environ.get("USERNAME", "").lower()
     owner = {principal for principal in principals if principal.split("\\")[-1] == user}
     assert owner, listing.stdout
-    # A token's default DACL may grant these explicitly; both can take any file anyway.
-    others = principals - owner - {r"nt authority\system", r"builtin\administrators"}
+    # A runner's default DACL may grant these explicitly: OWNER RIGHTS is the owner
+    # itself, and SYSTEM and Administrators can take any file anyway.
+    trusted = {r"nt authority\system", r"builtin\administrators", "owner rights"}
+    others = principals - owner - trusted
     assert not others, listing.stdout
 
 
