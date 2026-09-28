@@ -251,7 +251,7 @@ npx --yes allure@3.14.3 awesome allure-results -o allure-report --single-file
 
 An exporter is a module with two symbols:
 
-```python
+```text
 name: str
 export(run: LoadedRun, out_dir: Path) -> list[Path]
 ```

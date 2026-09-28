@@ -31,6 +31,8 @@ For automated screenshot regression or an isolated client simulation, also read
 - Never replace an independent oracle with only rendered UI or an HTTP acknowledgement.
 - Avoid arbitrary sleeps, broad text matches, unbounded retries, and silent locator fallback.
 - Do not modify product code merely to make the generated test pass.
+- `ex` is logged in with the project's configured `auth`. A test of the login page
+  itself or of public pages opts out with `@pytest.mark.testence(anonymous=True)`.
 - Prefer the DSL. Check state with its exact checks — `expect_text`, `expect_value`,
   `expect_count`, `expect_visible`/`expect_hidden`, `expect_enabled`/`expect_disabled`,
   `expect_checked`, `expect_attribute`, `expect_url` — and act with `click`, `fill`,

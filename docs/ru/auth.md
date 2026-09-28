@@ -30,24 +30,36 @@ credentials (env)  ──►  AuthAdapter  ──►  AuthContext ──┬─�
 | Attached | `attached` | переиспользование Chrome, в который уже вошёл пользователь; credentials не нужны |
 | None | `none` | публичное приложение |
 
-Аутентификация имеет scope сессии. Измеряйте form и API-session на собственном
-приложении: основную стоимость определяют сеть и identity provider.
+Каждый тест входит один раз, в собственном свежем контексте браузера;
+`session_cache_ttl_s` ([конфигурация](configuration.md)) переиспользует сессию между
+тестами. Измеряйте form и API-session на собственном приложении: основную стоимость
+определяют сеть и identity provider.
+
+Заголовки Bearer и Basic уходят только на `base_url` и origin из
+`api_allowed_origins`: CDN, аналитика или хостинг шрифтов, с которых грузится
+страница, не получают ни токен, ни пароль.
 
 ## Использование в тестах
 
-Работу выполняет plugin; тест только запрашивает нужные fixtures:
+Работу выполняет plugin; тест только запрашивает нужные fixtures. `ex` уже вошёл
+по настроенной схеме:
 
 ```python
 def test_widget_matches_api(ex, testence_api):
     ex.goto("/widgets/42", intent="open the widget")
     ui = {"cidr": ex.engine.read_text(CIDR_FIELD)}
     api = testence_api.get("/api/v1/widgets/42").raise_for_status().json
-    verify(ex.writer, "widget", ui, api)      # oracle: UI vs API
+    ex.verify("widget", {"cidr": api["cidr"]}, ui)      # oracle: API против UI
 ```
 
 Fixtures: `testence_settings` — итоговая конфигурация, `testence_auth` —
-`AuthContext` со scope сессии, `testence_api` — `ApiClient` в этой сессии, `ex` —
-DSL.
+`AuthContext` теста, `testence_api` — `ApiClient` в этой сессии, `ex` — DSL, уже
+вошедший. Тест самой страницы входа или публичных страниц от входа отказывается:
+
+```python
+@pytest.mark.testence(anonymous=True)
+def test_login_rejects_a_wrong_password(ex): ...
+```
 
 ## Специфичные формы проекта
 

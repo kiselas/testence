@@ -165,7 +165,8 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "testence(plan, claims, case_id, allure_id, title, description, severity, labels, "
-        "links, tms): bind a test to a PlanSpec case and/or describe it for reports",
+        "links, tms, anonymous): bind a test to a PlanSpec case and/or describe it for "
+        "reports; anonymous=True runs ex without logging in",
     )
     reruns = rerun_count(config)
     if reruns and not config.pluginmanager.has_plugin("testence-reruns"):
@@ -308,6 +309,8 @@ _TMS_PATTERNS = {
     "xray": re.compile(r"^[A-Z][A-Z0-9_]*-[1-9][0-9]*$"),
 }
 _CONTRACT_FIELDS = frozenset({"plan", "claims", "case_id"})
+#: How the test runs: ``anonymous=True`` keeps ``ex`` from logging in.
+_SESSION_FIELDS = frozenset({"anonymous"})
 
 
 @dataclass(frozen=True)
@@ -459,7 +462,7 @@ def _resolve_contract(
         return None
     if marker.args:
         raise ContractError("@pytest.mark.testence accepts keyword arguments only")
-    unknown = sorted(set(marker.kwargs) - _CONTRACT_FIELDS - _METADATA_FIELDS)
+    unknown = sorted(set(marker.kwargs) - _CONTRACT_FIELDS - _METADATA_FIELDS - _SESSION_FIELDS)
     if unknown:
         raise ContractError("unknown testence marker field(s): " + ", ".join(unknown))
     if not _CONTRACT_FIELDS & set(marker.kwargs):
@@ -1630,13 +1633,27 @@ def testence_fingerprints(
     store.flush()
 
 
+def _anonymous(item: pytest.Item) -> bool:
+    marker = item.get_closest_marker("testence")
+    return bool(marker is not None and marker.kwargs.get("anonymous"))
+
+
 @pytest.fixture
 def ex(
     request: pytest.FixtureRequest,
+    testence_settings: Settings,
     testence_engine: Engine,
     testence_writer: EvidenceWriter,
     testence_fingerprints: FingerprintStore,
 ):
+    """The DSL, in a browser logged in with the configured ``auth`` scheme.
+
+    A test that asked only for ``ex`` used to run anonymous, land on a blank page and
+    fail on its first target; a test of the login page itself or of public pages says
+    ``@pytest.mark.testence(anonymous=True)``.
+    """
+    if (testence_settings.auth or "none").lower() != "none" and not _anonymous(request.node):
+        request.getfixturevalue("testence_auth")
     test_id = _test_id(request.node)
     request.node.stash[_ACTIONS_KEY] = actions = Actions(
         testence_engine,

@@ -61,6 +61,19 @@ class HealProposal:
         }
 
 
+def _matches(engine: Engine, target: dict[str, Any]) -> int | None:
+    """How many elements ``target`` addresses now; None if the engine cannot say."""
+    count = getattr(engine, "count", None)
+    if not callable(count) or not target.get("kind"):
+        return None
+    try:
+        return int(
+            count(Target(target["kind"], target.get("value") or "", name=target.get("name")))
+        )
+    except Exception:  # noqa: BLE001 - a diagnostic never replaces the proposal
+        return None
+
+
 def _target_expression(target: dict[str, Any]) -> str:
     kind, value, name = target.get("kind"), target.get("value"), target.get("name")
     if name:
@@ -143,6 +156,17 @@ def propose(
             considered=considered,
         )
 
+    # Propose a target that addresses one element. A name shared by several rows, or
+    # one the locator reads differently, would hand the reviewer a broken edit.
+    matches = _matches(engine, best.get("target") or {})
+    if matches not in (None, 1):
+        for score, item in ranked[1:5]:
+            if score < MIN_SCORE:
+                break
+            if _matches(engine, item.get("target") or {}) == 1:
+                best_score, best = score, item
+                matches = 1
+                break
     new_target = best.get("target") or {}
     ambiguous = runner_up is not None and (best_score - runner_up) < AMBIGUOUS_MARGIN
     rationale = _explain(known_fingerprint, best.get("fingerprint", {}))
@@ -151,6 +175,9 @@ def propose(
             f" (ambiguous: runner-up scores {runner_up:.2f} against {best_score:.2f} — "
             "review before accepting)"
         )
+    if matches not in (None, 1):
+        ambiguous = True
+        rationale += f" (the proposed target matches {matches} elements — narrow it)"
     return HealProposal(
         intent=intent,
         old_target=failed_target.describe(),

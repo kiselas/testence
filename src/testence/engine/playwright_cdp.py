@@ -193,8 +193,11 @@ class PlaywrightCdpEngine(Engine):
         emulation: dict[str, Any] | None = None,
         trace: str = "off",
         video: str = "off",
+        credential_origins: tuple[str, ...] = (),
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        #: Origins besides ``base_url`` that may receive auth headers (``api_allowed_origins``).
+        self.credential_origins = tuple(credential_origins)
         self.cdp_url = cdp_url
         self.headed = headed
         self.debug_port = debug_port
@@ -276,6 +279,8 @@ class PlaywrightCdpEngine(Engine):
         # therefore owns it; locally launched and persistent contexts are owned too.
         self._owns_context = False
         self._extra_headers: dict[str, str] = {}
+        #: The context whose requests carry ``_extra_headers``, through a route.
+        self._headers_routed: Any = None
 
     # -- lifecycle -------------------------------------------------------
 
@@ -427,6 +432,8 @@ class PlaywrightCdpEngine(Engine):
             raise RuntimeError("engine is not started")
         if self._context is not None and self._owns_context:
             self._context.close()
+        # A fresh session: the previous test's credentials do not carry over.
+        self._extra_headers = {}
         self._context = self._browser.new_context(
             ignore_https_errors=self.ignore_https_errors, **self._context_options()
         )
@@ -1182,10 +1189,48 @@ class PlaywrightCdpEngine(Engine):
         self._context.add_cookies(cookies)  # type: ignore[arg-type]
 
     def set_extra_http_headers(self, headers: dict[str, str]) -> None:
+        """Send ``headers`` with requests to the target's own origins only.
+
+        They carry credentials: a bearer token or a Basic password. Set on the whole
+        context, as Playwright's ``set_extra_http_headers`` does, they reached every
+        origin the page loads from — a CDN, analytics, a font host. A route adds them
+        only to ``base_url`` and ``credential_origins``, compared as ``ApiClient``
+        compares origins.
+        """
         if self._context is None:
             raise RuntimeError("engine not started")
+        if not self._credential_origins():
+            raise RuntimeError(
+                "auth headers need base_url (or api_allowed_origins) to name the origin "
+                "that may receive them"
+            )
         self._extra_headers.update(headers)
-        self._context.set_extra_http_headers(self._extra_headers)
+        if self._headers_routed is not self._context:
+            self._context.route("**/*", self._add_credentials)
+            self._headers_routed = self._context
+
+    def _credential_origins(self) -> set[tuple[str, str, int]]:
+        from testence.api import UnsafeRequestTarget, _origin
+
+        origins = set()
+        for url in (self.base_url, *self.credential_origins):
+            try:
+                origins.add(_origin(url))
+            except UnsafeRequestTarget:
+                continue
+        return origins
+
+    def _add_credentials(self, route: Any, request: Any) -> None:
+        from testence.api import UnsafeRequestTarget, _origin
+
+        try:
+            allowed = _origin(request.url) in self._credential_origins()
+        except UnsafeRequestTarget:  # data:, blob:, chrome-extension: and the like
+            allowed = False
+        if allowed and self._extra_headers:
+            route.fallback(headers={**request.headers, **self._extra_headers})
+        else:
+            route.fallback()
 
     def set_storage_item(self, key: str, value: str, *, session: bool = False) -> None:
         store = "sessionStorage" if session else "localStorage"
@@ -1526,10 +1571,29 @@ class PlaywrightCdpEngine(Engine):
             const fpOf = eval(fpSource);
             const sel = 'button, a, input, select, textarea, [role], [aria-label],'
                       + ' [data-testid], h1, h2, h3, li, label';
-            const label = el => (el.getAttribute('aria-label')
-                || el.getAttribute('placeholder')
-                || (el.textContent || '').trim()).slice(0, 80);
-            return [...document.querySelectorAll(sel)].slice(0, 400).map(el => {
+            const squash = text => (text || '').replace(/\\s+/g, ' ').trim();
+            // The accessible name as a role locator matches it, in accname order:
+            // aria-labelledby, aria-label, a <label> of a field, the content of a
+            // button or link, then title and placeholder. The first version skipped
+            // <label>, so a labelled field got its placeholder as a name that no role
+            // locator resolves.
+            const field = el => ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName);
+            const label = el => {
+                const ids = (el.getAttribute('aria-labelledby') || '').split(/\\s+/);
+                const named = ids.map(id => document.getElementById(id)).filter(Boolean);
+                if (named.length) return squash(named.map(n => n.textContent).join(' '));
+                if (el.getAttribute('aria-label')) return squash(el.getAttribute('aria-label'));
+                if (field(el) && el.labels && el.labels.length) {
+                    return squash([...el.labels].map(n => n.textContent).join(' '));
+                }
+                if (!field(el) && squash(el.textContent)) return squash(el.textContent);
+                return squash(el.getAttribute('title') || el.getAttribute('placeholder'));
+            };
+            // Only what is on screen can be the element a step moved to; hidden
+            // templates and closed menus no longer crowd it out of a fixed window.
+            const shown = [...document.querySelectorAll(sel)]
+                .filter(el => el.getClientRects().length > 0);
+            return shown.slice(0, 2000).map(el => {
                 const fp = fpOf(el);
                 const name = label(el);
                 let target;

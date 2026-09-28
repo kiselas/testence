@@ -2,7 +2,8 @@
 
 A project plugs in by implementing these three things (target: ≤ ~500 LOC total,
 metric ``adapter_loc``):
-- AuthAdapter: obtain a browser session programmatically (no UI login in setup).
+- AuthAdapter: authenticate the engine and return the ``AuthContext`` the API
+  client shares (``testence.auth``; re-exported here, ADR-0010).
 - SeedAdapter: create deterministic test data and clean it up (marker discipline:
   every created entity carries the marker so a crashed run can be swept).
 - an ActionMap class built on ``testence.dsl.Actions`` (plain code, no contract here).
@@ -15,13 +16,9 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from testence.engine import Engine
+from testence.auth.base import AuthAdapter
 
-
-class AuthAdapter(Protocol):
-    def login(self, engine: Engine) -> None:
-        """Make the engine's browser context authenticated (cookie/header/etc.)."""
-        ...
+__all__ = ["AuthAdapter", "SeedAdapter"]
 
 
 class SeedAdapter(Protocol):
