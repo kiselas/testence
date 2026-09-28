@@ -11,7 +11,7 @@ Routes:
   POST /api/v1/auth/token   JSON {username,password} -> {"access_token": ...}
   GET  /api/v1/auth/me      accepts session cookie, bearer token, or basic
   GET  /api/v1/widgets/{id} demo entity for oracle tests
-  GET  /spa-login      SPA login: fetches a token and keeps it in localStorage, no cookie
+  GET  /login-spa      SPA login: fetches a token and keeps it in localStorage, no cookie
   GET  /spa            SPA page that reads the token from localStorage
 """
 
@@ -178,7 +178,7 @@ class _Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/login":
             self._html(200, _LOGIN_PAGE.replace("__ERROR__", ""))
-        elif path == "/spa-login":
+        elif path == "/login-spa":
             self._html(200, _SPA_LOGIN_PAGE)
         elif path == "/spa":
             self._html(200, _SPA_PAGE)

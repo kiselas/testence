@@ -81,7 +81,7 @@ def _run(project: Path, settings: dict) -> subprocess.CompletedProcess[str]:
         )
 
 
-SPA = {"auth": "form", "login_path": "/spa-login", "success_url_contains": "/spa"}
+SPA = {"auth": "form", "login_path": "/login-spa", "success_url_contains": "/spa"}
 
 
 def test_the_token_in_local_storage_reaches_the_oracle(tmp_path: Path):
