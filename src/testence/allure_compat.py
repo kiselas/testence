@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 #: Marks that allure-pytest never turns into tags, plus Testence's own contract marks.
@@ -104,6 +105,15 @@ def history_id(name: str, parameters: dict[str, Any]) -> str:
     return md5(name, *(parameters[key] for key in sorted(parameters)))
 
 
+def label_text(value: Any) -> str:
+    """A label value as allure-pytest writes it: ``Severity.CRITICAL`` is "critical".
+
+    ``Severity`` is a ``(str, Enum)``; from Python 3.11 its ``str()`` is the member
+    name, which TestOps does not know as a severity.
+    """
+    return str(value.value) if isinstance(value, Enum) else str(value)
+
+
 def _marks(item: Any, name: str) -> list[Any]:
     return [mark for mark in item.iter_markers() if getattr(mark, "name", None) == name]
 
@@ -123,10 +133,10 @@ def labels(item: Any) -> list[tuple[str, str]]:
             continue
         if label_type in _UNIQUE_LABELS:
             if label_type not in unique and mark.args:
-                unique[label_type] = str(mark.args[0])
+                unique[label_type] = label_text(mark.args[0])
             continue
         for value in mark.args:
-            pair = (label_type, str(value))
+            pair = (label_type, label_text(value))
             if pair not in found:
                 found.append(pair)
     found.extend(unique.items())
@@ -196,6 +206,29 @@ def allure_id(item: Any) -> str | None:
         if label_type in ALLURE_ID_LABELS and value.strip():
             return value.strip()
     return None
+
+
+def with_dynamic(document: dict[str, Any], heard: dict[str, Any]) -> dict[str, Any]:
+    """``document`` with the ``allure.dynamic.*`` values of one attempt laid over it.
+
+    As in allure-pytest, a dynamic title or description replaces the static one, a
+    label that keeps one value (severity, suite) replaces it too, and other labels
+    and links are added.
+    """
+    merged = dict(document)
+    added = [item for item in heard.get("labels") or () if isinstance(item, dict)]
+    replaced = {item.get("name") for item in added if item.get("name") in _UNIQUE_LABELS}
+    kept = [item for item in document.get("labels") or () if item.get("name") not in replaced]
+    labels = list(kept)
+    for item in added:
+        if item not in labels:
+            labels.append(item)
+    merged["labels"] = labels
+    merged["links"] = [*(document.get("links") or ()), *(heard.get("links") or ())]
+    for key in ("title", "description", "description_html"):
+        if heard.get(key):
+            merged[key] = str(heard[key])
+    return merged
 
 
 def record(item: Any) -> dict[str, Any]:

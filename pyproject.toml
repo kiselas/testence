@@ -85,6 +85,7 @@ select = ["E4", "E7", "E9", "F", "I"]
 
 [dependency-groups]
 dev = [
+    "allure-python-commons>=2.13",
     "spdx-tools>=0.8,<0.9",
     "types-jsonschema>=4.23",
 ]

@@ -38,3 +38,15 @@ tags, evidence-pack files — attachments. Allure и CTRF являются compa
 Если exporter нужны отсутствующие данные, расширяется append-only evidence schema, а не
 instrumentation тестового кода. Повторяющийся upstream format drift должен привести к
 явному version pinning или deprecation.
+
+## Дополнение (28.09.2026): слушатель совместимости с allure
+
+Набор, переходящий с allure-pytest, сохраняет декораторы `@allure.*` и вызовы
+`allure.dynamic.*`. Пакет `allure` превращает их в данные только через слушателей,
+зарегистрированных в `allure_commons`, а их даёт allure-pytest; без него они ничего не
+делали. `testence.allure_hooks` — единственный модуль, которому разрешено импортировать
+`allure_commons`, и только если пакет установлен (зависимостью он не является). Модуль
+регистрирует тех же слушателей: декораторы создают метки pytest, которые ledger уже
+записывает, а динамические значения записываются в `test.end` (`allure_dynamic`).
+Результаты Allure он не пишет: ledger остаётся единственным источником истины, экспорт не
+меняется.

@@ -16,7 +16,7 @@ For automated screenshot regression or an isolated client simulation, also read
 ## Workflow
 
 1. Locate the PlanSpec and run `testence plan validate <path> --json`. Do not author against an invalid plan.
-2. Run `testence plan prepare <path> --project <root> --profile <profile> --json` before opening a browser. Work only on scenarios reported `ready`; report each `blocked` reason instead of inventing a fixture, oracle, or skip. When the project defines a fix recipe and the approved scope permits it, use `--apply-fixes`, inspect the second report, and continue only for scenarios that became ready.
+2. Run `testence plan prepare <path> --project <root> --json` before opening a browser; add `--profile <name>` only for a profile the project's `testence.json` declares under `profiles`. Work only on scenarios reported `ready`; report each `blocked` reason instead of inventing a fixture, oracle, or skip. When the project defines a fix recipe and the approved scope permits it, use `--apply-fixes`, inspect the second report, and continue only for scenarios that became ready.
 3. Build a small claim-to-proof map: action, UI observation, independent oracle, seed, cleanup, and expected failure signal.
 4. Confirm the target, account/profile, mutation boundary, seed isolation, and allowed browser actions. Do not touch production or shared data without explicit authority.
 5. Inspect source, API schemas, and project adapters. Use controlled browser discovery only against the approved target.
@@ -34,7 +34,8 @@ For automated screenshot regression or an isolated client simulation, also read
 - Prefer the DSL. Check state with its exact checks — `expect_text`, `expect_value`,
   `expect_count`, `expect_visible`/`expect_hidden`, `expect_enabled`/`expect_disabled`,
   `expect_checked`, `expect_attribute`, `expect_url` — and act with `click`, `fill`,
-  `press`, `check`/`uncheck`, `hover` and `select(..., label=...)`. Group independent
+  `press`, `check`/`uncheck`, `hover`, `drag(source, destination)` and
+  `select(..., label=...)`. Group independent
   facts of one screen in `with ex.soft(...)`; drive timers with `ex.clock` instead of
   sleeping (`run_for` for a timer that schedules the next one, such as a countdown);
   reach app-opened tabs with `ex.switch_page(url_contains=...)`. A failed step says

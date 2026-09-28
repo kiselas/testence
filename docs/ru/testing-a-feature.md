@@ -165,7 +165,7 @@ synchronization, assertions или evidence capture.
 | Назначение | Шаги |
 |---|---|
 | Навигация | `goto(url)`, `navigate(url, hard=False)` |
-| Действия | `click`, `fill`, `press(key, target=None)`, `check`, `uncheck`, `hover`, `select(target, value)` или `select(target, label=...)`, `focus`, `scroll_into_view`, `upload`, `download`, `popup`, `dialog`, `with frame(...)` |
+| Действия | `click`, `fill`, `press(key, target=None)`, `check`, `uncheck`, `hover`, `drag(source, destination)`, `select(target, value)` или `select(target, label=...)`, `focus`, `scroll_into_view`, `upload`, `download`, `popup`, `dialog`, `with frame(...)` |
 | Проверки страницы | `expect_text(target, text, exact=True)`, `expect_value`, `expect_count`, `expect_visible`, `expect_hidden`, `expect_enabled`, `expect_disabled`, `expect_checked(checked=True)`, `expect_attribute(target, name, value)`, `expect_url(contains=... \| equals=...)`, `expect_screenshot` |
 | Несколько проверок сразу | `with ex.soft("the order summary"):` выполняет все проверки внутри и падает один раз в конце со списком провалившихся; действия и ошибки браузера по-прежнему останавливают тест |
 | Вкладки | `switch_page(index)`, `switch_page(url_contains=...)` (ждёт вкладку, которую открывает приложение), `close_page()` |

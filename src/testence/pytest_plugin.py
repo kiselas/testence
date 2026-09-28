@@ -171,6 +171,12 @@ def pytest_configure(config: pytest.Config) -> None:
     if reruns and not config.pluginmanager.has_plugin("testence-reruns"):
         config.pluginmanager.register(Reruns(reruns), "testence-reruns")
     config.stash[_RECORD_KEY] = _asked_to_record(config)
+    try:
+        from testence import allure_hooks
+    except ImportError:  # the allure package is not installed
+        pass
+    else:
+        config.stash[_ALLURE_DYNAMIC_KEY] = allure_hooks.install(config)
     if RUN_ID_ENV not in os.environ:
         run_id = new_run_id()
         os.environ[RUN_ID_ENV] = run_id
@@ -755,6 +761,8 @@ _PACK_KEY = pytest.StashKey[str]()
 _PACK_ATTEMPTED_KEY = pytest.StashKey[bool]()
 #: Earlier attempts of this test that were repeated (``--testence-reruns``).
 _RETRIES_KEY = pytest.StashKey[int]()
+#: Listens to ``allure.dynamic.*`` when the ``allure`` package is installed.
+_ALLURE_DYNAMIC_KEY = pytest.StashKey[Any]()
 _ACTIVE_STATE: _LifecycleState | None = None
 
 #: Per-test wait budgets for the end-of-run summary (reset per pytest process).
@@ -1050,6 +1058,12 @@ def _screenshot_policy(settings: Settings) -> str:
     return str(settings.evidence_config().get("screenshots", "on-failure"))
 
 
+def _allure_dynamic(item: pytest.Item) -> Any:
+    """The session's ``allure.dynamic.*`` listener, if the allure package is installed."""
+    config = getattr(item, "config", None)
+    return config.stash.get(_ALLURE_DYNAMIC_KEY, None) if config is not None else None
+
+
 def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
     if item.nodeid in state.started and item.nodeid not in state.finished:
         return
@@ -1059,6 +1073,9 @@ def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
     item.stash[_PACK_KEY] = ""
     item.stash[_ERROR_KEY] = {}
     item.stash[_FINAL_SCREENSHOT_KEY] = ""
+    dynamic = _allure_dynamic(item)
+    if dynamic is not None:
+        dynamic.begin()
     test_id = _test_id(item)
     contract = item.stash.get(_CONTRACT_KEY, None)
     static_identity = item.stash.get(
@@ -1278,6 +1295,11 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
         payload["retries"] = retries
         if status == "passed":
             payload["flaky"] = True
+    dynamic = _allure_dynamic(item)
+    heard = dynamic.take() if dynamic is not None else {}
+    if heard:
+        # allure.dynamic.* calls of this attempt; the export lays them over test.start.
+        payload["allure_dynamic"] = heard
     if xfail_reason:
         payload["xfail_reason"] = xfail_reason
         payload["xfail"] = any(

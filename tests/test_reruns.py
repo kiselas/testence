@@ -321,3 +321,82 @@ def test_an_invalid_rerun_count_is_a_usage_error(tmp_path: Path, value):
 
     assert result.returncode == 4, result.stdout + result.stderr
     assert "--testence-reruns must be" in result.stdout + result.stderr
+
+
+SCOPES_CONFTEST = """
+from pathlib import Path
+
+import pytest
+
+HERE = Path(__file__).parent
+
+
+def _count(name):
+    mark = HERE / f"{name}.txt"
+    runs = int(mark.read_text()) + 1 if mark.exists() else 1
+    mark.write_text(str(runs))
+    return runs
+
+
+@pytest.fixture(scope="session")
+def session_resource():
+    return _count("session-setups")
+
+
+@pytest.fixture(scope="module")
+def module_resource(request):
+    return _count(f"module-setups-{request.module.__name__}")
+"""
+
+LAST_IN_MODULE_FAILS_ONCE = """
+from pathlib import Path
+
+MARK = Path(__file__).with_name("call.txt")
+
+
+def test_first(session_resource, module_resource, testence_writer):
+    assert (session_resource, module_resource) == (1, 1)
+
+
+def test_last_fails_once(session_resource, module_resource, testence_writer):
+    runs = int(MARK.read_text()) + 1 if MARK.exists() else 1
+    MARK.write_text(str(runs))
+    assert runs > 1
+    assert (session_resource, module_resource) == (1, 1)
+"""
+
+LATER_MODULE = """
+import pytest
+
+
+def test_session_fixture_is_the_first_one(session_resource, module_resource, testence_writer):
+    assert (session_resource, module_resource) == (1, 1)
+
+
+@pytest.mark.xfail(strict=True, reason="known")
+def test_a_strict_xpass_is_not_repeated(testence_writer):
+    pass
+"""
+
+
+def test_a_repeat_keeps_the_scopes_around_the_test(tmp_path: Path):
+    """A repeat is the next test: the module and session fixtures around it stay up.
+
+    Torn down as for the real next test, the last test of a module lost its module
+    fixture, and the last test of the run the session ones, which the repeat then
+    set up a second time (launch-hardening audit, cycle 4).
+    """
+    project = tmp_path / "scopes-consumer"
+    project.mkdir()
+    (project / "conftest.py").write_text(SCOPES_CONFTEST.lstrip(), encoding="utf-8")
+    (project / "test_a.py").write_text(LAST_IN_MODULE_FAILS_ONCE.lstrip(), encoding="utf-8")
+    (project / "test_b.py").write_text(LATER_MODULE.lstrip(), encoding="utf-8")
+
+    result, events = _run(project, "--testence-reruns", "1")
+
+    summary = result.stdout.strip().splitlines()[-1]
+    assert all(part in summary for part in ("1 failed", "3 passed", "1 rerun")), result.stdout
+    assert (project / "session-setups.txt").read_text() == "1"
+    assert (project / "module-setups-test_a.txt").read_text() == "1"
+    (xpass,) = _ends(events, "test_a_strict_xpass_is_not_repeated")
+    assert xpass["status"] == "failed" and "rerun" not in xpass

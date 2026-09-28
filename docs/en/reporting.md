@@ -79,6 +79,17 @@ carries `testence.retries`, `testence.flaky` and one `testence.rerun` property p
 earlier attempt. `testence ci evaluate --flaky fail` turns a pass after a rerun into a
 quality failure; the default `warn` lists it in the receipt.
 
+Module, class and session fixtures stay set up between attempts: the repeat is the
+next test. Where the test sits next to other plugins:
+
+- With pytest-rerunfailures also given `--reruns`, `--testence-reruns` decides and its
+  options (`--reruns-delay`, `--only-rerun`) do not apply; use one of the two.
+- pytest-timeout's `thread` method, the only one on Windows, ends the whole process on
+  a timeout: nothing is repeated and the run has no `run.end`. Prefer a timeout on the
+  check (`timeout_ms`) or `--timeout-method=signal` where it exists.
+- pytest's own `--junitxml` does not know a repeated attempt and writes it as a passed
+  test case; use `testence export --to junit` for a report of the attempts.
+
 ## Uploading results to Allure TestOps
 
 Two ways to feed TestOps, both writing the standard Allure *results directory*:
@@ -153,7 +164,12 @@ allure-pytest creates: `fullName` is `package.module[.Class]#test` without param
 and `testCaseId`/`historyId` use allure-pytest's formulas. Existing TestOps test cases,
 their history and manual-to-automated links carry over. `@allure.feature`, `story`,
 `severity`, `id`, `label`, `link`, `issue`, `testcase`, `title` and `description` are
-read from the marks they create, with or without allure-pytest installed. A test bound
+read from the marks they create, with or without allure-pytest: where the `allure`
+package is installed without it, Testence makes the decorators create those marks.
+`allure.dynamic.title`, `description`, `link` and the label calls (`feature`,
+`severity`, `tag`...) made while a test runs reach that attempt's result, as in
+allure-pytest; `allure.dynamic.parameter` does not, the parameters are pytest's. `allure.step` and `allure.attach` are not carried over: the Allure steps
+of a result are its Testence steps, and its attachments the evidence. A test bound
 to a PlanSpec case keeps its Testence identity, because that id survives a rename.
 `export.allure.naming: nodeid` restores the identities Testence 0.1.0a1 exported.
 
@@ -218,6 +234,11 @@ instead pass `--testence-testplan-unresolved=fail` (or
 --testplan-unresolved fail` turns reported entries into a quality failure. A plan in
 which nothing resolves always fails before execution. An intentionally empty plan
 requires `--testence-empty-testplan=noop`.
+
+allure-pytest, while it is still loaded, applies the same plan itself and knows only
+`id` and its own `fullName`: an entry selected by nodeid or `testence://` selects
+nothing there, and a malformed plan file stops it with an internal error. Disable it for
+such runs with `-p no:allure_pytest`; the decorators keep working (above).
 
 The T15 consumer check uses pinned Allure Report 3.14.3:
 

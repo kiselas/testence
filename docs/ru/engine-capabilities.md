@@ -34,9 +34,13 @@ Adapter может реализовать `CapabilityProvider`, `LifecycleEngine
 записанного шага:
 
 ```python
-with ex.native("перетащить карточку в колонку Done") as page:
-    page.drag_and_drop("[data-card=42]", "[data-column=done]")
-ex.expect_text(Target("testid", "done-count"), "1")
+with ex.native("расписаться на панели подписи") as page:
+    box = page.locator("canvas#signature").bounding_box()
+    page.mouse.move(box["x"] + 10, box["y"] + 10)
+    page.mouse.down()
+    page.mouse.move(box["x"] + 120, box["y"] + 40, steps=8)
+    page.mouse.up()
+ex.expect_enabled(Target("role", "button", name="Submit"))
 ```
 
 Шаг несёт intent, длительность и возможное падение, как любой другой, а событие ledger

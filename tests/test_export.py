@@ -610,6 +610,9 @@ def test_framework_imports_no_reporting_library():
     root = Path(testence.__file__).parent
     offenders: list[str] = []
     for path in root.rglob("*.py"):
+        if path == root / "allure_hooks.py":
+            continue  # ADR-0013 amendment: listens to allure_commons, writes to the ledger
+
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

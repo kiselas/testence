@@ -104,9 +104,11 @@ class Actions:
         *,
         weakenings: tuple[str, ...] = (),
         check: bool = False,
+        destination: Target | None = None,
     ) -> Iterator[None]:
         """One recorded step. ``check=True`` marks an assertion, which an open
-        ``ex.soft`` block records and lets the test continue past."""
+        ``ex.soft`` block records and lets the test continue past. ``destination``
+        is a second element the step acts on; a failure describes it too."""
         self._step_no += 1
         step_id = f"s{self._step_no}"
         depth = len(self._children)
@@ -131,6 +133,10 @@ class Actions:
                 if target is not None and not isinstance(exc, UnsupportedCapability)
                 else ""
             )
+            if destination is not None and not isinstance(exc, UnsupportedCapability):
+                there = self._describe_matches(destination)
+                if there:
+                    matches = f"source: {matches or 'unknown'}; destination: {there}"
             error = f"{exc.__class__.__name__}: {exc}"
             if matches:
                 error = f"{error} [{matches}]"
@@ -300,6 +306,14 @@ class Actions:
         with self.step(intent or f"hover {target.describe()}", target):
             require_capabilities(self.engine, "hover", Capability.DOM)
             self._engine_method("hover")(target)
+
+    def drag(self, source: Target, destination: Target, intent: str | None = None) -> None:
+        """Drag ``source`` onto ``destination``: a sortable list, a kanban card, a
+        drop zone. The step's fingerprint is the source's, the element that moves."""
+        described = f"drag {source.describe()} to {destination.describe()}"
+        with self.step(intent or described, source, destination=destination):
+            require_capabilities(self.engine, "drag", Capability.DOM)
+            self._engine_method("drag")(source, destination)
 
     def expect_text(
         self, target: Target, text: str, intent: str | None = None, *, exact: bool = True
@@ -584,7 +598,7 @@ class Actions:
     def native(self, intent: str) -> Iterator[Any]:
         """Hand the engine's own page object to code the DSL does not express.
 
-        ``with ex.native("drag the card to Done") as page: page.mouse...`` runs as one
+        ``with ex.native("sign on the pad") as page: page.mouse...`` runs as one
         recorded step: its intent, duration and failure land in the ledger like any
         other, and a ``native.used`` event marks that the interactions inside were not
         recorded one by one. Healing is not proposed for a failure inside, because no

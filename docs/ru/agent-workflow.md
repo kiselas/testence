@@ -147,10 +147,12 @@ Markdown-файл содержит ровно один JSON-блок `testence-p
 
 ```bash
 testence plan validate specs/checkout-discount.md --json
-testence plan prepare specs/checkout-discount.md --project . --profile staging --json
+testence plan prepare specs/checkout-discount.md --project . --json
 ```
 
-Запускайте `plan prepare` до открытия браузера. Объект `readiness` выбранного профиля
+Запускайте `plan prepare` до открытия браузера; `--profile <name>` выбирает профиль,
+объявленный в `profiles` файла `testence.json` ([конфигурация](configuration.md)). Объект
+`readiness`
 связывает сценарии с переиспользуемыми проверками `env`, проектного `file` и read-only
 `http`, а также объявляет подключённые oracle-адаптеры `api`, `custom`, `a11y` и
 `visual`. Команда сверяет возможности backend и обязательные oracle из assertions,
