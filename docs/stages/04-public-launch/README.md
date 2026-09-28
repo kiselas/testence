@@ -833,7 +833,7 @@ ledger; на каждое действие — тест на `tests/mock_app.py`
 | L17 | влито | #24 | — | — |
 | L04 | у владельца | — | — | живая проверка на кандидате `a2` |
 | L01 | не начато | — | — | подтверждение публикации владельцем |
-| L12 | п. 1–8 сделаны | #26, #27, #29, #30, #5; `ex.drag` — ветка `launch-hardening-4` | `tests/test_dsl_vocabulary.py`, `test_dsl_soft_tabs_clock.py`, `test_emulation.py`, `test_trace_video.py`, `test_reruns.py`, `test_dsl_drag.py` | п. 9 карантин. П. 8 сделан своей опцией `--testence-reruns` вместо extra `retry` с pytest-rerunfailures (MPL-2.0, решение владельца 28.09.2026, ADR-0007) |
+| L12 | п. 1–8 влиты | #26, #27, #29, #30, #5, #6 | `tests/test_dsl_vocabulary.py`, `test_dsl_soft_tabs_clock.py`, `test_emulation.py`, `test_trace_video.py`, `test_reruns.py`, `test_dsl_drag.py` | п. 9 карантин. П. 8 сделан своей опцией `--testence-reruns` вместо extra `retry` с pytest-rerunfailures (MPL-2.0, решение владельца 28.09.2026, ADR-0007) |
 | L11 | не начато | — | — | — |
 | L10 | ч. 1 влита | #28 | `tests/test_export_junit.py`; JUnit сверен с `junit-4.xsd` через lxml | рецепты в `docs/internal/integrations/` ждут живых проверок; Zephyr Scale не выяснен; Test IT, Qase, ReportPortal |
 | L13 | не начато | — | — | — |
