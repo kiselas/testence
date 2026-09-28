@@ -130,10 +130,17 @@ def test_the_windows_session_cache_is_readable_by_its_owner_only(tmp_path, monke
     listing = subprocess.run(
         ["icacls", str(cache)], capture_output=True, text=True, errors="replace"
     )
-    # The first line names the file as well; "Successfully processed" has no grant.
-    grants = [line for line in listing.stdout.splitlines() if ":(" in line]
-    assert len(grants) == 1, listing.stdout
-    assert os.environ.get("USERNAME", "").lower() in grants[0].lower()
+    # The first line starts with the file itself; "Successfully processed" has no grant.
+    text = listing.stdout.replace(str(cache), "", 1)
+    principals = {
+        line.strip().split(":(", 1)[0].lower() for line in text.splitlines() if ":(" in line
+    }
+    user = os.environ.get("USERNAME", "").lower()
+    owner = {principal for principal in principals if principal.split("\\")[-1] == user}
+    assert owner, listing.stdout
+    # A token's default DACL may grant these explicitly; both can take any file anyway.
+    others = principals - owner - {r"nt authority\system", r"builtin\administrators"}
+    assert not others, listing.stdout
 
 
 @pytest.mark.parametrize("spelling", ["http://127.0.0.1:{port}", "http://127.0.0.1.:{port}"])
