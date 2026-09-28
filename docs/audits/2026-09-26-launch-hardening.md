@@ -1,6 +1,7 @@
 # Укрепление перед стартом — 26 сентября 2026
 
-Статус: в работе, ветка `launch-hardening` от `main` на `28c951e`. Работа идёт циклами
+Статус: циклы 1–3 влиты в `main` (PR #5, `7e1e380`); циклы 4–5 — ветка
+`launch-hardening-4`. Исходная ветка `launch-hardening` от `main` на `28c951e`. Работа идёт циклами
 «аудит → критичные находки → исправление → повторный аудит», пока аудит не перестанет
 находить critical и high.
 
@@ -188,3 +189,86 @@ SPA с фреймами, shadow DOM, диалогами, upload/download, popup,
 
 Следующая проверка: `uv run pytest -q` и `uv run pytest examples -q --testence-headless`
 в CI на ветке `launch-hardening`.
+
+## Цикл 4 (28.09.2026)
+
+PR [kiselas/testence#5](https://github.com/kiselas/testence/pull/5) с циклами 1–3 открыт
+в `main`. Цикл 4 идёт в ветке `launch-hardening-4` и проверяет то, чего циклы 1–3 не
+касались. К критериям K1–K9 добавлены:
+
+| ID | Критерий | Как проверяется |
+|---|---|---|
+| K10 | Цикл агента | агент только по навыкам plan/author/triage/repair и `agent-workflow.md` проходит план → тест → поломка UI → разбор по `inspect --json` и pack → починка → зелёный; каждая названная команда, флаг и поле существуют |
+| K11 | Переход с allure-pytest и TestOps | набор на `@allure.*`, `allure.dynamic.*`, `parametrize(ids=...)` сохраняет `historyId`, `testCaseId`, метки, ссылки и параметры — с allure-pytest и без него; test plan TestOps выбирает нужное; рецепты документации работают буквально |
+| K12 | Платформы | CI зелёный на Linux, macOS и Windows, Python 3.10 и 3.12, в том числе на минимальных версиях зависимостей |
+| K13 | Повторы среди плагинов | `--testence-reruns` верен со всеми scope фикстур, xdist `load`/`loadscope`/`loadfile`, `-x`, `--lf`, xfail, pytest-timeout, pytest-rerunfailures |
+
+Аудит: три агента на sonnet (K10, K11, K13) в отдельных venv из wheel рабочего дерева;
+K12 — CI PR #5.
+
+| ID | Уровень | Находка | Статус |
+|---|---|---|---|
+| A4-01 | critical | Без allure-pytest декораторы `@allure.*` ничего не делали: пакет `allure` создаёт метки только через слушателя, которого регистрирует allure-pytest. Набор, закончивший переход и удаливший allure-pytest, молча терял метки, ссылки, id и заголовки (K11). Эталон в `tests/fixtures/allure-pytest-reference` пишет сырые метки и поэтому этого не ловил | исправлено: `testence.allure_hooks` регистрирует тех же слушателей, если allure-pytest не активен; дополнение к ADR-0013; `tests/test_allure_hooks.py` на настоящем пакете `allure` (dev-группа `allure-python-commons`, Apache-2.0) |
+| A4-02 | high | `allure.dynamic.*` не попадал в экспорт ни с allure-pytest, ни без него | исправлено: значения попытки пишутся в `test.end.allure_dynamic` и накладываются на результат Allure, как в allure-pytest |
+| A4-03 | medium | `@allure.severity(allure.severity_level.CRITICAL)` экспортировался как `Severity.CRITICAL` | исправлено: значение Enum |
+| A4-04 | high (docs) | `allure.step` и `allure.attach` не переносятся, а раздел о переходе этого не говорил | описано в `reporting.md` (en/ru): шаги Allure — шаги Testence, вложения — evidence |
+| A4-05 | high | При загруженном allure-pytest он сам применяет test plan TestOps: запись с nodeid или `testence://` у него ничего не выбирает, испорченный файл плана — INTERNALERROR в allure-pytest | описано с обходом `-p no:allure_pytest` (после A4-01 декораторы без него работают); код стороннего плагина не меняется |
+| A4-06 | medium | Секретное значение параметра без `ids=` остаётся в имени варианта (`test_login[hunter2]`) | оставлено: плагин предупреждает `PytestWarning` с советом дать `ids=`; маскировать nodeid значит менять идентичность теста |
+| A4-07 | high | `--testence-reruns`: попытка, которую повторяют, разбиралась как перед настоящим следующим тестом; у последнего теста модуля или прогона это сносило фикстуры модуля и сессии, и повтор создавал их второй раз (K13) | исправлено: teardown такой попытки получает `nextitem=item`, а хук разбирает только сам тест и сломанный scope; тест `test_a_repeat_keeps_the_scopes_around_the_test` |
+| A4-08 | medium | Строгий XPASS повторялся, хотя документация обещает, что xfail не повторяется | исправлено: оценённый pytest xfail не повторяется |
+| A4-09 | medium (docs) | Не описано поведение рядом с pytest-rerunfailures (`--reruns` вместе с `--testence-reruns`), pytest-timeout (метод `thread` завершает процесс, ledger без `run.end`) и собственным `--junitxml` | описано в `reporting.md` (en/ru) |
+| A4-10 | low | `-rR` не перечисляет повторы в сводке pytest (в терминале есть `R` и счётчик `N rerun`) | оставлено |
+| A4-11 | medium | Навык автора и `agent-workflow.md` предлагали `--profile staging`; у проекта из `testence init` профилей нет, команда падает с кодом 2 (K10) | исправлено: `--profile` необязателен и описан |
+| A4-12 | low | `agent install --client claude` копирует и `agents/openai.yaml` | оставлено: файл инертен, а фильтр по клиенту меняет digest набора |
+| A4-13 | low | Навык repair не называл файл памяти fingerprint | исправлено: `.testence/fingerprints.json` |
+| A4-14 | high (фича) | Нет drag-and-drop (L12 п. 1): kanban, сортировка, слайдер уходили в `ex.native` без шага и fingerprint | сделано: `ex.drag(source, destination)`, падение описывает и источник, и цель; `tests/test_dsl_drag.py` |
+| A4-R1 | high | CI минимальных зависимостей (pytest 8.0): повтор метода класса получал прежний `self` — у 8.0 нет `Function._instance` | исправлено в PR #5 (`c521fc4`), проверено на pytest 8.0 |
+| A4-R2 | medium | Тест ACL кэша на Windows падал на раннерах GitHub: `icacls` печатает по-разному, а DACL раннера явно даёт права SYSTEM, Administrators и OWNER RIGHTS | исправлено в PR #5 (`c521fc4`, `700108e`, `9d7b518`): тест падает только на правах кого-то ещё |
+
+Проверено и чисто (по отчётам агентов): `doctor`, `init`, `agent install/verify`, `plan
+validate/prepare` (fail closed на сценарии без readiness и на отсутствующем oracle),
+сообщение о поломке UI с готовой `Target(...)`, полный pack (`heal.json`, `aria.txt`,
+`TRIAGE.md` и др.), `verdict validate`, `repair validate`; `fullName`/`testCaseId`/
+`historyId` совпадают с allure-pytest; потоковый экспорт побайтно равен экспорту после
+прогона; test plan по `id` и `fullName`; повторы с `-x`, `--lf`, `--runxfail`,
+`pytest.exit`, xdist `load`/`loadscope`/`loadfile`, падение воркера; Python 3.10.21.
+
+### Проверки после исправлений цикла 4
+
+- `ruff format --check`, `ruff check`, `mypy src scripts` — чисто.
+- `pytest -q -n 4`: 691 passed, 2 skipped (6 мин 25 с). Предыдущий прогон нашёл две
+  проблемы, обе исправлены: замороженный `tests/test_identity.py` передаёт фиктивный item
+  без `config` (слушатель `allure.dynamic` теперь ищется через `getattr`), а сводка
+  pytest под нагрузкой несла лишнее «1 warning» (проверка по частям).
+- `pytest examples -q --testence-headless`: 5 passed, 1 skipped.
+- `tests/test_reruns.py` на pytest 8.0.0 и 9.1: 11 passed; протокол повторов вручную под
+  xdist `--dist loadscope` и с `--runxfail` — фикстуры модуля создаются один раз.
+- K12: CI PR #5 на `9d7b518` — все задачи Linux, macOS и Windows (Python 3.10, 3.12,
+  минимальные зависимости, Quality, Visual) зелёные; PR влит squash-коммитом `7e1e380`.
+
+## Цикл 5 — повторный аудит
+
+Агент на sonnet проверил дифф цикла 4: протокол повторов против `_pytest.runner`
+(вложенные классы, все scope, сломанный `setup_module` у последнего теста, падение
+teardown на повторяемой попытке, варианты xfail, `--maxfail`), слушатель allure
+(маскирование `allure_dynamic` при записи и экспорте, попытки не смешиваются, потоковый
+экспорт, `--strict-markers`), `drag` и документацию en/ru. Critical и high нет.
+
+| ID | Уровень | Находка | Статус |
+|---|---|---|---|
+| A5-01 | low | Описание цели drag не выводилось, если описание источника пустое | исправлено |
+| A5-02 | low | `allure.dynamic.parameter` не переносится | описано в `reporting.md`: параметры берутся из pytest |
+| A5-03 | low | Вложенный `pytest.main()` внутри теста регистрирует второго слушателя в общем `allure_commons.plugin_manager`; внешний накапливает значения, которые никто не читает | оставлено |
+
+## Выход из цикла 4–5
+
+| Критерий | Итог |
+|---|---|
+| K1–K9 | сохраняются: полный набор и examples зелёные, статические гейты чистые |
+| K10 | выполнен: цикл агента проходит по навыкам; единственная medium-находка (`--profile staging`) исправлена |
+| K11 | выполнен: декораторы и `allure.dynamic.*` переносятся с allure-pytest и без него; ограничения (шаги, вложения, test plan при загруженном allure-pytest) описаны |
+| K12 | выполнен: CI PR #5 зелёный на трёх ОС, Python 3.10/3.12 и минимальных зависимостях |
+| K13 | выполнен: повторы сохраняют scope, не трогают xfail, поведение рядом с другими плагинами описано |
+
+Открыто для владельца: L11 Firefox/WebKit, L13 MCP, L05 полностью, L15, L12 п. 9
+карантин, релиз L01; A4-06 (секрет в id варианта без `ids=`), A4-12, A5-03.

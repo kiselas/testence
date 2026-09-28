@@ -35,9 +35,13 @@ When the DSL cannot express an interaction, `ex.native` hands over the Playwrigh
 `Page` inside one recorded step:
 
 ```python
-with ex.native("drag the card to the Done column") as page:
-    page.drag_and_drop("[data-card=42]", "[data-column=done]")
-ex.expect_text(Target("testid", "done-count"), "1")
+with ex.native("sign on the signature pad") as page:
+    box = page.locator("canvas#signature").bounding_box()
+    page.mouse.move(box["x"] + 10, box["y"] + 10)
+    page.mouse.down()
+    page.mouse.move(box["x"] + 120, box["y"] + 40, steps=8)
+    page.mouse.up()
+ex.expect_enabled(Target("role", "button", name="Submit"))
 ```
 
 The step carries the intent, duration and any failure like every other step, and a

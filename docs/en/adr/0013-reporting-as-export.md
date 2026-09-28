@@ -36,3 +36,14 @@ reporters can be added without changing execution.
 If an exporter needs data absent from the ledger, extend the append-only evidence
 schema instead of instrumenting test code. Repeated upstream format drift should
 trigger explicit version pinning or deprecation.
+
+## Amendment (2026-09-28): the allure compatibility listener
+
+A suite moving from allure-pytest keeps its `@allure.*` decorators and
+`allure.dynamic.*` calls. The `allure` package turns them into data only through
+listeners registered in `allure_commons`, which allure-pytest provides; without it they
+did nothing. `testence.allure_hooks` is the one module allowed to import
+`allure_commons`, and only when that package is installed (it is not a dependency). It
+registers the same listeners, so decorators create the pytest marks the ledger already
+records, and it records dynamic values on `test.end` (`allure_dynamic`). It never writes
+Allure results: the ledger stays the only source of truth, and the export is unchanged.

@@ -9,7 +9,7 @@ Repair only after the failure has a validated verdict. A locator guess is not a 
 
 ## Workflow
 
-1. Read the validated `verdict.json`, PlanSpec, evidence pack, failing source, and the last relevant green fingerprint or run.
+1. Read the validated `verdict.json`, PlanSpec, evidence pack, failing source, and the last relevant green fingerprint (`.testence/fingerprints.json`, keyed by test and step intent) or run.
 2. Apply the category gate in [references/repair-gates.md](references/repair-gates.md). Stop when the verdict calls for a product or environment fix instead of a test change.
 3. Create a `testence/repair-proposal/1` document before editing: bind the verdict, PlanSpec semantics and source base digests; record the affected step, exact diff and proving scope.
 4. If the user requested only investigation or a proposal, do not apply it. If implementation was requested and host permissions allow it, make the smallest visible edit.

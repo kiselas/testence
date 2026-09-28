@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from testence.allure_compat import ALLURE_ID_LABELS, with_dynamic
 from testence.evidence.reconcile import reconcile_events
 from testence.evidence.sanitize import DEFAULT_POLICY, RedactionPolicy, redact_document_text
 from testence.status import execution_failed, normalize_execution_status
@@ -414,6 +415,16 @@ class LoadedRun:
                 test.screenshot = str(doc.get("screenshot") or test.screenshot)
                 if doc.get("pack"):
                     test.pack_dir = doc["pack"]
+                if isinstance(doc.get("allure_dynamic"), dict):
+                    test.allure = with_dynamic(test.allure, doc["allure_dynamic"])
+                    test.allure_id = test.allure_id or next(
+                        (
+                            str(item["value"])
+                            for item in test.allure["labels"]
+                            if item.get("name") in ALLURE_ID_LABELS and item.get("value")
+                        ),
+                        "",
+                    )
                 test.rerun = doc.get("rerun") is True
                 test.flaky = doc.get("flaky") is True
             elif kind == "step.start":

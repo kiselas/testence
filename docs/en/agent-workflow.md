@@ -145,10 +145,12 @@ Validate the plan before execution and bind tests only to declared claim IDs:
 
 ```bash
 testence plan validate specs/checkout-discount.md --json
-testence plan prepare specs/checkout-discount.md --project . --profile staging --json
+testence plan prepare specs/checkout-discount.md --project . --json
 ```
 
-Run `plan prepare` before opening a browser. The selected profile's `readiness` object
+Run `plan prepare` before opening a browser; `--profile <name>` selects a profile that
+`testence.json` declares under `profiles` ([configuration](configuration.md)). The
+`readiness` object
 maps scenarios to reusable `env`, project-relative `file`, and read-only `http` checks,
 and declares installed `api`, `custom`, `a11y`, or `visual` oracle adapters. The command
 checks backend capabilities and every required assertion oracle, executes each shared

@@ -7,6 +7,9 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Added
 
+- `ex.drag(source, destination)` drags an element onto another: HTML5
+  drag-and-drop and mouse-driven controls alike. A failure names what both the source
+  and the destination matched. Skill pack 0.1.9 lists it for `testence-author`.
 - Skill pack 0.1.8: `testence-author` uses `ex.clock.run_for` for self-rescheduling
   timers and reads what a failed step's target matched before changing it.
 - `ex.clock.run_for(ticks)` advances fake time and fires every timer on the way, so a
@@ -92,6 +95,16 @@ under `Unreleased`; compatibility is not guaranteed.
   earlier release leaves redacted.
 
 ### Fixed
+
+- `@allure.*` decorators work without allure-pytest. The `allure` package makes marks
+  only through a listener allure-pytest registers, so a suite that dropped allure-pytest
+  lost every label, link, id and title without a warning; Testence now registers the
+  same listener (ADR-0013 amendment). `allure.dynamic.*` calls reach the attempt's
+  Allure result, and an Enum severity exports as `critical`, not `Severity.CRITICAL`.
+- `--testence-reruns` keeps the module, class and session fixtures around a repeated
+  test: a failed last test of a module or run tore them down, and the repeat set them
+  up again. A strict XPASS is no longer repeated. On pytest 8.0 a repeated test method
+  gets a fresh instance.
 
 - `.env` values kept a trailing `# comment`, so `PASSWORD=s3cret  # rotate` logged in
   with the comment as part of the password. A bare value now ends at whitespace followed

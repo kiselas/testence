@@ -54,8 +54,11 @@ produces an inconclusive one. Do not relabel browser errors as product violation
 Before discovery, run the project's readiness contract:
 
 ```bash
-testence plan prepare specs/widgets-create.md --project . --profile staging --json
+testence plan prepare specs/widgets-create.md --project . --json
 ```
+
+Add `--profile <name>` only when `testence.json` declares that profile; a project from
+`testence init` has none, and an unknown profile exits 2.
 
 Exit 3 is an actionable blocked result: use its scenario blockers to prepare the target
 or narrow the authorized scope. Exit 2 means the PlanSpec or readiness configuration is

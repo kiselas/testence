@@ -848,6 +848,15 @@ class PlaywrightCdpEngine(Engine):
         with self._timed("hover", target.describe()):
             self._locate(target).hover()
 
+    def drag(self, source: Target, destination: Target) -> None:
+        """Press on ``source``, move to ``destination`` and release there.
+
+        Playwright moves a real pointer, so both mouse-driven sortables and the
+        HTML5 drag-and-drop events (``dragstart``, ``drop``) see an ordinary drag.
+        """
+        with self._timed("drag", f"{source.describe()} -> {destination.describe()}"):
+            self._locate(source).drag_to(self._locate(destination))
+
     def set_checked(self, target: Target, checked: bool) -> None:
         """Check or uncheck; a no-op when the control is already in that state."""
         with self._timed("check" if checked else "uncheck", target.describe()):
