@@ -91,7 +91,10 @@ headers и cookies, а `Settings.describe()`, записываемый в `run.j
 origin из `base_url` и из необязательного списка `api_allowed_origins`. Абсолютный URL
 с другим host или port, переход с HTTPS на HTTP и redirect на другой origin завершаются
 ошибкой до передачи credentials. Поэтому cross-origin API требует явной записи в
-profile. Для browser cookies дополнительно соблюдаются domain, path, secure и expiry.
+profile. Браузер следует тому же правилу: заголовки Bearer и Basic добавляются только к
+запросам на эти origin и никогда — к CDN, аналитике или хостингу шрифтов, с которых
+грузится страница. Для browser cookies дополнительно соблюдаются domain, path, secure и
+expiry.
 
 ## Необязательный session cache
 

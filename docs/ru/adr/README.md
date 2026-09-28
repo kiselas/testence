@@ -31,7 +31,6 @@
 | [0020](0020-application-cli-contract.md) | Явный onboarding/submission CLI с manifests | accepted |
 | [0021](0021-isolated-runtime-ownership.md) | Изоляция state по тестам и явное владение browser | accepted |
 | [0022](0022-engine-capability-negotiation.md) | Версионированные capabilities и strict action preflight | accepted |
-
 | [0023](0023-visual-baseline-proof.md) | Визуальный контракт с фиксированным эталоном и клиентская эмуляция | implemented (engineering) |
 | [0024](0024-evidence-redaction-policy.md) | Маскировка evidence по частям имён и форме значений с записанной политикой | accepted |
 | [0025](0025-parameter-display-values.md) | Замаскированные отображаемые значения параметров в ledger | accepted |

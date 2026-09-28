@@ -83,7 +83,13 @@ def create_engine(settings: Any, backend: str = "playwright-cdp") -> Engine:
         trace=str(settings.evidence_config().get("trace", "off")),
         video=str(settings.evidence_config().get("video", "off")),
         screenshot_masks=_screenshot_masks(settings),
+        credential_origins=_credential_origins(settings),
     )
+
+
+def _credential_origins(settings: Any) -> tuple[str, ...]:
+    extra = settings.extra.get("api_allowed_origins") or ()
+    return (extra,) if isinstance(extra, str) else tuple(str(url) for url in extra)
 
 
 _MISSING_BROWSER = (

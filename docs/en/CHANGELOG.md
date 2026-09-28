@@ -7,6 +7,8 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Added
 
+- Skill pack 0.1.10: `testence-author` knows that `ex` is logged in and marks tests
+  of the login page or public pages `anonymous=True`.
 - `ex.drag(source, destination)` drags an element onto another: HTML5
   drag-and-drop and mouse-driven controls alike. A failure names what both the source
   and the destination matched. Skill pack 0.1.9 lists it for `testence-author`.
@@ -72,6 +74,10 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Security
 
+- Bearer and Basic auth headers were set on the whole browser context, so the token or
+  the password went with every request the page made, to any origin: a CDN, analytics,
+  a font host. They now go only to `base_url` and `api_allowed_origins`, as with
+  `ApiClient`; header auth without either is refused.
 - A settings profile replaced every table of the base file it restated, so a profile
   that added one `extra` key dropped the base's `evidence.redact` rules and the secrets
   they mask reached that profile's evidence in clear text. Profiles now merge table by
@@ -95,6 +101,18 @@ under `Unreleased`; compatibility is not guaranteed.
   earlier release leaves redacted.
 
 ### Fixed
+
+- A test that asked only for `ex` ran anonymous although `auth.md` said the browser is
+  logged in first; `ex` now logs in with the configured scheme, and a test of the login
+  page or of public pages says `@pytest.mark.testence(anonymous=True)`.
+- Heal proposals named a labelled field by its placeholder, cut names at 80 characters
+  and looked at the first 400 elements, hidden ones included, so a proposal could find
+  nothing. Candidates now carry the accessible name a role locator resolves, and a
+  proposal must address exactly one element.
+- The `auth.md` oracle example called `verify` with four arguments and raised
+  `TypeError`; every Python snippet in the docs is now compiled by the test suite.
+  `testence.adapters.AuthAdapter` is the `testence.auth` protocol (ADR-0010) instead of
+  a second, contradicting one.
 
 - `@allure.*` decorators work without allure-pytest. The `allure` package makes marks
   only through a listener allure-pytest registers, so a suite that dropped allure-pytest

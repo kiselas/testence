@@ -186,3 +186,45 @@ def test_proposal_json_is_evidence_safe():
         "suggested_edit",
     }
     assert len(document["considered"]) <= 5
+
+
+class CountingEngine(FakeEngine):
+    """Also answers ``count``, as the real engine does."""
+
+    def __init__(self, candidates: list[dict[str, Any]], counts: dict[str, int]) -> None:
+        super().__init__(candidates)
+        self._counts = counts
+
+    def count(self, target: Target) -> int:
+        return self._counts.get(target.name or target.value, 0)
+
+
+def test_a_proposal_addresses_one_element():
+    """A name shared by several rows would hand the reviewer an edit that fails."""
+    renamed = dict(SAVE_FP, text="Store")
+    engine = CountingEngine(
+        [
+            _candidate(renamed, {"kind": "role", "value": "button", "name": "Store"}),
+            _candidate(renamed, {"kind": "css", "value": "#save"}),
+        ],
+        {"Store": 3, "#save": 1},
+    )
+    proposal = propose(engine, "save the form", Target("role", "button", name="Save"), SAVE_FP)
+
+    assert proposal is not None
+    assert proposal.new_target == {"kind": "css", "value": "#save"}
+
+
+def test_a_proposal_with_no_unique_address_says_so():
+    engine = CountingEngine(
+        [
+            _candidate(
+                dict(SAVE_FP, text="Store"), {"kind": "role", "value": "button", "name": "Store"}
+            )
+        ],
+        {"Store": 2},
+    )
+    proposal = propose(engine, "save the form", Target("role", "button", name="Save"), SAVE_FP)
+
+    assert proposal is not None and proposal.ambiguous
+    assert "matches 2 elements" in proposal.rationale

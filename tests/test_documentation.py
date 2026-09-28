@@ -123,3 +123,28 @@ def test_documented_skill_pack_version_matches_the_shipped_pack() -> None:
         text = (ROOT / relative).read_text(encoding="utf-8")
         quoted = re.findall(r"`testence/skill-pack/1`, (?:version|версия) `([^`]+)`", text)
         assert quoted == [version], f"{relative} documents {quoted}, pack ships {version}"
+
+
+def _python_snippets() -> list[tuple[Path, str]]:
+    pages = [ROOT / "README.md", *sorted((ROOT / "docs").glob("*/*.md"))]
+    return [
+        (page, match.group(1))
+        for page in pages
+        for match in re.finditer(r"```python\n(.*?)```", page.read_text(encoding="utf-8"), re.S)
+    ]
+
+
+def test_every_python_snippet_in_the_docs_compiles_and_calls_verify_with_its_signature() -> None:
+    """A snippet a reader copies must at least parse, and the low-level oracle takes
+    ``(writer, test_id, name, ui_view, api_view)``: ``auth.md`` once showed it with
+    four arguments, which raises TypeError (product review 2026-09-28)."""
+    import ast
+
+    snippets = _python_snippets()
+    assert snippets
+    for page, code in snippets:
+        tree = ast.parse(code, filename=str(page))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                if node.func.id == "verify":
+                    assert len(node.args) == 5, f"{page}: verify() needs five arguments"

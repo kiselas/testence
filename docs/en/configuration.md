@@ -92,8 +92,10 @@ filing.
 of `base_url` and the optional `api_allowed_origins` list. An absolute URL on another
 host or port, an HTTPS-to-HTTP downgrade, and a redirect to another origin fail before
 credentials reach the destination. Cross-origin API access therefore requires an
-explicit profile entry. Browser cookies additionally keep their domain, path, secure
-and expiry scope.
+explicit profile entry. The browser follows the same rule: Bearer and Basic headers
+are added only to requests for those origins, never to a CDN, analytics or font host
+the page loads from. Browser cookies additionally keep their domain, path, secure and
+expiry scope.
 
 ## Optional session cache
 

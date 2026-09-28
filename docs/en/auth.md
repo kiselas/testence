@@ -29,23 +29,36 @@ the API as the same user the UI is logged in as, or its diff proves nothing.
 | Attached | `attached` | reuse a Chrome you already logged into; no credentials in play |
 | None | `none` | public app |
 
-Authentication is session-scoped. Measure form and API-session strategies against
-your own application; network topology and identity providers dominate the result.
+Each test logs in once, in its own fresh browser context; `session_cache_ttl_s`
+([configuration](configuration.md)) reuses a session between tests. Measure form and
+API-session strategies against your own application; network topology and identity
+providers dominate the result.
+
+Bearer and Basic headers go only to `base_url` and the origins in
+`api_allowed_origins`: a CDN, analytics or font host the page loads from never
+receives the token or the password.
 
 ## Using it in tests
 
-The plugin does the work; a test just asks for what it needs:
+The plugin does the work; a test just asks for what it needs. `ex` is already
+logged in with the configured scheme:
 
 ```python
 def test_widget_matches_api(ex, testence_api):
     ex.goto("/widgets/42", intent="open the widget")
     ui = {"cidr": ex.engine.read_text(CIDR_FIELD)}
     api = testence_api.get("/api/v1/widgets/42").raise_for_status().json
-    verify(ex.writer, "widget", ui, api)      # oracle: UI vs API
+    ex.verify("widget", {"cidr": api["cidr"]}, ui)      # oracle: API vs UI
 ```
 
-Fixtures: `testence_settings` (resolved config), `testence_auth` (the `AuthContext`,
-session-scoped), `testence_api` (`ApiClient` on that session), `ex` (the DSL).
+Fixtures: `testence_settings` (resolved config), `testence_auth` (the test's
+`AuthContext`), `testence_api` (`ApiClient` on that session), `ex` (the DSL, logged
+in). A test of the login page itself, or of public pages, opts out:
+
+```python
+@pytest.mark.testence(anonymous=True)
+def test_login_rejects_a_wrong_password(ex): ...
+```
 
 ## Project-specific forms
 
