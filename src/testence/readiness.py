@@ -165,6 +165,19 @@ def _json_pointer(document: Any, pointer: str) -> tuple[bool, Any]:
     return True, current
 
 
+def _origin(url: str) -> tuple[str, str, int]:
+    """Scheme, host and port as ApiClient compares them; ``http://h`` is ``http://h:80``
+    and ``h.`` is ``h``. A URL that is not an absolute HTTP(S) one matches nothing."""
+    from .api import UnsafeRequestTarget
+    from .api import _origin as api_origin
+
+    try:
+        scheme, host, port = api_origin(url)
+    except UnsafeRequestTarget:
+        return "", url, -1
+    return scheme, host.rstrip("."), port
+
+
 def _safe_url(url: str) -> str:
     """Remove query material and user info before a target URL enters a report."""
 
@@ -231,6 +244,13 @@ def _run_check(check: dict[str, Any], *, project: Path, settings: Settings) -> t
         response = exc
     except (OSError, TimeoutError) as exc:
         return False, f"GET {report_url} failed: {type(exc).__name__}"
+    # A redirect to another host lets that host answer for the target, while the
+    # report names only the configured URL. The check carries no credentials, so
+    # refusing the answer is enough; ApiClient refuses the redirect itself.
+    final_url = str(getattr(response, "url", "") or url)
+    if _origin(final_url) != _origin(url):
+        response.close()
+        return False, f"GET {report_url} redirected to another origin"
     with response:
         status = int(response.status)
         body = response.read(1_048_577)

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from pathlib import Path
 
 from testence.evidence.sanitize import redact_events
@@ -205,11 +206,28 @@ for (const [name, events] of byTest) {
 """
 
 
+# The HTML parser ends a <script> block at the first "</script" and treats "<!--"
+# inside it specially, whatever the JavaScript around them says, and U+2028/U+2029
+# end a line in older JavaScript. Console messages, URLs and page text all reach the
+# events, so each of these is written as its JSON escape, which parses back to the
+# same string.
+_SCRIPT_SAFE = str.maketrans(
+    {"<": "\\u003c", ">": "\\u003e", "&": "\\u0026", " ": "\\u2028", " ": "\\u2029"}
+)
+
+
+_PLACEHOLDER = re.compile("__RUN_ID__|__EVENTS__")
+
+
+def _script_json(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False).translate(_SCRIPT_SAFE)
+
+
 def render_report(run_dir: Path, out: Path) -> Path:
     events = redact_events(load_run(run_dir))
     run_id = str(next((e.get("run_id") or e.get("run") for e in events), run_dir.name))
-    page = _TEMPLATE.replace("__RUN_ID__", html.escape(run_id)).replace(
-        "__EVENTS__", json.dumps(events, ensure_ascii=False)
-    )
+    # One pass, so a run id that spells a placeholder stays a run id.
+    values = {"__RUN_ID__": html.escape(run_id), "__EVENTS__": _script_json(events)}
+    page = _PLACEHOLDER.sub(lambda match: values[match.group(0)], _TEMPLATE)
     out.write_text(page, encoding="utf-8", newline="\n")
     return out

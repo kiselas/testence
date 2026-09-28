@@ -31,11 +31,18 @@ if TYPE_CHECKING:
 
 
 class StepFailed(AssertionError):
-    def __init__(self, intent: str, cause: Exception, target: Target | None = None) -> None:
-        super().__init__(f"step failed: {intent} ({cause.__class__.__name__}: {cause})")
+    def __init__(
+        self, intent: str, cause: Exception, target: Target | None = None, matches: str = ""
+    ) -> None:
+        # What the target matched goes before the cause: Playwright appends a
+        # multi-line call log to its message, and the answer should not sit under it.
+        found = f": {matches}" if matches else ""
+        super().__init__(f"step failed: {intent}{found} ({cause.__class__.__name__}: {cause})")
         self.intent = intent
         self.cause = cause
         self.target = target
+        #: What the target resolved to when the step failed, or "" if unknown.
+        self.matches = matches
 
 
 @dataclass
@@ -119,7 +126,14 @@ class Actions:
         try:
             yield
         except Exception as exc:
+            matches = (
+                self._describe_matches(target)
+                if target is not None and not isinstance(exc, UnsupportedCapability)
+                else ""
+            )
             error = f"{exc.__class__.__name__}: {exc}"
+            if matches:
+                error = f"{error} [{matches}]"
             self.last_failure = StepFailure(intent=intent, target=target, error=error)
             # Only a completed check that disagreed is softened: an action that failed,
             # an unavailable engine or a broken browser still stops the test.
@@ -146,7 +160,7 @@ class Actions:
                 return
             if isinstance(exc, UnsupportedCapability):
                 raise
-            raise StepFailed(intent, exc, target) from exc
+            raise StepFailed(intent, exc, target, matches) from exc
         fingerprint = self.engine.element_fingerprint(target) if target else None
         if fingerprint and target is not None and self.store is not None:
             # Remember what "working" looked like: the only baseline a heal
@@ -162,6 +176,16 @@ class Actions:
             depth=depth,
             children=self._children.pop(),
         )
+
+    def _describe_matches(self, target: Target) -> str:
+        """The engine's account of what ``target`` matches now; "" if it has none."""
+        describe = getattr(self.engine, "describe_matches", None)
+        if not callable(describe):
+            return ""
+        try:
+            return str(describe(target))
+        except Exception:  # noqa: BLE001 - a diagnostic never replaces the failure
+            return ""
 
     def _engine_method(self, name: str) -> Callable[..., Any]:
         """An engine operation added after the first Engine protocol.
@@ -649,8 +673,11 @@ class Clock:
     """``ex.clock``: the page's fake timers, each call a recorded step.
 
     Install before the page reads the time (before ``goto`` for a page that renders
-    it on load). ``fast_forward`` runs the timers due in the interval;
-    ``pause_at`` stops time at a moment; ``set_fixed_time`` pins ``Date.now()``
+    it on load). ``run_for`` advances time and fires every timer on the way,
+    including ones those timers schedule — a countdown of ``setTimeout(tick, 1000)``
+    reaches zero. ``fast_forward`` jumps, like a laptop lid closed and opened: each
+    due timer fires at most once, so a chain started during the jump does not finish
+    until real time catches up. ``pause_at`` stops time at a moment; ``set_fixed_time`` pins ``Date.now()``
     while timers keep running. Times are Playwright's: an ISO string, a
     ``datetime`` or epoch milliseconds; ticks are milliseconds or ``"mm:ss"``.
     """
@@ -670,6 +697,9 @@ class Clock:
 
     def fast_forward(self, ticks: int | str, intent: str | None = None) -> None:
         self._run(intent or f"fast-forward the clock by {ticks!r}", "clock_fast_forward", ticks)
+
+    def run_for(self, ticks: int | str, intent: str | None = None) -> None:
+        self._run(intent or f"run the clock for {ticks!r}", "clock_run_for", ticks)
 
     def pause_at(self, time: Any, intent: str | None = None) -> None:
         self._run(intent or f"pause the clock at {time!r}", "clock_pause_at", time)

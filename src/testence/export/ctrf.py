@@ -105,6 +105,26 @@ def _summary(run: LoadedRun) -> dict[str, Any]:
     return summary
 
 
+def _attempt(number: int, attempt: Test) -> dict[str, Any]:
+    """A CTRF ``retryAttempts`` entry for an attempt that was repeated."""
+    doc: dict[str, Any] = {
+        "attempt": number,
+        "attemptId": attempt.attempt_id or f"attempt-{number}",
+        "status": _STATUS.get(attempt.status, "other"),
+        "duration": int(attempt.duration_ms),
+    }
+    start, stop = epoch_ms(attempt.start), epoch_ms(attempt.stop)
+    if start is not None:
+        doc["start"] = start
+    if stop is not None:
+        doc["stop"] = stop
+    if attempt.error:
+        doc["message"] = attempt.error
+    if attempt.error_trace:
+        doc["trace"] = attempt.error_trace
+    return doc
+
+
 def _test(test: Test) -> dict[str, Any]:
     doc: dict[str, Any] = {
         "name": test.nodeid,
@@ -136,6 +156,12 @@ def _test(test: Test) -> dict[str, Any]:
         doc["trace"] = test.error_trace
     if test.steps:
         doc["steps"] = _steps(test.steps)
+    if test.reruns:
+        doc["retries"] = len(test.reruns)
+        doc["flaky"] = test.flaky
+        doc["retryAttempts"] = [
+            _attempt(number, attempt) for number, attempt in enumerate(test.reruns, 1)
+        ]
     # `extra` is where a format's blind spots go: the step intents keep a flat
     # consumer readable, and the pack path points at the real evidence.
     extra: dict[str, Any] = {}

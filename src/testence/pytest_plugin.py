@@ -32,6 +32,7 @@ from testence.evidence import RUN_ID_ENV, EvidenceWriter, new_run_id
 from testence.fingerprints import DEFAULT_STORE, FingerprintStore
 from testence.identity import TestIdentity, proof_id, source_case_id, variant_id
 from testence.isolation import TestNamespace
+from testence.reruns import RERUNS_ENV, Reruns, rerun_count
 from testence.testplan import (
     ALLURE_TESTPLAN_ENV,
     UNRESOLVED_POLICIES,
@@ -61,7 +62,7 @@ def _engine_key(settings: Settings) -> tuple[Any, ...]:
         settings.cdp_url,
         getattr(settings, "execution_mode", "isolated"),
         settings.browser_channel,
-        getattr(settings, "debug_port", 9222),
+        getattr(settings, "debug_port", 0),
         settings.headed,
         settings.timeout_ms,
         settings.verify_tls,
@@ -134,6 +135,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--testence-reruns",
+        default=os.environ.get(RERUNS_ENV) or None,
+        metavar="N",
+        help=(
+            "repeat a failed test up to N times (0-5); every attempt is recorded and a "
+            "pass after a repeat is reported as flaky (env TESTENCE_RERUNS)"
+        ),
+    )
+    group.addoption(
         "--testence-testplan-unresolved",
         choices=UNRESOLVED_POLICIES,
         default=os.environ.get("TESTENCE_TESTPLAN_UNRESOLVED", "warn"),
@@ -157,7 +167,75 @@ def pytest_configure(config: pytest.Config) -> None:
         "testence(plan, claims, case_id, allure_id, title, description, severity, labels, "
         "links, tms): bind a test to a PlanSpec case and/or describe it for reports",
     )
-    os.environ.setdefault(RUN_ID_ENV, new_run_id())
+    reruns = rerun_count(config)
+    if reruns and not config.pluginmanager.has_plugin("testence-reruns"):
+        config.pluginmanager.register(Reruns(reruns), "testence-reruns")
+    config.stash[_RECORD_KEY] = _asked_to_record(config)
+    if RUN_ID_ENV not in os.environ:
+        run_id = new_run_id()
+        os.environ[RUN_ID_ENV] = run_id
+        config.stash[_OWN_RUN_ID_KEY] = run_id
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """Take back the run id this session put into the environment.
+
+    Left behind, it named every later pytest session in the process — an embedder
+    calling ``pytest.main`` twice — as if the CLI had started it, so a suite that
+    never used Testence recorded a run, and into the first session's directory.
+    """
+    own = config.stash.get(_OWN_RUN_ID_KEY, None)
+    if own is not None and os.environ.get(RUN_ID_ENV) == own:
+        del os.environ[RUN_ID_ENV]
+
+
+def _asked_to_record(config: pytest.Config) -> bool:
+    """Whether this session records a run whatever its tests use.
+
+    The ``testence`` CLI names the run in the environment before it starts pytest,
+    and a ``--testence-*`` option on the command line is a request for a Testence
+    session — which is how a whole suite, Testence tests or not, is recorded for
+    Allure. Otherwise a session records only once a collected test uses Testence
+    (``_uses_testence``). An xdist worker takes the controller's answer, because it
+    inherits the run id the controller put into the environment.
+    """
+    workerinput = getattr(config, "workerinput", None)
+    if isinstance(workerinput, dict):
+        return bool(workerinput.get("testence_record", False))
+    return (
+        RUN_ID_ENV in os.environ
+        or any(config.getoption(option) for option in _RECORDING_OPTIONS)
+        or rerun_count(config) > 0
+    )
+
+
+#: Options that configure a Testence session. The two Allure test plan policies are
+#: not among them: they only matter to a session that is already recording.
+_RECORDING_OPTIONS = (
+    "--testence-base-url",
+    "--testence-profile",
+    "--testence-auth",
+    "--testence-cdp",
+    "--testence-browser-channel",
+    "--testence-headless",
+    "--testence-runs-root",
+    "--testence-api-prefix",
+    "--testence-allure-results",
+)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_configure_node(node: Any) -> None:
+    """Hand the controller's recording decision to an xdist worker."""
+    node.workerinput["testence_record"] = node.config.stash.get(_RECORD_KEY, False)
+
+
+def _uses_testence(item: pytest.Item) -> bool:
+    if item.get_closest_marker("testence") is not None:
+        return True
+    return any(
+        name == "ex" or name.startswith("testence_") for name in getattr(item, "fixturenames", ())
+    )
 
 
 @dataclass(frozen=True)
@@ -658,14 +736,25 @@ class _LifecycleState:
     deselected: int = 0
     collection_errors: int = 0
     closed: bool = False
+    #: Tests this process collected and will run; None for an xdist worker (it
+    #: collects the whole suite and runs a share) or a controller (it collects none).
+    selected: int | None = None
+    #: Attempts recorded as reruns; they are not counted among the outcomes.
+    reruns: int = 0
 
 
 _LIFECYCLE_KEY = pytest.StashKey[_LifecycleState]()
+_RECORD_KEY = pytest.StashKey[bool]()
+#: The run id this session put into the environment itself, if it did.
+_OWN_RUN_ID_KEY = pytest.StashKey[str]()
+_SETTINGS_ERROR_KEY = pytest.StashKey[str]()
 _ACTIONS_KEY = pytest.StashKey[Actions]()
 _ENGINE_KEY = pytest.StashKey[Engine]()
 _FINGERPRINTS_KEY = pytest.StashKey[FingerprintStore]()
 _PACK_KEY = pytest.StashKey[str]()
 _PACK_ATTEMPTED_KEY = pytest.StashKey[bool]()
+#: Earlier attempts of this test that were repeated (``--testence-reruns``).
+_RETRIES_KEY = pytest.StashKey[int]()
 _ACTIVE_STATE: _LifecycleState | None = None
 
 #: Per-test wait budgets for the end-of-run summary (reset per pytest process).
@@ -728,7 +817,12 @@ def _xdist_worker(config: pytest.Config) -> str:
 
 
 def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
-    settings = _settings_from_config(config)
+    try:
+        settings = _settings_from_config(config)
+    except (OSError, ValueError) as exc:
+        # A usage error is one line naming the setting; an exception escaping a
+        # session hook is an INTERNALERROR traceback that reads like a crash.
+        raise pytest.UsageError(f"invalid Testence settings: {exc}") from exc
     try:
         redaction_policy = settings.redaction_policy()
         redact_values = settings.redaction_values()
@@ -740,6 +834,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         project_id=settings.project_id,
         redact_values=redact_values,
         redaction_policy=redaction_policy,
+        deferred=not config.stash.get(_RECORD_KEY, True),
     )
     stream_dir = config.getoption("--testence-allure-results")
     if stream_dir:
@@ -784,7 +879,15 @@ def pytest_sessionstart(session: pytest.Session | None) -> None:
     # Kept as a harmless seam for embedders that only reset the warm-run summary.
     if session is None:
         return
-    state = _new_lifecycle(session.config)
+    try:
+        state = _new_lifecycle(session.config)
+    except pytest.UsageError as exc:
+        if session.config.stash.get(_RECORD_KEY, True):
+            raise
+        # Not a Testence session yet: a broken testence.json must not stop a suite
+        # that never uses Testence. Collection raises it once a test does.
+        session.config.stash[_SETTINGS_ERROR_KEY] = str(exc)
+        return
     session.config.stash[_LIFECYCLE_KEY] = state
     _ACTIVE_STATE = state
 
@@ -821,9 +924,23 @@ def pytest_deselected(items: list[pytest.Item]) -> None:
 
 
 def pytest_collection_finish(session: pytest.Session) -> None:
+    global _ACTIVE_STATE
+    uses_testence = any(_uses_testence(item) for item in session.items)
+    settings_error = session.config.stash.get(_SETTINGS_ERROR_KEY, "")
+    if settings_error and uses_testence:
+        raise pytest.UsageError(settings_error)
     state = session.config.stash.get(_LIFECYCLE_KEY, None)
     if state is None or state.closed:
         return
+    if not state.writer.active:
+        if not uses_testence:
+            # Nothing here uses Testence: record nothing and leave no files behind.
+            state.closed = True
+            state.writer.close()
+            if _ACTIVE_STATE is state:
+                _ACTIVE_STATE = None
+            return
+        state.writer.activate()
     cases: list[dict[str, Any]] = []
     for item in session.items:
         identity = dict(
@@ -853,6 +970,8 @@ def pytest_collection_finish(session: pytest.Session) -> None:
         nodeids=[item.nodeid for item in session.items],
         cases=cases,
     )
+    if not state.writer.worker:
+        state.selected = len(session.items)
 
 
 def _test_id(item: pytest.Item) -> str:
@@ -1038,14 +1157,19 @@ def _allure_record(item: pytest.Item, metadata: _TestMetadata) -> dict[str, Any]
     return document
 
 
+def _failed(report: pytest.TestReport) -> bool:
+    """A failed phase, including one relabelled ``rerun`` because it is repeated."""
+    return bool(report.failed) or report.outcome == "rerun"
+
+
 def _execution_outcome(reports: dict[str, pytest.TestReport]) -> tuple[str, str]:
     for phase in ("setup", "teardown"):
         report = reports.get(phase)
-        if report is not None and report.failed:
+        if report is not None and _failed(report):
             return "broken", phase
 
     call = reports.get("call")
-    if call is not None and call.failed:
+    if call is not None and _failed(call):
         return "failed", "call"
 
     for phase in ("setup", "call", "teardown"):
@@ -1104,7 +1228,10 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
     test_id = _test_id(item)
     reports = item.stash.get(_REPORTS_KEY, {})
     status, phase = _execution_outcome(reports)
-    errors = [_report_error(report) for report in reports.values() if report.failed]
+    errors = [_report_error(report) for report in reports.values() if _failed(report)]
+    # The failed phase of an attempt that is repeated is relabelled ``rerun``.
+    rerun = any(report.outcome == "rerun" for report in reports.values())
+    retries = int(item.stash.get(_RETRIES_KEY, 0))
     error = errors[0] if errors else ""
     pack = item.stash.get(_PACK_KEY, None)
     if status in ("failed", "broken") and not item.stash.get(_PACK_ATTEMPTED_KEY, False):
@@ -1145,6 +1272,12 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
     if recordings:
         # Run-relative paths of the trace and video files; stored raw (redaction: none).
         payload["recordings"] = recordings
+    if rerun:
+        payload["rerun"] = True
+    elif retries:
+        payload["retries"] = retries
+        if status == "passed":
+            payload["flaky"] = True
     if xfail_reason:
         payload["xfail_reason"] = xfail_reason
         payload["xfail"] = any(
@@ -1155,7 +1288,10 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
             for report in reports.values()
         )
     state.writer.emit("test.end", test=test_id, **payload)
-    state.counts[status] += 1
+    if rerun:
+        state.reruns += 1
+    else:
+        state.counts[status] += 1
     state.finished.add(item.nodeid)
     state.writer.unbind_test(test_id)
 
@@ -1166,6 +1302,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
     if state is None or state.closed:
         yield
         return
+    item.stash[_RETRIES_KEY] = 0
     _start_test(item, state)
     try:
         yield
@@ -1173,11 +1310,38 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
         _finalize_test(item, state)
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_logstart(nodeid: str, location: tuple[str, int | None, str]) -> None:
+    """Start a new attempt when a failed test is repeated.
+
+    ``--testence-reruns`` (``testence.reruns``) runs every attempt inside one
+    ``pytest_runtest_protocol`` and calls this before each, as pytest-rerunfailures
+    does. An attempt whose teardown already reported is over: it is
+    recorded as a rerun with its own evidence, and the next one gets a new attempt
+    id, so a pass after a repeat is never recorded as the same attempt as the failure.
+    """
+    state = _ACTIVE_STATE
+    if state is None or state.closed:
+        return
+    item = state.items.get(nodeid)
+    if item is None or nodeid in state.finished:
+        return
+    if "teardown" not in item.stash.get(_REPORTS_KEY, {}):
+        return
+    retries = int(item.stash.get(_RETRIES_KEY, 0))
+    _finalize_test(item, state)
+    item.stash[_RETRIES_KEY] = retries + 1
+    _start_test(item, state)
+
+
 @pytest.hookimpl(optionalhook=True)
 def pytest_testnodedown(node: Any, error: object | None) -> None:
     state = _ACTIVE_STATE
     if state is None or state.closed or error is None:
         return
+    # A recording session's controller ledger is already on disk and keeps the
+    # crash. Otherwise the run is recorded at close only if a worker wrote a shard:
+    # a crash alone does not make a suite that never used Testence write files.
     state.writer.emit(
         "worker.crash",
         crashed_worker=getattr(getattr(node, "gateway", None), "id", "unknown"),
@@ -1202,6 +1366,15 @@ def _close_lifecycle(state: _LifecycleState, exitstatus: int | pytest.ExitCode) 
         return
     for item in state.items.values():
         _finalize_test(item, state)
+    writer = state.writer
+    if not writer.active and not writer.worker and any(writer.run_dir.glob("run-*.jsonl")):
+        # An xdist controller collects nothing itself, so it learns that the run is
+        # a Testence run only from the shards its workers wrote.
+        writer.activate()
+    if state.selected is not None:
+        # A case that never reached its protocol (-x, --maxfail, an interrupt) has
+        # no test.end, so the summary must count it here to add up.
+        state.counts["not_run"] = max(0, state.selected - len(state.finished))
     state.writer.emit(
         "run.end",
         duration_ms=round((time.perf_counter() - state.started_at) * 1000, 1),
@@ -1215,6 +1388,7 @@ def _close_lifecycle(state: _LifecycleState, exitstatus: int | pytest.ExitCode) 
         skipped=state.counts["skipped"],
         aborted=state.counts["aborted"],
         not_run=state.counts["not_run"],
+        reruns=state.reruns,
     )
     state.closed = True
     state.writer.close()
@@ -1283,6 +1457,13 @@ def testence_writer(request: pytest.FixtureRequest) -> EvidenceWriter:
     state = request.config.stash.get(_LIFECYCLE_KEY, None)
     if state is None:
         raise RuntimeError("Testence lifecycle writer was not initialized")
+    if state.closed and not state.writer.active:
+        raise RuntimeError(
+            "this session records no Testence run: no collected test declares a Testence "
+            "fixture (ex, testence_*) or the testence marker. Request the fixture in the "
+            "test signature instead of request.getfixturevalue(), or run through "
+            "`testence run`"
+        )
     return state.writer
 
 
@@ -1394,12 +1575,16 @@ def testence_namespace(
     """Stable per-attempt marker for project-owned seed and cleanup adapters."""
     role = str(testence_settings.extra.get("session_expected_role") or "anonymous")
     worker = _xdist_worker(request.config) or "controller"
+    # A rerun is a new attempt: it must not find, or clean up, the data of the
+    # attempt it repeats.
+    attempt = testence_writer.context_for(_test_id(request.node)).get("attempt_id")
     return TestNamespace(
         project_id=testence_settings.project_id,
         run_id=testence_writer.run_id,
         worker_id=worker,
         case_id=source_case_id(request.node.nodeid),
         role=role,
+        attempt_id=str(attempt or "attempt-1"),
     )
 
 

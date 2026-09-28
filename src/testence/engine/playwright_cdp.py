@@ -22,6 +22,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 from playwright.sync_api import (
     Browser,
@@ -73,6 +74,29 @@ _REDUCE_MOTION_JS = """(() => {
     if (document.documentElement) inject();
     else document.addEventListener('DOMContentLoaded', inject);
 })();"""
+
+
+def _under(url: str, base: str) -> bool:
+    """``url`` is ``base`` or a location below it, on the same origin.
+
+    A string prefix is not enough: ``http://localhost:30001`` starts with
+    ``http://localhost:3000``, and ``/apple`` starts with ``/app``.
+    """
+    here, root = urlsplit(url), urlsplit(base)
+    if (here.scheme, here.netloc) != (root.scheme, root.netloc) or not url.startswith(base):
+        return False
+    rest = url[len(base) :]
+    return not rest or base.endswith("/") or rest[0] in "/?#"
+
+
+#: An accessibility-tree line such as ``combobox "Show"`` or ``button "Save" [disabled]``.
+_ARIA_ENTRY = re.compile(r'^([a-z][a-z-]*) "((?:[^"\\]|\\.)*)"')
+#: The snapshot escapes a quote or backslash inside a name with a backslash.
+_ARIA_ESCAPE = re.compile(r"\\(.)")
+
+
+def _clip(text: str, limit: int = 80) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 def _free_tcp_port() -> int:
@@ -152,7 +176,7 @@ class PlaywrightCdpEngine(Engine):
         *,
         cdp_url: str | None = None,
         headed: bool = True,
-        debug_port: int = 9222,
+        debug_port: int = 0,
         api_prefix: str = "/api/",
         timeout_ms: int = _DEFAULT_TIMEOUT_MS,
         browser_channel: str | None = None,
@@ -236,6 +260,9 @@ class PlaywrightCdpEngine(Engine):
         self._pending: dict[Any, NetRecord] = {}
         self._console: list[dict[str, Any]] = []
         self._ws: list[dict[str, Any]] = []
+        #: Pages whose events already reach the buffers. Kept as objects, not ids: a
+        #: closed page's id can be reused by the next one.
+        self._tapped_pages: list[Any] = []
         self._capture_omissions: dict[str, int] = {}
         self._capture_bytes = 0
         #: Wait ledger: every wait/action records {op, detail, ms, ok}. This is the
@@ -469,10 +496,18 @@ class PlaywrightCdpEngine(Engine):
         if self._video_dir is not None:
             shutil.rmtree(self._video_dir, ignore_errors=True)
             self._video_dir = None
+        self._tapped_pages = []
 
     # -- taps --------------------------------------------------------------
 
     def _attach_taps(self, page: Page) -> None:
+        # Switching back to a tab calls this again. A second set of listeners would
+        # record every request and console message of that tab twice.
+        if any(tapped is page for tapped in self._tapped_pages):
+            return
+        self._tapped_pages = [tapped for tapped in self._tapped_pages if not tapped.is_closed()]
+        self._tapped_pages.append(page)
+
         def admitted(content_type: str) -> bool:
             media_type = content_type.partition(";")[0].strip().lower()
             return self.capture_network_bodies and any(
@@ -714,9 +749,9 @@ class PlaywrightCdpEngine(Engine):
         current = page.url
         same_origin = (
             not hard
-            and self.base_url
-            and current.startswith(self.base_url)
-            and full.startswith(self.base_url)
+            and bool(self.base_url)
+            and _under(current, self.base_url)
+            and _under(full, self.base_url)
         )
         if not same_origin:
             self.goto(url)
@@ -929,6 +964,10 @@ class PlaywrightCdpEngine(Engine):
     def clock_fast_forward(self, ticks: int | str) -> None:
         with self._timed("clock_fast_forward", repr(ticks)):
             self._clock().fast_forward(ticks)
+
+    def clock_run_for(self, ticks: int | str) -> None:
+        with self._timed("clock_run_for", repr(ticks)):
+            self._clock().run_for(ticks)
 
     def clock_pause_at(self, moment: Any) -> None:
         with self._timed("clock_pause_at", repr(moment)):
@@ -1322,14 +1361,13 @@ class PlaywrightCdpEngine(Engine):
     def wait_for_count(
         self, target: Target, minimum: int = 1, timeout_ms: int | None = None
     ) -> int:
-        deadline = (timeout_ms or self.timeout_ms) / 1000
         locator = self._locate(target)
+        if minimum <= 0:
+            # Zero elements already satisfy the wait; nth(0) would wait for one.
+            return locator.count()
         # nth(minimum-1) resolves only once that many elements exist, so this is an
         # actionability wait rather than a poll loop.
-        locator.nth(max(0, minimum - 1)).wait_for(
-            state="attached", timeout=(timeout_ms or self.timeout_ms)
-        )
-        del deadline
+        locator.nth(minimum - 1).wait_for(state="attached", timeout=(timeout_ms or self.timeout_ms))
         return locator.count()
 
     def read_text(self, target: Target) -> str:
@@ -1396,6 +1434,66 @@ class PlaywrightCdpEngine(Engine):
             classes: [...el.classList].slice(0, 5),
         };
     }"""
+
+    def describe_matches(self, target: Target) -> str:
+        """What the target resolves to right now, for a failure message.
+
+        A timeout says how long something was waited for, not what the page held
+        instead. This answers the next question a reader asks: did nothing match,
+        did several match, or did the one match show something else. With no match,
+        accessibility-tree lines carrying the same name point at the likely
+        address — a combobox whose label is "Show" is ``role=combobox name="Show"``
+        even where ``label="Show"`` finds nothing.
+        """
+        # A matched element that is not visible has no inner text, and inner_text
+        # waits for one; the short timeout keeps a failure from waiting twice.
+        locator = self._locate(target)
+        count = locator.count()
+        if count == 1:
+            try:
+                text = " ".join(locator.inner_text(timeout=500).split())
+            except Exception:  # noqa: BLE001 - diagnostic only
+                return "1 element matches"
+            return f"1 element matches, showing {_clip(text)!r}"
+        if count > 1:
+            texts = []
+            for index in range(min(count, 3)):
+                try:
+                    texts.append(" ".join(locator.nth(index).inner_text(timeout=500).split()))
+                except Exception:  # noqa: BLE001 - diagnostic only
+                    texts.append("?")
+            shown = ", ".join(repr(_clip(text)) for text in texts)
+            more = ", ..." if count > 3 else ""
+            return f"{count} elements match ({shown}{more}); narrow the target or pass nth="
+        needle = (target.name if target.kind == "role" else target.value) or ""
+        similar: list[str] = []
+        if target.kind != "css" and needle.strip():
+            try:
+                tree = self._require_page().locator("body").aria_snapshot(timeout=1_000)
+            except Exception:  # noqa: BLE001 - diagnostic only
+                tree = ""
+            lowered = needle.strip().lower()
+            for line in tree.splitlines():
+                entry = line.strip().lstrip("- ").rstrip(":")
+                if lowered in entry.lower() and entry not in similar:
+                    similar.append(entry)
+                if len(similar) == 3:
+                    break
+        if not similar:
+            return "no element matches"
+        # An entry is `role "name"`; offered as the target that addresses it, so the
+        # hint reads as a fix rather than as "it is there" next to a failed lookup.
+        hints = []
+        for entry in similar:
+            named = _ARIA_ENTRY.match(entry)
+            if named and named.group(1) != "text":
+                role, name = named.group(1), _ARIA_ESCAPE.sub(r"\1", named.group(2))
+                hints.append(f"{_clip(entry)} (Target({'role'!r}, {role!r}, name={name!r}))")
+            else:
+                hints.append(_clip(entry))
+        return f"no element matches {target.describe()}; the accessibility tree has " + "; ".join(
+            hints
+        )
 
     def element_fingerprint(self, target: Target) -> dict[str, Any]:
         """Multi-attribute fingerprint captured on green runs; heal-diff fuel.

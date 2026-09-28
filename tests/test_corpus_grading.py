@@ -87,7 +87,9 @@ def test_collection_loading_waits_for_all_placeholders_and_rejects_persistent_on
     spec = importlib.util.spec_from_file_location("collection_spec", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    monkeypatch.setattr(module, "SETTLE_MS", 500)
+    # Well above the 100 ms the page takes: under a loaded parallel run a 500 ms
+    # window missed the timer and failed the positive half.
+    monkeypatch.setattr(module, "SETTLE_MS", 2_000)
     engine = PlaywrightCdpEngine(headed=False, debug_port=0)
     rows = "<tr class=skeleton><td>Loading</td></tr>" * 10
     page = "data:text/html,<table><tbody>" + rows + "</tbody></table>"

@@ -7,6 +7,18 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Added
 
+- Skill pack 0.1.8: `testence-author` uses `ex.clock.run_for` for self-rescheduling
+  timers and reads what a failed step's target matched before changing it.
+- `ex.clock.run_for(ticks)` advances fake time and fires every timer on the way, so a
+  countdown that schedules its own next tick finishes; `fast_forward` fires each due
+  timer once.
+- `--testence-reruns N` (`TESTENCE_RERUNS`) repeats a failed test up to N times with
+  no extra dependency. Every attempt is its own recorded attempt with its own
+  evidence, also under pytest-rerunfailures; a pass after a repeat is `flaky` in `inspect`, CTRF (`retries`, `flaky`,
+  `retryAttempts`), Allure (retries under one `historyId`) and JUnit properties, and
+  `testence ci evaluate --flaky fail` fails it ([reporting](reporting.md#reruns-and-flaky-tests)).
+  Before, all attempts shared one attempt id and the first failure's pack was attached
+  to the final pass.
 - `testence export --to junit`: JUnit XML with Testence identity and case-id
   properties, `<failure>`/`<error>` split like Allure, step intents and redacted
   evidence files ([ADR-0028](adr/0028-junit-exporter.md)).
@@ -57,6 +69,20 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Security
 
+- A settings profile replaced every table of the base file it restated, so a profile
+  that added one `extra` key dropped the base's `evidence.redact` rules and the secrets
+  they mask reached that profile's evidence in clear text. Profiles now merge table by
+  table.
+- A readiness `http` check accepted the answer of another host it was redirected to,
+  while its report named only the configured URL. It now fails with "redirected to
+  another origin".
+- On Windows the optional session cache kept the folder's inherited ACL; the mode bits
+  it set restrict nothing there. The file is now restricted to the current user before
+  the session is written, and no cache is kept when that is not possible.
+- `report.html` embedded the ledger in a `<script>` block without escaping `<`, so a
+  console message, URL or page text containing `</script>` closed the block and ran as
+  script when the report was opened. The embedded JSON now escapes `<`, `>`, `&`,
+  U+2028 and U+2029.
 - Evidence redaction matched only exact key names, so `authToken`, `sessionToken`,
   `X-Api-Key`, `csrfToken`, `pwd`, OAuth `code` and `session` URL parameters, JWTs and
   provider tokens in free text, card numbers, and secrets named in data such as an
@@ -67,6 +93,32 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Fixed
 
+- `.env` values kept a trailing `# comment`, so `PASSWORD=s3cret  # rotate` logged in
+  with the comment as part of the password. A bare value now ends at whitespace followed
+  by `#`; quoted values are taken verbatim.
+- `expect_screenshot` without a recorded baseline failed with the operating system's
+  `FileNotFoundError`; it is inconclusive and says how to record a baseline.
+- A rerun got the same seed marker as the attempt it repeated.
+- A second pytest session in one process (an embedder calling `pytest.main` twice)
+  inherited the first session's run id and recorded a run although it used no
+  Testence.
+- An xdist run whose every worker crashed before writing its shard left no ledger at all.
+- An invalid setting in `testence.json` or the environment stopped every pytest session
+  with an `INTERNALERROR` traceback. It is now a one-line usage error in a Testence
+  session and does not affect a session that does not use Testence.
+- `testence inspect`, `report`, `metrics` and `export` on a path that is not a run
+  exited with a traceback or, for `inspect` and `export`, reported an empty run as a
+  result. They now exit with code 2 and say the path is not a run. Human `inspect`
+  prints the pack path of every failed test.
+- Switching back to a tab attached its network, console and websocket listeners again,
+  so every later event of that tab was recorded once per visit.
+- Client-side `navigate()` treated `http://localhost:30001` as the origin of
+  `http://localhost:3000`, and `/apple` as under `/app`.
+- `wait_for_count(target, minimum=0)` waited for one element and timed out.
+- `run.end` counted no `not_run` cases, so the event written after `-x` or `--maxfail`
+  did not add up to the collected total.
+- Oracle diffs treated `True` and `1` as equal and compared nested text with its
+  surrounding whitespace.
 - A pytest started as a subprocess by a test inside an xdist worker inherited
   `PYTEST_XDIST_WORKER` and wrote a worker shard with no controller ledger, so its run
   never completed. The worker id now comes from xdist itself.
@@ -123,6 +175,19 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Changed
 
+- Human `testence inspect` leads with the execution outcome (`2 passed, 1 failed`)
+  and then the assurance counts; it also lists flaky tests and the pack of every failed
+  attempt.
+- The browser's debug port is chosen by the operating system unless `debug_port` is
+  set. A fixed 9222 was machine-wide: a second run on the same host got a browser whose
+  devtools server could not start, and its launch could hang until the timeout.
+- A pytest session writes a run directory only when it is a Testence session: started
+  by the `testence` CLI, given a `--testence-*` option, or collecting a test that uses a
+  Testence fixture or marker ([configuration](configuration.md#when-a-pytest-session-records-a-run)).
+  Installing the package no longer makes an unrelated suite write `runs/`.
+- A failed step with a target says what the target matched: the text of the one match,
+  how many matched with their first texts, or, with no match, the accessibility-tree
+  entries carrying the same name.
 - CTRF: steps, attachments, the suite path, labels, parameters and the trace use CTRF's
   own fields; `extra.steps` (a list of indented intent strings) is replaced by `steps`.
   `summary.start`/`stop` are always present, as the schema requires.

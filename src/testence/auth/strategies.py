@@ -392,6 +392,15 @@ class CachedSessionAuth:
                 "cookies": cookies,
             }
             descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            if os.name == "nt":
+                os.close(descriptor)
+                # Mode bits do not restrict a Windows file: it keeps the ACL it
+                # inherits from its folder. Restrict it before the session goes in,
+                # and keep no cache at all when that is not possible.
+                if not _restrict_to_current_user(temporary):
+                    temporary.unlink(missing_ok=True)
+                    return
+                descriptor = os.open(temporary, os.O_WRONLY | os.O_TRUNC)
             with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
                 json.dump(document, stream, separators=(",", ":"))
             os.replace(temporary, self.cache_file)
@@ -405,6 +414,26 @@ class CachedSessionAuth:
             except OSError:
                 pass
             pass  # a cache that cannot be written is a slow run, not a failure
+
+
+def _restrict_to_current_user(path: Path) -> bool:
+    """Give only the current Windows user access to ``path``; False if that failed."""
+    import getpass
+    import subprocess
+
+    user = getpass.getuser()
+    domain = os.environ.get("USERDOMAIN")
+    account = f"{domain}\\{user}" if domain else user
+    try:
+        completed = subprocess.run(
+            ["icacls", str(path), "/inheritance:r", "/grant:r", f"{account}:F"],
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return completed.returncode == 0
 
 
 class NoAuth:

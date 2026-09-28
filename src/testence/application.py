@@ -493,7 +493,14 @@ def inspect_run(run_dir: Path | str) -> dict[str, Any]:
         "execution": execution,
         "assurance": assurance,
         "integrity_errors": run.integrity_errors,
-        "packs": [test.pack_dir for test in run.tests if test.pack_dir],
+        "packs": [
+            attempt.pack_dir
+            for test in run.tests
+            for attempt in (*test.reruns, test)
+            if attempt.pack_dir
+        ],
+        "reruns": sum(len(test.reruns) for test in run.tests),
+        "flaky": [test.nodeid for test in run.tests if test.flaky],
     }
 
 

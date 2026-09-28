@@ -30,13 +30,27 @@ def diff_views(ui_view: dict[str, Any], api_view: dict[str, Any]) -> list[dict[s
     diffs: list[dict[str, Any]] = []
     for key, ui_value in ui_view.items():
         api_value = api_view.get(key, "<missing>")
-        if _norm(ui_value) != _norm(api_value):
+        if not _same(ui_value, api_value):
             diffs.append({"field": key, "ui": ui_value, "api": api_value})
     return diffs
 
 
-def _norm(value: Any) -> Any:
-    return value.strip() if isinstance(value, str) else value
+def _same(ui: Any, api: Any) -> bool:
+    """Equal as the product means it, at every depth.
+
+    Surrounding whitespace in text is presentation. A boolean is not a number,
+    although Python says ``True == 1``: a backend that starts answering ``1`` for
+    ``true`` has changed its contract, and that is what an oracle is for.
+    """
+    if isinstance(ui, bool) or isinstance(api, bool):
+        return type(ui) is type(api) and ui == api
+    if isinstance(ui, str) and isinstance(api, str):
+        return ui.strip() == api.strip()
+    if isinstance(ui, dict) and isinstance(api, dict):
+        return ui.keys() == api.keys() and all(_same(ui[key], api[key]) for key in ui)
+    if isinstance(ui, (list, tuple)) and isinstance(api, (list, tuple)):
+        return len(ui) == len(api) and all(_same(a, b) for a, b in zip(ui, api))
+    return bool(ui == api)
 
 
 class OracleFailed(AssertionError):

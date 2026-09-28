@@ -222,6 +222,57 @@ def test_init_and_inspect_cli_return_clean_json(tmp_path, capsys):
     assert "{" not in human and "1 verified" in human
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        ["inspect", "{run}"],
+        ["inspect", "{run}", "--json"],
+        ["report", "{run}"],
+        ["metrics", "{run}", "-o", "{out}/metrics.json"],
+        ["export", "{run}", "--to", "allure", "-o", "{out}/allure"],
+        ["export", "{run}", "--to", "junit", "-o", "{out}/junit"],
+    ],
+)
+@pytest.mark.parametrize("kind", ["missing", "file"])
+def test_a_path_that_is_not_a_run_is_invalid_input(tmp_path, capsys, command, kind):
+    """A typo in a CI step must not inspect as an empty run or export as a result.
+
+    A run directory that exists without a ledger is different: it is a run that
+    ended before writing, and reads as incomplete (tests/test_metrics.py).
+    """
+    run = tmp_path / "runs" / "r-typo"
+    if kind == "file":
+        run.parent.mkdir(parents=True)
+        run.write_text("", encoding="utf-8")
+    out = tmp_path / "out"
+    argv = [part.format(run=run, out=out) for part in command]
+
+    assert main(argv) == 2
+
+    captured = capsys.readouterr()
+    assert "is not a Testence run" in captured.err
+    assert "Traceback" not in captured.err
+    assert not out.exists()
+
+
+def test_human_inspect_names_the_pack_of_a_failed_test(tmp_path, capsys):
+    from testence.evidence import EvidenceWriter
+
+    writer = EvidenceWriter(tmp_path, run_id="r-pack", worker="")
+    writer.emit("run.start")
+    writer.emit("test.start", test="t.py::x", nodeid="t.py::x")
+    writer.emit("test.end", test="t.py::x", nodeid="t.py::x", status="failed", pack="t_x/pack")
+    writer.emit("run.end", run_status="failed", exit_code=1, duration_ms=1.0)
+    writer.close()
+
+    assert main(["inspect", str(writer.run_dir)]) == 0
+
+    out = capsys.readouterr().out
+    assert "r-pack failed: 1 tests (1 failed); assurance:" in out
+    assert out.isascii()
+    assert f"pack: {writer.run_dir / 't_x/pack'}" in out
+
+
 def test_browser_launch_hint_tells_a_missing_browser_from_one_that_will_not_start():
     from testence.engine import browser_launch_hint
 

@@ -182,6 +182,25 @@ def test_fast_forward_runs_a_timer_without_waiting_for_it(ex):
     assert "a minute passes" in [event["intent"] for event in starts]
 
 
+def test_run_for_finishes_a_countdown_that_schedules_its_own_next_tick(ex):
+    """``fast_forward`` fires each due timer once, so a chain of one-second timers
+    only finished in real time — a race under a loaded parallel run (audit A2)."""
+    ex.clock.install()
+    ex.goto(
+        _page(
+            "<span id=stamp>5</span><script>"
+            "let left = 5;"
+            "const tick = () => { left -= 1;"
+            " document.getElementById('stamp').textContent = left ? String(left) : 'Done';"
+            " if (left) setTimeout(tick, 1000); };"
+            "setTimeout(tick, 1000);"
+            "</script>"
+        )
+    )
+    ex.clock.run_for(5_000, intent="five seconds pass")
+    ex.expect_text(STAMP, "Done")
+
+
 class _EngineWithoutClock:
     def __init__(self, inner: PlaywrightCdpEngine) -> None:
         self._inner = inner

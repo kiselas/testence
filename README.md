@@ -143,9 +143,13 @@ Command output is discarded from the receipt so credentials cannot leak through 
 Every generated file is bound by a scaffold manifest, and the machine-readable form of
 each command above is available with `--json`.
 
-Every failed test produces a bounded evidence pack containing the relevant UI state,
-network and console signals, intent-bearing steps, independent oracle observations and
-a verdict template. Render a standalone report with:
+Every failed test produces a bounded evidence pack containing the page's accessibility
+tree, network and console signals, intent-bearing steps, independent oracle observations
+and a verdict template. A screenshot is added once the project opts in with
+`"capture_policy": {"screenshots": true}` — `testence init` does; a screenshot cannot be
+redacted, so a hand-written `testence.json` leaves it off
+([configuration](https://github.com/kiselas/testence/blob/main/docs/en/configuration.md#evidence-capture-policy)).
+Render a standalone report with:
 
 ```bash
 testence report runs/<run-id>

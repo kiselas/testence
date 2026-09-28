@@ -233,8 +233,11 @@ def evaluate_ci(
     junit_path: Path | str | None = None,
     allow_empty: bool = False,
     testplan_unresolved: str = "warn",
+    flaky: str = "warn",
 ) -> dict[str, Any]:
     run = _load_run(run_dir, run_id=run_id)
+    if flaky not in {"warn", "fail"}:
+        raise CIError("flaky must be warn or fail")
     if quality_mode not in {"execution", "assurance"}:
         raise CIError("quality mode must be execution or assurance")
     if testplan_unresolved not in {"warn", "fail"}:
@@ -250,6 +253,11 @@ def evaluate_ci(
         quality_errors.append(
             f"{len(run.testplan_unresolved)} Allure test plan entries did not run"
         )
+    # A pass after a repeat (--testence-reruns) is reported as flaky, never as a
+    # clean pass; `fail` makes it a quality failure.
+    flaky_tests = [test.nodeid for test in run.tests if test.flaky]
+    if flaky_tests and flaky == "fail":
+        quality_errors.append("flaky: passed only after a rerun: " + ", ".join(flaky_tests))
     disallowed = [test.nodeid for test in run.tests if test.status not in {"passed", "skipped"}]
     if disallowed:
         quality_errors.append("non-passing execution: " + ", ".join(disallowed))
@@ -302,6 +310,7 @@ def evaluate_ci(
             "exit_code": quality_exit,
             "errors": quality_errors,
             **({"testplan_unresolved": run.testplan_unresolved} if run.testplan_unresolved else {}),
+            **({"flaky": flaky_tests} if flaky_tests else {}),
         },
         "delivery": delivery,
         "final_exit": final_exit,

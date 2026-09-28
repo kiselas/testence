@@ -66,6 +66,10 @@ re-evaluate during actionability checks.
 `keep_animations` exists for the one case that legitimately asserts on an
 animation. Leaving animations on costs ~1 s per 14 UI actions.
 
+A profile is merged into the base file table by table: it restates only what differs,
+and a table it names keeps the base's other keys. An empty table (`{}`) changes nothing;
+set a key to another value to replace it.
+
 ## Credentials
 
 Only ever from the environment or `.env.local`:
@@ -138,8 +142,27 @@ UI and the API see the same thing.
 | `TESTENCE_RUN_ID` | names the run directory; set by the plugin so every xdist worker shares one ([ADR-0012](adr/0012-parallel-execution.md)) |
 | `ALLURE_TESTPLAN_PATH` | standard Allure `version: 1.0` selective plan; invalid plans fail, unresolved entries are reported ([reporting](reporting.md#selecting-tests-from-a-testops-plan)) |
 | `TESTENCE_TESTPLAN_UNRESOLVED` | `warn` (default) or `fail` for plan entries that match no collected test |
+| `TESTENCE_RERUNS` | repeat a failed test up to N times, 0–5 (`--testence-reruns`); every attempt is recorded ([reporting](reporting.md#reruns-and-flaky-tests)) |
 | `TESTENCE_ALLURE_RESULTS` | stream Allure results into this directory as tests end (`--testence-allure-results`) |
 | `TESTENCE_EMPTY_TESTPLAN` | `fail` (default) or explicit `noop`; the CLI equivalent is `--testence-empty-testplan=noop` |
+
+### When a pytest session records a run
+
+The plugin loads into every pytest session of an environment that has the package, but
+a session writes a run directory only when it is a Testence session:
+
+- it was started by the `testence` CLI (`run`, `watch`, `ci`), which names the run;
+- a `--testence-*` option is on the command line — the way to record a whole suite,
+  Testence tests or not, for an Allure or TestOps upload; or
+- a collected test uses a Testence fixture (`ex`, `testence_*`) or the
+  `@pytest.mark.testence` marker. The whole session is then recorded, including its
+  other tests.
+
+A session with none of these writes nothing, and an invalid `testence.json` does not stop
+it. When a Testence session meets invalid settings, pytest exits with a usage error (code
+4) that names the setting. A Testence fixture requested only through
+`request.getfixturevalue()` in a session that is otherwise not recording raises an error
+that says so: declare it in the test signature instead.
 
 For a repeated agent-authoring loop, launch and authenticate the browser once, then
 run any number of short pytest processes through an attached profile:
@@ -272,6 +295,7 @@ Projects extend these rules in `testence.json`:
       "env": ["SHOP_API_TOKEN"],
       "pii": ["email", "phone"]
     },
+    "screenshots": "on-failure",
     "mask": [
       {"kind": "testid", "value": "card-number"},
       {"kind": "role", "value": "textbox", "name": "Passport"}
@@ -326,5 +350,6 @@ Optional on purpose — a suite whose fixtures are not shard-safe must not acqui
 workers by accident. Before adding `-n`, check the four invariants in
 [ADR-0012](adr/0012-parallel-execution.md): one claim per case, one ledger per
 process, per-worker seed namespaces, and per-worker offsets for anything
-machine-wide (the debug port is `9222 + N`). Measure serial and parallel runs on
+machine-wide (the debug port is ephemeral by default; an explicit `debug_port` becomes
+`debug_port + N`). Measure serial and parallel runs on
 your own target before selecting a default worker count.

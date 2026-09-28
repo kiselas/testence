@@ -154,6 +154,13 @@ class Test:
     tms: dict[str, tuple[str, ...]] = field(default_factory=dict)
     #: Playwright trace and video files (``evidence.trace``/``video``), stored raw.
     recordings: list[dict[str, str]] = field(default_factory=list)
+    #: This attempt was repeated (``--testence-reruns``); the test's outcome is a
+    #: later attempt, which lists this one in ``reruns``.
+    rerun: bool = False
+    #: Attempts before this final one, oldest first (``rerun`` is true on each).
+    reruns: list["Test"] = field(default_factory=list)
+    #: Passed after one or more failed attempts.
+    flaky: bool = False
 
     def __post_init__(self) -> None:
         if not self.nodeid:
@@ -407,6 +414,8 @@ class LoadedRun:
                 test.screenshot = str(doc.get("screenshot") or test.screenshot)
                 if doc.get("pack"):
                     test.pack_dir = doc["pack"]
+                test.rerun = doc.get("rerun") is True
+                test.flaky = doc.get("flaky") is True
             elif kind == "step.start":
                 stack.append(
                     Step(
@@ -431,7 +440,30 @@ class LoadedRun:
                 test.pack_sections = doc.get("sections_est_tokens") or {}
                 test.error = doc.get("error") or test.error
 
-        run.tests = list(tests.values())
+        # A test's outcome is its final attempt; the attempts that were
+        # repeated travel with it, so a count, a CI gate or an exporter that walks
+        # ``tests`` sees one result per test and can still show every attempt.
+        # Keyed by the worker as well (it prefixes the attempt id): under
+        # ``--dist each`` every worker runs the test, and a worker's repeats belong to
+        # that worker's final attempt.
+        def lineage(test: Test) -> tuple[str, str, str, str]:
+            worker = test.attempt_id.rsplit("-", 1)[0]
+            return (test.project_id, test.case_id, test.variant_id, worker)
+
+        finals: dict[tuple[str, str, str, str], Test] = {}
+        pending: list[Test] = []
+        for test in tests.values():
+            if test.rerun:
+                pending.append(test)
+            else:
+                finals[lineage(test)] = test
+        run.tests = [test for test in tests.values() if not test.rerun]
+        for attempt in pending:
+            final = finals.get(lineage(attempt))
+            if final is None:  # the run ended during a repeat: keep what was recorded
+                run.tests.append(attempt)
+            else:
+                final.reruns.append(attempt)
         return run
 
 

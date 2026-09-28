@@ -95,9 +95,38 @@ def _parse_env_file(path: Path) -> dict[str, str]:
         if line.startswith("export "):
             line = line[len("export ") :]
         key, _, value = line.partition("=")
-        value = value.strip().strip('"').strip("'")
-        values[key.strip()] = value
+        values[key.strip()] = _env_value(value)
     return values
+
+
+def _env_value(raw: str) -> str:
+    """A value as dotenv writes it: quoted verbatim, or bare up to a ``#`` comment.
+
+    ``PASSWORD=s3cret  # rotate monthly`` is the password ``s3cret``; a ``#`` inside a
+    word (``a#b``) or inside quotes is part of the value.
+    """
+    value = raw.strip()
+    if value[:1] in {'"', "'"}:
+        end = value.find(value[0], 1)
+        return value[1:end] if end != -1 else value[1:]
+    return re.split(r"\s+#", value, maxsplit=1)[0].rstrip()
+
+
+def _merge_profile(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """The profile over the base, table by table.
+
+    A profile states what differs. Replacing a whole table instead meant that a profile
+    adding one ``extra`` key dropped the base's ``evidence.redact`` rules with it, and
+    secrets the base masks reached that profile's evidence in clear text.
+    """
+    merged = dict(base)
+    for key, value in override.items():
+        current = merged.get(key)
+        if isinstance(current, dict) and isinstance(value, dict):
+            merged[key] = _merge_profile(current, value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def _load_settings_file(root: Path) -> dict[str, Any]:
@@ -144,7 +173,11 @@ class Settings:
     # Chromium in headless mode, keeping headed and CI runs on the same engine.
     # ``TESTENCE_BROWSER_CHANNEL`` moves one host elsewhere (see default_browser_channel).
     browser_channel: str = field(default_factory=default_browser_channel)
-    debug_port: int = 9222
+    #: 0 lets the operating system pick a free port at launch. A fixed port is a
+    #: machine-wide resource: a second run on the same host that asks for it gets a
+    #: browser whose devtools server cannot start, and the launch can hang until its
+    #: timeout. Set one only for a browser something attaches to by a known address.
+    debug_port: int = 0
     headed: bool = True
     timeout_ms: int = 10_000
     #: Self-hosted targets may use a private CA that the browser trusts through the
@@ -185,7 +218,7 @@ class Settings:
             if profile not in profiles:
                 known = ", ".join(sorted(profiles)) or "none defined"
                 raise ValueError(f"unknown profile {profile!r}; available: {known}")
-            merged.update(profiles[profile])
+            merged = _merge_profile(merged, profiles[profile])
             merged["profile"] = profile
 
         known_fields = {f for f in cls.__dataclass_fields__ if f != "extra"}
@@ -206,7 +239,7 @@ class Settings:
         merged["headed"] = _as_bool(merged.get("headed", True))
         merged["verify_tls"] = _as_bool(merged.get("verify_tls", True))
         merged["timeout_ms"] = int(merged.get("timeout_ms", 10_000))
-        merged["debug_port"] = int(merged.get("debug_port", 9222))
+        merged["debug_port"] = int(merged.get("debug_port", 0))
         if merged["debug_port"] != 0 and not 1024 <= merged["debug_port"] <= 65535:
             raise ValueError("debug_port must be 0 (ephemeral) or between 1024 and 65535")
         if not str(merged.get("browser_channel") or "").strip():

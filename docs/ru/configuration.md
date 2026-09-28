@@ -66,6 +66,10 @@ actionability checks.
 `keep_animations` нужен для единственного случая, когда тест действительно проверяет
 анимацию. Включённые анимации добавляют около 1 секунды на 14 UI-действий.
 
+Профиль сливается с базовым файлом по таблицам: в нём указывают только отличия, а
+названная в нём таблица сохраняет остальные ключи базы. Пустая таблица (`{}`) ничего не
+меняет; чтобы заменить ключ, задайте ему другое значение.
+
 ## Credentials
 
 Credentials поступают только из окружения или `.env.local`:
@@ -136,8 +140,26 @@ TESTENCE_VERIFY_TLS=false                        # только изолиров
 | `TESTENCE_RUN_ID` | имя каталога запуска; plugin задаёт его общим для всех xdist workers ([ADR-0012](adr/0012-parallel-execution.md)) |
 | `ALLURE_TESTPLAN_PATH` | стандартный selective plan Allure версии `1.0`; неверный план отклоняется, несовпавшие записи попадают в отчёт ([отчётность](reporting.md#выбор-тестов-по-плану-testops)) |
 | `TESTENCE_TESTPLAN_UNRESOLVED` | `warn` (по умолчанию) или `fail` для записей плана без совпавшего теста |
+| `TESTENCE_RERUNS` | повторить упавший тест до N раз, 0–5 (`--testence-reruns`); записывается каждая попытка ([отчётность](reporting.md#повторы-и-нестабильные-тесты)) |
 | `TESTENCE_ALLURE_RESULTS` | потоковая запись результатов Allure в этот каталог по мере окончания тестов (`--testence-allure-results`) |
 | `TESTENCE_EMPTY_TESTPLAN` | `fail` по умолчанию или явный `noop`; CLI-эквивалент — `--testence-empty-testplan=noop` |
+
+### Когда сессия pytest записывает запуск
+
+Plugin загружается в каждую сессию pytest окружения, где установлен пакет, но каталог
+запуска пишет только сессия Testence:
+
+- её запустил CLI `testence` (`run`, `watch`, `ci`), который задаёт имя запуска;
+- в командной строке есть опция `--testence-*` — так записывают весь набор, с тестами
+  Testence и без, для загрузки в Allure или TestOps;
+- собранный тест использует фикстуру Testence (`ex`, `testence_*`) или маркер
+  `@pytest.mark.testence`. Тогда записывается вся сессия, включая остальные тесты.
+
+Сессия без этих признаков ничего не пишет, и неверный `testence.json` её не
+останавливает. Если неверные настройки встречает сессия Testence, pytest завершается
+ошибкой использования (код 4) с именем настройки. Фикстура Testence, запрошенная только
+через `request.getfixturevalue()` в сессии, которая иначе ничего не записывает, даёт
+ошибку с объяснением: объявите фикстуру в сигнатуре теста.
 
 Для повторяющегося agent-authoring loop один раз запустите и аутентифицируйте browser,
 после чего подключайте к нему короткие pytest processes через attached profile:
@@ -270,6 +292,7 @@ Evidence маскируется до записи. Имена полей соп�
       "env": ["SHOP_API_TOKEN"],
       "pii": ["email", "phone"]
     },
+    "screenshots": "on-failure",
     "mask": [
       {"kind": "testid", "value": "card-number"},
       {"kind": "role", "value": "textbox", "name": "Passport"}
@@ -325,5 +348,6 @@ pytest tests_e2e/ -q -n 4
 получать workers. До добавления `-n` проверьте четыре инварианта из
 [ADR-0012](adr/0012-parallel-execution.md): одно утверждение на сценарий, один ledger
 на процесс, seed namespace на worker и worker-specific offsets для machine-wide
-ресурсов, включая debug port `9222 + N`. Измерьте serial и parallel на своём target
+ресурсов (debug port по умолчанию эфемерный; явный `debug_port` превращается в
+`debug_port + N`). Измерьте serial и parallel на своём target
 до выбора количества workers по умолчанию.

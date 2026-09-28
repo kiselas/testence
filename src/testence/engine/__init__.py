@@ -23,7 +23,8 @@ from .protocol import Engine, NetRecord, Target, dump_net
 #: selectable by configuration, with no change above this layer.
 BACKENDS = ("playwright-cdp",)
 
-_DEFAULT_DEBUG_PORT = 9222
+#: Ephemeral: the engine picks a free port at launch (see ``Settings.debug_port``).
+_DEFAULT_DEBUG_PORT = 0
 
 
 def worker_port_offset() -> int:
@@ -31,8 +32,9 @@ def worker_port_offset() -> int:
 
     Every browser is launched with ``--remote-debugging-port`` so a triage client
     can attach later. That port is a machine-wide resource: four workers all
-    asking for 9222 means one binds it and the rest fail. ``gw3`` therefore gets
-    9225.
+    asking for 9222 means one binds it and the rest fail. An explicitly configured
+    port therefore moves by the worker number — ``gw3`` gets 9225. The default port
+    is ephemeral and needs no offset.
     """
     match = re.search(r"\d+", os.environ.get("PYTEST_XDIST_WORKER", ""))
     return int(match.group()) if match else 0
