@@ -60,6 +60,32 @@ in). A test of the login page itself, or of public pages, opts out:
 def test_login_rejects_a_wrong_password(ex): ...
 ```
 
+## Single-page apps that keep a token in storage
+
+A SPA that logs in through `fetch` and keeps its JWT or OIDC token in `localStorage`
+adds it to its own API calls; the browser holds no cookie. The oracle's `ApiClient`
+then reads as nobody, and every check is `inconclusive` on HTTP 401. Name where the
+token is, and the API client sends it after login:
+
+```json
+{
+  "auth": "form",
+  "login_path": "/login",
+  "success_url_contains": "/app",
+  "api_auth_from_storage": {"key": "auth", "field": "access_token"}
+}
+```
+
+`storage` is `local` (default) or `session`; `field` is a dot path into a JSON value;
+`header` and `format` default to `Authorization` and `Bearer {token}`. The header goes
+to the API client only, never to the browser, and the token is masked in evidence like
+a configured secret. A key or field that is missing after login fails the login and
+lists what the storage does hold.
+
+`testence doctor --target` reaches `base_url`, checks that the credentials are set and
+tries the login once, so a wrong URL, a missing variable or a wrong password is one
+line with its fix rather than a timeout in the first test.
+
 ## Project-specific forms
 
 Default selectors are conventional (`input[type=email]`, `input[type=password]`,

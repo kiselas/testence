@@ -32,7 +32,8 @@ Keys the framework knows: `project_id`, `base_url`, `api_prefix`, `auth`, `login
 `timeout_ms`, `verify_tls`, `ca_bundle`,
 `runs_root`, `user_var`, `password_var`. Anything else lands in `settings.extra`
 and is available to strategies and project adapters (e.g. `session_cookie`,
-`token_storage_key`, `success_url_contains`).
+`token_storage_key`, `success_url_contains`, `api_auth_from_storage` —
+[auth](auth.md#single-page-apps-that-keep-a-token-in-storage)).
 
 `project_id` is the repository-owned namespace used by ledger, packs, verdicts and
 report history. Set it explicitly in `testence.json`; the package name from

@@ -33,7 +33,7 @@ from urllib.parse import urlsplit
 
 from testence.engine import Engine, Target
 
-from .base import AuthContext, Credentials
+from .base import AuthContext, Credentials, LoginFailed
 
 _DEFAULT_SUCCESS_TIMEOUT_MS = 15_000
 
@@ -86,13 +86,26 @@ class FormLoginAuth:
         engine.click(self.submit_target)
 
         if self.success_target is not None:
-            engine.expect_visible(self.success_target, timeout_ms=self.timeout_ms)
+            signal = f"{self.success_target.describe()} never appeared"
         elif self.success_url_contains:
-            engine.wait_for_url_contains(self.success_url_contains, timeout_ms=self.timeout_ms)
+            signal = f"the URL never contained {self.success_url_contains!r}"
         else:
-            # No explicit success signal: settle for the login form going away, so a
-            # failed login surfaces here instead of as a confusing failure later.
-            engine.wait_while_visible(self.password_target, timeout_ms=self.timeout_ms)
+            signal = "the password field is still visible"
+        try:
+            if self.success_target is not None:
+                engine.expect_visible(self.success_target, timeout_ms=self.timeout_ms)
+            elif self.success_url_contains:
+                engine.wait_for_url_contains(self.success_url_contains, timeout_ms=self.timeout_ms)
+            else:
+                # No explicit success signal: settle for the login form going away,
+                # so a failed login surfaces here instead of as a confusing failure later.
+                engine.wait_while_visible(self.password_target, timeout_ms=self.timeout_ms)
+        except Exception as exc:  # noqa: BLE001 - each engine names its timeout differently
+            raise LoginFailed(
+                f"login at {self.login_path} did not complete within {self.timeout_ms} ms: "
+                f"{signal}. Check the credentials ({self.credentials.source}), or set "
+                "success_url_contains or a success target for this app"
+            ) from exc
 
         return AuthContext(
             cookies=engine.cookies(),
@@ -434,6 +447,69 @@ def _restrict_to_current_user(path: Path) -> bool:
     except (OSError, subprocess.SubprocessError):
         return False
     return completed.returncode == 0
+
+
+_STORAGE_TOKEN_DEFAULTS = {
+    "storage": "local",
+    "header": "Authorization",
+    "format": "Bearer {token}",
+}
+
+
+def api_headers_from_storage(spec: Any, engine: Engine, *, timeout_ms: int) -> dict[str, str]:
+    """The API header a single-page app builds from the token it keeps in storage.
+
+    ``api_auth_from_storage: {key, storage, field, header, format}``. A SPA that
+    keeps its JWT or OIDC token in ``localStorage`` adds it to its own requests; the
+    browser holds no cookie, so the same-session API oracle read as nobody and every
+    check was inconclusive on HTTP 401. ``field`` is a dot path into a JSON value.
+    """
+    if not isinstance(spec, dict) or not str(spec.get("key") or "").strip():
+        raise ValueError('api_auth_from_storage needs a key, e.g. {"key": "auth"}')
+    unknown = sorted(set(spec) - {"key", "field", *_STORAGE_TOKEN_DEFAULTS})
+    if unknown:
+        raise ValueError("api_auth_from_storage: unknown field(s) " + ", ".join(unknown))
+    options = {**_STORAGE_TOKEN_DEFAULTS, **spec}
+    storage = str(options["storage"])
+    if storage not in ("local", "session"):
+        raise ValueError("api_auth_from_storage.storage is 'local' or 'session'")
+    key, session = str(options["key"]), storage == "session"
+    read = getattr(engine, "storage_item", None)
+    if not callable(read):
+        raise RuntimeError(f"api_auth_from_storage: {type(engine).__name__} cannot read storage")
+    # The app may write the token a moment after the login's success signal.
+    deadline = time.monotonic() + max(timeout_ms, 0) / 1000
+    raw = read(key, session=session)
+    while raw is None and time.monotonic() < deadline:
+        time.sleep(0.1)
+        raw = read(key, session=session)
+    if raw is None:
+        list_keys = getattr(engine, "storage_keys", None)
+        keys: list[str] = list(list_keys(session=session)) if callable(list_keys) else []
+        raise RuntimeError(
+            f"api_auth_from_storage: {storage}Storage has no {key!r} after login; "
+            f"keys there: {keys or 'none'}"
+        )
+    token: Any = raw
+    field_path = str(options.get("field") or "")
+    if field_path:
+        try:
+            token = json.loads(raw)
+        except ValueError:
+            raise RuntimeError(
+                f"api_auth_from_storage: {key!r} is not JSON, so field {field_path!r} "
+                "cannot be read; drop field to use the value as it is"
+            ) from None
+        for part in field_path.split("."):
+            if not isinstance(token, dict) or part not in token:
+                present = sorted(token) if isinstance(token, dict) else type(token).__name__
+                raise RuntimeError(
+                    f"api_auth_from_storage: {key!r} has no field {field_path!r}; found: {present}"
+                )
+            token = token[part]
+    if not isinstance(token, str) or not token:
+        raise RuntimeError(f"api_auth_from_storage: {key!r} {field_path} is not a token string")
+    return {str(options["header"]): str(options["format"]).format(token=token)}
 
 
 class NoAuth:

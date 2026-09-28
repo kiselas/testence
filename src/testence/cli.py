@@ -374,6 +374,11 @@ def main(argv: list[str] | None = None) -> int:
     p_doctor = sub.add_parser("doctor", help="check the local Testence runtime")
     p_doctor.add_argument("--root", type=Path, default=Path("."), help="project directory to check")
     p_doctor.add_argument("--json", dest="json_output", action="store_true")
+    p_doctor.add_argument(
+        "--target",
+        action="store_true",
+        help="also reach base_url, check the credentials and try the login",
+    )
 
     p_init = sub.add_parser("init", help="create a conflict-safe onboarding scaffold")
     p_init.add_argument(
@@ -464,7 +469,7 @@ def main(argv: list[str] | None = None) -> int:
     p_release_validate.add_argument("--json", dest="json_output", action="store_true")
 
     _examples = {
-        p_doctor: ["testence doctor", "testence doctor --json"],
+        p_doctor: ["testence doctor", "testence doctor --target", "testence doctor --json"],
         p_init: ["testence init .", "testence init path/to/project --json"],
         p_run: [
             "testence run --project .",
@@ -510,7 +515,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "doctor":
         from .application import doctor
 
-        result = doctor(args.root)
+        result = doctor(
+            args.root,
+            target=args.target,
+            progress=lambda message: print(message, file=sys.stderr, flush=True),
+        )
         if args.json_output:
             print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
         else:

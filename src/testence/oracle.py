@@ -172,6 +172,19 @@ class ExpectedState:
     revision_path: str = "revision"
     stability_ms: int = 0
     accepted_statuses: tuple[int, ...] = (200,)
+    #: The state is that nothing is there: a 404 that is not an HTML page, or an
+    #: empty JSON value, is the observation rather than an inconclusive read.
+    empty_is_state: bool = False
+
+    @classmethod
+    def absent(cls, description: str, **bindings: Any) -> ExpectedState:
+        """The entity is gone: deleted, revoked, never created.
+
+        "The UI says deleted, the row is still there" is a false green an ordinary
+        read cannot prove wrong, because an empty answer used to be inconclusive. An
+        unauthenticated read (401/403), an HTML page and a non-empty body still are.
+        """
+        return cls(description, _is_absent, empty_is_state=True, **bindings)
 
     def __post_init__(self) -> None:
         if not self.description.strip():
@@ -226,6 +239,8 @@ class ExpectedState:
                 document[key] = value
         if self.stability_ms:
             document["stability_ms"] = self.stability_ms
+        if self.empty_is_state:
+            document["absent"] = True
         return document
 
 
@@ -238,16 +253,34 @@ class OracleObservation:
     elapsed_ms: float
 
 
+def _is_absent(value: Any) -> bool:
+    return value in (None, "", [], {})
+
+
 def _authoritative_value(response: Any, expected: ExpectedState) -> tuple[Any, str | None]:
     if not isinstance(response, Response):
         return None, "authoritative read must return testence.api.Response"
+    html = "text/html" in (response.header("content-type") or "").lower() or (
+        response.body.lstrip().lower().startswith("<!doctype html")
+    )
+    if expected.empty_is_state and response.status == 404 and not html:
+        return None, None  # the authoritative answer to "is it there?"
     if response.status not in expected.accepted_statuses:
-        return None, f"authoritative read returned HTTP {response.status}"
-    content_type = (response.header("content-type") or "").lower()
-    if "text/html" in content_type or response.body.lstrip().lower().startswith("<!doctype html"):
+        reason = f"authoritative read returned HTTP {response.status}"
+        if response.status in (401, 403):
+            # The oracle reads as the test's session: cookies and API headers. A
+            # single-page app that keeps its token in browser storage sends neither.
+            reason += (
+                "; the read carries the test's cookies and API headers only — a token "
+                "the app keeps in browser storage needs api_auth_from_storage (auth.md)"
+            )
+        return None, reason
+    if html:
         return None, "authoritative read returned HTML"
     value = response.json
-    if value in (None, "", [], {}):
+    if expected.empty_is_state and value is None and response.body.strip():
+        return None, "authoritative read returned non-JSON content"
+    if value in (None, "", [], {}) and not expected.empty_is_state:
         return None, "authoritative read returned empty or non-JSON content"
     return value, None
 

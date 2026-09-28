@@ -1252,6 +1252,28 @@ class PlaywrightCdpEngine(Engine):
         except Exception:  # noqa: BLE001 - browser evidence is best-effort
             return {}
 
+    def storage_item(self, key: str, *, session: bool = False) -> str | None:
+        """One value of the page's ``localStorage`` (or ``sessionStorage``), or None."""
+        page = self._require_page()
+        if page.url in ("about:blank", ""):
+            return None
+        area = "sessionStorage" if session else "localStorage"
+        try:
+            value = page.evaluate(f"key => {area}.getItem(key)", key)
+        except Exception:  # noqa: BLE001 - a page without storage has no item
+            return None
+        return value if isinstance(value, str) else None
+
+    def storage_keys(self, *, session: bool = False) -> list[str]:
+        page = self._require_page()
+        if page.url in ("about:blank", ""):
+            return []
+        area = "sessionStorage" if session else "localStorage"
+        try:
+            return sorted(page.evaluate(f"() => Object.keys({area})"))
+        except Exception:  # noqa: BLE001
+            return []
+
     def wait_for_request(
         self,
         url_contains: str,

@@ -1,4 +1,4 @@
-from .base import AuthAdapter, AuthContext, Credentials, MissingCredentials
+from .base import AuthAdapter, AuthContext, Credentials, LoginFailed, MissingCredentials
 from .strategies import (
     ApiSessionAuth,
     AttachedSessionAuth,
@@ -13,6 +13,7 @@ from .strategies import (
 
 __all__ = [
     "AuthAdapter",
+    "LoginFailed",
     "AuthContext",
     "Credentials",
     "MissingCredentials",

@@ -11,6 +11,8 @@ Routes:
   POST /api/v1/auth/token   JSON {username,password} -> {"access_token": ...}
   GET  /api/v1/auth/me      accepts session cookie, bearer token, or basic
   GET  /api/v1/widgets/{id} demo entity for oracle tests
+  GET  /spa-login      SPA login: fetches a token and keeps it in localStorage, no cookie
+  GET  /spa            SPA page that reads the token from localStorage
 """
 
 from __future__ import annotations
@@ -44,6 +46,39 @@ _LOGIN_PAGE = """<!doctype html><html><head><meta charset="utf-8">
 </form>
 <div id="error">__ERROR__</div>
 </body></html>"""
+
+#: A single-page app of the common modern kind: the token lives in ``localStorage``
+#: as JSON and the app adds it to its own API calls; the browser holds no cookie.
+_SPA_LOGIN_PAGE = """<!doctype html><html><head><meta charset="utf-8">
+<title>Sign in</title></head><body>
+<form id="login">
+  <label for="email">Email</label><input id="email" type="email">
+  <label for="password">Password</label><input id="password" type="password">
+  <button type="submit">Sign in</button>
+</form>
+<script>
+document.getElementById('login').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const response = await fetch('/api/v1/auth/token', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username: document.getElementById('email').value,
+                          password: document.getElementById('password').value})});
+  if (!response.ok) return;
+  const {access_token} = await response.json();
+  localStorage.setItem('auth', JSON.stringify({access_token, user: 'demo'}));
+  location.href = '/spa';
+});
+</script></body></html>"""
+
+_SPA_PAGE = """<!doctype html><html><head><meta charset="utf-8">
+<title>SPA</title></head><body><div id="whoami">...</div>
+<script>
+const auth = JSON.parse(localStorage.getItem('auth') || 'null');
+fetch('/api/v1/auth/me', {headers: auth ? {Authorization: 'Bearer ' + auth.access_token} : {}})
+  .then(r => r.ok ? r.json() : null)
+  .then(me => document.getElementById('whoami').textContent =
+        me ? 'signed in as ' + me.email : 'not signed in');
+</script></body></html>"""
 
 _APP_PAGE = """<!doctype html><html><head><meta charset="utf-8">
 <title>App</title></head><body>
@@ -143,6 +178,10 @@ class _Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/login":
             self._html(200, _LOGIN_PAGE.replace("__ERROR__", ""))
+        elif path == "/spa-login":
+            self._html(200, _SPA_LOGIN_PAGE)
+        elif path == "/spa":
+            self._html(200, _SPA_PAGE)
         elif path == "/app":
             if self._authenticated():
                 self._html(200, _APP_PAGE.replace("__USER__", USER))
