@@ -1,12 +1,18 @@
 # История изменений
 
-Проект готовится как alpha-кандидат. До первого tagged release значимые изменения
-группируются в `Unreleased`; совместимость не гарантируется.
+Testence в стадии alpha: `0.1.0a1` опубликован на PyPI. Изменения после последнего
+опубликованного выпуска собраны в `Unreleased`; совместимость между alpha-версиями не
+гарантируется, а несовместимое изменение сопровождается заметкой о переходе
+([обновление](upgrading.md)).
 
 ## Unreleased
 
 ### Добавлено
 
+- Готовый workflow GitHub Actions ([CI](ci.md), `docs/examples/github-actions.yml`),
+  который CI самого репозитория выполняет как есть на проекте `testence init`;
+  [руководство по переходу](upgrading.md) с `0.1.0a1`; README показывает настоящий отчёт
+  демо ложного зелёного из Quick start.
 - `api_auth_from_storage` передаёт same-session API oracle токен, который SPA хранит в
   `localStorage` или `sessionStorage`. На таких приложениях oracle читал как аноним и
   каждая проверка давала `inconclusive` на HTTP 401; теперь эта причина называет
@@ -268,7 +274,7 @@
   может гонять браузерные тесты на `msedge` или `chromium-headless-shell`; явные
   аргументы и умолчания CI не меняются.
 
-## 0.1.0a1 — release candidate
+## 0.1.0a1
 
 - Контекст iframe теперь одинаково применяется к locator actions, JavaScript evaluation
   и predicate waits; разрыв был обнаружен на preview сайта NextDish.

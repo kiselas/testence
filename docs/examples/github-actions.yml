@@ -1,0 +1,40 @@
+# Copy to .github/workflows/e2e.yml in your project; `testence init` writes the rest.
+name: e2e
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Only for an app behind a login; unset secrets are empty and ignored by auth: none.
+      TESTENCE_USER: ${{ secrets.TESTENCE_USER }}
+      TESTENCE_PASSWORD: ${{ secrets.TESTENCE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install Testence and Chromium
+        run: |
+          python -m pip install testence
+          python -m playwright install --with-deps chromium
+      - name: Run the tests
+        run: testence run --project . --run-id "ci-${{ github.run_id }}"
+      - name: Export JUnit for the CI test view
+        if: always()
+        run: testence export "runs/ci-${{ github.run_id }}" --to junit -o test-results
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: testence-evidence
+          path: |
+            runs/
+            test-results/

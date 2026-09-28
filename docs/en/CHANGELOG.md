@@ -1,12 +1,17 @@
 # Changelog
 
-This project is an alpha candidate. Until a first tagged release, notable changes are grouped
-under `Unreleased`; compatibility is not guaranteed.
+Testence is in alpha: `0.1.0a1` is published on PyPI. Changes since the last published
+release are grouped under `Unreleased`; compatibility between alphas is not guaranteed,
+and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ## Unreleased
 
 ### Added
 
+- A copy-paste GitHub Actions workflow ([CI](ci.md), `docs/examples/github-actions.yml`)
+  that the repository's own CI runs as written against a `testence init` project; an
+  [upgrade guide](upgrading.md) from `0.1.0a1`; the README shows a real report of the
+  quick start's false-green demo.
 - `api_auth_from_storage` sends the token a single-page app keeps in `localStorage` or
   `sessionStorage` with the same-session API oracle. The oracle read as nobody on such
   apps and every check was `inconclusive` on HTTP 401; that reason now names the setting.
@@ -264,7 +269,7 @@ under `Unreleased`; compatibility is not guaranteed.
   browser tests on `msedge` or `chromium-headless-shell`; explicit arguments and CI
   defaults are unchanged.
 
-## 0.1.0a1 — release candidate
+## 0.1.0a1
 
 ### September release audit
 

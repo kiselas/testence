@@ -7,10 +7,12 @@
 - [Аутентификация](auth.md)
 - [Возможности engine и строгие действия](engine-capabilities.md)
 - [Отчётность и экспортёры](reporting.md)
+- [Testence в CI](ci.md)
 - [Схема доказательств](evidence-schema.md)
 - [Multi-project quality packs](quality-packs.md)
 - [Вычислительные ядра](kernels.md)
 - [История изменений](CHANGELOG.md)
+- [Переход с 0.1.0a1](upgrading.md)
 - [Политика поддержки](../../SUPPORT.md)
 
 ## Работа с агентами
