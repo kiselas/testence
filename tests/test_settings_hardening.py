@@ -130,7 +130,8 @@ def test_the_windows_session_cache_is_readable_by_its_owner_only(tmp_path, monke
     listing = subprocess.run(
         ["icacls", str(cache)], capture_output=True, text=True, errors="replace"
     )
-    grants = [line for line in listing.stdout.splitlines()[:-1] if ":(" in line]
+    # The first line names the file as well; "Successfully processed" has no grant.
+    grants = [line for line in listing.stdout.splitlines() if ":(" in line]
     assert len(grants) == 1, listing.stdout
     assert os.environ.get("USERNAME", "").lower() in grants[0].lower()
 

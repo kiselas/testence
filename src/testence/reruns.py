@@ -53,9 +53,11 @@ def _forget_failures(item: pytest.Item) -> None:
                 if isinstance(finalizers, list):
                     finalizers.clear()
     # A test method's instance is created once per item; the repeat must not see
-    # what the failed attempt stored on ``self``.
-    if getattr(item, "_instance", None) is not None:
-        del item._instance  # type: ignore[attr-defined]
+    # what the failed attempt stored on ``self``. pytest 8.1+ keeps it in
+    # ``_instance``; 8.0 takes it from the bound method cached in ``_obj``.
+    if getattr(item, "cls", None) is not None:
+        if hasattr(item, "_instance"):
+            del item._instance  # type: ignore[attr-defined]
         item._obj = None  # type: ignore[attr-defined]
     state: Any = getattr(item.session, "_setupstate", None)
     stack = getattr(state, "stack", None)
