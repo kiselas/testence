@@ -242,9 +242,16 @@ def reconcile_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     counts = {
         status: 0 for status in ("passed", "failed", "broken", "skipped", "aborted", "not_run")
     }
+    reruns = 0
     for event in terminal.values():
+        # An attempt that was repeated is evidence, not an outcome: the
+        # test's outcome is its last attempt, as pytest's own exit status says.
+        if event.get("rerun") is True:
+            reruns += 1
+            continue
         counts[normalize_execution_status(event.get("status"))] += 1
     final.update(counts)
+    final["reruns"] = reruns
     status_values = [status for status, count in counts.items() for _ in range(count)]
     final["run_status"] = _logical_run_status(run_ends, status_values)
     # A missing run.end must never become a successful logical run.

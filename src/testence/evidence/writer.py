@@ -37,6 +37,8 @@ from .sanitize import DEFAULT_POLICY, RedactionPolicy, sanitize, sanitize_text
 RUN_ID_ENV = "TESTENCE_RUN_ID"
 #: Set by pytest-xdist in each worker process; empty in a single-process run.
 WORKER_ENV = "PYTEST_XDIST_WORKER"
+#: Controller events after which the run manifest is checkpointed.
+_MANIFEST_CHECKPOINTS = frozenset({"run.start", "collection.end", "run.end"})
 
 
 def new_run_id() -> str:
@@ -82,23 +84,25 @@ class EvidenceWriter:
         project_id: str = UNKNOWN_PROJECT_ID,
         redact_values: tuple[str, ...] | list[str] = (),
         redaction_policy: RedactionPolicy = DEFAULT_POLICY,
+        *,
+        deferred: bool = False,
     ) -> None:
+        """``deferred`` keeps the events in memory and touches no file until
+        :meth:`activate`; :meth:`close` before that leaves nothing on disk. The
+        pytest plugin opens a session this way unless it was asked to record, and
+        activates it only when a test uses Testence, so installing the package does
+        not make an unrelated suite write run directories."""
         self.run_id = run_id or os.environ.get(RUN_ID_ENV) or new_run_id()
         self.worker = worker if worker is not None else os.environ.get(WORKER_ENV, "")
         self.project_id = project_id
         self.run_dir = Path(runs_root) / self.run_id
-        self.run_dir.mkdir(parents=True, exist_ok=True)
         name = f"run-{self.worker}.jsonl" if self.worker else "run.jsonl"
         self.path = self.run_dir / name
-        # The manifest digests this ledger at every checkpoint. The writer owns the
-        # file, so it hashes what it appends instead of reading it back: rereading a
-        # file just written is the slow part on Windows, where the scanner opens it
-        # first. A run id reused by a later session in this process appends, so the
-        # hash starts from whatever the file already holds.
-        existing = self.path.read_bytes() if self.path.is_file() else b""
-        self._ledger_sha = hashlib.sha256(existing)
-        self._ledger_bytes = len(existing)
-        self._fh: TextIO = open(self.path, "a", encoding="utf-8", newline="\n")
+        self._ledger_sha = hashlib.sha256()
+        self._ledger_bytes = 0
+        self._fh: TextIO | None = None
+        self._closed = False
+        self._pending: list[tuple[str, str, Event, dict[str, Any]]] = []
         self._lock = threading.Lock()
         self._seq = 0
         self._redact_values = tuple(value for value in redact_values if value)
@@ -107,6 +111,48 @@ class EvidenceWriter:
         self._test_context: dict[str, dict[str, Any]] = {}
         self._failed_oracle_diffs: dict[str, list[dict[str, Any]]] = {}
         self._manifest: dict[str, Any] | None = None
+        if not deferred:
+            self.activate()
+
+    @property
+    def active(self) -> bool:
+        """The ledger is on disk and every further event is written through."""
+        return self._fh is not None
+
+    def activate(self) -> None:
+        """Create the ledger and write every event held so far, in order."""
+        with self._lock:
+            if self._fh is not None or self._closed:
+                return
+            self.run_dir.mkdir(parents=True, exist_ok=True)
+            # The manifest digests this ledger at every checkpoint. The writer owns
+            # the file, so it hashes what it appends instead of reading it back:
+            # rereading a file just written is the slow part on Windows, where the
+            # scanner opens it first. A run id reused by a later session in this
+            # process appends, so the hash starts from whatever the file holds.
+            existing = self.path.read_bytes() if self.path.is_file() else b""
+            self._ledger_sha = hashlib.sha256(existing)
+            self._ledger_bytes = len(existing)
+            self._fh = open(self.path, "a", encoding="utf-8", newline="\n")
+            pending, self._pending = self._pending, []
+            for _kind, line, _event, _merged in pending:
+                self._append(line, sync=False)
+            self._fh.flush()
+            os.fsync(self._fh.fileno())
+            if not self.worker:
+                for kind, _line, event, merged in pending:
+                    if kind in _MANIFEST_CHECKPOINTS:
+                        self._write_run_manifest(kind, event, merged)
+
+    def _append(self, line: str, *, sync: bool = True) -> None:
+        assert self._fh is not None
+        self._fh.write(line)
+        if sync:
+            self._fh.flush()
+            os.fsync(self._fh.fileno())
+        encoded = line.encode("utf-8")
+        self._ledger_sha.update(encoded)
+        self._ledger_bytes += len(encoded)
 
     def bind_test(
         self,
@@ -215,14 +261,12 @@ class EvidenceWriter:
             self._seq += 1
             event.stamp(self._seq)
             line = event.to_json() + "\n"
-            self._fh.write(line)
-            self._fh.flush()
-            os.fsync(self._fh.fileno())
-            encoded = line.encode("utf-8")
-            self._ledger_sha.update(encoded)
-            self._ledger_bytes += len(encoded)
-            if not self.worker and kind in {"run.start", "collection.end", "run.end"}:
-                self._write_run_manifest(kind, event, merged)
+            if self._fh is not None:
+                self._append(line)
+                if not self.worker and kind in _MANIFEST_CHECKPOINTS:
+                    self._write_run_manifest(kind, event, merged)
+            elif not self._closed:
+                self._pending.append((kind, line, event, merged))
             if (
                 kind in {"oracle", "assertion"}
                 and test is not None
@@ -302,6 +346,8 @@ class EvidenceWriter:
 
     def test_dir(self, test_id: str) -> Path:
         """Per-test directory for large artifacts (screenshots, bodies, packs)."""
+        # An artifact on disk needs the ledger that points at it.
+        self.activate()
         redacted_id = sanitize_text(
             test_id, secrets=self._redact_values, policy=self._policy, limit=80
         )
@@ -312,7 +358,9 @@ class EvidenceWriter:
 
     def close(self) -> None:
         with self._lock:
-            if not self._fh.closed:
+            self._closed = True
+            self._pending = []
+            if self._fh is not None and not self._fh.closed:
                 self._fh.close()
 
     def __enter__(self) -> "EvidenceWriter":

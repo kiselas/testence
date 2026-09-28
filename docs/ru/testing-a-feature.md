@@ -169,13 +169,30 @@ synchronization, assertions или evidence capture.
 | Проверки страницы | `expect_text(target, text, exact=True)`, `expect_value`, `expect_count`, `expect_visible`, `expect_hidden`, `expect_enabled`, `expect_disabled`, `expect_checked(checked=True)`, `expect_attribute(target, name, value)`, `expect_url(contains=... \| equals=...)`, `expect_screenshot` |
 | Несколько проверок сразу | `with ex.soft("the order summary"):` выполняет все проверки внутри и падает один раз в конце со списком провалившихся; действия и ошибки браузера по-прежнему останавливают тест |
 | Вкладки | `switch_page(index)`, `switch_page(url_contains=...)` (ждёт вкладку, которую открывает приложение), `close_page()` |
-| Время | `ex.clock.install(time=None)`, `fast_forward(ticks)`, `pause_at(time)`, `resume()`, `set_fixed_time(time)` — вместо ожидания таймера через sleep |
+| Время | `ex.clock.install(time=None)`, `run_for(ticks)`, `fast_forward(ticks)`, `pause_at(time)`, `resume()`, `set_fixed_time(time)` — вместо ожидания таймера через sleep. `run_for` запускает все таймеры по пути, включая запланированные ими (обратный отсчёт); `fast_forward` перескакивает и запускает каждый наступивший таймер один раз |
 | Проверки данных | `verify`, `verify_state` (выше в разделе 4) |
 | Всё остальное | `with ex.native("intent") as page:` — страница Playwright, шаг записывается как native (ADR-0027) |
 
-`expect_url(equals="/cart")` разрешает относительный URL от `base_url`, как `goto`.
-`press("Enter", target=SEARCH)` сначала ставит фокус на цель, чтобы клавиша попала туда,
-куда указал тест.
+`expect_url(equals="/cart")` разрешает относительный URL относительно `base_url`, как
+`goto`. `press("Enter", target=SEARCH)` сначала фокусирует цель, чтобы клавиша попала
+туда, куда указывает тест.
+
+Шаги с неочевидной формой:
+
+| Вызов | Что делает |
+|---|---|
+| `ex.dialog(BUTTON, accept=True, prompt=None)` | нажимает `BUTTON`, отвечает на открытый им `alert`/`confirm`/`prompt` и возвращает текст диалога; это не контекстный менеджер |
+| `ex.download(LINK, "out/report.csv")` | нажимает `LINK`, сохраняет загрузку по указанному пути и возвращает имя файла, предложенное сайтом |
+| `ex.upload(INPUT, ["fixtures/a.txt"])` | задаёт файлы поля выбора файла; пути передаются списком |
+| `ex.popup(LINK)` | нажимает `LINK` и продолжает в открытой им вкладке; `ex.close_page()` возвращает назад |
+| `with ex.frame(Target("css", "iframe#pay")):` | разрешает цели внутри фрейма до конца блока |
+| `ex.expect_screenshot(baseline, baseline_digest=..., assertion_id=..., claim_id=...)` | сравнивает viewport с заранее записанным и проверенным эталоном (`testence[visual]`, см. reference `visual-regression` навыка `testence-author`); без эталона проверка inconclusive, но никогда не зелёная |
+
+Открытый shadow DOM не требует особой цели: `Target("css", "my-widget button")`, цели по
+роли и тексту проходят сквозь открытые shadow root. Цель `label=`, как `get_by_label` в
+Playwright, сравнивается со всем текстом подписи; для `<label>Show <select>…</select></label>`
+используйте `Target("role", "combobox", name="Show")` — упавший шаг без совпадений
+перечисляет подходящие записи дерева доступности.
 
 ## 5. Докажите, что тест правильно падает
 

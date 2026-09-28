@@ -347,6 +347,13 @@ def main(argv: list[str] | None = None) -> int:
         default="warn",
         help="fail when Allure test plan entries matched no collected test (default: warn)",
     )
+    p_ci_evaluate.add_argument(
+        "--flaky",
+        choices=("warn", "fail"),
+        default="warn",
+        help="fail when a test passed only after a --testence-reruns repeat "
+        "(default: warn, listed in the receipt)",
+    )
     p_ci_evaluate.add_argument("-o", "--out", type=Path, required=True)
     p_ci_evaluate.add_argument("--json", dest="json_output", action="store_true")
 
@@ -481,14 +488,22 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "metrics":
-        doc = write_metrics(args.run_dirs, args.out)
+        try:
+            doc = write_metrics(args.run_dirs, args.out)
+        except (OSError, ValueError) as exc:
+            print(f"metrics failed: {exc}", file=sys.stderr)
+            return 2
         print(f"metrics -> {args.out}")
         print(doc)
         return 0
 
     if args.command == "report":
         out = args.out or (args.run_dir / "report.html")
-        render_report(args.run_dir, out)
+        try:
+            render_report(args.run_dir, out)
+        except (OSError, ValueError) as exc:
+            print(f"report failed: {exc}", file=sys.stderr)
+            return 2
         print(f"report -> {out}")
         return 0
 
@@ -557,15 +572,27 @@ def main(argv: list[str] | None = None) -> int:
         if args.json_output:
             print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
         else:
-            assurance = result["assurance"]
-            if isinstance(assurance, dict):
-                assurance = ", ".join(
-                    f"{count} {name}" for name, count in sorted(assurance.items())
-                )
-            print(
-                f"{result['run_id']} {result['run_status']}: "
-                f"{result['tests']} tests ({assurance or 'no assurance recorded'})"
+            # Execution first, as pytest reports it: an assurance-only line ("2
+            # unverified") read as a failure to a reader whose two tests passed.
+            order = ("passed", "failed", "broken", "skipped", "aborted", "not_run")
+            execution = ", ".join(
+                f"{result['execution'][status]} {status}"
+                for status in order
+                if result["execution"].get(status)
             )
+            assurance = ", ".join(
+                f"{count} {name}" for name, count in sorted(result["assurance"].items())
+            )
+            # ASCII only: a Windows console on cp866 or cp1251 garbles a dash or a dot.
+            print(
+                f"{result['run_id']} {result['run_status']}: {result['tests']} tests"
+                f"{' (' + execution + ')' if execution else ''}"
+                f"; assurance: {assurance or 'none recorded'}"
+            )
+            for nodeid in result["flaky"]:
+                print(f"  flaky: {nodeid} passed only after a rerun")
+            for pack in result["packs"]:
+                print(f"  pack: {Path(args.run_dir) / pack}")
         return 0
 
     if args.command == "demo" and args.demo_command == "run":
@@ -703,7 +730,7 @@ def main(argv: list[str] | None = None) -> int:
         out = args.out or default_out_dir(args.run_dir, args.to)
         try:
             files = export_run(args.run_dir, args.to, out, attachments=args.attachments)
-        except ExporterError as exc:
+        except (ExporterError, OSError, ValueError) as exc:
             print(f"export failed: {exc}", file=sys.stderr)
             return 2
         print(f"{args.to} -> {out} ({len(files)} files)")
@@ -920,6 +947,7 @@ def main(argv: list[str] | None = None) -> int:
                 junit_path=args.junit,
                 allow_empty=args.allow_empty,
                 testplan_unresolved=args.testplan_unresolved,
+                flaky=args.flaky,
             )
             write_ci_receipt(args.out, receipt)
         except CIError as exc:

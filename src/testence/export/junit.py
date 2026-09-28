@@ -134,6 +134,14 @@ def _case_properties(test: Test, files: list[ExportedFile]) -> list[tuple[str, s
         ("testence.nodeid", test.nodeid),
         ("allure_id", test.allure_id or str(test.allure.get("allure_id") or "")),
     ]
+    if test.reruns:
+        # junit-4.xsd has no element for an attempt that was repeated; a pass after
+        # a repeat must still not read as a clean pass.
+        properties.append(("testence.retries", str(len(test.reruns))))
+        properties.append(("testence.flaky", "true" if test.flaky else "false"))
+        properties.extend(
+            ("testence.rerun", f"{attempt.attempt_id}: {attempt.status}") for attempt in test.reruns
+        )
     for system, ids in sorted(test.tms.items()):
         if system == "testrail":
             properties.append(("test_id", ", ".join(ids)))

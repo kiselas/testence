@@ -1,3 +1,5 @@
+import json
+
 from testence.evidence import EvidenceWriter
 from testence.report import render_report
 
@@ -33,12 +35,58 @@ def test_report_escapes_html(tmp_path):
     assert "<script>alert(1)</script>" not in body
 
 
+def test_page_controlled_text_cannot_close_the_report_script(tmp_path):
+    """The events are embedded in a <script> block, and the HTML parser ends that
+    block at the first ``</script`` whatever the JavaScript around it says. A console
+    message from the page under test is enough to carry one."""
+    payload = "</script><script>window.__pwned=1</script><!--  "
+    writer = EvidenceWriter(tmp_path, run_id="r-breakout", worker="")
+    writer.emit("run.start")
+    writer.emit("test.start", test="t")
+    writer.emit("console", test="t", level="error", text=payload)
+    writer.emit("test.end", test="t", status="fail", duration_ms=1.0)
+    writer.emit("run.end", duration_ms=1.0, passed=0, failed=1)
+    writer.close()
+
+    page = render_report(writer.run_dir, tmp_path / "r.html").read_text(encoding="utf-8")
+
+    assert page.lower().count("</script") == 1
+    assert "<!--" not in page
+    embedded = page.split("const EVENTS = ", 1)[1].split(";\nconst esc", 1)[0]
+    texts = [event.get("text") for event in json.loads(embedded)]
+    assert payload in texts
+
+
+def test_run_id_cannot_inject_the_event_placeholder(tmp_path):
+    writer = EvidenceWriter(tmp_path, run_id="r-__EVENTS__", worker="")
+    writer.emit("run.start")
+    writer.emit("run.end", duration_ms=1.0, passed=0, failed=0)
+    writer.close()
+
+    page = render_report(writer.run_dir, tmp_path / "r.html").read_text(encoding="utf-8")
+
+    assert "<code>r-__EVENTS__</code>" in page
+
+
 def test_oracle_diff_helper():
     from testence.oracle import diff_views
 
     assert diff_views({"cidr": "10.0.0.0/24"}, {"cidr": "10.0.0.0/24", "id": 5}) == []
     diffs = diff_views({"cidr": "10.0.0.0/24"}, {"cidr": "10.0.1.0/24"})
     assert diffs == [{"field": "cidr", "ui": "10.0.0.0/24", "api": "10.0.1.0/24"}]
+
+
+def test_oracle_diff_does_not_take_a_number_for_a_boolean():
+    from testence.oracle import diff_views
+
+    assert diff_views({"active": True}, {"active": 1}) == [
+        {"field": "active", "ui": True, "api": 1}
+    ]
+    assert diff_views({"flags": [False]}, {"flags": [0]}) != []
+    assert diff_views({"owner": {"on": True}}, {"owner": {"on": 1}}) != []
+    assert diff_views({"total": 3}, {"total": 3.0}) == []
+    assert diff_views({"owner": {"name": " ann "}}, {"owner": {"name": "ann"}}) == []
+    assert diff_views({"owner": {"name": "ann"}}, {"owner": {"name": "ann", "id": 1}}) != []
 
 
 def test_report_surfaces_the_plan_and_claims(tmp_path):

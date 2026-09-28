@@ -38,7 +38,14 @@ def load_run(run_dir: Path) -> list[dict[str, Any]]:
 
     A parallel run has one file per worker (see ``evidence.writer``); a serial run
     has exactly one. Parsing is kernel-dispatched (hot when aggregating many runs).
+
+    A path that is not a directory raises ``FileNotFoundError``: read as a run with
+    no events, a mistyped path inspected as an empty run and exported as a result. A
+    run directory whose ledger is missing or empty is a real run that ended before it
+    wrote anything, and reads as incomplete.
     """
+    if not Path(run_dir).is_dir():
+        raise FileNotFoundError(f"{run_dir} is not a Testence run: no such run directory")
     return reconcile_events(read_run_ledgers(run_dir))
 
 
@@ -83,8 +90,15 @@ def aggregate(run_dirs: list[Path]) -> dict[str, Any]:
             elif kind == "test.start":
                 test_id = _attempt_key(doc)
                 code_of[test_id] = str(doc.get("code") or "")
+            elif kind == "test.end" and doc.get("rerun") is True:
+                # An attempt that was repeated: its test's final attempt
+                # says whether the test was flaky, below.
+                continue
             elif kind == "test.end":
-                case_s.append(doc["duration_ms"] / 1000)
+                # A case reconciled as never run, or cut off by a crash, has no
+                # measured duration; it still counts for outcome and assurance.
+                if isinstance(doc.get("duration_ms"), (int, float)):
+                    case_s.append(doc["duration_ms"] / 1000)
                 assurance_status = str(doc.get("assurance") or "unverified")
                 assurance[assurance_status] = assurance.get(assurance_status, 0) + 1
                 test_id = _attempt_key(doc)
@@ -94,9 +108,13 @@ def aggregate(run_dirs: list[Path]) -> dict[str, Any]:
                     str(doc.get("variant_id") or "default"),
                     code_of.get(test_id, ""),
                 )
-                outcomes.setdefault(key, set()).add(normalize_execution_status(doc.get("status")))
+                statuses = outcomes.setdefault(key, set())
+                statuses.add(normalize_execution_status(doc.get("status")))
+                if doc.get("flaky") is True:  # passed only after a failed attempt
+                    statuses.add("failed")
             elif kind == "run.end":
-                suite_min.append(doc["duration_ms"] / 60000)
+                if isinstance(doc.get("duration_ms"), (int, float)):
+                    suite_min.append(doc["duration_ms"] / 60000)
             elif kind == "pack":
                 pack_tokens.append(sum(doc.get("sections_est_tokens", {}).values()))
 

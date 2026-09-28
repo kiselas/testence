@@ -32,6 +32,13 @@ def _pillow() -> Any:
 
 
 def _bytes(path: Path) -> bytes:
+    # A baseline that was never recorded is the first thing a new project meets. It
+    # is missing evidence, so inconclusive, not an OSError in the host's language.
+    if not path.is_file():
+        raise VisualUnavailable(
+            f"no reviewed visual baseline at {path}; record one first "
+            "(see the visual-regression reference of the testence-author skill)"
+        )
     if path.is_symlink() or path.stat().st_size > MAX_BYTES:
         raise VisualUnavailable("visual artifact is a symlink or exceeds 16 MiB")
     return path.read_bytes()

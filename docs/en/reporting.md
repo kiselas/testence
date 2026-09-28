@@ -57,6 +57,28 @@ Property names follow the `trcli` and Xray JUnit documentation. `test_id` means 
 TestRail case in `trcli` and a numeric issue id in Xray, so declare only the systems a
 report is meant for.
 
+### Reruns and flaky tests
+
+`pytest --testence-reruns 2` (or `TESTENCE_RERUNS=2`, at most 5) repeats a failed test
+up to twice. The whole test is repeated — setup, call and teardown, with fixtures whose
+setup failed created again and a fresh instance for a test method — never an
+interaction inside it. An expected failure (`xfail`) is not repeated, and `-x` stops at
+the first final failure. Every attempt is recorded as its own attempt: a new
+`attempt_id` and `proof_id`, its own steps and, when it failed, its own evidence pack;
+the terminal shows a repeated attempt as `R` and counts `reruns`. A suite that already
+uses pytest-rerunfailures is recorded the same way, but Testence does not depend on it.
+An attempt that was repeated ends with `rerun: true`; the final attempt
+carries `retries` and, when it passed after a failure, `flaky: true`.
+
+A test's outcome is its final attempt, as pytest's exit status says. `testence inspect`
+counts tests, not attempts, and lists the flaky ones; `run.end` counts `reruns` apart
+from the outcomes. Allure receives one result per attempt under the same `historyId`, so
+it shows the earlier attempts as retries. CTRF uses its `retries`, `flaky` and
+`retryAttempts` fields. JUnit has no element for a repeated attempt; the test case
+carries `testence.retries`, `testence.flaky` and one `testence.rerun` property per
+earlier attempt. `testence ci evaluate --flaky fail` turns a pass after a rerun into a
+quality failure; the default `warn` lists it in the receipt.
+
 ## Uploading results to Allure TestOps
 
 Two ways to feed TestOps, both writing the standard Allure *results directory*:

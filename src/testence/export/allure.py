@@ -68,6 +68,10 @@ _MIME = {
 def export(run: LoadedRun, out_dir: Path) -> list[Path]:
     written: list[Path] = []
     for test in run.tests:
+        # Earlier attempts first: Allure groups results by historyId and shows the
+        # latest as the test, the others as its retries.
+        for attempt in test.reruns:
+            written.extend(write_test(run, attempt, out_dir))
         written.extend(write_test(run, test, out_dir))
     written.extend(write_run_files(run, out_dir))
     return written

@@ -27,7 +27,7 @@ def _manifest_ledger(writer: EvidenceWriter) -> dict:
 
 
 def test_manifest_digests_the_ledger_it_did_not_reread(tmp_path):
-    writer = EvidenceWriter(tmp_path, run_id="r-startup")
+    writer = EvidenceWriter(tmp_path, run_id="r-startup", worker="")
     writer.emit("run.start", config={"password": "hunter2"})
     writer.emit("note", test="t.py::x", text="é — non-ASCII must hash as written bytes")
     writer.emit("collection.end", selected=1, cases=[{"nodeid": "t.py::x"}])
@@ -41,12 +41,12 @@ def test_manifest_digests_the_ledger_it_did_not_reread(tmp_path):
 
 def test_a_reused_run_id_digests_the_whole_appended_ledger(tmp_path):
     """A later session in the same process appends to the ledger it inherits."""
-    first = EvidenceWriter(tmp_path, run_id="r-reused")
+    first = EvidenceWriter(tmp_path, run_id="r-reused", worker="")
     first.emit("run.start")
     first.emit("collection.end", selected=2, cases=["a", "b"])
     first.close()
 
-    second = EvidenceWriter(tmp_path, run_id="r-reused")
+    second = EvidenceWriter(tmp_path, run_id="r-reused", worker="")
     second.emit("run.end", run_status="passed", exit_code=0)
     second.close()
 
@@ -59,7 +59,7 @@ def test_a_reused_run_id_digests_the_whole_appended_ledger(tmp_path):
 
 
 def test_worker_ledgers_are_still_read_from_disk(tmp_path):
-    controller = EvidenceWriter(tmp_path, run_id="r-workers")
+    controller = EvidenceWriter(tmp_path, run_id="r-workers", worker="")
     worker = EvidenceWriter(tmp_path, run_id="r-workers", worker="gw0")
     controller.emit("run.start")
     worker.emit("note", text="worker event")
