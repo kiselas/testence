@@ -42,6 +42,7 @@ KINDS = frozenset(
         "collection.deselected",
         "testplan.unresolved",
         "native.used",
+        "network.mocked",
         "worker.crash",
         "test.start",
         "test.phase",

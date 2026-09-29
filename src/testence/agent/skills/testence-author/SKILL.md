@@ -41,6 +41,9 @@ For automated screenshot regression or an isolated client simulation, also read
   instead of logging in by hand.
   Keep a payload, a log excerpt or a picture with the evidence via `ex.attach(name,
   data)`; do not write files next to the run.
+  `ex.route(pattern, status=..., json=...)` answers requests from the test; use it for how
+  the UI handles an error or an empty list, never for persistence (mocked responses are
+  refused as proof).
   Prove a save with `ex.verify_state(name, read, ExpectedState.fields(...))`: it polls
   a fresh read and names each differing field; `ex.verify` compares two views taken once.
   Do not guess an oracle's endpoint: run the test once, then `testence oracle suggest

@@ -13,7 +13,8 @@ capabilities, например `browser.dom`, `browser.frames` или `browser.f
 Playwright backend R1 объявляет lifecycle, session, navigation, DOM и open shadow DOM,
 network/WebSocket, screenshot, accessibility, JavaScript, keyboard/focus/scroll,
 frames, popups и вкладки, upload/download, dialogs, поддельные таймеры
-(`browser.clock`, `ex.clock`), эмуляция контекста (`browser.emulation`) и `browser.native` (`ex.native`). DSL использует strict locators: несколько
+(`browser.clock`, `ex.clock`), эмуляция контекста (`browser.emulation`), записываемая подмена запросов
+(`browser.network_mock`, `ex.route`) и `browser.native` (`ex.native`). DSL использует strict locators: несколько
 совпадений дают failure, пока автор явно не укажет `Target(..., nth=N)`. `fast=True` —
 явное ослабление actionability. Оно записывается в `step.start` и переводит иначе
 verified attempt в `unverified` для review.

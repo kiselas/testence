@@ -74,6 +74,7 @@ a deterministic source-derived fallback that does not promise stability across r
 | `oracle` | `name`, `ok`, `diff`?, or typed `expected`/`actual` plus `observation` and bound `operation` |
 | `assertion` | `assertion_id`, `claim_id`, `oracle_kind`, `outcome`, typed/redacted `expected` and `actual`, `source` |
 | `pack` | `dir` (rel.), `sections_est_tokens` {aria, network, console, oracle}, `error` |
+| `network.mocked` | `pattern`, `outcome` (status or `abort`), `content_type`, `size` — `ex.route` answers matching requests from the test; their `NetRecord`s are `mocked` |
 | `native.used` | `intent` — an `ex.native` block ran; its interactions were not recorded one by one |
 | `testplan.unresolved` | `count`, `policy` (`warn`/`fail`), `entries` [{`id`?, `selector`?}] — Allure test plan entries that matched no collected test |
 | `note` | `text` + free fields |

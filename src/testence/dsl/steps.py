@@ -68,6 +68,9 @@ class SoftAssertionsFailed(AssertionError):
         )
 
 
+_UNSET: Any = object()
+
+
 class Actions:
     """Engine + evidence, bound to one test. Projects build ActionMaps on top."""
 
@@ -696,6 +699,58 @@ class Actions:
         """
         content = data.read_bytes() if isinstance(data, Path) else data
         self.writer.attach(self.test_id, name, content, media_type)
+
+    def route(
+        self,
+        pattern: str,
+        *,
+        status: int = 200,
+        json: Any = _UNSET,
+        body: str | bytes | None = None,
+        headers: dict[str, str] | None = None,
+        content_type: str | None = None,
+        abort: bool = False,
+        intent: str | None = None,
+    ) -> None:
+        """Answer requests matching ``pattern`` (a URL glob such as ``**/api/widgets*``)
+        from the test: a canned ``json`` or ``body`` with ``status``, or ``abort=True``
+        to drop the connection.
+
+        Recorded as a ``network.mocked`` event, and every response it produces is marked
+        ``mocked``: it never reached the server, so ``save_and_verify_state`` refuses to
+        take it for the mutation. Use it for the UI's behaviour on an error, an empty
+        list or a slow answer; prove persistence against the real backend.
+        """
+        if abort and (json is not _UNSET or body is not None):
+            raise ValueError("ex.route: abort has no response body")
+        if json is not _UNSET and body is not None:
+            raise ValueError("ex.route: give json or body, not both")
+        payload: str | bytes | None = body
+        kind = content_type
+        if json is not _UNSET:
+            import json as _json
+
+            payload = _json.dumps(json)
+            kind = kind or "application/json"
+        outcome = "abort" if abort else str(status)
+        with self.step(intent or f"answer {pattern} from the test ({outcome})"):
+            require_capabilities(self.engine, "route", Capability.NETWORK_MOCK)
+            self.writer.emit(
+                "network.mocked",
+                test=self.test_id,
+                pattern=pattern,
+                outcome=outcome,
+                content_type=kind,
+                size=len(payload) if payload is not None else 0,
+            )
+            self.engine.route(
+                pattern,
+                status=status,
+                body=payload,
+                headers=headers,
+                content_type=kind,
+                abort=abort,
+            )
 
     def note(self, text: str, **data: Any) -> None:
         self.writer.emit("note", test=self.test_id, text=text, **data)
