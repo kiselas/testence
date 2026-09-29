@@ -76,7 +76,7 @@ deterministic UI tests and evidence-backed verdicts.**
   skills (launch audit, criterion K10); portable Agent Skills and typed CLI contracts
   ship; evidence redaction has a recorded policy (ADR-0024); static gates are green on a
   public three-OS CI matrix.
-- Open: an MCP server (the CLI contracts are its foundation); only the Chromium/CDP path
+- Open: only the Chromium/CDP path
   is proven, Firefox/WebKit are not first-class; the public benchmark is still synthetic
   and too small for comparative product claims.
 

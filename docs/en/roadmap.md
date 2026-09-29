@@ -14,7 +14,7 @@ correctness/security, or makes the public proof more reproducible.
 ## P0 — safe public alpha foundation (2–4 weeks)
 
 Status on 28 September 2026: shipped with `0.1.0a1` and the launch hardening that
-followed ([changelog](CHANGELOG.md)), except MCP. The active launch plan is
+followed ([changelog](CHANGELOG.md)), including a narrow MCP server ([MCP](mcp.md)). The active launch plan is
 [stage 4](../stages/04-public-launch/README.md) (Russian).
 
 ### Evidence security

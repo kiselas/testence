@@ -8,6 +8,10 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ### Added
 
+- `testence mcp`: a narrow MCP server (stdio) with seven tools for the write-and-prove loop:
+  doctor, snapshot (elements with ready-to-use, uniqueness-checked `Target`s), click, fill,
+  run, inspect and oracle suggest. Page text is redacted, values are never echoed and
+  nothing calls a model. See [MCP](mcp.md). Skill pack 0.1.17.
 - `testence agent install --client opencode`: OpenCode reads `.agents/skills`, so it shares
   Codex's directory; asking for both writes each file once.
 - `auth: "module:factory"` builds the login from the project's own code (`factory(settings)`

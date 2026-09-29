@@ -19,6 +19,7 @@
 
 - [Agent workflow](agent-workflow.md)
 - [Portable Agent Skills](agent-skills.md)
+- [MCP server](mcp.md)
 
 ## Understand the design
 

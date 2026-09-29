@@ -19,6 +19,7 @@
 
 - [Рабочий процесс агента](agent-workflow.md)
 - [Переносимые Agent Skills](agent-skills.md)
+- [MCP-сервер](mcp.md)
 
 ## Устройство продукта
 
