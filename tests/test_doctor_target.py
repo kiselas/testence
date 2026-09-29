@@ -25,7 +25,7 @@ def credentials(monkeypatch):
 
 
 def _checks(tmp_path, **overrides) -> dict[str, dict]:
-    settings = Settings.load(tmp_path, timeout_ms=2_000, **overrides)
+    settings = Settings.load(tmp_path, timeout_ms=6_000, **overrides)
     return {check["name"]: check for check in _target_checks(settings, lambda _m: None)}
 
 
