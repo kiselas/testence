@@ -9,6 +9,10 @@ Testence в стадии alpha: `0.1.0a1` опубликован на PyPI. Из
 
 ### Добавлено
 
+- `testence mcp`: узкий MCP-сервер (stdio) с семью инструментами цикла «написать и
+  доказать»: doctor, snapshot (элементы с готовыми, проверенными на уникальность `Target`),
+  click, fill, run, inspect и oracle suggest. Текст страницы маскируется, значения не
+  возвращаются, модель нигде не вызывается. См. [MCP](mcp.md). Skill pack 0.1.17.
 - `testence agent install --client opencode`: OpenCode читает `.agents/skills`, поэтому
   делит каталог с Codex; если нужны оба, каждый файл пишется один раз.
 - `auth: "module:factory"` строит вход из кода проекта (`factory(settings)` возвращает

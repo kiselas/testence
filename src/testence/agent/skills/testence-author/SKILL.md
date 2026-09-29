@@ -44,6 +44,10 @@ For automated screenshot regression or an isolated client simulation, also read
   `ex.route(pattern, status=..., json=...)` answers requests from the test; use it for how
   the UI handles an error or an empty list, never for persistence (mocked responses are
   refused as proof).
+  When the `testence` MCP server is connected, explore with `testence_snapshot`
+  (each element comes with a uniqueness-checked `Target`) and try steps with
+  `testence_click`/`testence_fill` before writing them; run and read with
+  `testence_run`/`testence_inspect`.
   Prove a save with `ex.verify_state(name, read, ExpectedState.fields(...))`: it polls
   a fresh read and names each differing field; `ex.verify` compares two views taken once.
   Do not guess an oracle's endpoint: run the test once, then `testence oracle suggest

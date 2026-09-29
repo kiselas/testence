@@ -4,7 +4,7 @@ This document defines the public Testence workflow. PlanSpec, pytest claim bindi
 ledger/evidence-pack propagation, verdict validation and the portable skill pack are
 implemented. CLI bootstrap, safe skill installation and managed verdict submission
 are implemented too. Controlled discovery is performed by the host agent using the
-packaged visual-discovery reference; a managed discovery service and MCP remain future work.
+packaged visual-discovery reference; a narrow MCP server ships ([MCP](mcp.md)); a managed discovery service remains future work.
 
 ## The transparent pipeline
 
@@ -309,7 +309,8 @@ Skills define **when and in what order** to use Testence. MCP or CLI tools perfo
 **bounded actions** and return structured data. They should not duplicate business
 logic from the runner.
 
-The initial MCP surface should be small and task-oriented:
+The shipped surface is smaller and different from the design below: see [MCP](mcp.md).
+The initial design was small and task-oriented:
 
 - `project_status` — inspect configuration, capabilities and safety state;
 - `plan_validate` — validate a PlanSpec and traceability IDs;
@@ -359,7 +360,8 @@ remain a separate acceptance requirement.
 | CLI bootstrap and safe Codex/Claude skill updates | implemented; independent client acceptance pending |
 | verdict schema, pack template and CLI validation | implemented |
 | managed verdict persistence | implemented through CLI |
-| agent-facing MCP and managed discovery service | future work; CLI/host-agent path available |
+| agent-facing MCP | narrow server implemented (`testence mcp`) |
+| managed discovery service | future work; host-agent path available |
 | redaction and permission policy | implemented controls; independent security acceptance pending |
 
 The public alpha is not agent-native until one supported agent can complete the entire

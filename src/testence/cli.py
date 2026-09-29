@@ -410,6 +410,12 @@ def main(argv: list[str] | None = None) -> int:
     p_oracle_suggest.add_argument("run_dir", type=Path, help="run directory, e.g. runs/r-123")
     p_oracle_suggest.add_argument("--json", dest="json_output", action="store_true")
 
+    p_mcp = sub.add_parser(
+        "mcp", help="serve the narrow MCP tools an agent uses to write and prove tests (stdio)"
+    )
+    p_mcp.add_argument("--project", type=Path, default=Path("."))
+    p_mcp.add_argument("--headed", action="store_true", help="show the exploration browser")
+
     p_demo = sub.add_parser("demo", help="run the deterministic green/failure proof demo")
     demo_sub = p_demo.add_subparsers(dest="demo_command", required=True)
     p_demo_run = demo_sub.add_parser("run", help="create, run and report the local demo")
@@ -485,6 +491,7 @@ def main(argv: list[str] | None = None) -> int:
             "testence oracle suggest runs/r-local",
             "testence oracle suggest runs/r-local --json",
         ],
+        p_mcp: ["testence mcp --project ."],
         p_report: ["testence report runs/r-local"],
         p_export: [
             "testence export --list",
@@ -626,6 +633,11 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(render(result))
         return 0
+
+    if args.command == "mcp":
+        from .mcp import main as mcp_main
+
+        return mcp_main(args.project, headed=args.headed)
 
     if args.command == "demo" and args.demo_command == "run":
         from .application import ApplicationError, run_demo
