@@ -52,6 +52,12 @@ def _fill(ex):
     ex.fill(Target("css", "#cidr"), "10.0.0.0/8")
 
 
+def _created_id(ex):
+    # The mock app numbers widgets per process, so the id is whatever the server said.
+    posts = [r for r in ex.engine.network_log() if r.method == "POST"]
+    return posts[-1].json_body()["id"]
+
+
 def test_the_ui_shows_what_the_mock_says(ex):
     ex.route("**/api/v1/widgets", status=201, json=FAKE)
     _fill(ex)
@@ -83,7 +89,7 @@ def test_an_unmocked_save_is_still_proved(ex, testence_api):
         Target("css", "#save-widget"),
         name="widget",
         request=RequestExpectation("/api/v1/widgets", "POST"),
-        read=lambda: testence_api.get_fresh("/api/v1/widgets/w1"),
+        read=lambda: testence_api.get_fresh(f"/api/v1/widgets/{_created_id(ex)}"),
         expected=ExpectedState.fields("the widget is stored", {"name": "edge"}),
     )
 
