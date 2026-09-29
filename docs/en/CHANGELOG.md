@@ -116,6 +116,9 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ### Fixed
 
+- A form login without a success signal could read a wrong password as a login: the
+  password field is briefly absent while the submit replaces the page. The login now
+  lets the navigation land and looks once more.
 - A form login with a wrong password surfaced as a bare Playwright timeout; it is now
   `LoginFailed`, naming the login path, the success signal that never came and where
   the credentials came from.
