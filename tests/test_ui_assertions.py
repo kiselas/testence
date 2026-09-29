@@ -38,7 +38,7 @@ def visible_actions():
         engine.goto("data:text/html,<button id=visible>Visible</button>")
         # The short budget belongs to the intentionally missing assertion, not
         # browser startup/navigation on a slower hosted Windows runner.
-        engine.timeout_ms = 150
+        engine.timeout_ms = 1_000
         yield Actions(engine, writer, "test-ui"), events
     finally:
         engine.stop()
