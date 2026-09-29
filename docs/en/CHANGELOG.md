@@ -7,6 +7,15 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Added
 
+- `api_auth_from_storage` sends the token a single-page app keeps in `localStorage` or
+  `sessionStorage` with the same-session API oracle. The oracle read as nobody on such
+  apps and every check was `inconclusive` on HTTP 401; that reason now names the setting.
+- `ExpectedState.absent(...)` proves a deletion: a non-HTML 404 or an empty JSON value
+  is the observation, while 401/403, HTML and non-JSON stay `inconclusive`.
+- `testence doctor --target` reaches `base_url`, checks the credentials and tries the
+  login once; `doctor` says what it is starting before the browser probe.
+- Skill pack 0.1.11: `testence-author` configures `api_auth_from_storage` for a 401 on a
+  SPA and proves deletions with `ExpectedState.absent`.
 - Skill pack 0.1.10: `testence-author` knows that `ex` is logged in and marks tests
   of the login page or public pages `anonymous=True`.
 - `ex.drag(source, destination)` drags an element onto another: HTML5
@@ -102,6 +111,9 @@ under `Unreleased`; compatibility is not guaranteed.
 
 ### Fixed
 
+- A form login with a wrong password surfaced as a bare Playwright timeout; it is now
+  `LoginFailed`, naming the login path, the success signal that never came and where
+  the credentials came from.
 - A test that asked only for `ex` ran anonymous although `auth.md` said the browser is
   logged in first; `ex` now logs in with the configured scheme, and a test of the login
   page or of public pages says `@pytest.mark.testence(anonymous=True)`.

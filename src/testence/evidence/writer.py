@@ -340,6 +340,14 @@ class EvidenceWriter:
     def redact_values(self) -> tuple[str, ...]:
         return self._redact_values
 
+    def remember_secret(self, value: str) -> None:
+        """Mask ``value`` in every later event, as a configured secret is masked.
+
+        For credentials that exist only at run time: a token the login produced.
+        """
+        if value and value not in self._redact_values:
+            self._redact_values = (*self._redact_values, value)
+
     @property
     def redaction_policy(self) -> RedactionPolicy:
         return self._policy

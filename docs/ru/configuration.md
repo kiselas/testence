@@ -32,7 +32,8 @@ pytest tests_e2e/ --testence-profile local
 `timeout_ms`, `verify_tls`, `ca_bundle`,
 `runs_root`, `user_var`, `password_var`. Остальные попадают в `settings.extra`
 и доступны стратегиям и адаптерам проекта, например `session_cookie`,
-`token_storage_key`, `success_url_contains`.
+`token_storage_key`, `success_url_contains`, `api_auth_from_storage` —
+[аутентификация](auth.md#spa-с-токеном-в-хранилище-браузера).
 
 `project_id` — принадлежащий репозиторию namespace для ledger, packs, verdicts и
 истории отчётов. Укажите его явно в `testence.json`; package name из `pyproject.toml`

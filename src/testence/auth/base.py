@@ -29,6 +29,11 @@ class MissingCredentials(RuntimeError):
     """Raised with the exact variable names to set — an error a reader can act on."""
 
 
+class LoginFailed(RuntimeError):
+    """The login ran but never reached its success signal: a wrong password, a changed
+    form or a slow identity provider — named, instead of a bare timeout."""
+
+
 @dataclass(frozen=True)
 class Credentials:
     username: str

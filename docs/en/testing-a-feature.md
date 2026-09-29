@@ -151,6 +151,12 @@ at least one matching read falls between its first and last, so `stability_ms` m
 shorter than `deadline_ms`; a window the deadline cannot hold raises `ValueError`
 before the mutation is sent.
 
+A deletion is proved with `ExpectedState.absent("the widget is deleted")`: a 404 that
+is not an HTML page and an empty JSON value (`[]`, `{}`, `null`) are then the
+observation, and a record that is still there is a failed assertion. A 401/403, an HTML
+page and a non-JSON body stay `inconclusive`, so "not logged in" never passes for
+"gone".
+
 `ex.fill(...)` keeps Playwright's visibility/editability checks and is the default.
 `ex.fill(..., fast=True)` skips those checks but preserves the normal `input` event; use
 it only after a readiness assertion has already proved the control actionable. The wait

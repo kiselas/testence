@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Callable
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -405,10 +406,22 @@ def _browser_fix(channel: str, failure: str = "Executable doesn't exist") -> str
     return browser_launch_hint(channel, failure)
 
 
-def doctor(root: Path | str) -> dict[str, Any]:
+def doctor(
+    root: Path | str,
+    *,
+    target: bool = False,
+    progress: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
+    """Check the runtime; with ``target``, also the configured application.
+
+    ``progress`` hears what is about to take time: starting a browser is tens of
+    seconds on a cold machine, and a silent first command reads as a hang.
+    """
     project = Path(root).resolve()
     checks: list[dict[str, Any]] = []
     browser_channel = default_browser_channel()
+    settings: Settings | None = None
+    say = progress or (lambda _message: None)
 
     def check(name: str, ok: bool, detail: str) -> None:
         checks.append({"name": name, "ok": ok, "detail": detail})
@@ -428,6 +441,7 @@ def doctor(root: Path | str) -> dict[str, Any]:
         check("schemas", False, f"{type(exc).__name__}: {exc}")
     try:
         version = importlib.metadata.version("playwright")
+        say(f"starting {browser_channel} to check that it launches...")
         # Start the browser the project is configured to use, rather than checking that
         # a bundled executable path exists. A present file that cannot launch is the
         # failure people actually hit, and a project on `chrome`/`msedge` was reported
@@ -466,7 +480,91 @@ def doctor(root: Path | str) -> dict[str, Any]:
         check("workspace", True, str(project))
     except OSError as exc:
         check("workspace", False, str(exc))
+    if target and settings is not None:
+        checks.extend(_target_checks(settings, say))
     return {"ok": all(item["ok"] for item in checks), "checks": checks}
+
+
+def _target_checks(settings: Settings, say: Callable[[str], None]) -> list[dict[str, Any]]:
+    """Is the application there, are its credentials set, does the login work.
+
+    The misconfigurations people hit first — the app is not running, the URL is
+    wrong, a variable is missing, the password is wrong — each get one line that
+    names the fix instead of a timeout inside the first test.
+    """
+    import urllib.error
+    import urllib.request
+
+    from testence.auth import from_settings
+    from testence.auth.strategies import api_headers_from_storage
+    from testence.engine import create_engine
+
+    checks: list[dict[str, Any]] = []
+
+    def check(name: str, ok: bool, detail: str) -> None:
+        checks.append({"name": name, "ok": ok, "detail": detail})
+
+    base_url = settings.base_url
+    if not base_url:
+        check(
+            "target",
+            False,
+            "base_url is not set; fix: set it in testence.json or TESTENCE_BASE_URL",
+        )
+        return checks
+    say(f"reaching {base_url}...")
+    try:
+        with urllib.request.urlopen(base_url, timeout=10) as response:  # noqa: S310
+            status = response.status
+    except urllib.error.HTTPError as exc:
+        status = exc.code  # the app answered; an error page is still an answer
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        reason = getattr(exc, "reason", exc)
+        check(
+            "target",
+            False,
+            f"cannot reach {base_url}: {reason}; fix: start the app or correct base_url",
+        )
+        return checks
+    check("target", True, f"{base_url} answered HTTP {status}")
+
+    scheme = (settings.auth or "none").lower()
+    if scheme in ("none", "", "attached"):
+        check("login", True, f"auth={scheme or 'none'}; nothing to log in with")
+        return checks
+    try:
+        settings.credentials()
+    except Exception as exc:  # MissingCredentials names the variables
+        check("credentials", False, f"{exc}")
+        return checks
+    check(
+        "credentials", True, f"auth={scheme}; {settings.user_var} and {settings.password_var} set"
+    )
+
+    say(f"logging in with auth={scheme}...")
+    engine = create_engine(settings)
+    if hasattr(engine, "headed"):
+        engine.headed = False
+    try:
+        engine.start()
+        context = from_settings(settings).authenticate(engine)
+        spec = settings.extra.get("api_auth_from_storage")
+        if spec:
+            context.headers.update(
+                api_headers_from_storage(spec, engine, timeout_ms=min(settings.timeout_ms, 10_000))
+            )
+        described = context.describe()
+        check(
+            "login",
+            True,
+            f"auth={scheme}; cookies={described['cookies']}; headers={described['headers']}",
+        )
+    except Exception as exc:  # noqa: BLE001 - reported, never raised
+        first = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+        check("login", False, f"{type(exc).__name__}: {first}")
+    finally:
+        engine.stop()
+    return checks
 
 
 def platform_python() -> str:

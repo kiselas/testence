@@ -23,6 +23,7 @@ import pytest
 from testence import __version__, allure_compat, host, kernels
 from testence.assurance import POLICY_DIGEST
 from testence.auth import AuthContext, from_settings
+from testence.auth.strategies import api_headers_from_storage
 from testence.config import Settings
 from testence.contracts import PlanSpec, load_plan
 from testence.contracts._validation import ContractError
@@ -1574,6 +1575,18 @@ def testence_auth(
     adapter = from_settings(testence_settings)
     started = time.perf_counter()
     context = adapter.authenticate(testence_engine)
+    spec = testence_settings.extra.get("api_auth_from_storage")
+    if spec and context.scheme != "none":
+        context.headers.update(
+            api_headers_from_storage(
+                spec, testence_engine, timeout_ms=min(testence_settings.timeout_ms, 10_000)
+            )
+        )
+    for value in context.headers.values():
+        # A token produced at run time is masked like a configured secret, whole
+        # and without its "Bearer " scheme.
+        testence_writer.remember_secret(value)
+        testence_writer.remember_secret(value.rsplit(" ", 1)[-1])
     testence_writer.emit(
         "note",
         text="authenticated",

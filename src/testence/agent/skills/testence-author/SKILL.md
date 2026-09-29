@@ -33,6 +33,9 @@ For automated screenshot regression or an isolated client simulation, also read
 - Do not modify product code merely to make the generated test pass.
 - `ex` is logged in with the project's configured `auth`. A test of the login page
   itself or of public pages opts out with `@pytest.mark.testence(anonymous=True)`.
+  When an oracle is `inconclusive` on HTTP 401 against a SPA, the token lives in
+  browser storage: configure `api_auth_from_storage` instead of weakening the check.
+  Prove a deletion with `ExpectedState.absent(...)`, not with a predicate on `[]`.
 - Prefer the DSL. Check state with its exact checks — `expect_text`, `expect_value`,
   `expect_count`, `expect_visible`/`expect_hidden`, `expect_enabled`/`expect_disabled`,
   `expect_checked`, `expect_attribute`, `expect_url` — and act with `click`, `fill`,
