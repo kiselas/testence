@@ -8,6 +8,11 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ### Added
 
+- `testence oracle suggest <run>` proposes the API check a finished run implies: per
+  successful mutation, the read that proves it (the app's own traffic first), the fields
+  to compare and a `save_and_verify_state` call; a delete gets `ExpectedState.absent`.
+  The run records a `net` event per test (templated paths and body keys, never values).
+  Skill pack 0.1.12: `testence-author` asks the run instead of guessing endpoints.
 - A copy-paste GitHub Actions workflow ([CI](ci.md), `docs/examples/github-actions.yml`)
   that the repository's own CI runs as written against a `testence init` project; an
   [upgrade guide](upgrading.md) from `0.1.0a1`; the README shows a real report of the

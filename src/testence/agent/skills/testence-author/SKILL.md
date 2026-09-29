@@ -36,6 +36,9 @@ For automated screenshot regression or an isolated client simulation, also read
   When an oracle is `inconclusive` on HTTP 401 against a SPA, the token lives in
   browser storage: configure `api_auth_from_storage` instead of weakening the check.
   Prove a deletion with `ExpectedState.absent(...)`, not with a predicate on `[]`.
+  Do not guess an oracle's endpoint: run the test once, then `testence oracle suggest
+  <run dir> --json` lists the reads that prove each mutation the run made and a
+  `save_and_verify_state` call to complete.
 - Prefer the DSL. Check state with its exact checks — `expect_text`, `expect_value`,
   `expect_count`, `expect_visible`/`expect_hidden`, `expect_enabled`/`expect_disabled`,
   `expect_checked`, `expect_attribute`, `expect_url` — and act with `click`, `fill`,

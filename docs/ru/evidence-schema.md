@@ -68,7 +68,7 @@ events одной попытки также создают явную проек
 | `test.waits` | `waited_ms`, `ops` (count), `by_op` {op: {ms, n}}, `top` (5 самых медленных) |
 | `step.start` | `step` (id), `intent` (фраза человека), `target`? (описание), `depth` |
 | `step.end` | `step`, `status`, `duration_ms`, `depth`, `children`, `fingerprint`? (green runs), `error`? |
-| `net` | зарезервировано; v0 хранит network в packs, inline events могут появиться после E4 |
+| `net` | одно на тест с браузером, в конце фазы call: `mutations` [{`method`, `origin`, `path` (идентификаторы как `{id}`), `status`, `failure`?, `request_keys`, `response_keys`, `id_path`?, `reads_after`}], `reads` [{`method`, `path`, `n`, `status`}], `bodies` (был ли включён захват тел). Только имена и формы; читает `testence oracle suggest` |
 | `console` | зарезервировано по той же причине |
 | `oracle` | `name`, `ok`, `diff`? либо typed `expected`/`actual`, `observation` и связанная `operation` |
 | `assertion` | `assertion_id`, `claim_id`, `oracle_kind`, `outcome`, typed/redacted `expected`, `actual` и `source` |
