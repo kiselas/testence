@@ -15,6 +15,8 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
   `auth: "storage-state"` starts from a saved Playwright session, with
   `AuthContext.storage_state()` to export one. `doctor --target` does not demand
   `TESTENCE_USER` for either. The auth guide says what one account does under xdist.
+- [Your first test](first-test.md) (ten minutes, no PlanSpec) and a [glossary](glossary.md)
+  that says, among other words, that `unverified` is not a failure.
 - `ex.attach(name, data)` and `allure.attach` keep a test's own file (payload, log, picture)
   with its evidence and ship it in the Allure, CTRF and JUnit exports. Text is redacted,
   a binary file is stored as given and only a `full` export ships it. Skill pack 0.1.15.
