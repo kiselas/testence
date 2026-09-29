@@ -8,6 +8,11 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ### Added
 
+- `testence_actor(role)`: more than one user in a test. Roles declared under `users` in
+  `testence.json` log in with their own credentials and get their own `auth`, `api` and,
+  on demand, `ex` on a browser context of its own, isolated from the main session; every
+  role's credentials are redacted. For permission checks and "another user sees my
+  change". Skill pack 0.1.14.
 - `ExpectedState.fields(description, {...})` says a stored entity holds these values and
   names each field that differs ("state expected 'saved', the API has 'draft'"); an
   `OracleFailed` from `verify_state` carries that reason. The `testence init` scaffold,

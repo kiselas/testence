@@ -13,6 +13,7 @@ the page at the failure state IS evidence.
 
 from __future__ import annotations
 
+import copy
 import re
 import shutil
 import socket
@@ -281,6 +282,8 @@ class PlaywrightCdpEngine(Engine):
         self._extra_headers: dict[str, str] = {}
         #: The context whose requests carry ``_extra_headers``, through a route.
         self._headers_routed: Any = None
+        #: A sibling borrows its parent's driver and browser and owns only its context.
+        self._shares_driver = False
 
     # -- lifecycle -------------------------------------------------------
 
@@ -418,6 +421,47 @@ class PlaywrightCdpEngine(Engine):
             self._page.emulate_media(reduced_motion="reduce")
         self._attach_taps(self._page)
 
+    def sibling(self) -> PlaywrightCdpEngine:
+        """A second, isolated session on this engine's browser: its own context, page,
+        cookies, storage and network buffers, with the same configuration.
+
+        Playwright's sync API allows one driver per thread, so a second user cannot
+        get a second engine of its own; it gets a context of the same browser. The
+        sibling never closes the browser or the driver, only its own context.
+        """
+        if self._browser is None or self._pw is None:
+            raise RuntimeError("engine is not started")
+        if self.cdp_url or self.user_data_dir:
+            raise RuntimeError(
+                "a second isolated session needs a browser Testence launched; an attached "
+                "browser or a persistent profile has one context"
+            )
+        other = copy.copy(self)
+        other._shares_driver = True
+        other._launched_here = False
+        other._context = None
+        other._page = None
+        other._scope = None
+        other._js_scope = None
+        other._net = []
+        other._pending = {}
+        other._console = []
+        other._ws = []
+        other._tapped_pages = []
+        other._capture_omissions = {}
+        other._capture_bytes = 0
+        other._waits = []
+        other._extra_headers = {}
+        other._headers_routed = None
+        other._tracing = False
+        other._video_dir = None
+        other._context = self._browser.new_context(
+            ignore_https_errors=self.ignore_https_errors, **other._context_options()
+        )
+        other._owns_context = True
+        other._configure_context()
+        return other
+
     def reset_session(self) -> None:
         """Give the next warm test a fresh context without relaunching Chromium."""
         self.reset_taps()
@@ -483,7 +527,7 @@ class PlaywrightCdpEngine(Engine):
     def stop(self, *, keep_browser: bool = False) -> None:
         if keep_browser:
             # Leave the crime scene intact; only detach our client if we attached.
-            if self._pw and not self._launched_here:
+            if self._pw and not self._launched_here and not self._shares_driver:
                 with suppress(Exception):
                     self._pw.stop()
             return
@@ -497,7 +541,7 @@ class PlaywrightCdpEngine(Engine):
         if self._browser and self._launched_here:
             with suppress(Exception):
                 self._browser.close()
-        if self._pw:
+        if self._pw and not self._shares_driver:
             with suppress(Exception):
                 self._pw.stop()
         if self._video_dir is not None:

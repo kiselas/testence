@@ -30,6 +30,16 @@ PASSWORD = "demo-password"
 SESSION_COOKIE = "session_id"
 SESSION_VALUE = "sess-abc123"
 TOKEN_VALUE = "token-xyz789"
+#: A second, read-only user: ``testence_actor("viewer")`` tests permissions with it.
+VIEWER = "viewer@example.test"
+VIEWER_PASSWORD = "viewer-password"
+VIEWER_SESSION_VALUE = "sess-viewer456"
+VIEWER_TOKEN_VALUE = "token-viewer321"
+#: Accounts by login: (password, role, session cookie value, bearer token).
+ACCOUNTS = {
+    USER: (PASSWORD, "admin", SESSION_VALUE, TOKEN_VALUE),
+    VIEWER: (VIEWER_PASSWORD, "viewer", VIEWER_SESSION_VALUE, VIEWER_TOKEN_VALUE),
+}
 
 #: Entities created through the form, so an oracle has something to re-read.
 WIDGETS: dict[str, dict] = {}
@@ -161,17 +171,21 @@ class _Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         return self.rfile.read(length) if length else b""
 
-    def _authenticated(self) -> bool:
+    def _who(self) -> tuple[str, str] | None:
+        """The (email, role) this request is signed in as, by cookie, bearer or basic."""
         cookie = self.headers.get("Cookie") or ""
-        if f"{SESSION_COOKIE}={SESSION_VALUE}" in cookie:
-            return True
         authorization = self.headers.get("Authorization") or ""
-        if authorization == f"Bearer {TOKEN_VALUE}":
-            return True
-        if authorization.startswith("Basic "):
-            raw = base64.b64decode(authorization[len("Basic ") :]).decode()
-            return raw == f"{USER}:{PASSWORD}"
-        return False
+        for email, (password, role, session, token) in ACCOUNTS.items():
+            if f"{SESSION_COOKIE}={session}" in cookie or authorization == f"Bearer {token}":
+                return email, role
+            if authorization.startswith("Basic "):
+                raw = base64.b64decode(authorization[len("Basic ") :]).decode()
+                if raw == f"{email}:{password}":
+                    return email, role
+        return None
+
+    def _authenticated(self) -> bool:
+        return self._who() is not None
 
     # -- routes ----------------------------------------------------------
     def do_GET(self) -> None:  # noqa: N802
@@ -184,12 +198,13 @@ class _Handler(BaseHTTPRequestHandler):
             self._html(200, _SPA_PAGE)
         elif path == "/app":
             if self._authenticated():
-                self._html(200, _APP_PAGE.replace("__USER__", USER))
+                self._html(200, _APP_PAGE.replace("__USER__", (self._who() or (USER,))[0]))
             else:
                 self._html(401, _DENIED_PAGE)
         elif path == "/api/v1/auth/me":
             if self._authenticated():
-                self._json(200, {"email": USER, "role": "admin"})
+                email, role = self._who() or (USER, "admin")
+                self._json(200, {"email": email, "role": role})
             else:
                 self._json(401, {"detail": "not authenticated"})
         elif path == "/widgets/new":
@@ -214,10 +229,11 @@ class _Handler(BaseHTTPRequestHandler):
             from urllib.parse import parse_qs
 
             form = {k: v[0] for k, v in parse_qs(raw.decode()).items()}
-            if form.get("email") == USER and form.get("password") == PASSWORD:
+            account = ACCOUNTS.get(form.get("email", ""))
+            if account is not None and form.get("password") == account[0]:
                 self.send_response(303)
                 self.send_header("Location", "/app")
-                self.send_header("Set-Cookie", f"{SESSION_COOKIE}={SESSION_VALUE}; Path=/")
+                self.send_header("Set-Cookie", f"{SESSION_COOKIE}={account[2]}; Path=/")
                 self.send_header("Content-Length", "0")
                 self.end_headers()
             else:
@@ -228,25 +244,31 @@ class _Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             document = {}
         if path == "/api/v1/auth/login":
-            if document.get("email") == USER and document.get("password") == PASSWORD:
+            account = ACCOUNTS.get(document.get("email", ""))
+            if account is not None and document.get("password") == account[0]:
                 self._json(
                     200,
-                    {"user": {"email": USER}},
-                    extra=[("Set-Cookie", f"{SESSION_COOKIE}={SESSION_VALUE}; Path=/")],
+                    {"user": {"email": document["email"]}},
+                    extra=[("Set-Cookie", f"{SESSION_COOKIE}={account[2]}; Path=/")],
                 )
             else:
                 self._json(401, {"detail": "invalid credentials"})
         elif path == "/api/v1/widgets":
-            if not self._authenticated():
+            who = self._who()
+            if who is None:
                 self._json(401, {"detail": "not authenticated"})
+                return
+            if who[1] == "viewer":
+                self._json(403, {"detail": "viewers cannot create widgets"})
                 return
             widget_id = f"w{len(WIDGETS) + 1}"
             stored = {"id": widget_id, "name": document.get("name"), "cidr": document.get("cidr")}
             WIDGETS[widget_id] = stored
             self._json(201, stored)
         elif path == "/api/v1/auth/token":
-            if document.get("username") == USER and document.get("password") == PASSWORD:
-                self._json(200, {"access_token": TOKEN_VALUE, "token_type": "bearer"})
+            account = ACCOUNTS.get(document.get("username", ""))
+            if account is not None and document.get("password") == account[0]:
+                self._json(200, {"access_token": account[3], "token_type": "bearer"})
             else:
                 self._json(401, {"detail": "invalid credentials"})
         else:

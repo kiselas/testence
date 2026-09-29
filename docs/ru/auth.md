@@ -64,6 +64,44 @@ Fixtures: `testence_settings` — итоговая конфигурация, `te
 def test_login_rejects_a_wrong_password(ex): ...
 ```
 
+## Несколько пользователей в одном тесте
+
+Права доступа и «другой пользователь видит мою правку» требуют больше одной сессии.
+Объявите дополнительных пользователей по ролям, указав имена переменных с их данными:
+
+```json
+{
+  "auth": "form",
+  "users": {
+    "admin":  {"user_var": "ADMIN_USER",  "password_var": "ADMIN_PASSWORD"},
+    "viewer": {"user_var": "VIEWER_USER", "password_var": "VIEWER_PASSWORD"}
+  }
+}
+```
+
+`testence_actor(role)` входит под ролью схемой `auth` из настроек и возвращает актора со
+своими `auth`, `api` (`ApiClient` на этой сессии) и `ex` (DSL в собственном контексте
+браузера; шаги записываются в выполняющийся тест). Основные `ex` и `testence_api` остаются
+пользователем из `TESTENCE_USER`.
+
+```python
+def test_a_viewer_cannot_delete(testence_api, testence_actor):
+    viewer = testence_actor("viewer")
+    widget = testence_api.post("/api/widgets", {"name": "n"}).raise_for_status().json
+    assert viewer.api.delete(f"/api/widgets/{widget['id']}").status == 403
+
+
+def test_the_viewer_sees_what_the_admin_saved(ex, testence_actor):
+    viewer = testence_actor("viewer")
+    ex.goto("/widgets")                       # the configured user
+    viewer.ex.goto("/widgets")                # the viewer, in a browser context of its own
+```
+
+Схемы без страницы (`api-session`, `bearer`, `basic`) входят без браузера, а `.ex`
+открывает его при первом обращении; вход через `form` требует страницу. Данные каждой
+роли маскируются в evidence. Необъявленная роль называет объявленные. Failure pack
+описывает только основной браузер.
+
 ## SPA с токеном в хранилище браузера
 
 SPA, который входит через `fetch` и хранит JWT или OIDC-токен в `localStorage`, сам
