@@ -221,6 +221,24 @@ text targets pierce open shadow roots. A `label=` target, like Playwright's
 use `Target("role", "combobox", name="Show")` — a failed step lists the matching entries of
 the accessibility tree when nothing matched.
 
+### The request a step causes
+
+To read the response of the request an action causes without waiting for network quiet,
+wrap the action:
+
+```python
+with ex.expect_request("/api/widgets", method="POST") as sent:
+    ex.click(SAVE_BUTTON)
+assert sent.response.status == 201
+created_id = sent.response.json_body()["id"]     # needs capture_policy.network_bodies
+```
+
+The network log is marked before the block, so an earlier list or save cannot satisfy it.
+A request that was never sent fails the block ("the UI accepted the action but nothing
+reached the server"); one cut off before a response says the server may have applied it,
+so ask an oracle. Pass a `RequestExpectation` for a method, origin, correlation id or
+GraphQL operation. `sent.response.mocked` is true for an answer from `ex.route`.
+
 ### Answering requests from the test
 
 The UI's behaviour on a server error, an empty list or a dropped connection is hard to
