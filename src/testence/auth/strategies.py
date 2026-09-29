@@ -40,8 +40,124 @@ _DEFAULT_SUCCESS_TIMEOUT_MS = 15_000
 
 #: Scheme names accepted in configuration (aliases included).
 _KNOWN_SCHEMES = frozenset(
-    {"", "none", "form", "api-session", "session", "bearer", "jwt", "token", "basic", "attached"}
+    {
+        "",
+        "none",
+        "form",
+        "api-session",
+        "session",
+        "bearer",
+        "jwt",
+        "token",
+        "basic",
+        "attached",
+        "storage-state",
+    }
 )
+#: Schemes that read no login and password from the environment.
+_NO_CREDENTIALS = frozenset({"", "none", "attached", "storage-state"})
+
+
+def is_custom_scheme(auth: str | None) -> bool:
+    """``module:factory``: the project builds its own adapter."""
+    return ":" in (auth or "")
+
+
+def needs_credentials(auth: str | None) -> bool:
+    """Whether ``TESTENCE_USER``/``TESTENCE_PASSWORD`` are what this scheme logs in with."""
+    return not is_custom_scheme(auth) and (auth or "none").lower() not in _NO_CREDENTIALS
+
+
+def _custom_adapter(spec: str, settings: Any) -> Any:
+    """Build the adapter ``module:factory`` names: ``factory(settings) -> AuthAdapter``.
+
+    Logging in through a company SSO, a one-time-code flow or a signed request is the
+    project's code, not a fork of Testence. The factory may be a dotted attribute
+    (``pkg.auth:Login.build``). The project's root is importable, so ``auth:
+    "tests.login:build"`` needs no packaging.
+    """
+    import importlib
+    import sys
+
+    module_name, _, attribute = spec.partition(":")
+    if not module_name.strip() or not attribute.strip():
+        raise ValueError(f"auth {spec!r} must be module:factory, for example 'tests.login:build'")
+    root = str(Path(getattr(settings, "runs_root", "runs")).resolve().parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    try:
+        target: Any = importlib.import_module(module_name.strip())
+    except ImportError as exc:
+        raise ValueError(f"auth {spec!r}: cannot import {module_name.strip()!r}: {exc}") from exc
+    for part in attribute.strip().split("."):
+        try:
+            target = getattr(target, part)
+        except AttributeError as exc:
+            raise ValueError(f"auth {spec!r}: {module_name.strip()} has no {attribute!r}") from exc
+    adapter = target(settings)
+    if not callable(getattr(adapter, "authenticate", None)) or not isinstance(
+        getattr(adapter, "scheme", None), str
+    ):
+        raise ValueError(
+            f"auth {spec!r}: the factory must return an object with a `scheme: str` and "
+            f"`authenticate(engine) -> AuthContext`, got {type(adapter).__name__}"
+        )
+    return adapter
+
+
+class StorageStateAuth:
+    """Start signed in from a saved Playwright storage state (cookies and localStorage).
+
+    For a login Testence cannot repeat (an SSO with a second factor): sign in once by
+    hand, ``context.storage_state(path="auth.json")``, and point ``storage_state`` at
+    the file. Cookies and the ``localStorage`` of ``base_url``'s origin are imported.
+    The state expires when the session does; the file holds a live session, so keep it
+    out of version control.
+    """
+
+    scheme = "storage-state"
+
+    def __init__(self, path: str | Path, base_url: str = "") -> None:
+        self.path = Path(path)
+        self.base_url = base_url.rstrip("/")
+
+    def _read(self) -> dict[str, Any]:
+        try:
+            document = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError as exc:
+            raise ValueError(
+                f"storage_state {str(self.path)!r} does not exist; save one with "
+                "`context.storage_state(path=...)` after signing in"
+            ) from exc
+        except (OSError, ValueError) as exc:
+            raise ValueError(
+                f"storage_state {str(self.path)!r} is not readable JSON: {exc}"
+            ) from exc
+        if not isinstance(document, dict) or not isinstance(document.get("cookies", []), list):
+            raise ValueError(
+                f"storage_state {str(self.path)!r} is not a Playwright storage state "
+                '(an object with "cookies" and "origins")'
+            )
+        return document
+
+    def authenticate(self, engine: Engine) -> AuthContext:
+        document = self._read()
+        cookies = [
+            dict(cookie) for cookie in document.get("cookies", []) if isinstance(cookie, dict)
+        ]
+        if cookies:
+            engine.add_cookies(cookies)
+        storage: dict[str, str] = {}
+        origin = self.base_url
+        for entry in document.get("origins", []):
+            if not isinstance(entry, dict) or str(entry.get("origin", "")).rstrip("/") != origin:
+                continue
+            for item in entry.get("localStorage", []):
+                if isinstance(item, dict) and "name" in item:
+                    storage[str(item["name"])] = str(item.get("value", ""))
+        for key, value in storage.items():
+            engine.set_storage_item(key, value)
+        return AuthContext(cookies=cookies, storage=storage, scheme=self.scheme)
 
 
 class FormLoginAuth:
@@ -550,6 +666,8 @@ def from_settings(settings: Any, engine_base_url: str = "") -> Any:
     Keeps projects declarative: switching an environment from form login to attach mode is
     a config edit, not a code edit.
     """
+    if is_custom_scheme(settings.auth):
+        return _custom_adapter(str(settings.auth).strip(), settings)
     scheme = (settings.auth or "none").lower()
     base = (engine_base_url or settings.base_url).rstrip("/")
     if scheme not in _KNOWN_SCHEMES:
@@ -562,6 +680,11 @@ def from_settings(settings: Any, engine_base_url: str = "") -> Any:
         return NoAuth()
     if scheme == "attached":
         return AttachedSessionAuth(require_cookie=settings.extra.get("session_cookie"))
+    if scheme == "storage-state":
+        path = settings.extra.get("storage_state")
+        if not path:
+            raise ValueError('auth "storage-state" needs "storage_state": "path/to/state.json"')
+        return StorageStateAuth(path, base)
 
     credentials = settings.credentials()
     verify_tls = bool(getattr(settings, "verify_tls", True))
@@ -647,6 +770,7 @@ __all__ = [
     "BearerTokenAuth",
     "BasicAuth",
     "AttachedSessionAuth",
+    "StorageStateAuth",
     "CachedSessionAuth",
     "NoAuth",
     "from_settings",

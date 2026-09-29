@@ -11,6 +11,12 @@ Testence в стадии alpha: `0.1.0a1` опубликован на PyPI. Из
 
 - `testence agent install --client opencode`: OpenCode читает `.agents/skills`, поэтому
   делит каталог с Codex; если нужны оба, каждый файл пишется один раз.
+- `auth: "module:factory"` строит вход из кода проекта (`factory(settings)` возвращает
+  `AuthAdapter`), поэтому SSO или подписанный запрос не требуют форка; и
+  `auth: "storage-state"` начинает с сохранённой сессии Playwright, а
+  `AuthContext.storage_state()` её экспортирует. `doctor --target` не требует
+  `TESTENCE_USER` ни для одного из них. Руководство по входу описывает, что делает один
+  аккаунт под xdist.
 - `ex.attach(name, data)` и `allure.attach` сохраняют собственный файл теста (нагрузка,
   лог, картинка) вместе с evidence и отправляют его в экспорты Allure, CTRF и JUnit.
   Текст маскируется, бинарный файл хранится как есть, и его отправляет только `full`.
