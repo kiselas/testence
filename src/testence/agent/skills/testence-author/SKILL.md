@@ -36,6 +36,8 @@ For automated screenshot regression or an isolated client simulation, also read
   When an oracle is `inconclusive` on HTTP 401 against a SPA, the token lives in
   browser storage: configure `api_auth_from_storage` instead of weakening the check.
   Prove a deletion with `ExpectedState.absent(...)`, not with a predicate on `[]`.
+  Prove a save with `ex.verify_state(name, read, ExpectedState.fields(...))`: it polls
+  a fresh read and names each differing field; `ex.verify` compares two views taken once.
   Do not guess an oracle's endpoint: run the test once, then `testence oracle suggest
   <run dir> --json` lists the reads that prove each mutation the run made and a
   `save_and_verify_state` call to complete.

@@ -72,7 +72,7 @@ def _scaffold(project_id: str) -> dict[str, bytes]:
             # prerequisite is the generated test file itself.
             "readiness": {
                 "schema": "testence/readiness/1",
-                "oracle_adapters": ["custom"],
+                "oracle_adapters": ["api"],
                 "checks": [
                     {
                         "id": "onboarding-test",
@@ -102,19 +102,19 @@ def _scaffold(project_id: str) -> dict[str, bytes]:
     {{
       "id": "onboarding.proof.recorded",
       "statement": "The required assertion is recorded and verified.",
-      "oracles": ["custom"],
+      "oracles": ["api"],
       "required": true
     }},
     {{
       "id": "onboarding.defect.detected",
       "statement": "A visible success must agree with authoritative state.",
-      "oracles": ["custom"],
+      "oracles": ["api"],
       "required": true
     }},
     {{
       "id": "onboarding.harmless.accepted",
       "statement": "A harmless presentation change preserves persisted state.",
-      "oracles": ["custom"],
+      "oracles": ["api"],
       "required": true
     }}
   ],
@@ -122,19 +122,19 @@ def _scaffold(project_id: str) -> dict[str, bytes]:
     {{
       "id": "assert.onboarding.proof",
       "claim_id": "onboarding.proof.recorded",
-      "oracle": "custom",
+      "oracle": "api",
       "required": true
     }},
     {{
       "id": "assert.onboarding.defect",
       "claim_id": "onboarding.defect.detected",
-      "oracle": "custom",
+      "oracle": "api",
       "required": true
     }},
     {{
       "id": "assert.onboarding.harmless",
       "claim_id": "onboarding.harmless.accepted",
-      "oracle": "custom",
+      "oracle": "api",
       "required": true
     }}
   ],
@@ -225,13 +225,11 @@ def demo_server():
         server.server_close()
         thread.join(timeout=5)
 """
-    test = """import json
-from urllib.request import urlopen
+    test = """import pytest
 
-import pytest
-
+from testence.api import ApiClient
 from testence.engine import Target
-from testence.oracle import verify
+from testence.oracle import ExpectedState
 
 
 @pytest.mark.testence(
@@ -239,30 +237,24 @@ from testence.oracle import verify
     case_id="synthetic-proof",
     claims=["onboarding.proof.recorded"],
 )
-def test_testence_synthetic_proof(demo_server, ex, testence_writer, request):
-    expected = {"id": "item-42", "state": "saved", "revision": 2}
+def test_testence_synthetic_proof(demo_server, ex):
+    saved = {"id": "item-42", "state": "saved", "revision": 2}
     ex.goto(demo_server + "/?mode=healthy", intent="open the healthy save target")
     ex.click(Target("role", "button", name="Save"), intent="save item-42 once")
     ex.expect_text(Target("css", "#status"), "saved", intent="visible save confirmation")
-    actual = json.load(urlopen(demo_server + "/api/item/item-42", timeout=2))
-    verify(
-        testence_writer,
-        request.node.nodeid,
+    ex.verify_state(
         "authoritative item state after one save",
-        expected,
-        actual,
+        lambda: ApiClient(demo_server).get_fresh("/api/item/item-42"),
+        ExpectedState.fields("item-42 is persisted as saved", saved),
         assertion_id="assert.onboarding.proof",
         claim_id="onboarding.proof.recorded",
-        oracle_kind="custom",
     )
 """
-    failure_test = """import json
-from urllib.request import urlopen
+    failure_test = """import pytest
 
-import pytest
-
+from testence.api import ApiClient
 from testence.engine import Target
-from testence.oracle import verify
+from testence.oracle import ExpectedState
 
 
 @pytest.mark.testence(
@@ -270,30 +262,24 @@ from testence.oracle import verify
     case_id="intentional-failure",
     claims=["onboarding.defect.detected"],
 )
-def test_testence_exposes_intentional_false_green(demo_server, ex, testence_writer, request):
-    expected = {"id": "item-42", "state": "saved", "revision": 2}
+def test_testence_exposes_intentional_false_green(demo_server, ex):
+    saved = {"id": "item-42", "state": "saved", "revision": 2}
     ex.goto(demo_server + "/?mode=buggy", intent="open the buggy save target")
     ex.click(Target("role", "button", name="Save"), intent="save item-42 once")
     ex.expect_text(Target("css", "#status"), "saved", intent="visible save confirmation")
-    actual = json.load(urlopen(demo_server + "/api/item/item-42", timeout=2))
-    verify(
-        testence_writer,
-        request.node.nodeid,
+    ex.verify_state(
         "visible success agrees with persisted state",
-        expected,
-        actual,
+        lambda: ApiClient(demo_server).get_fresh("/api/item/item-42"),
+        ExpectedState.fields("item-42 is persisted as saved", saved),
         assertion_id="assert.onboarding.defect",
         claim_id="onboarding.defect.detected",
-        oracle_kind="custom",
     )
 """
-    harmless_test = """import json
-from urllib.request import urlopen
+    harmless_test = """import pytest
 
-import pytest
-
+from testence.api import ApiClient
 from testence.engine import Target
-from testence.oracle import verify
+from testence.oracle import ExpectedState
 
 
 @pytest.mark.testence(
@@ -301,21 +287,17 @@ from testence.oracle import verify
     case_id="harmless-change",
     claims=["onboarding.harmless.accepted"],
 )
-def test_testence_accepts_harmless_layout_change(demo_server, ex, testence_writer, request):
-    expected = {"id": "item-42", "state": "saved", "revision": 2}
+def test_testence_accepts_harmless_layout_change(demo_server, ex):
+    saved = {"id": "item-42", "state": "saved", "revision": 2}
     ex.goto(demo_server + "/?mode=harmless", intent="open the harmless layout variant")
     ex.click(Target("role", "button", name="Save"), intent="save item-42 once")
     ex.expect_text(Target("css", "#status"), "saved", intent="visible save confirmation")
-    actual = json.load(urlopen(demo_server + "/api/item/item-42", timeout=2))
-    verify(
-        testence_writer,
-        request.node.nodeid,
+    ex.verify_state(
         "authoritative state survives presentation change",
-        expected,
-        actual,
+        lambda: ApiClient(demo_server).get_fresh("/api/item/item-42"),
+        ExpectedState.fields("item-42 is persisted as saved", saved),
         assertion_id="assert.onboarding.harmless",
         claim_id="onboarding.harmless.accepted",
-        oracle_kind="custom",
     )
 """
     readme = """# Testence onboarding files

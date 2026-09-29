@@ -8,6 +8,11 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ### Added
 
+- `ExpectedState.fields(description, {...})` says a stored entity holds these values and
+  names each field that differs ("state expected 'saved', the API has 'draft'"); an
+  `OracleFailed` from `verify_state` carries that reason. The `testence init` scaffold,
+  the bundled example and the docs use `ex.verify_state` with a fresh read instead of
+  `urlopen` and `request.node.nodeid`. Skill pack 0.1.13.
 - `testence oracle suggest <run>` proposes the API check a finished run implies: per
   successful mutation, the read that proves it (the app's own traffic first), the fields
   to compare and a `save_and_verify_state` call; a delete gets `ExpectedState.absent`.

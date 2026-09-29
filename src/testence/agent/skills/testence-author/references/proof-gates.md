@@ -21,11 +21,10 @@ def test_created_widget_is_persisted(ex, testence_api, widget_seed):
     widget = widget_seed.valid()
     ex.goto("/widgets", intent="open the widget collection")
     ex.click(SAVE, intent="save the widget")
-    actual = testence_api.get(f"/api/widgets/{widget.id}").raise_for_status().json
-    ex.verify(
+    ex.verify_state(
         "persisted widget",
-        {"name": widget.name},
-        {"name": actual["name"]},
+        lambda: testence_api.get_fresh(f"/api/widgets/{widget.id}"),
+        ExpectedState.fields("the widget is persisted", {"name": widget.name}),
         assertion_id="assert.widget.persisted",
         claim_id="widgets.create.persisted",
     )
