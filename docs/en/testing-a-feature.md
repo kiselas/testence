@@ -101,11 +101,10 @@ def test_created_widget_is_visible(ex, testence_api, widget_seed):
     ex.click(SAVE_BUTTON, intent="save the widget")
 
     ex.expect_text(ROW_NAME, widget.name, intent="show the created widget")
-    actual = testence_api.get(f"/api/widgets/{widget.id}").raise_for_status().json
-    ex.verify(
+    ex.verify_state(
         "created widget",
-        {"name": widget.name},
-        {"name": actual["name"]},
+        lambda: testence_api.get_fresh(f"/api/widgets/{widget.id}"),
+        ExpectedState.fields("the widget is persisted", {"name": widget.name}),
         assertion_id="assert.widget.persisted",
         claim_id="widgets.create.persisted",
     )

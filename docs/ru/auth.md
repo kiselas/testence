@@ -47,9 +47,12 @@ credentials (env)  ──►  AuthAdapter  ──►  AuthContext ──┬─�
 ```python
 def test_widget_matches_api(ex, testence_api):
     ex.goto("/widgets/42", intent="open the widget")
-    ui = {"cidr": ex.engine.read_text(CIDR_FIELD)}
-    api = testence_api.get("/api/v1/widgets/42").raise_for_status().json
-    ex.verify("widget", {"cidr": api["cidr"]}, ui)      # oracle: API против UI
+    shown = ex.engine.read_text(CIDR_FIELD)
+    ex.verify_state(                                    # oracle: API хранит то, что в UI
+        "widget",
+        lambda: testence_api.get_fresh("/api/v1/widgets/42"),
+        ExpectedState.fields("the API holds the CIDR on screen", {"cidr": shown}),
+    )
 ```
 
 Fixtures: `testence_settings` — итоговая конфигурация, `testence_auth` —

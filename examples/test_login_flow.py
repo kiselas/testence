@@ -15,7 +15,7 @@ import pytest
 from testence.api import ApiClient
 from testence.auth import Credentials, FormLoginAuth
 from testence.engine import Target
-from testence.oracle import verify
+from testence.oracle import ExpectedState, OracleFailed
 from tests.mock_app import PASSWORD, USER, MockApp
 
 WHOAMI = Target("css", "#whoami")
@@ -50,25 +50,25 @@ def test_login_form_grants_access(ex, signed_in):
     ex.expect_text(WHOAMI, USER, intent="dashboard greets the signed-in user", exact=False)
 
 
-def test_ui_and_api_agree_on_the_user(ex, signed_in, testence_engine, testence_writer):
-    """The API-oracle pattern: read the entity back and diff it against the UI."""
+def test_ui_and_api_agree_on_the_user(ex, signed_in, testence_engine):
+    """The API-oracle pattern: read the entity back and compare it with the UI."""
     ui_text = testence_engine.read_text(WHOAMI)
-    ui_view = {"email": ui_text.replace("signed in as ", "").strip()}
-    api_view = signed_in.get("/api/v1/auth/me").raise_for_status().json
+    shown = ui_text.replace("signed in as ", "").strip()
+    ex.verify_state(
+        "whoami",
+        lambda: signed_in.get_fresh("/api/v1/auth/me"),
+        ExpectedState.fields("the API knows the user the page shows", {"email": shown}),
+    )
 
-    verify(testence_writer, "test_ui_and_api_agree_on_the_user", "whoami", ui_view, api_view)
 
-
-def test_widget_oracle_detects_divergence(ex, signed_in, testence_writer):
+def test_widget_oracle_detects_divergence(ex, signed_in):
     """A deliberately wrong expectation, to show what an oracle failure looks like."""
-    from testence.oracle import OracleFailed
-
-    api_view = signed_in.get("/api/v1/widgets/42").raise_for_status().json
-    with pytest.raises(OracleFailed, match="cidr"):
-        verify(
-            testence_writer,
-            "test_widget_oracle_detects_divergence",
+    with pytest.raises(OracleFailed, match="cidr expected '10.0.99.0/24'"):
+        ex.verify_state(
             "widget",
-            {"cidr": "10.0.99.0/24"},
-            api_view,
+            lambda: signed_in.get_fresh("/api/v1/widgets/42"),
+            ExpectedState.fields(
+                "the widget has the CIDR the form showed", {"cidr": "10.0.99.0/24"}
+            ),
+            deadline_ms=300,
         )

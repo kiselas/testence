@@ -53,10 +53,26 @@ def _same(ui: Any, api: Any) -> bool:
     return bool(ui == api)
 
 
+def _field_diffs(expected: dict[str, Any], actual: Any) -> list[dict[str, Any]]:
+    if not isinstance(actual, dict):
+        return [{"field": "<body>", "ui": "an object", "api": type(actual).__name__}]
+    return diff_views(expected, actual)
+
+
+def _describe_diffs(diffs: list[dict[str, Any]]) -> str:
+    def shown(value: Any) -> str:
+        return "missing" if value == "<missing>" else repr(value)
+
+    return "fields differ: " + "; ".join(
+        f"{d['field']} expected {shown(d['ui'])}, the API has {shown(d['api'])}" for d in diffs
+    )
+
+
 class OracleFailed(AssertionError):
-    def __init__(self, name: str, diffs: list[dict[str, Any]]) -> None:
+    def __init__(self, name: str, diffs: list[dict[str, Any]], detail: str | None = None) -> None:
         fields = ", ".join(d["field"] for d in diffs)
-        super().__init__(f"oracle {name!r}: UI and API disagree on: {fields}")
+        suffix = f" ({detail})" if detail else ""
+        super().__init__(f"oracle {name!r}: UI and API disagree on: {fields}{suffix}")
         self.diffs = diffs
 
 
@@ -175,6 +191,26 @@ class ExpectedState:
     #: The state is that nothing is there: a 404 that is not an HTML page, or an
     #: empty JSON value, is the observation rather than an inconclusive read.
     empty_is_state: bool = False
+    #: Set by ``fields``: the failure names each field that differs.
+    expected_fields: dict[str, Any] | None = None
+
+    @classmethod
+    def fields(cls, description: str, expected: dict[str, Any], **bindings: Any) -> ExpectedState:
+        """The stored entity holds these values (extra fields of the entity are fine).
+
+        The common case needs no predicate: ``ExpectedState.fields("widget saved",
+        {"name": name, "state": "saved"}, entity_id=widget_id)``. A mismatch names each
+        field with what was expected and what the API holds, so a false green reads as
+        "state: expected 'saved', the API says 'draft'" rather than a bare failure.
+        """
+        if not expected:
+            raise ValueError("ExpectedState.fields needs at least one field")
+        return cls(
+            description,
+            lambda actual: not _field_diffs(expected, actual),
+            expected_fields=dict(expected),
+            **bindings,
+        )
 
     @classmethod
     def absent(cls, description: str, **bindings: Any) -> ExpectedState:
@@ -229,7 +265,11 @@ class ExpectedState:
             raise _PredicateError(
                 f"expected-state predicate raised {exc.__class__.__name__}: {exc}"
             ) from exc
-        return (True, "matched") if matches else (False, "expected predicate did not match")
+        if matches:
+            return True, "matched"
+        if self.expected_fields is not None:
+            return False, _describe_diffs(_field_diffs(self.expected_fields, actual))
+        return False, "expected predicate did not match"
 
     def public(self) -> dict[str, Any]:
         document: dict[str, Any] = {"description": self.description}
@@ -239,6 +279,8 @@ class ExpectedState:
                 document[key] = value
         if self.stability_ms:
             document["stability_ms"] = self.stability_ms
+        if self.expected_fields is not None:
+            document["fields"] = self.expected_fields
         if self.empty_is_state:
             document["absent"] = True
         return document
@@ -494,6 +536,7 @@ def _raise_observation(name: str, observation: OracleObservation) -> None:
     raise OracleFailed(
         name,
         [{"field": "expected_state", "expected": "matched", "api": observation.reason}],
+        observation.reason,
     )
 
 
