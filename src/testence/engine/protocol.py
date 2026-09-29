@@ -80,6 +80,9 @@ class NetRecord:
     #: Without this field such a record simply stayed at ``status=None`` forever and
     #: every ``wait_for_response`` on it burned its whole budget in silence.
     failure: str | None = None
+    #: The test answered this request itself (``ex.route``); the server never saw it.
+    #: An oracle bound to a mutation must not take such a response for the mutation.
+    mocked: bool = False
 
     def json_body(self) -> Any:
         """Parsed response body, or ``None`` when absent or not JSON.
@@ -117,6 +120,8 @@ def dump_net(records: list[NetRecord]) -> str:
         }
         if record.failure:
             doc["failure"] = record.failure
+        if record.mocked:
+            doc["mocked"] = True
         if record.request_body:
             doc["req"] = record.request_body
         if record.response_body:
@@ -185,6 +190,23 @@ class Engine(Protocol):
     def page_count(self) -> int: ...
     def switch_page_matching(self, url_contains: str, timeout_ms: int | None = None) -> None: ...
     def close_page(self) -> None: ...
+    def route(
+        self,
+        pattern: str,
+        *,
+        status: int = 200,
+        body: str | bytes | None = None,
+        headers: dict[str, str] | None = None,
+        content_type: str | None = None,
+        abort: bool = False,
+    ) -> None:
+        """Answer requests matching the glob ``pattern`` from the test, not the server.
+
+        Every matching response is marked ``NetRecord.mocked``. ``abort`` fails the
+        request instead, as a dropped connection does.
+        """
+        ...
+
     def clock_install(self, moment: Any = None) -> None: ...
     def clock_fast_forward(self, ticks: int | str) -> None: ...
     def clock_run_for(self, ticks: int | str) -> None: ...

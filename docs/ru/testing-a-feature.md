@@ -219,6 +219,28 @@ Playwright, сравнивается со всем текстом подписи
 используйте `Target("role", "combobox", name="Show")` — упавший шаг без совпадений
 перечисляет подходящие записи дерева доступности.
 
+### Ответы на запросы из теста
+
+Поведение UI на ошибку сервера, пустой список или разорванное соединение трудно получить
+на настоящем backend. `ex.route(pattern, ...)` отвечает на подходящие запросы из теста:
+
+```python
+ex.route("**/api/widgets", status=500, json={"detail": "boom"})
+ex.click(SAVE_BUTTON)
+ex.expect_text(ERROR_BANNER, "Could not save")       # the UI's own behaviour
+
+ex.route("**/api/widgets*", json=[])                 # an empty list
+ex.route("**/api/widgets", abort=True)               # a dropped connection
+```
+
+Каждая подмена записывается (`network.mocked`), а каждый ответ от неё помечается
+`mocked` в журнале сети и pack. Подменённый ответ выглядит как ответ сервера, поэтому как
+доказательство он отвергается: `save_and_verify_state` и `save_and_verify` падают с
+«answered by ex.route», а не принимают его за мутацию. Сохранность доказывайте на
+настоящем backend, а тесты с подменой ограничивайте тем, что UI делает с ответом.
+`page.route` внутри `ex.native` не записывается. Нужна capability `browser.network_mock`
+([возможности движка](engine-capabilities.md)).
+
 ## 5. Докажите, что тест правильно падает
 
 Зелёный тест ещё не доказывает полезность assertion. Перед принятием сценария:

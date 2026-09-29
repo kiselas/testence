@@ -13,7 +13,8 @@ fails before execution when the backend does not declare every requirement.
 The R1 Playwright backend declares lifecycle, session, navigation, DOM and open shadow
 DOM, network/WebSocket, screenshot, accessibility, JavaScript, keyboard/focus/scroll,
 frames, popups and tabs, upload/download, dialogs, fake timers (`browser.clock`,
-`ex.clock`), context emulation (`browser.emulation`) and `browser.native` (`ex.native`). Its DSL wrappers use strict locators:
+`ex.clock`), context emulation (`browser.emulation`), recorded request mocking (`browser.network_mock`,
+`ex.route`) and `browser.native` (`ex.native`). Its DSL wrappers use strict locators:
 multiple matches fail unless the author deliberately supplies `Target(..., nth=N)`.
 `fast=True` is an explicit actionability weakening. It is recorded on `step.start` and
 changes an otherwise verified attempt to `unverified` for review.

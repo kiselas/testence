@@ -284,6 +284,8 @@ class PlaywrightCdpEngine(Engine):
         self._headers_routed: Any = None
         #: A sibling borrows its parent's driver and browser and owns only its context.
         self._shares_driver = False
+        #: Requests answered by ``route``, so their records say the server never saw them.
+        self._mocked: set[Any] = set()
 
     # -- lifecycle -------------------------------------------------------
 
@@ -452,6 +454,7 @@ class PlaywrightCdpEngine(Engine):
         other._capture_bytes = 0
         other._waits = []
         other._extra_headers = {}
+        other._mocked = set()
         other._headers_routed = None
         other._tracing = False
         other._video_dir = None
@@ -629,6 +632,7 @@ class PlaywrightCdpEngine(Engine):
             if rec is None:
                 return
             rec.duration_ms = time.monotonic() * 1000 - rec.started_ms
+            rec.mocked = response.request in self._mocked
             # Bodies are kept for every error AND every mutation: the response to
             # a POST/PATCH the UI just made carries the entity (with its id), which
             # is what wait_for_response callers synchronize on. GET bodies stay
@@ -1013,6 +1017,29 @@ class PlaywrightCdpEngine(Engine):
         if self._context is None:
             raise RuntimeError("engine not started")
         return self._context.clock
+
+    def route(
+        self,
+        pattern: str,
+        *,
+        status: int = 200,
+        body: str | bytes | None = None,
+        headers: dict[str, str] | None = None,
+        content_type: str | None = None,
+        abort: bool = False,
+    ) -> None:
+        if self._context is None:
+            raise RuntimeError("engine is not started")
+
+        def answer(route: Any, request: Any) -> None:
+            self._mocked.add(request)
+            if abort:
+                route.abort()
+                return
+            route.fulfill(status=status, body=body, headers=headers, content_type=content_type)
+
+        with self._timed("route", f"{'abort' if abort else status} {pattern}"):
+            self._context.route(pattern, answer)
 
     def clock_install(self, moment: Any = None) -> None:
         with self._timed("clock_install", repr(moment)):
@@ -1692,6 +1719,7 @@ class PlaywrightCdpEngine(Engine):
         return list(self._waits)
 
     def reset_taps(self) -> None:
+        self._mocked.clear()
         self._net.clear()
         self._pending.clear()
         self._console.clear()

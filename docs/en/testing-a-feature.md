@@ -221,6 +221,29 @@ text targets pierce open shadow roots. A `label=` target, like Playwright's
 use `Target("role", "combobox", name="Show")` — a failed step lists the matching entries of
 the accessibility tree when nothing matched.
 
+### Answering requests from the test
+
+The UI's behaviour on a server error, an empty list or a dropped connection is hard to
+reach with the real backend. `ex.route(pattern, ...)` answers matching requests from
+the test:
+
+```python
+ex.route("**/api/widgets", status=500, json={"detail": "boom"})
+ex.click(SAVE_BUTTON)
+ex.expect_text(ERROR_BANNER, "Could not save")       # the UI's own behaviour
+
+ex.route("**/api/widgets*", json=[])                 # an empty list
+ex.route("**/api/widgets", abort=True)               # a dropped connection
+```
+
+Every mock is recorded (`network.mocked`), and each response it produces is marked
+`mocked` in the network log and the pack. A mocked response looks like the server's,
+so it is refused as proof: `save_and_verify_state` and `save_and_verify` fail with
+"answered by ex.route" rather than accept it as the mutation. Prove persistence against
+the real backend, and keep mocked tests to what the UI does with the answer. A
+`page.route` inside `ex.native` is not recorded. Needs the `browser.network_mock`
+capability ([engine capabilities](engine-capabilities.md)).
+
 ## 5. Prove the test can fail correctly
 
 A green test is not evidence that the assertion is useful. Before accepting a case:

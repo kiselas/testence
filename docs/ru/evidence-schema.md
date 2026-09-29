@@ -73,6 +73,7 @@ events одной попытки также создают явную проек
 | `oracle` | `name`, `ok`, `diff`? либо typed `expected`/`actual`, `observation` и связанная `operation` |
 | `assertion` | `assertion_id`, `claim_id`, `oracle_kind`, `outcome`, typed/redacted `expected`, `actual` и `source` |
 | `pack` | `dir` (relative), `sections_est_tokens` {aria, network, console, oracle}, `error` |
+| `network.mocked` | `pattern`, `outcome` (статус или `abort`), `content_type`, `size` — `ex.route` отвечает на подходящие запросы из теста; их `NetRecord` помечены `mocked` |
 | `native.used` | `intent` — выполнен блок `ex.native`; действия внутри не записывались по одному |
 | `testplan.unresolved` | `count`, `policy` (`warn`/`fail`), `entries` [{`id`?, `selector`?}] — записи test plan Allure без совпавшего теста |
 | `note` | `text` и произвольные поля |

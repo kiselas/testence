@@ -25,6 +25,8 @@ class Capability(str, Enum):
     CLOCK = "browser.clock"
     #: Device, locale, time zone, geolocation, permissions, colour scheme, user agent.
     EMULATION = "browser.emulation"
+    #: Answer requests from the test instead of the server (``ex.route``), recorded.
+    NETWORK_MOCK = "browser.network_mock"
     #: The engine's own page object for what the DSL does not express (ADR-0027).
     NATIVE = "browser.native"
     EVIDENCE = "evidence"

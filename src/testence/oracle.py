@@ -616,6 +616,15 @@ def save_and_verify_state(
         observation = OracleObservation(
             "failed", "mutation was sent more than once", operation, 0, 0.0
         )
+    elif any(getattr(record, "mocked", False) for record in records):
+        operation["mocked"] = True
+        observation = OracleObservation(
+            "failed",
+            "matching mutation was answered by ex.route and never reached the server",
+            operation,
+            0,
+            0.0,
+        )
     elif response is None:
         if records:
             observation = OracleObservation(
@@ -721,6 +730,11 @@ def save_and_verify(
             raise AssertionError(
                 f"saving {name} sent no request matching {expect_request!r} — "
                 "the UI accepted the click but nothing reached the server"
+            )
+        if response is not None and getattr(response, "mocked", False):
+            raise AssertionError(
+                f"saving {name}: the response matching {expect_request!r} came from "
+                "ex.route, not the server, so it proves nothing about persistence"
             )
         # A response callback updates React state in a microtask; two animation
         # frames let that local commit render without waiting for unrelated global
