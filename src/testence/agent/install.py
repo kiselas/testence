@@ -15,7 +15,14 @@ from .pack import bundled_skills, load_skill_pack
 
 AGENT_INSTALL_SCHEMA = "testence/agent-install/1"
 AGENT_INSTALL_RECEIPT_SCHEMA = "testence/agent-install-receipt/1"
-CLIENT_ROOTS = {"codex": PurePosixPath(".agents/skills"), "claude": PurePosixPath(".claude/skills")}
+#: OpenCode discovers ``.agents/skills`` (as well as ``.claude/skills`` and
+#: ``.opencode/skills``), so it shares Codex's directory: one copy serves both.
+CLIENT_ROOTS = {
+    "codex": PurePosixPath(".agents/skills"),
+    "opencode": PurePosixPath(".agents/skills"),
+    "claude": PurePosixPath(".claude/skills"),
+}
+CLIENTS = tuple(CLIENT_ROOTS)
 
 
 class AgentInstallError(ValueError):
@@ -116,6 +123,7 @@ def _install_skills_locked(
     source_files = bundled_files()
     results: list[dict[str, Any]] = []
     pending: list[tuple[str, PurePosixPath, SkillFile]] = []
+    queued: set[str] = set()
 
     for client in requested:
         if client not in CLIENT_ROOTS:
@@ -146,7 +154,11 @@ def _install_skills_locked(
                 continue
             installed.append(relative)
             accepted.append({"path": relative, "sha256": item.digest})
-            pending.append((client, item.relative, item))
+            # Clients that share a directory write each file once.
+            location = (CLIENT_ROOTS[client] / item.relative).as_posix()
+            if location not in queued:
+                queued.add(location)
+                pending.append((client, item.relative, item))
 
         client_status = "conflict" if conflicts else "installed"
         if not conflicts:

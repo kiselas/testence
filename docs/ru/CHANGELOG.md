@@ -9,6 +9,8 @@ Testence в стадии alpha: `0.1.0a1` опубликован на PyPI. Из
 
 ### Добавлено
 
+- `testence agent install --client opencode`: OpenCode читает `.agents/skills`, поэтому
+  делит каталог с Codex; если нужны оба, каждый файл пишется один раз.
 - `ex.attach(name, data)` и `allure.attach` сохраняют собственный файл теста (нагрузка,
   лог, картинка) вместе с evidence и отправляют его в экспорты Allure, CTRF и JUnit.
   Текст маскируется, бинарный файл хранится как есть, и его отправляет только `full`.
