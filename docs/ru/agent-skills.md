@@ -24,7 +24,7 @@ Testence поставляет один версионированный набо
 | Клиент | Адаптер проекта |
 |---|---|
 | Codex | копировать/связывать четыре каталога в `.agents/skills/` |
-| OpenCode | использовать ту же установку `.agents/skills/` |
+| OpenCode | `--client opencode` ставит в тот же `.agents/skills/` (OpenCode читает и `.claude/skills/`) |
 | Claude Code | копировать/связывать те же каталоги в `.claude/skills/` |
 | ChatGPT или управляемая поставка | включать те же каталоги как skills плагина |
 | другие клиенты | использовать каталог Agent Skills, если он поддерживается, иначе давать ссылки на публичный workflow и CLI |
@@ -36,7 +36,7 @@ Testence поставляет один версионированный набо
 Установите точный встроенный pack в один или оба проектных адаптера:
 
 ```bash
-testence agent install --project . --client codex --client claude --json
+testence agent install --project . --client codex --client claude --client opencode --json
 testence agent verify --project . --client codex --client claude --json
 ```
 

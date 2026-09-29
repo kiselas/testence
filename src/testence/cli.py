@@ -18,6 +18,7 @@ from pathlib import Path
 from types import ModuleType
 
 from . import __version__
+from .agent.install import CLIENTS
 from .metrics import write_metrics
 from .report.html import render_report
 
@@ -445,15 +446,11 @@ def main(argv: list[str] | None = None) -> int:
     agent_sub = p_agent.add_subparsers(dest="agent_command", required=True)
     p_agent_install = agent_sub.add_parser("install", help="install skills for agent clients")
     p_agent_install.add_argument("--project", type=Path, default=Path("."))
-    p_agent_install.add_argument(
-        "--client", action="append", choices=("codex", "claude"), required=True
-    )
+    p_agent_install.add_argument("--client", action="append", choices=CLIENTS, required=True)
     p_agent_install.add_argument("--json", dest="json_output", action="store_true")
     p_agent_verify = agent_sub.add_parser("verify", help="verify installed agent skills")
     p_agent_verify.add_argument("--project", type=Path, default=Path("."))
-    p_agent_verify.add_argument(
-        "--client", action="append", choices=("codex", "claude"), default=[]
-    )
+    p_agent_verify.add_argument("--client", action="append", choices=CLIENTS, default=[])
     p_agent_verify.add_argument("--json", dest="json_output", action="store_true")
 
     p_corpus = sub.add_parser(

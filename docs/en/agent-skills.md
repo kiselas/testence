@@ -24,7 +24,7 @@ Client locations are installation adapters, not forks:
 | Client | Project adapter |
 |---|---|
 | Codex | copy/link the four directories into `.agents/skills/` |
-| OpenCode | reuse the same `.agents/skills/` installation |
+| OpenCode | `--client opencode` installs into the same `.agents/skills/` (OpenCode also reads `.claude/skills/`) |
 | Claude Code | copy/link the same directories into `.claude/skills/` |
 | ChatGPT or managed distribution | bundle the same directories as plugin skills |
 | other clients | use an Agent Skills directory when supported, otherwise link to the public workflow docs and CLI |
@@ -36,7 +36,7 @@ Client locations are installation adapters, not forks:
 Install the exact bundled pack into one or both project adapters:
 
 ```bash
-testence agent install --project . --client codex --client claude --json
+testence agent install --project . --client codex --client claude --client opencode --json
 testence agent verify --project . --client codex --client claude --json
 ```
 

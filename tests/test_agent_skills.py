@@ -98,6 +98,27 @@ def test_skill_pack_installs_and_verifies_both_real_client_layouts(tmp_path: Pat
     assert verify_skills(tmp_path, ["codex", "claude"])["status"] == "valid"
 
 
+def test_opencode_shares_the_codex_directory_and_files_are_written_once(tmp_path: Path):
+    """OpenCode reads ``.agents/skills``; asking for both clients is one copy, two records."""
+    receipt = install_skills(tmp_path, ["codex", "opencode"])
+
+    assert receipt["status"] == "installed"
+    assert {item["client"] for item in receipt["clients"]} == {"codex", "opencode"}
+    assert {item["root"] for item in receipt["clients"]} == {".agents/skills"}
+    assert not (tmp_path / ".claude").exists()
+    assert verify_skills(tmp_path, ["codex", "opencode"])["status"] == "valid"
+    assert install_skills(tmp_path, ["opencode"])["clients"][0]["installed"] == []
+
+
+def test_opencode_alone_installs_and_the_cli_accepts_it(tmp_path: Path, capsys):
+    from testence.cli import main
+
+    assert main(["agent", "install", "--project", str(tmp_path), "--client", "opencode"]) == 0
+    assert (tmp_path / ".agents/skills/testence-author/SKILL.md").is_file()
+    assert main(["agent", "verify", "--project", str(tmp_path), "--client", "opencode"]) == 0
+    capsys.readouterr()
+
+
 def test_skill_update_preserves_modified_files_and_reports_repeatable_drift(tmp_path: Path):
     install_skills(tmp_path, ["codex"])
     edited = tmp_path / ".agents/skills/testence-plan/SKILL.md"
