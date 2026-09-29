@@ -191,8 +191,8 @@ class Actors:
         settings = dataclasses.replace(
             self._settings, user_var=spec["user_var"], password_var=spec["password_var"]
         )
-        scheme = (settings.auth or "none").lower()
-        if scheme in ("none", "", "attached"):
+        scheme = str(settings.auth or "none").strip()
+        if scheme.lower() in ("none", "", "attached", "storage-state"):
             raise ActorError(
                 f"auth is {scheme!r}: there is no login to repeat as {role!r}; "
                 "set auth to form, api-session, bearer or basic"

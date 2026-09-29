@@ -28,6 +28,8 @@ credentials (env)  ──►  AuthAdapter  ──►  AuthContext ──┬─�
 | Bearer / JWT | `bearer` (aliases `jwt`, `token`) | token APIs; добавьте `token_storage_key` для SPA, читающего token из `localStorage` |
 | HTTP Basic | `basic` | API с Basic-аутентификацией, например Swagger |
 | Attached | `attached` | переиспользование Chrome, в который уже вошёл пользователь; credentials не нужны |
+| Сохранённая сессия | `storage-state` | вход, который нельзя автоматизировать (SSO, второй фактор) |
+| Свой | `module:factory` | всё остальное: [собственный вход](#собственный-вход) |
 | None | `none` | публичное приложение |
 
 Каждый тест входит один раз, в собственном свежем контексте браузера;
@@ -149,14 +151,62 @@ FormLoginAuth(
 пароль приводит к понятной ошибке *на шаге login*, а не к загадочному timeout через
 три шага.
 
-## Создание новой стратегии
+## Собственный вход
 
-Реализуйте `scheme: str` и `authenticate(engine) -> AuthContext`; операция должна
-быть идемпотентной — повторная аутентификация уже вошедшего engine не должна падать.
-Затем добавьте стратегию в `from_settings` и `_KNOWN_SCHEMES`, чтобы валидация
-конфигурации оставалась честной: неизвестный механизм должен сообщить об опечатке, а
-не о «недостающих credentials».
+Стратегия — объект с `scheme: str` и `authenticate(engine) -> AuthContext` (протокол
+`AuthAdapter`); операция должна быть идемпотентной: повторная аутентификация уже
+вошедшего engine не должна падать. Укажите в `auth` фабрику из вашего проекта, ничего
+не меняя в Testence:
 
-Проверьте стратегию на `tests/mock_app.py`, поддерживающем session cookies, bearer
-tokens и Basic. Так встроенные стратегии проверяются при каждом commit без внешнего
-приложения и реальных credentials.
+```json
+{"auth": "tests.login:build"}
+```
+
+```python
+# tests/login.py
+from testence.auth import AuthContext
+
+
+class CompanySso:
+    scheme = "company-sso"
+
+    def __init__(self, settings):
+        self.credentials = settings.credentials()
+
+    def authenticate(self, engine) -> AuthContext:
+        ...  # drive the SSO, then hand the browser and the API client the session
+        return AuthContext(cookies=engine.cookies(), scheme=self.scheme)
+
+
+def build(settings):
+    return CompanySso(settings)
+```
+
+`module:factory` называет `factory(settings) -> AuthAdapter` (точечный атрибут вроде
+`pkg.auth:Login.build` тоже работает). Корень проекта импортируется, упаковка не нужна.
+Опечатка называет себя сама: модуль, который не импортируется, отсутствующий атрибут или
+фабрика, вернувшая что-то другое, дают читаемую ошибку. `testence doctor --target`
+выполняет вход, но не ищет `TESTENCE_USER` и `TESTENCE_PASSWORD`: собственный вход сам
+решает, что ему нужно.
+
+### Вход, который нельзя повторить: сохранённая сессия
+
+SSO со вторым фактором нельзя автоматизировать. Войдите один раз вручную, сохраните
+storage state Playwright и начинайте каждый тест с него:
+
+```json
+{"auth": "storage-state", "storage_state": "auth.json"}
+```
+
+Импортируются cookies и `localStorage` origin из `base_url`. Сессия, в которую вошёл
+Testence, даёт тот же файл через `context.storage_state("https://app.example")`. Файл
+содержит живую сессию и истекает вместе с ней: не храните его в системе контроля версий.
+
+### Один аккаунт, много workers
+
+Каждый тест входит сам, поэтому `pytest -n 8` с одним аккаунтом — восемь одновременных
+сессий. Большинство приложений это допускает; то, что завершает прежнюю сессию при новом
+входе, роняет тесты случайным образом. Тогда разделите одну сессию (`session_probe_path`
+переиспользует её между тестами и workers, см. [конфигурацию](configuration.md)),
+начинайте с сохранённого состояния или дайте каждому worker свой аккаунт.
+

@@ -10,6 +10,11 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 - `testence agent install --client opencode`: OpenCode reads `.agents/skills`, so it shares
   Codex's directory; asking for both writes each file once.
+- `auth: "module:factory"` builds the login from the project's own code (`factory(settings)`
+  returns an `AuthAdapter`), so an SSO or a signed request needs no fork; and
+  `auth: "storage-state"` starts from a saved Playwright session, with
+  `AuthContext.storage_state()` to export one. `doctor --target` does not demand
+  `TESTENCE_USER` for either. The auth guide says what one account does under xdist.
 - `ex.attach(name, data)` and `allure.attach` keep a test's own file (payload, log, picture)
   with its evidence and ship it in the Allure, CTRF and JUnit exports. Text is redacted,
   a binary file is stored as given and only a `full` export ships it. Skill pack 0.1.15.

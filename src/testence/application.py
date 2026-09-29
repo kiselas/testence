@@ -478,7 +478,7 @@ def _target_checks(settings: Settings, say: Callable[[str], None]) -> list[dict[
     import urllib.request
 
     from testence.auth import from_settings
-    from testence.auth.strategies import api_headers_from_storage
+    from testence.auth.strategies import api_headers_from_storage, needs_credentials
     from testence.engine import create_engine
 
     checks: list[dict[str, Any]] = []
@@ -510,18 +510,21 @@ def _target_checks(settings: Settings, say: Callable[[str], None]) -> list[dict[
         return checks
     check("target", True, f"{base_url} answered HTTP {status}")
 
-    scheme = (settings.auth or "none").lower()
-    if scheme in ("none", "", "attached"):
+    scheme = str(settings.auth or "none").strip()
+    if scheme.lower() in ("none", "", "attached"):
         check("login", True, f"auth={scheme or 'none'}; nothing to log in with")
         return checks
-    try:
-        settings.credentials()
-    except Exception as exc:  # MissingCredentials names the variables
-        check("credentials", False, f"{exc}")
-        return checks
-    check(
-        "credentials", True, f"auth={scheme}; {settings.user_var} and {settings.password_var} set"
-    )
+    if needs_credentials(scheme):
+        try:
+            settings.credentials()
+        except Exception as exc:  # MissingCredentials names the variables
+            check("credentials", False, f"{exc}")
+            return checks
+        check(
+            "credentials",
+            True,
+            f"auth={scheme}; {settings.user_var} and {settings.password_var} set",
+        )
 
     say(f"logging in with auth={scheme}...")
     engine = create_engine(settings)

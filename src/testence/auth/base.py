@@ -120,6 +120,26 @@ class AuthContext:
             selected.sort(key=lambda cookie: len(str(cookie.get("path") or "/")), reverse=True)
         return "; ".join(f"{c['name']}={c['value']}" for c in selected)
 
+    def storage_state(self, origin: str = "") -> dict[str, Any]:
+        """This session as a Playwright storage state, for ``auth: "storage-state"``.
+
+        Holds live credentials: write it where version control does not look.
+        ``origin`` (the app's, e.g. ``https://app.example``) places ``storage`` under it.
+        """
+        origins = (
+            [
+                {
+                    "origin": origin.rstrip("/"),
+                    "localStorage": [
+                        {"name": key, "value": value} for key, value in self.storage.items()
+                    ],
+                }
+            ]
+            if origin and self.storage
+            else []
+        )
+        return {"cookies": [dict(cookie) for cookie in self.cookies], "origins": origins}
+
     def describe(self) -> dict[str, Any]:
         """Evidence-safe summary: names only, no values. A failed run must show
         *whether* it was authenticated without leaking how."""

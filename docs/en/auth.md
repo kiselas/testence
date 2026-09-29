@@ -27,6 +27,8 @@ the API as the same user the UI is logged in as, or its diff proves nothing.
 | Bearer / JWT | `bearer` (aliases `jwt`, `token`) | token APIs; add `token_storage_key` for SPAs that read it from `localStorage` |
 | HTTP Basic | `basic` | APIs accepting Basic (Swagger-style) |
 | Attached | `attached` | reuse a Chrome you already logged into; no credentials in play |
+| Saved session | `storage-state` | a login you cannot script (SSO, second factor); [below](#a-login-you-cannot-repeat-a-saved-session) |
+| Your own | `module:factory` | anything else: [your own login](#your-own-login) |
 | None | `none` | public app |
 
 Each test logs in once, in its own fresh browser context; `session_cache_ttl_s`
@@ -148,13 +150,62 @@ Without an explicit success signal the strategy waits for the password field to
 disappear — so a wrong password fails *at the login step* with a readable error
 rather than as a mysterious timeout three steps later.
 
-## Writing a new strategy
+## Your own login
 
-Implement `scheme: str` and `authenticate(engine) -> AuthContext`; be idempotent
-(authenticating an already-authenticated engine must not fail). Then add it to
-`from_settings` and to `_KNOWN_SCHEMES` so config validation stays honest — an
-unknown scheme must report the typo, not "missing credentials".
+A strategy is an object with `scheme: str` and `authenticate(engine) -> AuthContext`
+(the `AuthAdapter` protocol); it must be idempotent, authenticating an already
+authenticated engine must not fail. Point `auth` at a factory in your project, with no
+change to Testence:
 
-Verify it against `tests/mock_app.py`, which speaks session cookies, bearer tokens
-and Basic; that is how the bundled strategies are tested on every commit, with no
-external application and no real credentials.
+```json
+{"auth": "tests.login:build"}
+```
+
+```python
+# tests/login.py
+from testence.auth import AuthContext
+
+
+class CompanySso:
+    scheme = "company-sso"
+
+    def __init__(self, settings):
+        self.credentials = settings.credentials()
+
+    def authenticate(self, engine) -> AuthContext:
+        ...  # drive the SSO, then hand the browser and the API client the session
+        return AuthContext(cookies=engine.cookies(), scheme=self.scheme)
+
+
+def build(settings):
+    return CompanySso(settings)
+```
+
+`module:factory` names `factory(settings) -> AuthAdapter` (a dotted attribute such as
+`pkg.auth:Login.build` works too). The project's root is importable, so nothing needs
+packaging. A typo names itself: an unimportable module, a missing attribute, or a factory
+that returns something else is a readable error. `testence doctor --target` runs the
+login; it does not look for `TESTENCE_USER` and `TESTENCE_PASSWORD`, because a custom
+login decides what it needs.
+
+### A login you cannot repeat: a saved session
+
+An SSO with a second factor cannot be scripted. Sign in once by hand, save Playwright's
+storage state, and start every test from it:
+
+```json
+{"auth": "storage-state", "storage_state": "auth.json"}
+```
+
+Cookies and the `localStorage` of `base_url`'s origin are imported. A session Testence
+did log in produces the same file with `context.storage_state("https://app.example")`.
+The file holds a live session and expires with it: keep it out of version control.
+
+### One account, many workers
+
+Every test logs in on its own, so `pytest -n 8` with one account is eight simultaneous
+sessions. Most apps allow that; one that ends the previous session on a new login makes
+tests fail at random. Then share one session (`session_probe_path` reuses it between
+tests and workers, see [configuration](configuration.md)), start from a saved state, or
+give each worker its own account.
+
