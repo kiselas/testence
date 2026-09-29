@@ -315,7 +315,10 @@ class Settings:
         if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
             raise ValueError("evidence.redact.env must be a list of variable names")
         values: list[str] = []
-        for variable in (self.user_var, self.password_var, *names):
+        from testence.actors import actor_specs
+
+        actors = [var for spec in actor_specs(self).values() for var in spec.values()]
+        for variable in (self.user_var, self.password_var, *actors, *names):
             value = os.environ.get(variable) or self.env_values.get(variable)
             if value:
                 values.append(value)

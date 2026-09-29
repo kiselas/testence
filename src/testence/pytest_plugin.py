@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from testence import __version__, allure_compat, host, kernels
+from testence.actors import ActorError, Actors
 from testence.assurance import POLICY_DIGEST
 from testence.auth import AuthContext, from_settings
 from testence.auth.strategies import api_headers_from_storage
@@ -1624,6 +1625,53 @@ def testence_api(testence_settings: Settings, testence_auth: AuthContext) -> Api
     from testence.api import ApiClient
 
     return ApiClient.from_settings(testence_settings, testence_auth)
+
+
+@pytest.fixture
+def testence_actor(
+    request: pytest.FixtureRequest,
+    testence_settings: Settings,
+    testence_writer: EvidenceWriter,
+    testence_fingerprints: FingerprintStore,
+) -> Iterator[Actors]:
+    """Sessions for the other users of a test: ``testence_actor("viewer")``.
+
+    Each role declared under ``users`` logs in with its own credentials and gets its
+    own ``auth``, ``api`` and, on demand, ``ex`` on a browser of its own. The main
+    ``ex`` and ``testence_api`` stay the configured user.
+    """
+    test_id = _test_id(request.node)
+
+    def make_actions(engine: Engine) -> Actions:
+        engine.reset_taps()
+        return Actions(engine, testence_writer, test_id, store=testence_fingerprints)
+
+    def note(**fields: Any) -> None:
+        testence_writer.emit("note", test=test_id, **fields)
+
+    def spawn_browser() -> Engine:
+        main = request.getfixturevalue("testence_engine")
+        open_session = getattr(main, "sibling", None)
+        if open_session is None:
+            raise ActorError(
+                f"{type(main).__name__} cannot open a second isolated session; a second "
+                "user needs a Testence-launched Playwright browser"
+            )
+        engine = open_session()
+        engine._testence_state = {"any_failed": False, "mode": "isolated"}
+        return engine  # type: ignore[no-any-return]
+
+    actors = Actors(
+        testence_settings,
+        spawn_browser=spawn_browser,
+        make_actions=make_actions,
+        remember=testence_writer.remember_secret,
+        note=note,
+    )
+    try:
+        yield actors
+    finally:
+        actors.close()
 
 
 @pytest.fixture

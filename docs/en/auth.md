@@ -63,6 +63,44 @@ in). A test of the login page itself, or of public pages, opts out:
 def test_login_rejects_a_wrong_password(ex): ...
 ```
 
+## Several users in one test
+
+Permissions and "another user sees my change" need more than one session. Declare the
+extra users by role, with the names of the variables that hold their credentials:
+
+```json
+{
+  "auth": "form",
+  "users": {
+    "admin":  {"user_var": "ADMIN_USER",  "password_var": "ADMIN_PASSWORD"},
+    "viewer": {"user_var": "VIEWER_USER", "password_var": "VIEWER_PASSWORD"}
+  }
+}
+```
+
+`testence_actor(role)` logs the role in with the configured `auth` scheme and returns
+an actor with its own `auth`, `api` (an `ApiClient` on that session) and `ex` (the DSL on
+a browser context of its own; steps are recorded in the running test). The main `ex` and
+`testence_api` stay the user from `TESTENCE_USER`.
+
+```python
+def test_a_viewer_cannot_delete(testence_api, testence_actor):
+    viewer = testence_actor("viewer")
+    widget = testence_api.post("/api/widgets", {"name": "n"}).raise_for_status().json
+    assert viewer.api.delete(f"/api/widgets/{widget['id']}").status == 403
+
+
+def test_the_viewer_sees_what_the_admin_saved(ex, testence_actor):
+    viewer = testence_actor("viewer")
+    ex.goto("/widgets")                       # the configured user
+    viewer.ex.goto("/widgets")                # the viewer, in a browser context of its own
+```
+
+Schemes without a page (`api-session`, `bearer`, `basic`) log an actor in without a
+browser, and `.ex` opens one on first use; a `form` login needs the page. Every role's
+credentials are redacted from evidence. An undeclared role names the declared ones. The
+failure pack describes the main browser only.
+
 ## Single-page apps that keep a token in storage
 
 A SPA that logs in through `fetch` and keeps its JWT or OIDC token in `localStorage`
