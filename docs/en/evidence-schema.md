@@ -77,6 +77,7 @@ a deterministic source-derived fallback that does not promise stability across r
 | `native.used` | `intent` — an `ex.native` block ran; its interactions were not recorded one by one |
 | `testplan.unresolved` | `count`, `policy` (`warn`/`fail`), `entries` [{`id`?, `selector`?}] — Allure test plan entries that matched no collected test |
 | `note` | `text` + free fields |
+| `attachment` | a file of the test's own (`ex.attach`, `allure.attach`): `name`, `path` (run-relative, under the test directory's `attachments/`), `media_type`, `size`, `redaction` (`redacted` for text, `none` for binary) |
 | `ledger.damage` | reader-created `integrity_code`, `error`, optional shard `path`; raw ledgers remain unchanged |
 
 ## Execution and assurance

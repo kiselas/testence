@@ -8,6 +8,9 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ### Added
 
+- `ex.attach(name, data)` and `allure.attach` keep a test's own file (payload, log, picture)
+  with its evidence and ship it in the Allure, CTRF and JUnit exports. Text is redacted,
+  a binary file is stored as given and only a `full` export ships it. Skill pack 0.1.15.
 - `testence_actor(role)`: more than one user in a test. Roles declared under `users` in
   `testence.json` log in with their own credentials and get their own `auth`, `api` and,
   on demand, `ex` on a browser context of its own, isolated from the main session; every

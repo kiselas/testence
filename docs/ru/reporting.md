@@ -57,6 +57,24 @@ def test_checkout_charges_the_card_once(ex): ...
 кейс TestRail, а в Xray — числовой ID задачи, поэтому указывайте только те системы, для
 которых предназначен отчёт.
 
+### Собственные вложения
+
+Полезная нагрузка, которую построил тест, выдержка из лога сервера или картинка едут
+вместе с evidence теста и попадают в каждый экспорт (Allure, CTRF, JUnit):
+
+```python
+ex.attach("request.json", json.dumps(payload))            # text or bytes
+ex.attach("server.log", Path("logs/app.log"))             # or a file
+ex.attach("diagram", png_bytes, media_type="image/png")
+allure.attach(body, name="response", attachment_type=allure.attachment_type.JSON)
+```
+
+`allure.attach` и `allure.attach.file` тоже слышны, с allure-pytest и без него. Текст
+маскируется как всё evidence, включая секреты, узнанные во время запуска. Бинарный файл
+замаскировать нельзя: он хранится как есть (`redaction: none` в ledger), и только
+`--attachments full` его отправляет; `minimal` отправляет текст, `none` — ничего.
+Одно вложение ограничено 8 МиБ.
+
 ### Повторы и нестабильные тесты
 
 `pytest --testence-reruns 2` (или `TESTENCE_RERUNS=2`, не больше 5) повторяет упавший тест

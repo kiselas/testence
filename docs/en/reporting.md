@@ -57,6 +57,24 @@ Property names follow the `trcli` and Xray JUnit documentation. `test_id` means 
 TestRail case in `trcli` and a numeric issue id in Xray, so declare only the systems a
 report is meant for.
 
+### Attaching your own files
+
+A payload the test built, a server log excerpt or a picture travels with the test's
+evidence and lands in every export (Allure, CTRF, JUnit):
+
+```python
+ex.attach("request.json", json.dumps(payload))            # text or bytes
+ex.attach("server.log", Path("logs/app.log"))             # or a file
+ex.attach("diagram", png_bytes, media_type="image/png")
+allure.attach(body, name="response", attachment_type=allure.attachment_type.JSON)
+```
+
+`allure.attach` and `allure.attach.file` are heard as well, with or without
+allure-pytest. Text is redacted like all evidence, including secrets learned at run
+time. A binary file cannot be redacted: it is stored as given (`redaction: none` in the
+ledger) and only `--attachments full` ships it; `minimal` ships the text, `none`
+nothing. Each attachment is limited to 8 MiB.
+
 ### Reruns and flaky tests
 
 `pytest --testence-reruns 2` (or `TESTENCE_RERUNS=2`, at most 5) repeats a failed test
