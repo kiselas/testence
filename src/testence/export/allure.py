@@ -418,6 +418,17 @@ def _attachments(
         attachments.append(
             {"name": "oracles.json", "source": target_name, "type": "application/json"}
         )
+    for entry, content in run.own_attachments(test):
+        suffix = Path(str(entry["path"])).suffix or ".bin"
+        target_name = f"{_uuid_for(test_uuid, str(entry['path']))}-attachment{suffix}"
+        written.append(_write_bytes(out_dir / target_name, content))
+        attachments.append(
+            {
+                "name": str(entry["name"]),
+                "source": target_name,
+                "type": str(entry.get("media_type") or "application/octet-stream"),
+            }
+        )
     return attachments, written
 
 

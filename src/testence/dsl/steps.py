@@ -12,6 +12,7 @@ from __future__ import annotations
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from testence.engine import (
@@ -678,6 +679,23 @@ class Actions:
         nothing, it just stops the test from reading a half-loaded page."""
         require_capabilities(self.engine, "settle", Capability.NETWORK)
         return self.engine.settle(timeout_ms)
+
+    def attach(
+        self,
+        name: str,
+        data: bytes | str | Path,
+        *,
+        media_type: str | None = None,
+    ) -> None:
+        """Keep a file with this test's evidence and ship it in every export.
+
+        A payload the test built, a server log excerpt, a picture: ``data`` is text,
+        bytes or a path. Text is redacted like all evidence; a binary file cannot be
+        and is stored as given (``redaction: none``), so only a ``full`` export carries
+        it. ``media_type`` defaults from the name's extension.
+        """
+        content = data.read_bytes() if isinstance(data, Path) else data
+        self.writer.attach(self.test_id, name, content, media_type)
 
     def note(self, text: str, **data: Any) -> None:
         self.writer.emit("note", test=self.test_id, text=text, **data)

@@ -428,14 +428,15 @@ def redact_document_text(
     suffix: str,
     policy: RedactionPolicy = DEFAULT_POLICY,
     limit: int = FULL_SECTION_CHAR_LIMIT,
+    secrets: Iterable[str] = (),
 ) -> str:
     """Redact one evidence file for export, keeping its bytes when nothing changes."""
     if suffix == ".json":
         try:
             document = json.loads(text)
         except (json.JSONDecodeError, RecursionError):
-            return sanitize_text(text, limit=limit, policy=policy)
-        cleaned = sanitize(document, limit=limit, policy=policy)
+            return sanitize_text(text, secrets=secrets, limit=limit, policy=policy)
+        cleaned = sanitize(document, secrets=secrets, limit=limit, policy=policy)
         if cleaned == document:
             return text
         return json.dumps(cleaned, ensure_ascii=False, indent=1) + "\n"
@@ -445,13 +446,13 @@ def redact_document_text(
             try:
                 record = json.loads(line) if line.strip() else None
             except (json.JSONDecodeError, RecursionError):
-                lines.append(sanitize_text(line, limit=limit, policy=policy))
+                lines.append(sanitize_text(line, secrets=secrets, limit=limit, policy=policy))
                 continue
             if record is None:
                 lines.append(line)
                 continue
-            cleaned = sanitize(record, limit=limit, policy=policy)
+            cleaned = sanitize(record, secrets=secrets, limit=limit, policy=policy)
             lines.append(line if cleaned == record else json.dumps(cleaned, ensure_ascii=False))
         rebuilt = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
         return text if rebuilt == text else rebuilt
-    return sanitize_text(text, limit=limit, policy=policy)
+    return sanitize_text(text, secrets=secrets, limit=limit, policy=policy)

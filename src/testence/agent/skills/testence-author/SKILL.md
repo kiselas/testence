@@ -39,6 +39,8 @@ For automated screenshot regression or an isolated client simulation, also read
   A claim about permissions or about what another user sees needs a second session:
   declare the roles under `users` and use `testence_actor("viewer")` (`.api`, `.ex`)
   instead of logging in by hand.
+  Keep a payload, a log excerpt or a picture with the evidence via `ex.attach(name,
+  data)`; do not write files next to the run.
   Prove a save with `ex.verify_state(name, read, ExpectedState.fields(...))`: it polls
   a fresh read and names each differing field; `ex.verify` compares two views taken once.
   Do not guess an oracle's endpoint: run the test once, then `testence oracle suggest

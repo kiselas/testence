@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import mimetypes
 import os
 import secrets
 import threading
@@ -30,7 +31,13 @@ from testence.contracts.versions import RUN_MANIFEST_SCHEMA
 from testence.identity import UNKNOWN_PROJECT_ID, proof_id, source_case_id
 
 from .events import Event
-from .sanitize import DEFAULT_POLICY, RedactionPolicy, sanitize, sanitize_text
+from .sanitize import (
+    DEFAULT_POLICY,
+    RedactionPolicy,
+    redact_document_text,
+    sanitize,
+    sanitize_text,
+)
 
 #: Environment variable carrying the run id to every xdist worker, so all of them
 #: write into one run directory instead of inventing a directory each.
@@ -71,6 +78,16 @@ def ledger_paths(run_dir: Path | str) -> list[Path]:
         if (resolved := contained_file(path)) is not None
     ]
     return ([main] if main is not None else []) + workers
+
+
+#: One attachment's size ceiling: a run keeps what a report should carry, not a recording.
+MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
+_TEXT_TYPES = ("application/json", "application/xml", "application/yaml", "application/x-ndjson")
+
+
+def _is_text(media_type: str) -> bool:
+    base = media_type.partition(";")[0].strip().lower()
+    return base.startswith("text/") or base in _TEXT_TYPES or base.endswith(("+json", "+xml"))
 
 
 class EvidenceWriter:
@@ -363,6 +380,59 @@ class EvidenceWriter:
         d = self.run_dir / safe
         d.mkdir(parents=True, exist_ok=True)
         return d
+
+    def attach(
+        self,
+        test_id: str,
+        name: str,
+        data: bytes | str,
+        media_type: str | None = None,
+    ) -> dict[str, Any]:
+        """Keep a file of the test's own (a log, a payload, a picture) with its evidence.
+
+        Text is redacted like every other evidence file; a binary file cannot be, so it
+        is stored as given and marked ``redaction: none`` (the trace and video rule).
+        Returns the recorded ``attachment`` event fields.
+        """
+        label = sanitize_text(
+            str(name).strip(), secrets=self._redact_values, policy=self._policy, limit=120
+        )
+        if not label:
+            raise ValueError("an attachment needs a name")
+        raw = data.encode("utf-8") if isinstance(data, str) else bytes(data)
+        if len(raw) > MAX_ATTACHMENT_BYTES:
+            raise ValueError(
+                f"attachment {label!r} is {len(raw)} bytes; the limit is {MAX_ATTACHMENT_BYTES}"
+            )
+        kind = media_type or mimetypes.guess_type(label)[0]
+        kind = kind or ("text/plain" if isinstance(data, str) else "application/octet-stream")
+        directory = self.test_dir(test_id) / "attachments"
+        directory.mkdir(exist_ok=True)
+        suffix = mimetypes.guess_extension(kind) or Path(label).suffix or ".bin"
+        stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in Path(label).stem)[:60]
+        redaction = "none"
+        if _is_text(kind):
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError(
+                    f"attachment {label!r} is declared {kind} but is not UTF-8"
+                ) from exc
+            raw = redact_document_text(
+                text, suffix=suffix, policy=self._policy, secrets=self._redact_values
+            ).encode("utf-8")
+            redaction = "redacted"
+        target = directory / f"{len(list(directory.iterdir())) + 1:03d}-{stem or 'file'}{suffix}"
+        target.write_bytes(raw)
+        fields = {
+            "name": label,
+            "path": target.relative_to(self.run_dir).as_posix(),
+            "media_type": kind,
+            "size": len(raw),
+            "redaction": redaction,
+        }
+        self.emit("attachment", test=test_id, **fields)
+        return fields
 
     def close(self) -> None:
         with self._lock:

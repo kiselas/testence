@@ -76,6 +76,7 @@ events одной попытки также создают явную проек
 | `native.used` | `intent` — выполнен блок `ex.native`; действия внутри не записывались по одному |
 | `testplan.unresolved` | `count`, `policy` (`warn`/`fail`), `entries` [{`id`?, `selector`?}] — записи test plan Allure без совпавшего теста |
 | `note` | `text` и произвольные поля |
+| `attachment` | собственный файл теста (`ex.attach`, `allure.attach`): `name`, `path` (относительно запуска, в `attachments/` каталога теста), `media_type`, `size`, `redaction` (`redacted` для текста, `none` для бинарных) |
 | `ledger.damage` | созданные reader поля `integrity_code`, `error` и optional shard `path`; raw ledgers не меняются |
 
 ## Execution и assurance

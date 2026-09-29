@@ -16,6 +16,7 @@ Imported only when ``allure_commons`` is installed.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import allure_commons
@@ -98,6 +99,47 @@ class DynamicValues:
             found.extend(
                 {"name": label_text(label_type), "value": label_text(value)} for value in labels
             )
+
+    @hookimpl
+    def attach_data(
+        self, body: Any, name: str | None, attachment_type: Any, extension: str | None
+    ) -> None:
+        if self._current is not None:
+            self._keep(body, name, attachment_type, extension)
+
+    @hookimpl
+    def attach_file(
+        self, source: Any, name: str | None, attachment_type: Any, extension: str | None
+    ) -> None:
+        if self._current is None:
+            return
+        try:
+            body = Path(source).read_bytes()
+        except OSError:
+            return
+        self._keep(
+            body, name or Path(source).name, attachment_type, extension or Path(source).suffix
+        )
+
+    def _keep(
+        self, body: Any, name: str | None, attachment_type: Any, extension: str | None
+    ) -> None:
+        """``allure.attach`` calls of this attempt; the plugin stores them at the end."""
+        media_type = getattr(attachment_type, "mime_type", None) or (
+            attachment_type if isinstance(attachment_type, str) else None
+        )
+        suffix = extension or getattr(attachment_type, "extension", "") or ""
+        label = str(name or "attachment")
+        if suffix and not Path(label).suffix:
+            label = f"{label}.{suffix.lstrip('.')}"
+        assert self._current is not None
+        self._current.setdefault("attachments", []).append(
+            {
+                "name": label,
+                "body": body if isinstance(body, (bytes, str)) else str(body),
+                "media_type": media_type,
+            }
+        )
 
     @hookimpl
     def add_link(self, url: str, link_type: str, name: str | None) -> None:

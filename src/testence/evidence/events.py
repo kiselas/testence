@@ -55,6 +55,7 @@ KINDS = frozenset(
         "assertion",
         "pack",
         "note",
+        "attachment",
         "ledger.damage",
     }
 )

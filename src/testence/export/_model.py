@@ -155,6 +155,8 @@ class Test:
     tms: dict[str, tuple[str, ...]] = field(default_factory=dict)
     #: Playwright trace and video files (``evidence.trace``/``video``), stored raw.
     recordings: list[dict[str, str]] = field(default_factory=list)
+    #: Files the test attached itself (``ex.attach``, ``allure.attach``).
+    attachments: list[dict[str, Any]] = field(default_factory=list)
     #: This attempt was repeated (``--testence-reruns``); the test's outcome is a
     #: later attempt, which lists this one in ``reruns``.
     rerun: bool = False
@@ -277,6 +279,34 @@ class LoadedRun:
             return None
         cleaned = redact_document_text(text, suffix=source.suffix, policy=self.redaction_policy)
         return raw if cleaned == text else cleaned.encode("utf-8")
+
+    def own_attachments(self, test: Test) -> list[tuple[dict[str, Any], bytes]]:
+        """The test's own attachments as an export ships them.
+
+        ``none`` ships nothing, ``minimal`` only text (redacted again with the run's
+        policy), ``full`` everything; a binary file is raw, as trace and video are.
+        """
+        shipped: list[tuple[dict[str, Any], bytes]] = []
+        if self.attachments == "none":
+            return shipped
+        for entry in test.attachments:
+            source = self.run_file(str(entry.get("path", "")))
+            if source is None:
+                continue
+            raw = source.read_bytes()
+            if entry.get("redaction") == "redacted":
+                try:
+                    text = raw.decode("utf-8")
+                except UnicodeDecodeError:
+                    continue
+                cleaned = redact_document_text(
+                    text, suffix=source.suffix, policy=self.redaction_policy
+                )
+                raw = raw if cleaned == text else cleaned.encode("utf-8")
+            elif self.attachments != "full":
+                continue
+            shipped.append((entry, raw))
+        return shipped
 
     @classmethod
     def from_events(cls, events: list[dict[str, Any]], run_dir: Path | str = "") -> LoadedRun:
@@ -443,6 +473,14 @@ class LoadedRun:
                 step.error = doc.get("error")
                 step.stop = parse_ts(doc.get("ts"))
                 (stack[-1].substeps if stack else test.steps).append(step)
+            elif kind == "attachment":
+                test.attachments.append(
+                    {
+                        key: doc[key]
+                        for key in ("name", "path", "media_type", "redaction")
+                        if key in doc
+                    }
+                )
             elif kind == "oracle":
                 run_oracle = {k: v for k, v in doc.items() if k not in ("v", "run", "seq", "kind")}
                 test.oracles.append(run_oracle)
@@ -515,6 +553,11 @@ def copy_attachments(run: LoadedRun, test: Test, out_dir: Path) -> list[Exported
     if test.oracles and run.attachments != "none":
         oracles = json.dumps(test.oracles, ensure_ascii=False, indent=1) + "\n"
         shipped.append(("oracles.json", oracles.encode("utf-8")))
+    media: dict[str, str] = {}
+    for entry, content in run.own_attachments(test):
+        filename = f"attached-{Path(str(entry['path'])).name}"
+        shipped.append((filename, content))
+        media[filename] = str(entry.get("media_type") or "application/octet-stream")
     exported: list[ExportedFile] = []
     for filename, content in shipped:
         target = out_dir / folder / filename
@@ -524,7 +567,8 @@ def copy_attachments(run: LoadedRun, test: Test, out_dir: Path) -> list[Exported
             ExportedFile(
                 name=filename,
                 path=(folder / filename).as_posix(),
-                media_type=MIME_TYPES.get(Path(filename).suffix, "text/plain"),
+                media_type=media.get(filename)
+                or MIME_TYPES.get(Path(filename).suffix, "text/plain"),
             )
         )
     return exported

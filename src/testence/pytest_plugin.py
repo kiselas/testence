@@ -1324,6 +1324,16 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
             payload["flaky"] = True
     dynamic = _allure_dynamic(item)
     heard = dynamic.take() if dynamic is not None else {}
+    for attached in heard.pop("attachments", []):
+        try:
+            state.writer.attach(test_id, attached["name"], attached["body"], attached["media_type"])
+        except Exception as exc:  # noqa: BLE001 - an attachment never costs a test its result
+            state.writer.emit(
+                "note",
+                test=test_id,
+                text="allure.attach could not be kept",
+                error=f"{type(exc).__name__}: {exc}",
+            )
     if heard:
         # allure.dynamic.* calls of this attempt; the export lays them over test.start.
         payload["allure_dynamic"] = heard
