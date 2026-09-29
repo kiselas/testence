@@ -401,6 +401,14 @@ def main(argv: list[str] | None = None) -> int:
     p_inspect.add_argument("run_dir", type=Path, help="run directory, for example runs/r-123")
     p_inspect.add_argument("--json", dest="json_output", action="store_true")
 
+    p_oracle = sub.add_parser("oracle", help="find the API check a finished run implies")
+    oracle_sub = p_oracle.add_subparsers(dest="oracle_command", required=True)
+    p_oracle_suggest = oracle_sub.add_parser(
+        "suggest", help="propose API oracles for the mutations a run made"
+    )
+    p_oracle_suggest.add_argument("run_dir", type=Path, help="run directory, e.g. runs/r-123")
+    p_oracle_suggest.add_argument("--json", dest="json_output", action="store_true")
+
     p_demo = sub.add_parser("demo", help="run the deterministic green/failure proof demo")
     demo_sub = p_demo.add_subparsers(dest="demo_command", required=True)
     p_demo_run = demo_sub.add_parser("run", help="create, run and report the local demo")
@@ -476,6 +484,10 @@ def main(argv: list[str] | None = None) -> int:
             "testence run --project . --run-id r-local -- tests_e2e -q -k checkout",
         ],
         p_inspect: ["testence inspect runs/r-local", "testence inspect runs/r-local --json"],
+        p_oracle_suggest: [
+            "testence oracle suggest runs/r-local",
+            "testence oracle suggest runs/r-local --json",
+        ],
         p_report: ["testence report runs/r-local"],
         p_export: [
             "testence export --list",
@@ -602,6 +614,20 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  flaky: {nodeid} passed only after a rerun")
             for pack in result["packs"]:
                 print(f"  pack: {Path(args.run_dir) / pack}")
+        return 0
+
+    if args.command == "oracle" and args.oracle_command == "suggest":
+        from .oracle_suggest import render, suggest_run
+
+        try:
+            result = suggest_run(args.run_dir)
+        except (OSError, ValueError) as exc:
+            print(f"oracle suggest failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(render(result))
         return 0
 
     if args.command == "demo" and args.demo_command == "run":

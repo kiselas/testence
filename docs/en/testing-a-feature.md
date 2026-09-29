@@ -47,6 +47,26 @@ Do not infer an API contract from the rendered page. Read the documented API or 
 public schema, and keep application-specific selectors in a project `ActionMap`
 rather than in the framework package.
 
+### Find the API check the run already implies
+
+Once a first version of the test has run, ask the run what the application sent:
+
+```bash
+testence oracle suggest runs/r-local
+```
+
+For every mutation the run made (`POST`, `PUT`, `PATCH`, `DELETE` answered 2xx) it prints
+the read that would prove it, where that read came from (the app's own traffic or the
+mutation's path), the fields worth comparing, and a `save_and_verify_state(...)` call to
+complete. A delete comes with `ExpectedState.absent(...)`. `--json` prints the same for an
+agent. The suggestion is a starting point: `SAVE_TARGET`, `sent` and `entity_id` are yours
+to bind, and a create whose response has no id is read from the collection.
+
+The run records paths with identifiers templated and the keys of each body, never values.
+Request and response keys need `"capture_policy": {"network_bodies": true}` for an
+application with synthetic data ([configuration](configuration.md#evidence-capture-policy));
+without it the endpoints are still found and the output says what is missing.
+
 ## 3. Seed through the API
 
 Create preconditions through a project `SeedAdapter` or the shared-session

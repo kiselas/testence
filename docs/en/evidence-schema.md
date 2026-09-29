@@ -69,7 +69,7 @@ a deterministic source-derived fallback that does not promise stability across r
 | `test.waits` | `waited_ms`, `ops` (count), `by_op` {op: {ms, n}}, `top` (5 slowest) |
 | `step.start` | `step` (id), `intent` (human sentence), `target`? (described), `depth` |
 | `step.end` | `step`, `status`, `duration_ms`, `depth`, `children`, `fingerprint`? (green runs), `error`? |
-| `net` | reserved (v0 captures network into packs; inline events may follow E4) |
+| `net` | one per test with a browser, at the end of its call phase: `mutations` [{`method`, `origin`, `path` (identifiers templated as `{id}`), `status`, `failure`?, `request_keys`, `response_keys`, `id_path`?, `reads_after`}], `reads` [{`method`, `path`, `n`, `status`}], `bodies` (whether body capture was on). Names and shapes only; `testence oracle suggest` reads it |
 | `console` | reserved (same) |
 | `oracle` | `name`, `ok`, `diff`?, or typed `expected`/`actual` plus `observation` and bound `operation` |
 | `assertion` | `assertion_id`, `claim_id`, `oracle_kind`, `outcome`, typed/redacted `expected` and `actual`, `source` |

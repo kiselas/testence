@@ -33,6 +33,7 @@ from testence.evidence import RUN_ID_ENV, EvidenceWriter, new_run_id
 from testence.fingerprints import DEFAULT_STORE, FingerprintStore
 from testence.identity import TestIdentity, proof_id, source_case_id, variant_id
 from testence.isolation import TestNamespace
+from testence.oracle_suggest import net_digest
 from testence.reruns import RERUNS_ENV, Reruns, rerun_count
 from testence.testplan import (
     ALLURE_TESTPLAN_ENV,
@@ -714,6 +715,8 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
     if report.when == "call" and report.passed:
         _final_screenshot(item, state)
     state.writer.emit("test.phase", test=_test_id(item), **payload)
+    if report.when == "call":
+        _record_net(item, state)
     if report.failed:
         engine = item.stash.get(_ENGINE_KEY, None)
         if engine is not None:
@@ -725,6 +728,25 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
             pack = _failure_pack(item, state, _test_id(item), _report_error(report))
             if pack:
                 item.stash[_PACK_KEY] = pack
+
+
+def _record_net(item: pytest.Item, state: _LifecycleState) -> None:
+    """One ``net`` event with the test's API traffic, for ``testence oracle suggest``.
+
+    Best effort: a digest must never cost the test its result, and a test without a
+    browser has nothing to record.
+    """
+    engine = item.stash.get(_ENGINE_KEY, None)
+    if engine is None:
+        return
+    try:
+        digest = net_digest(
+            engine.network_log(), bodies=bool(getattr(engine, "capture_network_bodies", False))
+        )
+        if digest is not None:
+            state.writer.emit("net", test=_test_id(item), **digest)
+    except Exception:  # noqa: BLE001 - see above
+        return
 
 
 _REPORTS_KEY = pytest.StashKey[dict]()
