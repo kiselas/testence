@@ -20,8 +20,9 @@ vulnerabilities. These scans cover known patterns/databases and do not prove tha
 tree is free of every secret or vulnerability.
 
 The repository became public and GitHub private vulnerability reporting was enabled and
-verified through the API on 21 September 2026. Publication remains blocked until the
-final clean RC commit is rescanned and a maintainer reviews all intended source assets.
+verified through the API on 21 September 2026. `0.1.0a1` has since been published on
+PyPI; every later release goes through the same gate: the final clean commit is
+rescanned and a maintainer reviews all intended source assets.
 See [support policy](../../SUPPORT.md), [security policy](../../SECURITY.md), and the
 [current release decision](../../release/rc-manifest-v2.json). The manual
 `publish.yml` workflow accepts only an existing tag, artifacts from the selected CI

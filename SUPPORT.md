@@ -6,7 +6,8 @@ browser. The published `0.1.0a1` predates macOS support. Intel macOS,
 Firefox, WebKit, mobile, hosted dashboards and production-data handling are outside the
 current support promise.
 
-The latest `main` is the only supported development line before the first release.
+During the alpha the latest `main` is the supported development line; the published
+`0.1.0a1` receives no backported fixes. Upgrade notes: [upgrading](docs/en/upgrading.md).
 After `0.1.x`, the latest patch of the current minor receives bug and critical security
 fixes until 90 days after the next minor release. `0.x` releases may change Python APIs,
 but a breaking change requires a changelog entry and migration instructions. Public

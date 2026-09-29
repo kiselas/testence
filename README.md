@@ -59,11 +59,21 @@ The key distinction is not “AI writes tests.” Many tools can do that. Testen
 the complete agent workflow auditable: plan, claim, evidence, verdict and repair are
 explicit contracts that another agent, a reviewer or policy can verify.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kiselas/testence/main/docs/assets/report-false-green.png" width="720" alt="Testence report: the UI showed saved, the API said missing, so the test failed with its evidence pack">
+</p>
+
+The UI said "saved"; the same-session API read said "missing". A UI-only check passes
+here; Testence fails it and keeps the evidence. This is `testence report` for the
+`r-demo-failure` run of the quick start below. Results export to Allure and Allure
+TestOps, JUnit and CTRF ([reporting](https://github.com/kiselas/testence/blob/main/docs/en/reporting.md)),
+and a copy-paste GitHub Actions workflow is in [CI](https://github.com/kiselas/testence/blob/main/docs/en/ci.md).
+
 ## Quick start
 
 ```bash
 pip install testence
-python -m playwright install chromium
+python -m playwright install chromium   # skip with system Chrome/Edge: TESTENCE_BROWSER_CHANNEL=chrome|msedge
 
 testence doctor
 testence init .

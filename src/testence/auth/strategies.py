@@ -35,6 +35,7 @@ from testence.engine import Engine, Target
 
 from .base import AuthContext, Credentials, LoginFailed
 
+_RECHECK_MS = 300
 _DEFAULT_SUCCESS_TIMEOUT_MS = 15_000
 
 #: Scheme names accepted in configuration (aliases included).
@@ -100,6 +101,11 @@ class FormLoginAuth:
                 # No explicit success signal: settle for the login form going away,
                 # so a failed login surfaces here instead of as a confusing failure later.
                 engine.wait_while_visible(self.password_target, timeout_ms=self.timeout_ms)
+                # "Hidden" is also true for the instant a submit replaces the page and
+                # the form has not been drawn again: a wrong password read as a login
+                # on a slow runner. Let the navigation land, then look once more.
+                engine.settle(self.timeout_ms)
+                engine.wait_while_visible(self.password_target, timeout_ms=_RECHECK_MS)
         except Exception as exc:  # noqa: BLE001 - each engine names its timeout differently
             raise LoginFailed(
                 f"login at {self.login_path} did not complete within {self.timeout_ms} ms: "

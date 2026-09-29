@@ -7,10 +7,12 @@
 - [Authentication](auth.md)
 - [Engine capabilities and strict actions](engine-capabilities.md)
 - [Reporting and exporters](reporting.md)
+- [Running in CI](ci.md)
 - [Evidence schema](evidence-schema.md)
 - [Multi-project quality packs](quality-packs.md)
 - [Compute kernels](kernels.md)
 - [Changelog](CHANGELOG.md)
+- [Upgrading from 0.1.0a1](upgrading.md)
 - [Support policy](../../SUPPORT.md)
 
 ## Work with agents

@@ -70,19 +70,15 @@ deterministic UI tests and evidence-backed verdicts.**
 
 ## Material gaps
 
-### Must close before a public alpha
+### Before the public alpha: status on 28 September 2026
 
-- There is no complete agent bootstrap → PlanSpec → discovery → generation → proof →
-  triage → reviewed-repair workflow yet.
-- There are no portable Agent Skills or stable, typed agent-facing CLI/MCP contracts.
-- Network request/response bodies and local session state lack a documented redaction and
-  secret-handling policy. Evidence collection is unsafe for sensitive applications until
-  this is fixed.
-- Static quality gates are not green, and there is no public CI/release matrix.
-- Only a narrow Chromium/CDP path is proven; Firefox/WebKit and managed browser lifecycle
-  are not first-class.
-- The public benchmark is useful engineering evidence, but still synthetic and too small
-  for comparative product claims.
+- Closed: the agent workflow from bootstrap to reviewed repair runs from the packaged
+  skills (launch audit, criterion K10); portable Agent Skills and typed CLI contracts
+  ship; evidence redaction has a recorded policy (ADR-0024); static gates are green on a
+  public three-OS CI matrix.
+- Open: an MCP server (the CLI contracts are its foundation); only the Chromium/CDP path
+  is proven, Firefox/WebKit are not first-class; the public benchmark is still synthetic
+  and too small for comparative product claims.
 
 ### Expected UI-testing breadth
 

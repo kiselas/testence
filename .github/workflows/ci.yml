@@ -149,6 +149,34 @@ jobs:
       - name: Run suite at dependency floor
         run: '"$FLOOR_PY" -m pytest -q'
 
+  user-ci-template:
+    name: Documented CI template
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [quality]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Download the immutable candidate distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: testence-${{ github.sha }}-candidate-distributions
+          path: dist
+      - name: Install the candidate where the template's pip finds it
+        run: |
+          python -m venv "$RUNNER_TEMP/user-venv"
+          wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          "$RUNNER_TEMP/user-venv/bin/python" -m pip install "$wheel" pyyaml
+          echo "$RUNNER_TEMP/user-venv/bin" >> "$GITHUB_PATH"
+      - name: Scaffold a user project
+        run: testence init "$RUNNER_TEMP/user-project"
+      - name: Run the documented template's steps as written
+        run: python scripts/run_ci_template.py --template docs/examples/github-actions.yml --project "$RUNNER_TEMP/user-project"
+
   installed-wheel:
     name: Installed wheel / browser / release artifacts
     runs-on: ubuntu-latest

@@ -148,3 +148,14 @@ def test_every_python_snippet_in_the_docs_compiles_and_calls_verify_with_its_sig
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                 if node.func.id == "verify":
                     assert len(node.args) == 5, f"{page}: verify() needs five arguments"
+
+
+def test_the_ci_page_shows_the_template_the_repository_runs() -> None:
+    """``docs/{en,ru}/ci.md`` show ``docs/examples/github-actions.yml`` verbatim, and the
+    repository's CI executes that file's steps against a ``testence init`` project."""
+    template = (ROOT / "docs" / "examples" / "github-actions.yml").read_text(encoding="utf-8")
+    for language in ("en", "ru"):
+        page = (ROOT / "docs" / language / "ci.md").read_text(encoding="utf-8")
+        assert f"```yaml\n{template}```" in page, language
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "scripts/run_ci_template.py --template docs/examples/github-actions.yml" in workflow
