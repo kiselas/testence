@@ -86,6 +86,8 @@ testence run --project . --run-id r-demo-failure -- .testence/examples/test_demo
 testence report runs/r-demo-failure
 ```
 
+Testing your own app first? [Your first test](https://github.com/kiselas/testence/blob/main/docs/en/first-test.md) needs no plan file, and the [glossary](https://github.com/kiselas/testence/blob/main/docs/en/glossary.md) explains `verified`, `unverified` and the other words in a report.
+
 `testence init` writes `testence.json` and a `.testence/` scaffold: one synthetic plan and
 the tests that prove the loop. The scaffold is deliberately kept out of your existing
 pytest paths, so initialization never opts your current suite into Testence. Conflicting

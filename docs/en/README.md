@@ -2,7 +2,9 @@
 
 ## Use Testence
 
-- [Testing a UI feature](testing-a-feature.md) — the full workflow, start here
+- [Your first test](first-test.md) — ten minutes, no plan file, start here
+- [Testing a UI feature](testing-a-feature.md) — the full workflow
+- [Glossary](glossary.md)
 - [Configuration](configuration.md)
 - [Authentication](auth.md)
 - [Engine capabilities and strict actions](engine-capabilities.md)
