@@ -88,7 +88,6 @@ def test_refusals_are_readable(tmp_path):
 
 
 SUITE = f"""
-import allure
 from types import SimpleNamespace
 
 from testence.dsl import Actions
@@ -98,7 +97,15 @@ def test_it_attaches(testence_writer, request):
     ex = Actions(SimpleNamespace(), testence_writer, request.node.nodeid)
     ex.attach("payload.json", '{{"password": "{PASSWORD}", "name": "edge"}}')
     ex.attach("shot.png", {PNG!r})
-    allure.attach("a server line", name="server.log", attachment_type=allure.attachment_type.TEXT)
+    ex.attach("server.log", "a server line")
+"""
+
+ALLURE_SUITE = """
+import allure
+
+
+def test_it_attaches(testence_writer):
+    allure.attach("heard by testence", name="response", attachment_type=allure.attachment_type.TEXT)
 """
 
 
@@ -121,8 +128,6 @@ def run_dir(tmp_path_factory) -> Path:
             "pytest",
             "-p",
             "testence.pytest_plugin",
-            "-p",
-            "allure_commons",
             "--rootdir",
             str(project),
             "-p",
@@ -145,7 +150,7 @@ def _events(run: Path) -> list[dict]:
     return [json.loads(line) for line in lines if line.strip()]
 
 
-def test_the_run_records_ex_and_allure_attachments(run_dir):
+def test_the_run_records_what_ex_attach_was_given(run_dir):
     kept = [event for event in _events(run_dir) if event["kind"] == "attachment"]
     assert sorted(event["name"] for event in kept) == ["payload.json", "server.log", "shot.png"]
     assert PASSWORD not in (run_dir / "run.jsonl").read_text(encoding="utf-8")
@@ -208,3 +213,36 @@ def test_an_allure_result_names_the_attachments(run_dir, tmp_path):
     result = json.loads(next(out.glob("*-result.json")).read_text(encoding="utf-8"))
     names = {item["name"] for item in result["attachments"]}
     assert {"payload.json", "shot.png", "server.log"} <= names
+
+
+def test_allure_attach_is_heard_without_allure_pytest(tmp_path):
+    pytest.importorskip("allure_commons")
+    project = tmp_path / "allure"
+    project.mkdir()
+    (project / "test_allure.py").write_text(ALLURE_SUITE.lstrip(), encoding="utf-8")
+    (project / "testence.json").write_text("{}", encoding="utf-8")
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "testence.pytest_plugin",
+            "--rootdir",
+            str(project),
+            "-p",
+            "no:cacheprovider",
+            "-q",
+        ],
+        cwd=project,
+        env=_env(),
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=300,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    run = next((project / "runs").iterdir())
+    (kept,) = [event for event in _events(run) if event["kind"] == "attachment"]
+    assert kept["name"].startswith("response") and kept["media_type"] == "text/plain"
+    assert (run / kept["path"]).read_text(encoding="utf-8") == "heard by testence"
