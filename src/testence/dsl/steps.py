@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator
 from testence.engine import (
     Capability,
     Engine,
+    NetRecord,
     Target,
     UnsupportedCapability,
     engine_capabilities,
@@ -69,6 +70,21 @@ class SoftAssertionsFailed(AssertionError):
 
 
 _UNSET: Any = object()
+
+
+class ExpectedRequest:
+    """What ``ex.expect_request`` found; ``record`` is set when the block ends."""
+
+    def __init__(self, label: str) -> None:
+        self.label = label
+        self.record: NetRecord | None = None
+
+    @property
+    def response(self) -> NetRecord:
+        """The completed record; raises before the block has finished or found one."""
+        if self.record is None:
+            raise RuntimeError(f"no response for {self.label} yet: read it after the block")
+        return self.record
 
 
 class Actions:
@@ -699,6 +715,58 @@ class Actions:
         """
         content = data.read_bytes() if isinstance(data, Path) else data
         self.writer.attach(self.test_id, name, content, media_type)
+
+    @contextmanager
+    def expect_request(
+        self,
+        request: str | Any,
+        *,
+        method: str | None = None,
+        timeout_ms: int = 3_000,
+        intent: str | None = None,
+    ) -> Iterator[ExpectedRequest]:
+        """The request this block causes, and its response.
+
+        ``with ex.expect_request("/api/widgets", method="POST") as sent: ex.click(SAVE)``
+        marks the network log before the block, runs it, then waits for the completed
+        response that belongs to it (an earlier list or save cannot satisfy it). Read
+        the outcome from ``sent.record`` after the block: ``sent.record.status``,
+        ``sent.record.json_body()``, ``sent.record.mocked``. A request that was never
+        sent, or was cut off before a response, fails the block rather than passing
+        silently. ``request`` is a URL fragment or a ``RequestExpectation`` (method,
+        origin, correlation id, GraphQL operation), which also fixes the method.
+        """
+        from testence.oracle import RequestExpectation
+
+        require_capabilities(self.engine, "expect_request", Capability.NETWORK)
+        verb: str | None
+        predicate: Callable[[NetRecord], bool] | None
+        if isinstance(request, RequestExpectation):
+            fragment, verb, predicate = request.path, request.method, request.matches
+        else:
+            fragment, verb, predicate = str(request), method, None
+        label = f"{verb + ' ' if verb else ''}{fragment}"
+        holder = ExpectedRequest(label)
+        with self.step(intent or f"the block sends {label}"):
+            mark = self.engine.net_mark()
+            yield holder
+            record = self.engine.wait_for_response(
+                fragment, method=verb, since=mark, timeout_ms=timeout_ms, predicate=predicate
+            )
+            holder.record = record
+            if record is not None:
+                return
+            sent = self.engine.wait_for_request(fragment, method=verb, since=mark, timeout_ms=1)
+            if sent:
+                raise AssertionError(
+                    f"{label} was sent but no response arrived within {timeout_ms} ms "
+                    "(aborted by the page, or slow): the server may have applied it, "
+                    "ask an oracle"
+                )
+            raise AssertionError(
+                f"the block sent no request matching {label}: the UI accepted the "
+                "action but nothing reached the server"
+            )
 
     def route(
         self,

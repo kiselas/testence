@@ -12,6 +12,10 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
   doctor, snapshot (elements with ready-to-use, uniqueness-checked `Target`s), click, fill,
   run, inspect and oracle suggest. Page text is redacted, values are never echoed and
   nothing calls a model. See [MCP](mcp.md). Skill pack 0.1.17.
+- `ex.expect_request(...)`: `with ex.expect_request("/api/widgets", method="POST") as sent:`
+  scopes a request and its response to the block that causes them; a request that never
+  went out fails the block. `testence auth export` logs in once and saves the session
+  (owner-only) for `auth: "storage-state"`.
 - `testence agent install --client opencode`: OpenCode reads `.agents/skills`, so it shares
   Codex's directory; asking for both writes each file once.
 - `auth: "module:factory"` builds the login from the project's own code (`factory(settings)`

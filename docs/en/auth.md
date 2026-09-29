@@ -197,8 +197,11 @@ storage state, and start every test from it:
 {"auth": "storage-state", "storage_state": "auth.json"}
 ```
 
-Cookies and the `localStorage` of `base_url`'s origin are imported. A session Testence
-did log in produces the same file with `context.storage_state("https://app.example")`.
+Cookies and the `localStorage` of `base_url`'s origin are imported. Let Testence make the
+file: `testence auth export -o auth.json` logs in with the `auth` you configured (a form,
+an API session, your own `module:factory`), and saves the session owner-only; it will not
+replace an existing file without `--force`. `context.storage_state("https://app.example")`
+produces the same document from Python.
 The file holds a live session and expires with it: keep it out of version control.
 
 ### One account, many workers

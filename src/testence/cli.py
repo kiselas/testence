@@ -415,6 +415,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_mcp.add_argument("--project", type=Path, default=Path("."))
     p_mcp.add_argument("--headed", action="store_true", help="show the exploration browser")
+    p_auth = sub.add_parser("auth", help="work with the configured login")
+    auth_sub = p_auth.add_subparsers(dest="auth_command", required=True)
+    p_auth_export = auth_sub.add_parser(
+        "export", help="log in once and save the session for auth: storage-state"
+    )
+    p_auth_export.add_argument("--project", type=Path, default=Path("."))
+    p_auth_export.add_argument("-o", "--out", type=Path, default=Path("auth.json"))
+    p_auth_export.add_argument("--force", action="store_true", help="replace an existing file")
+    p_auth_export.add_argument("--json", dest="json_output", action="store_true")
 
     p_demo = sub.add_parser("demo", help="run the deterministic green/failure proof demo")
     demo_sub = p_demo.add_subparsers(dest="demo_command", required=True)
@@ -492,6 +501,7 @@ def main(argv: list[str] | None = None) -> int:
             "testence oracle suggest runs/r-local --json",
         ],
         p_mcp: ["testence mcp --project ."],
+        p_auth_export: ["testence auth export -o auth.json"],
         p_report: ["testence report runs/r-local"],
         p_export: [
             "testence export --list",
@@ -638,6 +648,31 @@ def main(argv: list[str] | None = None) -> int:
         from .mcp import main as mcp_main
 
         return mcp_main(args.project, headed=args.headed)
+    if args.command == "auth" and args.auth_command == "export":
+        from .application import ApplicationError, export_auth
+
+        try:
+            saved = export_auth(
+                args.project,
+                args.out,
+                force=args.force,
+                progress=lambda message: print(message, file=sys.stderr),
+            )
+        except ApplicationError as exc:
+            print(f"auth export failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(saved, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(
+                f"saved {saved['path']}: {len(saved['cookies'])} cookies, "
+                f"{len(saved['storage_keys'])} storage keys for {saved['origin']}"
+            )
+            print(
+                "it holds a live session: keep it out of version control, then set "
+                f'"auth": "storage-state" and "storage_state": "{saved["path"]}"'
+            )
+        return 0
 
     if args.command == "demo" and args.demo_command == "run":
         from .application import ApplicationError, run_demo

@@ -467,6 +467,82 @@ def doctor(
     return {"ok": all(item["ok"] for item in checks), "checks": checks}
 
 
+def export_auth(
+    root: Path | str,
+    out: Path | str,
+    *,
+    force: bool = False,
+    progress: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
+    """Log in as the project's ``auth`` says and save the session as a storage state.
+
+    The file is what ``auth: "storage-state"`` reads: sign in once here, then start every
+    test from it. It holds a live session, so it is written owner-only and an existing
+    file is left alone unless ``force`` says otherwise.
+    """
+    import urllib.parse
+
+    from testence.auth import AuthContext, from_settings
+    from testence.auth.strategies import api_headers_from_storage
+    from testence.engine import create_engine
+
+    say = progress or (lambda _message: None)
+    project = Path(root).resolve()
+    settings = Settings.load(project)
+    scheme = str(settings.auth or "none").strip().lower()
+    if scheme in ("none", "", "attached", "storage-state"):
+        raise ApplicationError(
+            f"auth is {scheme or 'none'!r}: there is no login to save; set auth to form, "
+            "api-session, bearer, basic or module:factory"
+        )
+    if not settings.base_url:
+        raise ApplicationError(
+            "base_url is not set; fix: set it in testence.json or TESTENCE_BASE_URL"
+        )
+    target = Path(out)
+    if target.exists() and not force:
+        raise ApplicationError(f"{target} exists; pass --force to replace it")
+    origin = urllib.parse.urlsplit(settings.base_url)
+    origin_text = f"{origin.scheme}://{origin.netloc}"
+
+    say(f"logging in with auth={settings.auth}...")
+    engine = create_engine(settings)
+    if hasattr(engine, "headed"):
+        engine.headed = False
+    try:
+        engine.start()
+        context = from_settings(settings).authenticate(engine)
+        spec = settings.extra.get("api_auth_from_storage")
+        if spec:
+            api_headers_from_storage(spec, engine, timeout_ms=min(settings.timeout_ms, 10_000))
+        try:
+            if engine.current_url() in ("about:blank", ""):
+                engine.goto("/")
+        except Exception:  # noqa: BLE001 - cookies are enough when the page will not load
+            pass
+        saved = AuthContext(
+            cookies=engine.cookies(), storage=engine.storage_snapshot(), scheme=context.scheme
+        )
+    except Exception as exc:
+        first = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+        raise ApplicationError(f"login failed: {type(exc).__name__}: {first}") from exc
+    finally:
+        engine.stop()
+    document = json.dumps(saved.storage_state(origin_text), indent=2, ensure_ascii=False) + "\n"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        target.unlink()
+    descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(document)
+    return {
+        "path": str(target),
+        "origin": origin_text,
+        "cookies": sorted(cookie["name"] for cookie in saved.cookies),
+        "storage_keys": sorted(saved.storage),
+    }
+
+
 def _target_checks(settings: Settings, say: Callable[[str], None]) -> list[dict[str, Any]]:
     """Is the application there, are its credentials set, does the login work.
 

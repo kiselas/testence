@@ -198,8 +198,11 @@ storage state Playwright и начинайте каждый тест с него
 {"auth": "storage-state", "storage_state": "auth.json"}
 ```
 
-Импортируются cookies и `localStorage` origin из `base_url`. Сессия, в которую вошёл
-Testence, даёт тот же файл через `context.storage_state("https://app.example")`. Файл
+Импортируются cookies и `localStorage` origin из `base_url`. Файл может сделать сам
+Testence: `testence auth export -o auth.json` входит настроенной схемой `auth` (форма,
+API-сессия, ваш `module:factory`) и сохраняет сессию с доступом только владельцу;
+существующий файл без `--force` не заменяется. Тот же документ по Python даёт
+`context.storage_state("https://app.example")`. Файл
 содержит живую сессию и истекает вместе с ней: не храните его в системе контроля версий.
 
 ### Один аккаунт, много workers
