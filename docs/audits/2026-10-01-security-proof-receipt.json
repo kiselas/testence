@@ -1,0 +1,176 @@
+{
+  "schema": "testence/local-audit-receipt/1",
+  "date": "2026-10-01",
+  "plan_id": "AUD-20261001",
+  "source_revision": "5bb3794d2e6d93d01be1168afc7586919ab161f3",
+  "base_revision": "15ad5d23385dc64c447c7077cb280972185838a4",
+  "status": "local_engineering_checks_passed",
+  "assurance_scope": "Framework regression checks, synthetic loopback controls. No new product PlanSpec acceptance or independent client trial.",
+  "claims": [
+    "mcp.responses.private",
+    "mcp.paths.contained",
+    "mcp.stream.survives",
+    "oracle.identity.exact",
+    "oracle.fields.stable",
+    "oracle.fields.present",
+    "redaction.targets.usable"
+  ],
+  "source_hashes": {
+    "src/testence/mcp.py": "sha256:20a181bcb5aa02064bd93d0b7c6cf18e3e53cdc1dfe12877e0f661072ad1e349",
+    "src/testence/oracle.py": "sha256:d331e8c24c8d483e756f1b5f9aad384c27d6d07284d41a68896a5325d863c1d3",
+    "src/testence/evidence/sanitize.py": "sha256:4a59e6fc359a8daa213716bcba87f1da4259b522d385af6973e6d0939093352f",
+    "tests/test_mcp.py": "sha256:eb4695620acbb98926324960123737864684a6f3ce1af687af6d618224fb4193",
+    "tests/test_expected_state.py": "sha256:e05eb99b2071c4b91d31a1cee8284a26c4ad9fd249b961b8bdba3ce2d43c7dd2",
+    "tests/test_expected_fields.py": "sha256:9a2ba756dff7ff9cf07157d41ed54c3533d6914a3dc86cef2e12985dcd595a40",
+    "tests/test_redaction_policy.py": "sha256:b5416bca37b017513595e807e4e4adc7b5676a3fb2344aa3611bdf7c8b060d2f",
+    "docs/en/mcp.md": "sha256:9f2698132e9fe5335b593fff2b439cb21a5dd226eb5bc436b165bc5d4b51c56a",
+    "docs/ru/mcp.md": "sha256:25ff2a22a114977eb1247d64378dd50e0770f6ca69108e84dd469d8496fce0db"
+  },
+  "environment": {
+    "os": "Windows-11-10.0.26100-SP0",
+    "python": "3.12.4",
+    "uv": "0.12.17",
+    "playwright": "1.62.0",
+    "pytest": "9.1.1",
+    "pytest-xdist": "3.8.0",
+    "browser_channel": "msedge",
+    "TESTENCE_DEBUG_PORT": "0",
+    "ffmpeg": "1011"
+  },
+  "checks": [
+    {
+      "id": "negative",
+      "command": "uv run pytest tests/test_mcp.py tests/test_expected_state.py tests/test_expected_fields.py -q -k 'invalid_params or absolute_run_paths or all_result_fields or impersonate or boolean_revision or mutating_the_input' --basetemp=.tmp-pytest-audit-20261001-negative2",
+      "exit_code": 1,
+      "status": "defects_reproduced",
+      "failed": 11,
+      "elapsed_s": 0.66,
+      "log": "outputs/audit-20261001-negative.log",
+      "log_sha256": "sha256:6d0dc56f05453964303c92293d9d63cdfa85a62ef381f8d211d9a9f4c0a6b5fb"
+    },
+    {
+      "id": "focused3",
+      "command": "uv run pytest tests/test_mcp.py tests/test_expected_state.py tests/test_expected_fields.py tests/test_expected_absence.py tests/test_expected_state_corpus.py tests/test_redaction.py tests/test_redaction_policy.py -q --basetemp=.tmp-pytest-audit-20261001-focused3",
+      "exit_code": 0,
+      "passed": 122,
+      "elapsed_s": 33.66,
+      "log": "outputs/audit-20261001-focused3.log",
+      "log_sha256": "sha256:6b5f9e11c1009edd14e92fda95b4bc0012611ce517d8f2010036c75cf2f4a0bb"
+    },
+    {
+      "id": "format",
+      "command": "uv run ruff format --check src tests bench scripts examples",
+      "exit_code": 0,
+      "files": 219
+    },
+    {
+      "id": "lint",
+      "command": "uv run ruff check src tests bench scripts examples",
+      "exit_code": 0
+    },
+    {
+      "id": "types",
+      "command": "uv run mypy src scripts",
+      "exit_code": 0,
+      "files": 79
+    },
+    {
+      "id": "full",
+      "command": "uv run pytest -q --basetemp=.tmp-pytest-audit-20261001-full",
+      "status": "manually_interrupted_at_26_percent",
+      "passed_gate": false
+    },
+    {
+      "id": "final",
+      "command": "uv run pytest -q -n 4 --basetemp=.tmp-pytest-audit-20261001-final",
+      "exit_code": 1,
+      "passed": 822,
+      "failed": 2,
+      "skipped": 2,
+      "elapsed_s": 708.47,
+      "log": "outputs/audit-20261001-final.log",
+      "source_note": "Integration run during source edits, not bound to the final commit",
+      "failures": [
+        "test_corpus_grading.py::test_collection_loading_waits_for_all_placeholders_and_rejects_persistent_ones: first Page.goto exceeded 10000ms; cause unresolved",
+        "test_trace_video.py::test_retain_on_failure_keeps_the_failed_tests_trace_and_video_only: missing Playwright FFmpeg, both synthetic cases broken in setup"
+      ],
+      "log_sha256": "sha256:0c6b1143dd0034321e870fe23049d38c6d73e2d41f30cb4546bd858944708dcb"
+    },
+    {
+      "id": "final2",
+      "command": "uv run pytest -q -n 4 --basetemp=.tmp-pytest-audit-20261001-final2 --durations=15 --junitxml=outputs/audit-20261001-final2.xml",
+      "source_revision": "5bb3794d2e6d93d01be1168afc7586919ab161f3",
+      "source_clean_at_start": true,
+      "exit_code": 0,
+      "passed": 826,
+      "skipped": 2,
+      "elapsed_s": 419.82,
+      "log": "outputs/audit-20261001-final2.log",
+      "junit": "outputs/audit-20261001-final2.xml",
+      "log_sha256": "sha256:e0e5b48e01f45e4abe7d29fd4c517d37292a2800e75556463d9f2fa8f8be9459",
+      "junit_sha256": "sha256:cd4b64fa673acfbe200ac8b8ea6711ccd3621a618f4f42e03457964873d9525d"
+    },
+    {
+      "id": "examples",
+      "command": "uv run pytest examples -q --testence-headless --basetemp=.tmp-pytest-audit-20261001-examples",
+      "exit_code": 0,
+      "passed": 5,
+      "skipped": 1,
+      "skip_reason": "intentional demo_failure control excluded",
+      "elapsed_s": 49.25,
+      "log": "outputs/audit-20261001-examples.log",
+      "log_sha256": "sha256:553a474950c9612c4ee5cd675b4e7a9a6a73cdfd6cf6c5c6337f72b439ff97e3"
+    },
+    {
+      "id": "install-ffmpeg",
+      "command": "uv run playwright install ffmpeg",
+      "exit_code": 0,
+      "installed": [
+        "ffmpeg-1011",
+        "winldd-1007"
+      ],
+      "timing_note": "During final2 before its video case; no source change"
+    },
+    {
+      "id": "environment",
+      "command": "uv run pytest tests/test_trace_video.py tests/test_corpus_grading.py -q --basetemp=.tmp-pytest-audit-20261001-environment --durations=10",
+      "exit_code": 0,
+      "passed": 9,
+      "elapsed_s": 143.35,
+      "log": "outputs/audit-20261001-environment.log",
+      "log_sha256": "sha256:7df0d1e859e1a1159e844248a1adaaf489584ccbd5077c5ebfd48b9f792bb2e1"
+    },
+    {
+      "id": "scale",
+      "command": "uv run python bench/scale_profile.py --repeats 3 --check --output outputs/audit-20261001-scale.json",
+      "exit_code": 0,
+      "repeats": 3,
+      "budget": {
+        "checked": true,
+        "source": "bench/budgets/scale_profile.json",
+        "passed": true,
+        "violations": []
+      },
+      "result": "outputs/audit-20261001-scale.json",
+      "result_sha256": "sha256:7ef6573c77d9c7828eeb68369de42343eaf82659c93a12be8cc4685a9c9e1d94"
+    }
+  ],
+  "skips": [
+    {
+      "test": "tests.test_export::test_pack_path_rejects_a_directory_link_that_escapes_the_run",
+      "reason": "Windows symlink privilege unavailable (WinError 1314)"
+    },
+    {
+      "test": "tests.test_metrics::test_ledger_reader_rejects_a_file_link_that_escapes_the_run",
+      "reason": "Windows symlink privilege unavailable (WinError 1314)"
+    }
+  ],
+  "remaining": [
+    "Cause of first navigation timeout unresolved; subsequent controls passed without changing timeouts",
+    "Native page/context routes are not recorded",
+    "MCP timeout descendant cleanup needs a proving control",
+    "FFmpeg-specific browser launch hint/doctor diagnostic",
+    "Hosted matrix, dependency floors and external product/client acceptance"
+  ],
+  "public_release_authorized": false
+}
