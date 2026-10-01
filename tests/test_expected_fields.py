@@ -74,3 +74,25 @@ def test_an_empty_expectation_is_refused():
 
 def test_the_public_form_lists_the_fields():
     assert SAVED.public()["fields"] == {"name": "edge", "state": "saved"}
+
+
+def test_mutating_the_input_cannot_change_the_accepted_expectation(tmp_path):
+    fields = {"state": {"saved": True}}
+    expected = ExpectedState.fields("saved", fields)
+    fields["state"]["saved"] = False
+    assert expected.public()["fields"] == {"state": {"saved": True}}
+    with pytest.raises(OracleFailed):
+        _verify(tmp_path, '{"state": {"saved": false}}', expected)
+
+
+def test_mutating_the_public_document_cannot_change_the_expectation(tmp_path):
+    expected = ExpectedState.fields("saved", {"state": {"saved": True}})
+    expected.public()["fields"]["state"]["saved"] = False
+    with pytest.raises(OracleFailed):
+        _verify(tmp_path, '{"state": {"saved": false}}', expected)
+
+
+def test_a_missing_field_cannot_match_the_diagnostic_placeholder(tmp_path):
+    expected = ExpectedState.fields("the literal is stored", {"state": "<missing>"})
+    with pytest.raises(OracleFailed):
+        _verify(tmp_path, '{"id": "w1"}', expected)

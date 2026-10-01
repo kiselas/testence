@@ -356,7 +356,16 @@ def sanitize(
     if is_sensitive_key(key, policy):
         return REDACTED
     if isinstance(value, dict):
-        named_secret = any(
+        # A typed target's value addresses a UI element; its name may legitimately
+        # be "Password". This is not a name/value credential record. Key, known
+        # value and shape redaction below still apply to every target field.
+        target = (
+            key == "target"
+            and isinstance(value.get("kind"), str)
+            and value.get("kind") in {"role", "label", "text", "testid", "placeholder", "css"}
+            and set(value) <= {"kind", "value", "name", "nth"}
+        )
+        named_secret = not target and any(
             str(slot).casefold() in _NAME_SLOTS
             and isinstance(name, str)
             and is_sensitive_key(name, policy)

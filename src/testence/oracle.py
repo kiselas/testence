@@ -12,6 +12,7 @@ import inspect
 import json
 import time
 import urllib.parse
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -30,7 +31,7 @@ def diff_views(ui_view: dict[str, Any], api_view: dict[str, Any]) -> list[dict[s
     diffs: list[dict[str, Any]] = []
     for key, ui_value in ui_view.items():
         api_value = api_view.get(key, "<missing>")
-        if not _same(ui_value, api_value):
+        if key not in api_view or not _same(ui_value, api_value):
             diffs.append({"field": key, "ui": ui_value, "api": api_value})
     return diffs
 
@@ -205,10 +206,11 @@ class ExpectedState:
         """
         if not expected:
             raise ValueError("ExpectedState.fields needs at least one field")
+        fields = deepcopy(expected)
         return cls(
             description,
-            lambda actual: not _field_diffs(expected, actual),
-            expected_fields=dict(expected),
+            lambda actual: not _field_diffs(fields, actual),
+            expected_fields=fields,
             **bindings,
         )
 
@@ -245,13 +247,23 @@ class ExpectedState:
             if expected is None:
                 continue
             observed = _at(actual, path)
-            if observed is _MISSING or observed != expected:
+            # Bindings are identities: preserve exact strings, and do not let
+            # Python's True == 1 bind a different entity or correlation.
+            if (
+                observed is _MISSING
+                or isinstance(observed, bool) != isinstance(expected, bool)
+                or observed != expected
+            ):
                 return False, f"wrong {label} binding at {path!r}"
         if self.minimum_revision is not None:
             observed = _at(actual, self.revision_path)
             if observed is _MISSING:
                 return False, f"missing revision at {self.revision_path!r}"
-            if isinstance(observed, (int, float)) and isinstance(
+            if isinstance(observed, bool) or isinstance(self.minimum_revision, bool):
+                fresh = type(observed) is type(self.minimum_revision) and (
+                    observed == self.minimum_revision
+                )
+            elif isinstance(observed, (int, float)) and isinstance(
                 self.minimum_revision, (int, float)
             ):
                 fresh = observed >= self.minimum_revision
@@ -280,7 +292,7 @@ class ExpectedState:
         if self.stability_ms:
             document["stability_ms"] = self.stability_ms
         if self.expected_fields is not None:
-            document["fields"] = self.expected_fields
+            document["fields"] = deepcopy(self.expected_fields)
         if self.empty_is_state:
             document["absent"] = True
         return document

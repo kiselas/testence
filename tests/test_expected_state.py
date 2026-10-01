@@ -94,6 +94,31 @@ def test_wrong_binding_is_a_decisive_failed_oracle(actual, reason):
     assert reason in observed.reason
 
 
+@pytest.mark.parametrize(
+    "binding,path", [("entity_id", "id"), ("correlation_id", "correlation_id")]
+)
+def test_boolean_cannot_impersonate_a_numeric_binding(binding, path):
+    expected = ExpectedState("bound entity", lambda body: True, **{binding: 1})
+    observed = observe_expected_state(lambda: _response({path: True}), expected, deadline_ms=0)
+    assert observed.outcome == "failed"
+    assert "binding" in observed.reason
+
+
+def test_boolean_revision_cannot_prove_numeric_freshness():
+    expected = ExpectedState("fresh entity", lambda body: True, minimum_revision=1)
+    observed = observe_expected_state(
+        lambda: _response({"revision": True}), expected, deadline_ms=0
+    )
+    assert observed.outcome == "failed"
+    assert "revision" in observed.reason
+
+
+def test_binding_strings_remain_exact():
+    expected = ExpectedState("bound entity", lambda body: True, entity_id="w1")
+    observed = observe_expected_state(lambda: _response({"id": " w1 "}), expected, deadline_ms=0)
+    assert observed.outcome == "failed"
+
+
 class _Clock:
     """Virtual monotonic time for the oracle; a sleep may overshoot like a busy host.
 

@@ -52,9 +52,12 @@ oracle suggestions and add the API check.
 
 - There is no file-writing tool: source changes stay ordinary edits under the client's own
   permissions.
-- Page text is redacted with the project's policy before the agent sees it
+- Every tool response, including URLs, target descriptions and errors, is redacted
+  with the project's policy before the agent sees it
   ([configuration](configuration.md#evidence-capture-policy)); a filled value is never
-  echoed; `run_dir` must be inside the project.
+  echoed; resolved `run_dir` paths must be inside the project. If the redaction
+  configuration is invalid, details are withheld until it is fixed. Invalid JSON-RPC
+  parameters return an error without closing the protocol stream.
 - The exploration browser is separate from the browsers a run starts, and it is signed in
   with the project's `auth`. `testence_run` runs the project's own tests, which is code
   execution by design: give it only to a client you would let run `pytest`.

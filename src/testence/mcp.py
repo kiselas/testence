@@ -166,7 +166,9 @@ class McpServer:
             if method == "notifications/initialized":
                 self._initialized = True
             return None
-        params = message.get("params") or {}
+        params = message.get("params", {})
+        if not isinstance(params, dict):
+            return self._error(request_id, -32602, "params must be an object")
         try:
             if method == "initialize":
                 return self._result(request_id, self._initialize(params))
@@ -256,8 +258,27 @@ class McpServer:
             raise ToolError(f"{type(exc).__name__}: {first}") from exc
         return self._tool_result(json.dumps(payload, ensure_ascii=False, indent=1))
 
-    @staticmethod
-    def _tool_result(text: str, *, error: bool = False) -> dict[str, Any]:
+    def _tool_result(self, text: str, *, error: bool = False) -> dict[str, Any]:
+        """Apply the same privacy boundary to every success and failure response."""
+        from testence.evidence.sanitize import sanitize, sanitize_text
+
+        try:
+            settings = self._load_settings()
+            secrets = settings.redaction_values()
+            policy = settings.redaction_policy()
+        except Exception:  # noqa: BLE001 - invalid privacy policy must fail closed
+            text = "cannot return tool details: fix the project's redaction configuration"
+            error = True
+        else:
+            if error:
+                text = sanitize_text(text, secrets=secrets, policy=policy, limit=_TEXT_LIMIT)
+            else:
+                # Redact the document before serializing it. Clipping serialized JSON
+                # could break its syntax; limits apply to individual string fields.
+                payload = sanitize(
+                    json.loads(text), secrets=secrets, policy=policy, limit=_TEXT_LIMIT
+                )
+                text = json.dumps(payload, ensure_ascii=False, indent=1)
         return {"content": [{"type": "text", "text": text}], "isError": error}
 
     # -- tools ------------------------------------------------------------------------
@@ -385,7 +406,7 @@ class McpServer:
     def _run_dir(self, raw: Any) -> Path:
         if not isinstance(raw, str) or not raw:
             raise ToolError("run_dir must be a path such as runs/r-123")
-        path = (self.project / raw).resolve() if not Path(raw).is_absolute() else Path(raw)
+        path = (self.project / raw).resolve()
         try:
             path.relative_to(self.project)
         except ValueError as exc:

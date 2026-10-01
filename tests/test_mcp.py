@@ -111,6 +111,71 @@ def test_tool_failures_are_results_the_agent_can_read(tmp_path):
     assert args["isError"] and "list of strings" in args["content"][0]["text"]
 
 
+@pytest.mark.parametrize("params", [[], ["bad"], "bad", 7, True, None])
+def test_invalid_params_do_not_break_the_protocol_stream(tmp_path, params):
+    messages = [
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": params},
+        {"jsonrpc": "2.0", "id": 2, "method": "ping"},
+    ]
+    out = io.StringIO()
+    McpServer(tmp_path).serve(io.StringIO("\n".join(map(json.dumps, messages))), out)
+    replies = [json.loads(line) for line in out.getvalue().splitlines()]
+    assert replies[0]["error"]["code"] == -32602
+    assert replies[1]["result"] == {}
+
+
+def test_absolute_run_paths_cannot_escape_through_parent_segments(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    server = McpServer(project)
+    outside = str(project / ".." / "outside")
+    result = _call(server, "testence_inspect", {"run_dir": outside})
+    assert result["isError"] and "inside the project" in result["content"][0]["text"]
+
+
+def test_all_result_fields_and_errors_are_redacted(explorer, monkeypatch):
+    server, _ = explorer
+    secret = "synthetic-mcp-password"
+    monkeypatch.setenv("TESTENCE_PASSWORD", secret)
+    page = _payload(_call(server, "testence_snapshot"))
+    server._engine.current_url = lambda: f"http://app.test/?token={secret}"
+    clicked = _call(server, "testence_click", {"target": {"kind": "text", "value": secret}})
+    assert secret not in clicked["content"][0]["text"]
+    assert _payload(clicked)["url"].startswith("http://app.test/")
+    assert page["elements"]
+
+    def fail(_target):
+        raise RuntimeError(f"the page exposed {secret}")
+
+    server._engine.click = fail
+    failed = _call(server, "testence_click", {"target": {"kind": "text", "value": "Save"}})
+    assert failed["isError"]
+    assert secret not in failed["content"][0]["text"]
+    assert "RuntimeError" in failed["content"][0]["text"]
+
+
+def test_invalid_redaction_configuration_does_not_expose_error_details(tmp_path):
+    (tmp_path / "testence.json").write_text(
+        json.dumps({"evidence": {"redact": {"pii": ["synthetic-secret-invalid-kind"]}}}),
+        encoding="utf-8",
+    )
+    result = _call(McpServer(tmp_path), "testence_snapshot")
+    assert result["isError"]
+    assert "synthetic-secret-invalid-kind" not in result["content"][0]["text"]
+    assert "redaction configuration" in result["content"][0]["text"]
+
+
+def test_a_password_field_keeps_its_usable_target(explorer):
+    server, _ = explorer
+    _payload(_call(server, "testence_snapshot"))
+    server._engine.candidate_elements = lambda: [
+        {"target": {"kind": "role", "value": "textbox", "name": "Password"}}
+    ]
+    element = _payload(_call(server, "testence_snapshot"))["elements"][0]
+    assert element["target"] == {"kind": "role", "value": "textbox", "name": "Password"}
+    assert element["python"] == "Target('role', 'textbox', name='Password')"
+
+
 class _FakeEngine:
     def __init__(self, _settings: Any) -> None:
         self.calls: list[tuple[str, Any]] = []
