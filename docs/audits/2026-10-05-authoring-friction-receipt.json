@@ -1,0 +1,154 @@
+{
+  "schema": "testence/local-audit-receipt/1",
+  "date": "2026-10-05",
+  "plan_id": "AUD-AF26",
+  "claims": [
+    "AF26-01",
+    "AF26-02",
+    "AF26-03",
+    "AF26-04"
+  ],
+  "source_revision": "af897781028e0cdfc4fd29e5d9fdec1b657d60a6",
+  "source_git_blob_sha256": {
+    "src/testence/agent/skills/testence-author/references/visual-discovery.md": "dbebdac681a5e3f68086f5ca9b702375367180539534c0d056bfd66eac4b77e7",
+    "src/testence/cli.py": "30be48bff1a0d529d6489f7427f4c70051bcd4a5f13a2a703dfc3b05dc3fc3d2",
+    "src/testence/discovery.py": "9603659b871da5398fcae4b2975cc609216ea7e6aa8ef2a4d5820e39ea6697b7",
+    "src/testence/dsl/steps.py": "be49442ee34d15932638e865625158258859738ac53e8e93c47b0d01b0da896b",
+    "src/testence/engine/playwright_cdp.py": "bf2f918ba999c2ba8d68692168f7777a816e7ca95203e7bd27eca32e7364be1c",
+    "src/testence/engine/protocol.py": "d87eb971dc5be3168e8dd6851ff9f1831a5f2d8980986a0e4b9a23c279bfd9da",
+    "src/testence/mcp.py": "03fec208cf62aa93dc9b8ecc80bed91b62564cfc0d755900cba735448b294e3a",
+    "tests/test_authoring_friction.py": "385b1f091165ca37f47fd6e93bd408b88d397e76428668393409ebcc4b47698b",
+    "tests/test_failure_diagnostics.py": "005536eee5dac9ca96d68c5b2781c0fb5f32983a3d63a9b3b4f3c9b47a50c32b"
+  },
+  "environment": {
+    "platform": "Windows 11 10.0.26100 AMD64",
+    "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]",
+    "isolated_environment": "outputs/quality-venv31214",
+    "legacy_default_python": "3.12.4 (unchanged)",
+    "packages": {
+      "playwright": "1.62.0",
+      "pytest": "9.1.1",
+      "pytest-xdist": "3.8.0",
+      "execnet": "2.1.2",
+      "ruff": "0.16.5",
+      "mypy": "2.3.1"
+    },
+    "TESTENCE_BROWSER_CHANNEL": "msedge",
+    "TESTENCE_DEBUG_PORT": "0",
+    "lockfile_sha256": "e2e14d3a3e93f08a490adf682418a6c06eb748e90a409bce2a2382ed3fbf2fe4"
+  },
+  "commands_and_development_failures": "2026-10-05-authoring-friction.md",
+  "final_junit": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "2",
+      "tests": "863",
+      "time": "292.129",
+      "timestamp": "2026-10-05T14:38:33.831829+03:00",
+      "hostname": "NB-PW0860ZN"
+    }
+  ],
+  "final_run_id": "r-20261005-113833-cce684",
+  "observed_latency_not_fixed": {
+    "first_full_teardown_s": 91.86,
+    "final_full_setup_s": 105.73
+  },
+  "first_full_failed_junit": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "1",
+      "skipped": "2",
+      "tests": "863",
+      "time": "332.541",
+      "timestamp": "2026-10-05T14:31:53.920843+03:00",
+      "hostname": "NB-PW0860ZN"
+    }
+  ],
+  "first_full_source": "a385be20211725c4f83ae2f847e32761cebef9c6",
+  "logs": [
+    {
+      "path": "outputs/friction-focus-1.log",
+      "sha256": "08036d345b7f1d4a053fec4fa169ed3dd391b79136afb7e21ede0d7b978ab51f"
+    },
+    {
+      "path": "outputs/friction-focus-2.log",
+      "sha256": "943d10f53856945f718d3969c7d475a6cd5cd405c756620525dee42737e4506b"
+    },
+    {
+      "path": "outputs/friction-focus-final.log",
+      "sha256": "08cd78a7d5333df92ac2b8fc775e8ae3650670bbfc5c1147040b6dd39a6ff879"
+    },
+    {
+      "path": "outputs/friction-full.log",
+      "sha256": "5ae23407ddcf87c72b46b1eb5b23a897d83faff3edd0b97f3f09e5b12cb525f3"
+    },
+    {
+      "path": "outputs/friction-full.xml",
+      "sha256": "973bfea32a54f1a42d03e6fe6dda4b89f5be23c8d4947f2d7e7428fe3aea24ae"
+    },
+    {
+      "path": "outputs/friction-final.log",
+      "sha256": "903cf7102720a693ad3192575ed5ef9ea6828442c145644ae453051054df19ad"
+    },
+    {
+      "path": "outputs/friction-final.xml",
+      "sha256": "624ffcab5a48b4727f1730c9be32ed6d01eb064bc0d1a3f2b9cb1e98f949fd07"
+    },
+    {
+      "path": "outputs/friction-diagnostics.log",
+      "sha256": "39ba89424b17961b5e885f9492f403256ded846472f7d613e8e0303cba30e70d"
+    },
+    {
+      "path": "outputs/friction-examples.log",
+      "sha256": "58e1636b1dcbf0a3a2d7275c4ada56b1e05bd0827ae1451d28238e1c2f28054c"
+    },
+    {
+      "path": "outputs/friction-spa-latency.json",
+      "sha256": "984d465107d1e0311dd4640167401202a7418939f4a2f117f2a797135723c23c"
+    },
+    {
+      "path": "outputs/friction-static.log",
+      "sha256": "38d635f11b01f509094e9a03ab526f8912c72c4580e476b7e38982d4bdbc446b"
+    }
+  ],
+  "scope": "Synthetic duplicate controls, value reads and CLI discovery; Windows only.",
+  "external_pilot_executed": false,
+  "external_authoring_time_remeasured": false,
+  "multipart_adapter_implemented": false,
+  "fresh_spa_diagnostic": {
+    "scenario": "async SPA root + controlled input + API polling",
+    "environment": {
+      "os": "Windows-11-10.0.26100-SP0",
+      "python": "3.12.14",
+      "playwright": "1.62.0"
+    },
+    "iterations": 20,
+    "goto_ms": 130.11,
+    "engine_fill_ms": {
+      "p50": 5.81,
+      "p95": 8.78,
+      "n": 20
+    },
+    "engine_fast_fill_ms": {
+      "p50": 4.59,
+      "p95": 5.52,
+      "n": 20
+    },
+    "actions_fill_ms": {
+      "p50": 11.1,
+      "p95": 13.45,
+      "n": 20
+    },
+    "actions_fast_fill_ms": {
+      "p50": 10.42,
+      "p95": 17.03,
+      "n": 20
+    },
+    "mutation_response_ms": 0.01,
+    "settle_750_ms": 756.63,
+    "note": "single-host diagnostic; compare before/after from the same environment"
+  }
+}

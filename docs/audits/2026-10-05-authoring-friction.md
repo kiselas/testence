@@ -65,5 +65,57 @@ consumer trial using the corrected workflow. `first=True`, automatic parallelism
 generic after_stable are not silently adopted. The user's hour-long experience has
 not been remeasured and no reduction of external authoring time is claimed.
 
-Final source revision, required checks, live latency gate and exact next command
-will be recorded below after frozen-source runs.
+## Frozen candidate and handoff
+
+Implementation revision: `a385be20211725c4f83ae2f847e32761cebef9c6`.
+Final candidate: **af897781028e0cdfc4fd29e5d9fdec1b657d60a6**. The intervening
+commit changes only the diagnostic regression and this report, not production code.
+Origin/main was fetched and remains `15ad5d23385dc64c447c7077cb280972185838a4`;
+there were no incoming remote main changes. No push or release performed.
+
+Corrected diagnostic plus authoring corpus:
+`tests/test_failure_diagnostics.py tests/test_authoring_friction.py -q --basetemp=.tmp-pytest-friction-diagnostics --durations=5`,
+**28 passed, 35.43 s**, `outputs/friction-diagnostics.log`.
+The missing-label scenario took 10.04 s in call phase on this run; the prior
+91.86 s teardown is not a reproducible root-cause diagnosis from these two samples.
+
+Fresh static on final candidate: **226 files formatted**, Ruff clean, mypy **83 files**,
+`outputs/friction-static.log`. Exact commands with the same interpreter prefix:
+`-m ruff format --check src tests bench scripts examples`,
+`-m ruff check src tests bench scripts examples`, `-m mypy src scripts`.
+
+Full run arguments:
+`-q -n 4 --basetemp=.tmp-pytest-friction-final --durations=12 --junitxml=outputs/friction-final.xml`.
+Result: **861 passed, 2 skipped, 292.23 s**, exit 0. Logs:
+`outputs/friction-final.log`, `outputs/friction-final.xml`. Source/tests remained
+frozen through this run. Two skipped symlink cases lack Windows privileges,
+so their scenarios are not verified by this local run.
+Final run ID: **r-20261005-113833-cce684**, artifacts under
+`runs/r-20261005-113833-cce684/`; controller and all four worker run.end events
+are present with exit code 0.
+
+Examples: `-m pytest examples -q --testence-headless --basetemp=.tmp-pytest-friction-examples`,
+**5 passed, 1 intentionally skipped demo_failure, 11.80 s**, exit 0,
+`outputs/friction-examples.log`.
+
+Fresh narrow SPA probe:
+`& 'outputs/quality-venv31214/Scripts/python.exe' bench/spa_latency.py > outputs/friction-spa-latency.json`,
+exit 0, **20 iterations** per fill mode. Goto **130.11 ms**, Actions fill
+p50 **11.10 ms**, p95 **13.45 ms**. This is a synthetic diagnostic without an
+acceptance threshold, not a comparative speedup or a measurement of the external
+pilot. The relevant live acceptance gate is the 8-test authoring corpus included
+in the full suite. [Compact receipt](2026-10-05-authoring-friction-receipt.json)
+binds source blobs, environment, artifact hashes and both full-run outcomes.
+
+The final full run still measured **105.73 s setup** in
+`tests/test_reruns.py::test_each_attempt_has_its_own_identity_and_outcome` and
+**61.89 s call** in the nested native route corpus. Passed execution is distinct
+from an acceptable authoring latency. Root causes of long setup/teardown phases
+remain open; do not describe this slice as solving the hour-long experience.
+
+Next proving command, new unused basetemp, same isolated interpreter/environment:
+`-m pytest tests/test_authoring_friction.py tests/test_failure_diagnostics.py -q --basetemp=.tmp-pytest-friction-next --durations=10`.
+The next improvement should measure the phases of browser start, context/auth,
+recording and driver close separately, and add the byte-checking multipart receiver
+before selecting a response-adapter implementation. External acceptance needs the
+consumer's exact node, build revision, seed boundary and fresh receipts.
