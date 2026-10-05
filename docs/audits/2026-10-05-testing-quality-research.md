@@ -64,6 +64,15 @@ oracle. Добавлять dependency или API только после кон�
 а не ради названия метода. Основные показатели: detection по каждому классу дефекта,
 false positives на healthy controls, wrong-reason failures, replayability и latency.
 
+Направленный mutation control уже добавлен в synthetic native corpus: запись
+создана реальным API заранее и соответствует expected entity/fields, затем Save
+получает подменённый ответ. Свежий read успешен, но oracle обязан отвергнуть саму
+мутацию как mocked. Если в synthetic test отключить только instance tracker,
+оба scope (`page`/`context`) дают `DID NOT RAISE`: это обнаружение одной конкретной
+мутации в двух вариантах. Switch находится в generated test, не в runtime пакета.
+Browser GET был бы подменён другим body; независимый HTTP read возвращает seeded
+state. Healthy и passthrough controls остаются зелёными.
+
 ## Границы текущего assurance
 
 Обычный public `route` не равен всем способам сетевой подмены. HAR replay, service

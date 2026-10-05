@@ -123,30 +123,43 @@ def test_route_arguments_are_checked(tmp_path):
 
 
 NATIVE_SUITE = """
+import os
 from playwright.sync_api import Page
 
 
 @pytest.mark.parametrize('scope', ['page', 'context'])
-def test_native_fake_save_cannot_prove_persistence(ex, testence_api, scope):
+def test_native_fake_save_cannot_prove_persistence(ex, testence_api, monkeypatch, scope):
+    # A healthy state existed before Save: a fresh read alone could wrongly prove
+    # the mocked mutation. The provenance guard must reject it even in this case.
+    stored = testence_api.post('/api/v1/widgets', {'name': 'edge', 'cidr': '10.0.0.0/8'}).json
+    assert stored['id']
+    if os.environ.get('TESTENCE_SYNTHETIC_PROVENANCE_MUTANT') == '1':
+        monkeypatch.setattr(ex.engine, '_record_native_mock', lambda *args: None)
+
     def fake(route):
-        route.fulfill(status=201, json=FAKE)
+        if route.request.method == 'POST':
+            route.fulfill(status=201, json=stored)
+        else:
+            # A browser GET on this path would return a different fake entity.
+            route.fulfill(json=FAKE)
 
     with ex.native('register a native fabricated save') as page:
         assert isinstance(page, Page)
         owner = page if scope == 'page' else page.context
-        owner.route('**/api/v1/widgets', fake)
+        owner.route('**/api/v1/widgets**', fake)
     _fill(ex)
     with pytest.raises(OracleFailed, match='answered by'):
         save_and_verify_state(
             ex, Target('css', '#save-widget'), name='native widget',
             request=RequestExpectation('/api/v1/widgets', 'POST'),
-            read=lambda: testence_api.get_fresh('/api/v1/widgets/w-fake'),
-            expected=ExpectedState.fields('stored', {'name': 'edge'}), deadline_ms=300,
+            read=lambda: testence_api.get_fresh('/api/v1/widgets/' + stored['id']),
+            expected=ExpectedState.fields('stored', {'name': 'edge'}, entity_id=stored['id']),
+            deadline_ms=300,
         )
-    ex.expect_visible(Target('css', "#saved[data-id='w-fake']"))
-    fresh = testence_api.get_fresh('/api/v1/widgets/w-fake')
+    ex.expect_visible(Target('css', "#saved[data-id='" + stored['id'] + "']"))
+    fresh = testence_api.get_fresh('/api/v1/widgets/' + stored['id'])
     assert fresh.status == 200
-    assert fresh.json == {'id': 'w-fake', 'cidr': '10.0.0.0/24'}
+    assert fresh.json == stored
     assert fresh.json != FAKE
     records = [r for r in ex.engine.network_log() if r.method == 'POST']
     assert records and records[-1].mocked
@@ -189,7 +202,9 @@ def test_native_unroute_keeps_the_original_handler_identity(ex, testence_api, sc
 """
 
 
-def _run(project: Path, *, native: bool = False) -> subprocess.CompletedProcess[str]:
+def _run(
+    project: Path, *, native: bool = False, mutant: bool = False
+) -> subprocess.CompletedProcess[str]:
     suite = SUITE + NATIVE_SUITE if native else SUITE
     (project / "test_route.py").write_text(suite.lstrip(), encoding="utf-8")
     (project / "testence.json").write_text(json.dumps(FORM), encoding="utf-8")
@@ -203,6 +218,9 @@ def _run(project: Path, *, native: bool = False) -> subprocess.CompletedProcess[
             TESTENCE_USER=USER,
             TESTENCE_PASSWORD=PASSWORD,
         )
+        # This switch belongs only to the generated synthetic test, never to the
+        # package: deliberately disable the instance's provenance tracker.
+        env["TESTENCE_SYNTHETIC_PROVENANCE_MUTANT"] = "1" if mutant else "0"
         return subprocess.run(
             [
                 sys.executable,
@@ -216,6 +234,7 @@ def _run(project: Path, *, native: bool = False) -> subprocess.CompletedProcess[
                 "no:cacheprovider",
                 "--testence-headless",
                 "-q",
+                *(["-k", "test_native_fake_save_cannot_prove_persistence"] if mutant else []),
             ],
             cwd=project,
             env=env,
@@ -256,3 +275,11 @@ def test_native_mocking_in_a_real_browser(tmp_path: Path):
     assert len(mocked) == 4
     assert {event["outcome"] for event in mocked} == {"201", "abort"}
     assert all(event["source"] == "native" for event in mocked)
+
+
+def test_native_provenance_controls_detect_a_disabled_tracker(tmp_path: Path):
+    project = tmp_path / "mutation-control"
+    project.mkdir()
+    result = _run(project, native=True, mutant=True)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "2 failed" in result.stdout and result.stdout.count("DID NOT RAISE") == 2

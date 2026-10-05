@@ -40,6 +40,9 @@ Implementation revision и окончательные проверки буду�
 | `outputs/quality-deadline-live.log` | `tests/test_mcp.py tests/test_owned_process.py -q --basetemp=.tmp-pytest-quality-deadline-live --durations=5` | 35 passed, 24.35 s; real deadline 8.43 s, incomplete ledger, listeners stopped, subsequent inspect |
 | `outputs/quality-video-doctor.log` | `tests/test_application.py -q -k 'doctor_probes or missing_video_encoder' --basetemp=.tmp-pytest-quality-video-doctor` | 6 passed, 23 deselected, 0.39 s; simulated missing encoder; real video doctor добавлен затем |
 | `outputs/quality-gate-redirector.log` | `tests/test_owned_process.py tests/test_mcp.py -q --basetemp=.tmp-pytest-quality-gate-redirector --durations=5` | 36 passed, 21.79 s; gate сообщает actual interpreter PID, привязка с задержкой 0.2 s закрывает redirector race; real pytest deadline 8.41 s |
+| `outputs/quality-20261005-final.log` | `-q -n 4 --basetemp=.tmp-pytest-quality-20261005-final --durations=15 --junitxml=outputs/quality-20261005-final.xml` | 852 passed, 2 skipped, 287.48 s на exact clean `75ce00315e030a982d33109c17c0b1696fbb6cf0`; до усиления control ниже |
+| `outputs/quality-20261005-examples.log` | `examples -q --testence-headless --basetemp=.tmp-pytest-quality-20261005-examples` | 5 passed, 1 skipped, 14.71 s; production source тот же 75ce003, только native test corpus в это время усилен |
+| `outputs/quality-provenance-strength.log` | `tests/test_route_mocking.py -q --basetemp=.tmp-pytest-quality-provenance-strength --durations=5` | 5 passed, 51.86 s; nested healthy corpus 14 passed; deliberately disabled tracker: оба selected scope failed с DID NOT RAISE, как ожидает outer control |
 
 Development static после edits: 224 files formatted, Ruff clean, mypy 82 files,
 `git diff --check` clean. Исправлены mypy Windows-only symbols / TemporaryFile typing /
