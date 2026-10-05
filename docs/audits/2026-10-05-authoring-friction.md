@@ -40,6 +40,13 @@ Command prefix for every run below:
 |---|---|---|
 | `outputs/friction-focus-1.log` | `tests/test_authoring_friction.py tests/test_mcp.py -q --basetemp=.tmp-pytest-friction-focus-1` | 4 failed, 34 passed, 28.87 s. New harness errors: asserted visible empty zero-size p, nonexistent ledger_path, missing UTF-8 meta on data page, literal incorrectly configured as pii kind. All preserved; source/test edits overlapped this development run. |
 | `outputs/friction-focus-2.log` | `tests/test_authoring_friction.py tests/test_mcp.py tests/test_dsl_vocabulary.py -q --basetemp=.tmp-pytest-friction-focus-2` | 54 passed, 59.63 s, after those harness corrections. Privacy preflight and one extra control were added afterward. |
+| `outputs/friction-focus-final.log` | `tests/test_authoring_friction.py -q --basetemp=.tmp-pytest-friction-focus-final` | 8 passed, 9.27 s on final implementation before commit. |
+| `outputs/friction-full.log` / `.xml` | `-q -n 4 --basetemp=.tmp-pytest-friction-full --durations=12 --junitxml=outputs/friction-full.xml` | Exact source `a385be20211725c4f83ae2f847e32761cebef9c6`: 1 failed, 860 passed, 2 skipped, 332.70 s; existing diagnostic-string assertion expected unindexed texts. Updated to assert every indexed text and within hint, preserving strict failure. |
+
+The first full run also observed a **91.86 s teardown** in
+`test_a_missing_target_points_at_the_same_name_in_the_accessibility_tree`.
+That latency is retained, not explained away by the string-assertion correction.
+No fix for all teardown stalls or reduction in external authoring time is claimed.
 
 ## Remaining work and limits
 
