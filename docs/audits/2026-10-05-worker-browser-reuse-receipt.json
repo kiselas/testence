@@ -1,0 +1,357 @@
+{
+  "schema": "testence/local-audit-receipt/1",
+  "date": "2026-10-05",
+  "plan_id": "AUD-LC26",
+  "claims": [
+    "LC26-01",
+    "LC26-02",
+    "LC26-03",
+    "LC26-04"
+  ],
+  "source_revision": "60eae0598b36806ccef9dc7a1a4eea85c2805055",
+  "source_git_blob_sha256": {
+    "bench/browser_lifecycle_latency.py": "2dcb2f979c5460df1b81501d80edcbb8ac6e8ee5dd89b947a21fed7f2a475d72",
+    "src/testence/cli.py": "ae2e1aa8d87ae6f6d9a70490e640f028f8f3e4fa1de68c8d9d27ee452b4f4709",
+    "src/testence/debug.py": "94412d20ea57cf6b2b1b3fc9f1ed04054631947d6730a2e0da8ccdf6210323d0",
+    "src/testence/engine/playwright_cdp.py": "899305917829d3cb6d20892e1c784d28de388e343590ae4da6ddda0edede5ab6",
+    "src/testence/mcp.py": "52cc8addfbc7bd78e7eb024d502f207f05a6be13fd368e2664ce593f5e43680f",
+    "src/testence/pytest_plugin.py": "adbfaaa726031045a02e8ece8a1ac4c9f73c9cd3d031c8aecae53a96c41518de",
+    "tests/test_auth.py": "44905e89f0560ad506894aa9ca6873e63ceac361026ab8327cf46670ca76d8d8",
+    "tests/test_browser_reuse.py": "0819bf0f5cd7f165e06820b760725fbd21eef55576c1c0c5544e4390d70897fd",
+    "tests/test_save_and_verify.py": "00c6dc722f298bbf78132f9d33190c712768c43a3d6717a3d22605f2775e8051"
+  },
+  "environment": {
+    "platform": "Windows-11-10.0.26100-SP0",
+    "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]",
+    "isolated_environment": "outputs/quality-venv31214",
+    "packages": {
+      "playwright": "1.62.0",
+      "pytest": "9.1.1",
+      "pytest-xdist": "3.8.0",
+      "execnet": "2.1.2",
+      "ruff": "0.16.5",
+      "mypy": "2.3.1"
+    },
+    "TESTENCE_BROWSER_CHANNEL": "msedge",
+    "TESTENCE_DEBUG_PORT": "0",
+    "edge_executable_product_version_observed": "154.0.4258.53",
+    "lockfile_sha256": "e2e14d3a3e93f08a490adf682418a6c06eb748e90a409bce2a2382ed3fbf2fe4"
+  },
+  "commands_and_development_failures": "2026-10-05-worker-browser-reuse.md",
+  "final_junit": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "2",
+      "tests": "894",
+      "time": "363.920",
+      "timestamp": "2026-10-05T16:29:33.972790+03:00",
+      "hostname": "NB-PW0860ZN"
+    }
+  ],
+  "final_run_id": "r-20261005-132933-14f194",
+  "run_end_events": [
+    {
+      "ledger": "run-gw0.jsonl",
+      "exit_code": 0,
+      "duration_ms": 362809.1
+    },
+    {
+      "ledger": "run-gw1.jsonl",
+      "exit_code": 0,
+      "duration_ms": 325004.0
+    },
+    {
+      "ledger": "run-gw2.jsonl",
+      "exit_code": 0,
+      "duration_ms": 318911.5
+    },
+    {
+      "ledger": "run-gw3.jsonl",
+      "exit_code": 0,
+      "duration_ms": 324853.0
+    },
+    {
+      "ledger": "run.jsonl",
+      "exit_code": 0,
+      "duration_ms": 364033.9
+    }
+  ],
+  "logs": [
+    {
+      "path": "outputs/lifecycle-baseline.log",
+      "sha256": "f5240c487af96e001524c1414bd83bfc86ef36a6451766a882f512da69587041"
+    },
+    {
+      "path": "outputs/lifecycle-benchmark-parallel.json",
+      "sha256": "f27349dff5d224882610817df7da39049cc9000b881dea3630f2d0cd1da03b91"
+    },
+    {
+      "path": "outputs/lifecycle-benchmark-serial.json",
+      "sha256": "48188ed16ca7362887d19951ac77c083d4e7d94a036a8b2b87638523d31b4dda"
+    },
+    {
+      "path": "outputs/lifecycle-examples-reuse.log",
+      "sha256": "aaed67ed30ff0411e282d518c1d006fa02ae79c46f8c0b919fce70e68cd6e4e2"
+    },
+    {
+      "path": "outputs/lifecycle-examples.log",
+      "sha256": "d0bda917c29473e710c44a1cde96efc408edc8219d8438d7dce1da7b45a4da36"
+    },
+    {
+      "path": "outputs/lifecycle-final.log",
+      "sha256": "3a11eac3b86fed9009586ed97fe887e298da41a1b85acdce957ed17e1aabc4b5"
+    },
+    {
+      "path": "outputs/lifecycle-final.xml",
+      "sha256": "a6a3848eaaee77dade6bd8cd5e70f0b39c7b0b2e40a3acc2445f1ace8eae56ab"
+    },
+    {
+      "path": "outputs/lifecycle-focus-1.log",
+      "sha256": "658d6f85b80581761a6ae5d766d0b8abd0f147ddd524d3e1e69bd8b7dd1aa72a"
+    },
+    {
+      "path": "outputs/lifecycle-focus-2.log",
+      "sha256": "ec8af51814c3826dbbb59eb4c5c8f716616fefbf593ac9e4628eb8f2aedcbf14"
+    },
+    {
+      "path": "outputs/lifecycle-focus-3.log",
+      "sha256": "119b0c5507fe2e700fb174a2e140dacad15890129aec1d17a95ca105ee5f1d4b"
+    },
+    {
+      "path": "outputs/lifecycle-format.log",
+      "sha256": "5ed0aa9f9624baabecab98e658884e9b993407360cf8b3c23ca29adc3fdba872"
+    },
+    {
+      "path": "outputs/lifecycle-mypy.log",
+      "sha256": "875fcf159a6b8b3de03b5084f1448b3c6ac75e0456a25494f0dcd0a10a81352a"
+    },
+    {
+      "path": "outputs/lifecycle-probe-browser-log.json",
+      "sha256": "f3b299e9b7223ed32aaf05b299ccc72c8b1b79741877e76f7fe67ae325cbe4ec"
+    },
+    {
+      "path": "outputs/lifecycle-probe-os-exit.json",
+      "sha256": "5889c676afce3a638148608aa395b350fd46be40266c5703bf0ee879ded74cc3"
+    },
+    {
+      "path": "outputs/lifecycle-probe-parallel.json",
+      "sha256": "d78c94b4e73c2fd980d1c449047508dbc4f982758d995a5eb29e241ed1d6f1c4"
+    },
+    {
+      "path": "outputs/lifecycle-probe-serial.json",
+      "sha256": "2eb32bc0368a5c6b86b2670cd734f3463c260f7208d53e39df1a1f347850ae11"
+    },
+    {
+      "path": "outputs/lifecycle-ruff.log",
+      "sha256": "a4443afdcfb6d7363adb285762515ccf7cf50473b1a05c20c1a50f6bed4d26b0"
+    }
+  ],
+  "benchmarks": {
+    "serial": {
+      "scenario": "identical fresh-context UI/storage/namespace checks",
+      "cases": 4,
+      "workers": 1,
+      "arms": {
+        "fresh": {
+          "run_id": "r-20261005-132602-a81ffc",
+          "elapsed_ms": 10516.0,
+          "collection_ms": 875.0,
+          "exit_code": 0,
+          "execution": {
+            "passed": 4
+          },
+          "browser_launches": 4,
+          "browser_closes": 4,
+          "expected_browsers": 4,
+          "phases": {
+            "test_phase_ms": {
+              "setup": 5647.0,
+              "call": 568.8,
+              "teardown": 2406.2000000000003
+            },
+            "lifecycle_ms": {
+              "browser.start": 5616.499999999999,
+              "driver.start": 1859.0,
+              "browser.launch": 2812.0,
+              "context.create": 63.0,
+              "context.configure": 875.0,
+              "auth": 0.0,
+              "recording": 6.3,
+              "browser.close": 2359.1,
+              "context.close": 63.0,
+              "browser.process_close": 2234.0,
+              "driver.stop": 63.0
+            },
+            "wait_ops_ms": {
+              "goto": 188.0,
+              "wait_until_rendered": 125.0,
+              "expect_text": 125.0
+            },
+            "navigation": {
+              "goto_ms": 188.0,
+              "percent_of_recorded_waits": 42.9,
+              "percent_of_serial_run_wall": 2.1
+            },
+            "note": "lifecycle phases are nested within test phases; never add the two totals"
+          },
+          "verified": true
+        },
+        "reuse": {
+          "run_id": "r-20261005-132612-86dbb9",
+          "elapsed_ms": 4343.0,
+          "collection_ms": 859.0,
+          "exit_code": 0,
+          "execution": {
+            "passed": 4
+          },
+          "browser_launches": 1,
+          "browser_closes": 1,
+          "expected_browsers": 1,
+          "phases": {
+            "test_phase_ms": {
+              "setup": 1575.0,
+              "call": 367.90000000000003,
+              "teardown": 530.8000000000001
+            },
+            "lifecycle_ms": {
+              "browser.worker_start": 837.1,
+              "driver.start": 297.0,
+              "browser.launch": 281.0,
+              "context.create": 79.0,
+              "context.configure": 874.0,
+              "context.fresh": 693.9,
+              "auth": 0.0,
+              "recording": 3.8,
+              "context.release": 45.3,
+              "context.close": 62.0,
+              "browser.worker_close": 458.9,
+              "browser.process_close": 422.0,
+              "driver.stop": 16.0
+            },
+            "wait_ops_ms": {
+              "goto": 157.0,
+              "wait_until_rendered": 78.0,
+              "expect_text": 109.0
+            },
+            "navigation": {
+              "goto_ms": 157.0,
+              "percent_of_recorded_waits": 45.6,
+              "percent_of_serial_run_wall": 6.0
+            },
+            "note": "lifecycle phases are nested within test phases; never add the two totals"
+          },
+          "verified": true
+        }
+      },
+      "observed_wall_reduction_percent": 58.7,
+      "note": "single-host diagnostic; no performance threshold or external pilot claim"
+    },
+    "parallel": {
+      "scenario": "identical fresh-context UI/storage/namespace checks",
+      "cases": 8,
+      "workers": 4,
+      "arms": {
+        "fresh": {
+          "run_id": "r-20261005-132806-fb7c19",
+          "elapsed_ms": 30812.0,
+          "collection_ms": 1047.0,
+          "exit_code": 0,
+          "execution": {
+            "passed": 8
+          },
+          "browser_launches": 8,
+          "browser_closes": 8,
+          "expected_browsers": 8,
+          "phases": {
+            "test_phase_ms": {
+              "setup": 33751.0,
+              "call": 3412.4999999999995,
+              "teardown": 42528.7
+            },
+            "lifecycle_ms": {
+              "browser.start": 33616.2,
+              "driver.start": 9860.0,
+              "browser.launch": 19016.0,
+              "context.create": 218.0,
+              "context.configure": 4500.0,
+              "auth": 0.0,
+              "recording": 21.5,
+              "browser.close": 42413.0,
+              "context.close": 250.0,
+              "browser.process_close": 42017.0,
+              "driver.stop": 140.0
+            },
+            "wait_ops_ms": {
+              "goto": 2126.0,
+              "wait_until_rendered": 344.0,
+              "expect_text": 374.0
+            },
+            "navigation": {
+              "goto_ms": 2126.0,
+              "percent_of_recorded_waits": 74.8,
+              "percent_of_serial_run_wall": null
+            },
+            "note": "lifecycle phases are nested within test phases; never add the two totals"
+          },
+          "verified": true
+        },
+        "reuse": {
+          "run_id": "r-20261005-132837-88c869",
+          "elapsed_ms": 12875.0,
+          "collection_ms": 922.0,
+          "exit_code": 0,
+          "execution": {
+            "passed": 8
+          },
+          "browser_launches": 4,
+          "browser_closes": 4,
+          "expected_browsers": 4,
+          "phases": {
+            "test_phase_ms": {
+              "setup": 29826.100000000002,
+              "call": 3122.3999999999996,
+              "teardown": 3284.5
+            },
+            "lifecycle_ms": {
+              "browser.worker_start": 18224.9,
+              "driver.start": 4576.0,
+              "browser.launch": 10064.0,
+              "context.create": 486.0,
+              "context.configure": 14345.0,
+              "context.fresh": 11312.6,
+              "auth": 0.0,
+              "recording": 16.700000000000003,
+              "context.release": 372.2,
+              "context.close": 579.0,
+              "browser.worker_close": 2663.5,
+              "browser.process_close": 2374.0,
+              "driver.stop": 63.0
+            },
+            "wait_ops_ms": {
+              "goto": 734.0,
+              "wait_until_rendered": 407.0,
+              "expect_text": 1234.0
+            },
+            "navigation": {
+              "goto_ms": 734.0,
+              "percent_of_recorded_waits": 30.9,
+              "percent_of_serial_run_wall": null
+            },
+            "note": "lifecycle phases are nested within test phases; never add the two totals"
+          },
+          "verified": true
+        }
+      },
+      "observed_wall_reduction_percent": 58.2,
+      "note": "single-host diagnostic; no performance threshold or external pilot claim"
+    }
+  },
+  "benchmark_source_revisions": {
+    "serial": "d6a631a74a6a0bcdb3116fc6c1a2b3d75a71d866",
+    "parallel": "60eae0598b36806ccef9dc7a1a4eea85c2805055"
+  },
+  "benchmark_evidence_retention": "structured results retained; diagnostic raw benchmark projects were temporary",
+  "scope": "local synthetic engineering verification; private pilot and public release unverified"
+}
