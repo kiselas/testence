@@ -22,6 +22,11 @@ without running the project. POSIX launches a new session and closes its process
 group. Cleanup runs on timeout, interruption and normal root exit. Temporary
 file-backed output avoids inherited pipe waits and bounds diagnostic memory.
 
+The gate atomically reports its actual interpreter PID before waiting for the
+release token. Assign that PID and its Popen launcher, if different: Windows venv
+redirectors can spawn the interpreter before assignment of the launcher. A test
+delays assignment deliberately and verifies that grandchildren still terminate.
+
 Timeout is a structured MCP tool error: null exit code, deadline marker, partial
 run directory, truthful inspect summary and sanitized output tails. Do not append
 a synthetic `run.end` or claim assurance for an interrupted test.

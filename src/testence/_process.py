@@ -121,8 +121,13 @@ def run_owned(command: list[str], *, cwd: Path, timeout: float) -> CommandResult
     """
     deadline = time.monotonic() + timeout
     process: subprocess.Popen[bytes] | None = None
-    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+    with (
+        tempfile.TemporaryFile() as stdout,
+        tempfile.TemporaryFile() as stderr,
+        tempfile.TemporaryDirectory(prefix="testence-gate-") as gate_dir,
+    ):
         job = _WindowsJob() if os.name == "nt" else None
+        ready = Path(gate_dir) / "ready"
         try:
             options: dict[str, Any] = {}
             if job is not None:
@@ -131,6 +136,7 @@ def run_owned(command: list[str], *, cwd: Path, timeout: float) -> CommandResult
                     "-I",
                     "-S",
                     str(Path(__file__).with_name("_process_gate.py")),
+                    str(ready),
                     *command,
                 ]
                 options = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW")}
@@ -144,12 +150,23 @@ def run_owned(command: list[str], *, cwd: Path, timeout: float) -> CommandResult
                 stderr=stderr,
                 **options,
             )
-            if job is not None:
-                job.assign(process.pid)
-                assert process.stdin is not None
-                process.stdin.write(b"1")
-                process.stdin.close()
             try:
+                if job is not None:
+                    # The gate is isolated (-I -S) and cannot run project code
+                    # while this readiness/ownership handshake is in progress.
+                    while not ready.exists():
+                        if process.poll() is not None:
+                            raise OSError("the run's process gate exited before readiness")
+                        if time.monotonic() >= deadline:
+                            raise subprocess.TimeoutExpired("process gate", timeout)
+                        time.sleep(0.01)
+                    gate_pid = int(ready.read_text(encoding="ascii"))
+                    job.assign(gate_pid)
+                    if gate_pid != process.pid:
+                        job.assign(process.pid)
+                    assert process.stdin is not None
+                    process.stdin.write(b"1")
+                    process.stdin.close()
                 code = process.wait(timeout=max(0, deadline - time.monotonic()))
                 timed_out = False
             except subprocess.TimeoutExpired:

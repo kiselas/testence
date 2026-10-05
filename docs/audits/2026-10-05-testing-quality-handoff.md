@@ -39,6 +39,7 @@ Implementation revision и окончательные проверки буду�
 | `outputs/quality-native-lifecycle.log` | `tests/test_native_routes.py tests/test_native.py -q --basetemp=.tmp-pytest-quality-native-lifecycle` | 9 passed, 5.21 s; 340 model sequences, новые страницы, смена context |
 | `outputs/quality-deadline-live.log` | `tests/test_mcp.py tests/test_owned_process.py -q --basetemp=.tmp-pytest-quality-deadline-live --durations=5` | 35 passed, 24.35 s; real deadline 8.43 s, incomplete ledger, listeners stopped, subsequent inspect |
 | `outputs/quality-video-doctor.log` | `tests/test_application.py -q -k 'doctor_probes or missing_video_encoder' --basetemp=.tmp-pytest-quality-video-doctor` | 6 passed, 23 deselected, 0.39 s; simulated missing encoder; real video doctor добавлен затем |
+| `outputs/quality-gate-redirector.log` | `tests/test_owned_process.py tests/test_mcp.py -q --basetemp=.tmp-pytest-quality-gate-redirector --durations=5` | 36 passed, 21.79 s; gate сообщает actual interpreter PID, привязка с задержкой 0.2 s закрывает redirector race; real pytest deadline 8.41 s |
 
 Development static после edits: 224 files formatted, Ruff clean, mypy 82 files,
 `git diff --check` clean. Исправлены mypy Windows-only symbols / TemporaryFile typing /

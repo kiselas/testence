@@ -91,3 +91,24 @@ def test_failed_assignment_cannot_start_project_code(tmp_path, monkeypatch):
             timeout=10,
         )
     assert not (tmp_path / "unsafe").exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows venv redirector ownership")
+def test_gate_assignment_tolerates_a_launcher_spawning_the_interpreter_first(tmp_path, monkeypatch):
+    from testence._process import _WindowsJob
+
+    assigned = []
+    original = _WindowsJob.assign
+
+    def assign(job, pid):
+        time.sleep(0.2)  # Let the venv redirector spawn its actual interpreter.
+        original(job, pid)
+        assigned.append(pid)
+
+    monkeypatch.setattr(_WindowsJob, "assign", assign)
+    (tmp_path / "tree.py").write_text(TREE, encoding="utf-8")
+    result = run_owned([sys.executable, "tree.py", "2", "exit"], cwd=tmp_path, timeout=5)
+    assert result.returncode == 7 and assigned
+    for depth in range(3):
+        port, _pid = json.loads((tmp_path / f"port-{depth}.json").read_text())
+        assert_listener_stopped(port)
