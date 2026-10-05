@@ -70,3 +70,5 @@ pytest-файл с `ex`, запуск, разбор, затем подсказк
   давайте его только клиенту, которому доверили бы запуск `pytest`.
 - Пока не покрыто: исправление по предложению, отправка verdict и инструменты PlanSpec
   остаются в CLI ([процесс агента](agent-workflow.md)).
+
+`testence_status` returns the active package/settings and declared parallel policy. `testence_debug` takes `node`, optional `workers`, `allow_multiple` and `timeout_s`; it refuses accidental suite execution and returns failure ARIA/triage and phase timings. Collection and replay use separate owned processes. Parallel declarations must be backed by application-specific isolation and cleanup checks.

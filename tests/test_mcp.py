@@ -1,7 +1,7 @@
 """The narrow MCP server (product review 2026-09-28, P1-3).
 
 An agent that could not drive Testence from its own tool loop had to shell out and parse
-text. ``testence mcp`` gives it the seven calls the write-and-prove loop needs, over
+text. ``testence mcp`` gives it the nine calls the write-and-prove loop needs, over
 stdio, with page text redacted and nothing but protocol on stdout.
 """
 
@@ -135,12 +135,12 @@ def test_notifications_are_never_answered_and_bad_requests_are_errors(tmp_path):
     assert invalid is not None and invalid["error"]["code"] == -32600
 
 
-def test_the_seven_tools_have_schemas(tmp_path):
+def test_the_nine_tools_have_schemas(tmp_path):
     reply = McpServer(tmp_path).handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
     assert reply is not None
     names = [tool["name"] for tool in reply["result"]["tools"]]
     assert names == [tool["name"] for tool in TOOLS]
-    assert len(names) == 7 and all(name.startswith("testence_") for name in names)
+    assert len(names) == 9 and all(name.startswith("testence_") for name in names)
     for tool in TOOLS:
         assert tool["description"] and tool["inputSchema"]["type"] == "object"
 
@@ -395,7 +395,7 @@ def test_the_cli_speaks_only_protocol_on_stdout(tmp_path):
     assert completed.returncode == 0, completed.stderr
     replies = [json.loads(line) for line in completed.stdout.splitlines()]
     assert [reply["id"] for reply in replies] == [1, 2, 3]
-    assert len(replies[1]["result"]["tools"]) == 7
+    assert len(replies[1]["result"]["tools"]) == 9
     assert replies[2]["result"]["isError"] is True
 
 

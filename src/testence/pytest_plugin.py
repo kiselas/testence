@@ -14,6 +14,7 @@ import re
 import time
 import warnings
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -165,6 +166,10 @@ def pytest_configure(config: pytest.Config) -> None:
     directory instead of inventing a directory each. ``setdefault``: a worker runs
     this hook too and must keep the inherited value.
     """
+    config.addinivalue_line(
+        "markers",
+        "testence_parallel: declares worker-isolated seed/cleanup for explicit parallel debug",
+    )
     config.addinivalue_line(
         "markers",
         "testence(plan, claims, case_id, allure_id, title, description, severity, labels, "
@@ -1526,6 +1531,24 @@ def testence_writer(request: pytest.FixtureRequest) -> EvidenceWriter:
     return state.writer
 
 
+@contextmanager
+def _lifecycle_phase(writer: EvidenceWriter, test: str, phase: str) -> Iterator[None]:
+    started = time.perf_counter()
+    ok = False
+    try:
+        yield
+        ok = True
+    finally:
+        writer.emit(
+            "note",
+            test=test,
+            text="lifecycle timing",
+            lifecycle_phase=phase,
+            duration_ms=round((time.perf_counter() - started) * 1000, 1),
+            ok=ok,
+        )
+
+
 @pytest.fixture
 def testence_engine(
     request: pytest.FixtureRequest,
@@ -1547,7 +1570,8 @@ def testence_engine(
             engine.reset_taps()
     else:
         try:
-            engine.start()
+            with _lifecycle_phase(testence_writer, request.node.nodeid, "browser.start"):
+                engine.start()
         except Exception as exc:
             from testence.engine import browser_launch_hint
 
@@ -1558,6 +1582,24 @@ def testence_engine(
                 f"fix: {browser_launch_hint(channel, str(exc))}; "
                 "run `testence doctor` for a full check"
             ) from exc
+    for entry in getattr(engine, "wait_ledger", lambda: [])() if not warm else []:
+        if entry.get("op") in {
+            "driver.start",
+            "browser.connect",
+            "browser.launch",
+            "browser.persistent_launch",
+            "context.create",
+            "context.configure",
+        }:
+            testence_writer.emit(
+                "note",
+                test=request.node.nodeid,
+                text="startup phase timing",
+                lifecycle_phase=entry["op"],
+                duration_ms=entry["ms"],
+                nested_in="browser.start",
+                ok=entry["ok"],
+            )
     state: dict[str, Any] = {"any_failed": False, "mode": mode}
     engine._testence_state = state  # type: ignore[attr-defined]
     try:
@@ -1566,19 +1608,20 @@ def testence_engine(
         finish = getattr(engine, "finish_recording", None)
         if callable(finish):
             try:
-                state["recordings"] = [
-                    {
-                        **entry,
-                        "path": Path(entry["path"])
-                        .resolve()
-                        .relative_to(testence_writer.run_dir.resolve())
-                        .as_posix(),
-                    }
-                    for entry in finish(
-                        failed=bool(state["any_failed"]),
-                        directory=testence_writer.test_dir(request.node.nodeid),
-                    )
-                ]
+                with _lifecycle_phase(testence_writer, request.node.nodeid, "recording"):
+                    state["recordings"] = [
+                        {
+                            **entry,
+                            "path": Path(entry["path"])
+                            .resolve()
+                            .relative_to(testence_writer.run_dir.resolve())
+                            .as_posix(),
+                        }
+                        for entry in finish(
+                            failed=bool(state["any_failed"]),
+                            directory=testence_writer.test_dir(request.node.nodeid),
+                        )
+                    ]
             except Exception as exc:  # noqa: BLE001 - a recording never changes the result
                 testence_writer.emit(
                     "note",
@@ -1591,7 +1634,8 @@ def testence_engine(
         else:
             # CI/default isolation owns and closes its browser even after failure.
             # Attached mode only detaches; the launcher's browser is never ours.
-            engine.stop(keep_browser=mode == "attached" and state["any_failed"])
+            with _lifecycle_phase(testence_writer, request.node.nodeid, "browser.close"):
+                engine.stop(keep_browser=mode == "attached" and state["any_failed"])
 
 
 @pytest.fixture
@@ -1623,6 +1667,7 @@ def testence_auth(
     testence_writer.emit(
         "note",
         text="authenticated",
+        lifecycle_phase="auth",
         auth=context.describe(),
         duration_ms=round((time.perf_counter() - started) * 1000, 1),
     )
@@ -1747,6 +1792,15 @@ def ex(
     """
     if (testence_settings.auth or "none").lower() != "none" and not _anonymous(request.node):
         request.getfixturevalue("testence_auth")
+    else:
+        testence_writer.emit(
+            "note",
+            test=_test_id(request.node),
+            text="authentication not required",
+            lifecycle_phase="auth",
+            duration_ms=0,
+            skipped=True,
+        )
     test_id = _test_id(request.node)
     request.node.stash[_ACTIONS_KEY] = actions = Actions(
         testence_engine,

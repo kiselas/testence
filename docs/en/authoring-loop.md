@@ -44,11 +44,13 @@ an explicit choice; the framework never selects the first duplicate automaticall
 Failure diagnostics list the first three match texts with their indices.
 
 ```bash
-testence run --project . -- tests/test_import.py::test_import_name -q
-python -m pytest tests/test_import.py::test_import_name --collect-only -q
+testence status --project . --json
+testence debug tests/test_import.py::test_import_name --project . --json
 ```
 
-Collect first when a debug file imports helpers. `from test_x import *` imports test
+The debug command collects in a separate process and refuses more than one case by default. It checks selected node IDs and test-file hashes again before execution; collection still imports tests and conftest. It returns bounded failure ARIA/triage, evidence paths and phase timings. `--timeout` applies separately to collection and replay. MCP exposes the same loop as `testence_status` and `testence_debug`.
+
+Be careful when a debug file imports helpers. `from test_x import *` imports test
 functions too, so pytest may collect the whole suite again. Keep helpers in a module
 whose name does not start with `test_`. Read the failed case's `pack/aria.txt` and
 `TRIAGE.md` before rerunning; do not run the whole suite to debug one target.
@@ -78,12 +80,33 @@ row after debounced search, and for the application's known field suggestion bef
 overwriting it. A generic "stable field" delay cannot prove that another update is
 not scheduled. The framework does not retry fill or click to hide a race.
 
-Response adapters are defect injection: `ex.route` is static; native fulfill is
-marked mocked and cannot prove persistence. `route.fetch()` can modify a response,
-but this cycle does not establish file-upload forwarding correctness. A multipart
-adapter must first prove exact bytes reached a synthetic receiver. Do not replace a
-broken transfer with an unverified page-fetch shim or present adapted FE/BE behaviour
-as deployed-product acceptance. See [Playwright Route](https://playwright.dev/python/docs/api/class-route).
+Response adapters are defect injection. `ex.rewrite_response("*/api/import", transform, method="POST")` lets the browser send its original request and transforms JSON at the CDP response stage. Synthetic fetch/XHR controls prove exact multipart file bytes, one server receipt, preserved status and compatibility with authorization headers. Adapted traffic is marked mocked and cannot prove persistence or deployed-product compatibility. `ex.route` remains static.
+
+This adapter is Chromium/CDP only, buffers JSON up to 2 MiB (the body is fetched before this bound is checked), and rejects overlapping rules, non-JSON, HEAD, redirects, 204 and 304. A transform failure aborts delivery and fails the recorded step; it never resends the request. Context reset removes adapters. Service workers, out-of-process frames and streaming responses have no acceptance proof in this cycle.
+
+## Observe outcomes instead of guessing
+
+```python
+with ex.expect_outcome(
+    {"rejected": TOO_LARGE_TOAST, "report": IMPORT_REPORT},
+    expected="rejected", timeout_ms=3000,
+) as outcome:
+    ex.click(IMPORT_BUTTON)
+```
+
+The declared results must be absent before the action. The action executes once; observation waits until one appears. Conflicting results fail. A deadline means outcome unobserved, not silent rejection. This observation is not backend assurance; retain normal product assertions and server oracles. Choose the timeout from the product contract, not from repeated retries.
+
+Before assuming names are case-insensitive, probe `Twin` and `twin` with the authoritative API and cleanup both. For a 10 MiB boundary, use exact byte sizes (10 * 1024 * 1024), including boundary and boundary + 1, and wait for the declared response/toast.
+
+## Declare isolated parallel replay
+
+A consumer profile can declare `extra.parallel` with `enabled: true`, `accounts: "isolated"` or `"non-revoking"`, and `cleanup: "asserted-absence"`. Every selected case must have `@pytest.mark.testence_parallel` and request the existing `testence_namespace` fixture. Use its marker in created data and assert authoritative absence after cleanup. These declarations are gates, not independent safety proof.
+
+```bash
+testence debug tests/test_import.py --project . --workers 4 --allow-multiple --json
+```
+
+The phase report separates pytest setup/call/teardown, nested browser/auth/recording/close phases, and engine wait operations. Startup subphases are also nested; never add these totals. Summed worker time is not parallel wall time. 36 navigations at 2.4 seconds are 86.4 seconds, or 25.1% of a 344-second serial run. No universal four-worker speedup is promised.
 
 Seed/create/delete semantics and downloaded-file server validation require the
 application's API contract. Keep these adapters in the consumer project and verify

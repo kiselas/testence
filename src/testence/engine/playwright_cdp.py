@@ -41,6 +41,7 @@ from testence.config import default_browser_channel
 from .capabilities import Capability
 from .native_routes import NativeRoutes
 from .protocol import Engine, NetRecord, Target
+from .response_rewrites import ResponseRewrites
 
 _DEFAULT_TIMEOUT_MS = 10_000
 _RENDER_TIMEOUT_MS = 2_000
@@ -262,6 +263,7 @@ class PlaywrightCdpEngine(Engine):
         self._scope: Any | None = None
         self._js_scope: Any | None = None
         self._net: list[NetRecord] = []
+        self._response_rewrites: ResponseRewrites | None = None
         self._pending: dict[Any, NetRecord] = {}
         self._console: list[dict[str, Any]] = []
         self._ws: list[dict[str, Any]] = []
@@ -314,12 +316,14 @@ class PlaywrightCdpEngine(Engine):
     def _open_session(self) -> None:
         if not self.cdp_url and self.debug_port == 0:
             self.debug_port = _free_tcp_port()
-        playwright = sync_playwright().start()
+        with self._timed("driver.start"):
+            playwright = sync_playwright().start()
         self._pw = playwright
         if self.test_id_attribute:
             playwright.selectors.set_test_id_attribute(self.test_id_attribute)
         if self.cdp_url:
-            self._browser = playwright.chromium.connect_over_cdp(self.cdp_url)
+            with self._timed("browser.connect"):
+                self._browser = playwright.chromium.connect_over_cdp(self.cdp_url)
             # The context with pages in it is the one that is logged in. Taking
             # contexts[0] blindly can hand back a pristine default context whose
             # cookie jar is empty, which surfaces as "attached browser has no
@@ -328,7 +332,8 @@ class PlaywrightCdpEngine(Engine):
             if contexts:
                 self._context = contexts[0]
             else:
-                self._context = self._browser.new_context()
+                with self._timed("context.create"):
+                    self._context = self._browser.new_context()
                 self._owns_context = True
         elif self.user_data_dir:
             # Persistent profile. Required for the long-lived dev browser: a
@@ -337,29 +342,33 @@ class PlaywrightCdpEngine(Engine):
             # session established in one would be unreachable by the runs meant to
             # reuse it. A profile on disk is the default context, and it also
             # survives restarts of the browser itself.
-            self._context = playwright.chromium.launch_persistent_context(
-                self.user_data_dir,
-                channel=self.browser_channel,
-                headless=not self.headed,
-                args=[f"--remote-debugging-port={self.debug_port}"],
-                ignore_https_errors=self.ignore_https_errors,
-                **self._context_options(),
-            )
+            with self._timed("browser.persistent_launch"):
+                self._context = playwright.chromium.launch_persistent_context(
+                    self.user_data_dir,
+                    channel=self.browser_channel,
+                    headless=not self.headed,
+                    args=[f"--remote-debugging-port={self.debug_port}"],
+                    ignore_https_errors=self.ignore_https_errors,
+                    **self._context_options(),
+                )
             self._browser = self._context.browser
             self._launched_here = True
             self._owns_context = True
         else:
-            self._browser = playwright.chromium.launch(
-                channel=self.browser_channel,
-                headless=not self.headed,
-                args=[f"--remote-debugging-port={self.debug_port}"],
-            )
+            with self._timed("browser.launch"):
+                self._browser = playwright.chromium.launch(
+                    channel=self.browser_channel,
+                    headless=not self.headed,
+                    args=[f"--remote-debugging-port={self.debug_port}"],
+                )
             self._launched_here = True
-            self._context = self._browser.new_context(
-                ignore_https_errors=self.ignore_https_errors, **self._context_options()
-            )
+            with self._timed("context.create"):
+                self._context = self._browser.new_context(
+                    ignore_https_errors=self.ignore_https_errors, **self._context_options()
+                )
             self._owns_context = True
-        self._configure_context()
+        with self._timed("context.configure"):
+            self._configure_context()
 
     def _context_options(self) -> dict[str, Any]:
         """``new_context`` keyword arguments for the configured emulation.
@@ -443,6 +452,7 @@ class PlaywrightCdpEngine(Engine):
                 "browser or a persistent profile has one context"
             )
         other = copy.copy(self)
+        other._response_rewrites = None
         other._shares_driver = True
         other._launched_here = False
         other._context = None
@@ -735,8 +745,12 @@ class PlaywrightCdpEngine(Engine):
         ok = True
         try:
             yield
+            if self._response_rewrites is not None:
+                self._response_rewrites.check()
         except Exception:
             ok = False
+            if self._response_rewrites is not None:
+                self._response_rewrites.check()
             raise
         finally:
             self._waits.append(
@@ -1193,6 +1207,34 @@ class PlaywrightCdpEngine(Engine):
         with self._timed("input_value", target.describe()):
             return self._locate(target).input_value(timeout=self.timeout_ms)
 
+    def visible_outcomes(self, outcomes: dict[str, Target]) -> list[str]:
+        found = []
+        for name, target in outcomes.items():
+            locator = self._locate(target)
+            if locator.count() > 1:
+                raise AssertionError(
+                    f"outcome {name!r} is ambiguous: {self.describe_matches(target)}"
+                )
+            if locator.is_visible():
+                found.append(name)
+        return found
+
+    def wait_for_outcome(self, outcomes: dict[str, Target], timeout_ms: int) -> str:
+        deadline = time.monotonic() + timeout_ms / 1000
+        with self._timed("wait_for_outcome"):
+            while True:
+                found = self.visible_outcomes(outcomes)
+                if len(found) > 1:
+                    raise AssertionError(f"conflicting outcomes visible: {found}")
+                if found:
+                    return found[0]
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise AssertionError(
+                        f"outcome unobserved within {timeout_ms} ms; no silent rejection established"
+                    )
+                self._require_page().wait_for_timeout(min(50, remaining * 1000))
+
     def expect_count(self, target: Target, count: int, timeout_ms: int | None = None) -> None:
         timeout = timeout_ms or self.timeout_ms
         self._assert_state(
@@ -1595,9 +1637,31 @@ class PlaywrightCdpEngine(Engine):
             )
 
     def _close_native_routes(self) -> None:
+        if self._response_rewrites is not None:
+            self._response_rewrites.close()
+            self._response_rewrites = None
         if self._native_routes is not None:
             self._native_routes.close()
             self._native_routes = None
+
+    def rewrite_response(
+        self, pattern: str, transform: Callable[[Any], Any], method: str | None = None
+    ) -> None:
+        if self._context is None:
+            raise RuntimeError("engine not started")
+        if self._response_rewrites is None:
+            self._response_rewrites = ResponseRewrites(self._context, self._record_response_rewrite)
+        self._response_rewrites.add(pattern, transform, method)
+
+    def _record_response_rewrite(self, url: str, method: str, outcome: str) -> None:
+        for request, record in self._pending.items():
+            if record.url == url and record.method == method:
+                record.mocked = True
+                self._mocked.add(request)
+        if self._native_mock_observer is not None:
+            self._native_mock_observer(
+                pattern=url, outcome=outcome, source="response-rewrite", method=method
+            )
 
     def current_url(self) -> str:
         return self._require_page().url

@@ -50,6 +50,25 @@ _TARGET_SCHEMA = {
 
 TOOLS: list[dict[str, Any]] = [
     {
+        "name": "testence_status",
+        "description": "Locate the installed package, project settings and declared parallel policy.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "testence_debug",
+        "description": "Preflight one exact pytest node, run it in a fresh process and return failure ARIA and phase timings. Multiple cases require explicit opt-in.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "node": {"type": "string"},
+                "workers": {"type": "integer", "minimum": 1, "maximum": 16, "default": 1},
+                "allow_multiple": {"type": "boolean", "default": False},
+                "timeout_s": {"type": "integer", "minimum": 1, "maximum": 900, "default": 300},
+            },
+            "required": ["node"],
+        },
+    },
+    {
         "name": "testence_doctor",
         "description": "Check the Testence runtime. With target=true also reach the app's "
         "base_url, check the credentials and try the login once.",
@@ -252,6 +271,8 @@ class McpServer:
             "testence_click": self._click,
             "testence_fill": self._fill,
             "testence_run": self._run,
+            "testence_status": self._status,
+            "testence_debug": self._debug,
             "testence_inspect": self._inspect,
             "testence_oracle_suggest": self._oracle_suggest,
         }
@@ -295,6 +316,26 @@ class McpServer:
         return {"content": [{"type": "text", "text": text}], "isError": error}
 
     # -- tools ------------------------------------------------------------------------
+
+    def _status(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        from testence.debug import project_status
+
+        return project_status(self.project)
+
+    def _debug(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        from testence.debug import debug
+
+        node = arguments.get("node")
+        multiple = arguments.get("allow_multiple", False)
+        if not isinstance(node, str) or type(multiple) is not bool:
+            raise ToolError("debug requires a string node and boolean allow_multiple")
+        return debug(
+            self.project,
+            node,
+            workers=arguments.get("workers", 1),
+            allow_multiple=multiple,
+            timeout_s=arguments.get("timeout_s", 300),
+        )
 
     def _load_settings(self) -> Any:
         if self._settings is None:

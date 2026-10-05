@@ -71,3 +71,5 @@ trusted test lifetimes; deliberately detached POSIX processes are outside that g
   execution by design: give it only to a client you would let run `pytest`.
 - Not covered yet: repairing from a proposal, verdict submission and PlanSpec tools stay on
   the CLI ([agent workflow](agent-workflow.md)).
+
+`testence_status` returns the active package/settings and declared parallel policy. `testence_debug` takes `node`, optional `workers`, `allow_multiple` and `timeout_s`; it refuses accidental suite execution and returns failure ARIA/triage and phase timings. Collection and replay use separate owned processes. Parallel declarations must be backed by application-specific isolation and cleanup checks.

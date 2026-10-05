@@ -316,6 +316,9 @@ class Engine(Protocol):
         """Read one field, including an empty value; duplicate matches must fail."""
         ...
 
+    def visible_outcomes(self, outcomes: dict[str, Target]) -> list[str]: ...
+    def wait_for_outcome(self, outcomes: dict[str, Target], timeout_ms: int) -> str: ...
+
     def read_all_texts(self, target: Target) -> list[str]:
         """Texts of every element matching the target.
 

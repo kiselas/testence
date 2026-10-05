@@ -41,3 +41,4 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.
+`0031-guarded-debug-response-adapters.md`: guarded debug and response-stage adapters (engineering candidate).
