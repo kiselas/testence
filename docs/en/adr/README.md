@@ -38,7 +38,7 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 | [0028](0028-junit-exporter.md) | A JUnit exporter beside `--junitxml` | accepted |
 | [0029](0029-owned-mcp-run-deadlines.md) | Own the process tree of an MCP run | implemented (engineering) |
 | [0030](0030-native-network-provenance.md) | Observe native network route outcomes | implemented (engineering) |
+| [0031](0031-guarded-debug-response-adapters.md) | Guarded debug and response-stage adapters | implemented (engineering) |
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.
-`0031-guarded-debug-response-adapters.md`: guarded debug and response-stage adapters (engineering candidate).

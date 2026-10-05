@@ -1,0 +1,175 @@
+{
+  "schema": "testence/local-audit-receipt/1",
+  "date": "2026-10-05",
+  "plan_id": "AUD-DC26",
+  "claims": [
+    "DC26-01",
+    "DC26-02",
+    "DC26-03",
+    "DC26-04",
+    "DC26-05",
+    "DC26-06"
+  ],
+  "source_revision": "2d51321e8a02a59dd9d83555322807d1c3f05613",
+  "source_git_blob_sha256": {
+    "src/testence/agent/skills/testence-author/SKILL.md": "4ecafe9008fa05e475910037b2cd861717995e7d89204a6ccda2932f691dbd44",
+    "src/testence/agent/skills/testence-author/references/visual-discovery.md": "3c95197378c47f5d5c3092b1d292531755d4e4f1efa00e63d6f9a9a792d808c8",
+    "src/testence/cli.py": "ee94c9b81ccac74d7e284262b32c1a314d27e52cba0e9ab069157ce44328ef6b",
+    "src/testence/debug.py": "f36187751c9bf3d026bda9c9684b1843619dd13cb6209ed9d510d91cb5f109f8",
+    "src/testence/debug_worker.py": "d41fadf2f84f5d11ba0ce29bce5faeb4cfc5fcf91cde1c1589f02fb9a7ed8c41",
+    "src/testence/dsl/steps.py": "7180a322ffb862c26415dc61fd087a7a279ce879b537dc1ae41908d97f265291",
+    "src/testence/engine/capabilities.py": "3b90566a40d867229cc553d9eb32813e4a4bec30463177bebed9015a5b055bf4",
+    "src/testence/engine/playwright_cdp.py": "869acb476c664e355cc0a7745a8d7a79a214b3fa7fd69a0d364074bb145786d6",
+    "src/testence/engine/protocol.py": "5e21236e175268504d246f9f3b197601a34f17428fcb8798122f685a0a968b82",
+    "src/testence/engine/response_rewrites.py": "f1afa09d8387632edb0d1ad445ab8ac83cba025adf06dc9d33cb1334084b2d0b",
+    "src/testence/mcp.py": "c95d85a6373b8af2635a367891ce4a738302921d209789d01bd45ccf67d9905b",
+    "src/testence/pytest_plugin.py": "44d842d72bc121ba8dba00b84b1fd0908c567ead1562de3561cb46f9a181d0e3",
+    "tests/test_debug_cycle.py": "f203c06fd3f85d634e094fcd26cde7381ca48d853093326afd03a13a6f39cb04",
+    "tests/test_mcp.py": "0fcc2f441d3ff3e034c631e70bf607264f1cadb477dfd43a3bc26d6a61fce754"
+  },
+  "environment": {
+    "platform": "Windows-11-10.0.26100-SP0",
+    "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]",
+    "isolated_environment": "outputs/quality-venv31214",
+    "packages": {
+      "playwright": "1.62.0",
+      "pytest": "9.1.1",
+      "pytest-xdist": "3.8.0",
+      "execnet": "2.1.2",
+      "ruff": "0.16.5",
+      "mypy": "2.3.1"
+    },
+    "TESTENCE_BROWSER_CHANNEL": "msedge",
+    "TESTENCE_DEBUG_PORT": "0",
+    "lockfile_sha256": "e2e14d3a3e93f08a490adf682418a6c06eb748e90a409bce2a2382ed3fbf2fe4"
+  },
+  "commands_and_development_failures": "2026-10-05-debug-cycle.md",
+  "final_junit": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "2",
+      "tests": "881",
+      "time": "305.567",
+      "timestamp": "2026-10-05T15:20:59.316951+03:00",
+      "hostname": "NB-PW0860ZN"
+    }
+  ],
+  "final_run_id": "r-20261005-122059-53bd84",
+  "run_end_events": [
+    {
+      "ledger": "run-gw0.jsonl",
+      "exit_code": 0,
+      "duration_ms": 285000.0
+    },
+    {
+      "ledger": "run-gw1.jsonl",
+      "exit_code": 0,
+      "duration_ms": 293755.9
+    },
+    {
+      "ledger": "run-gw2.jsonl",
+      "exit_code": 0,
+      "duration_ms": 286356.3
+    },
+    {
+      "ledger": "run-gw3.jsonl",
+      "exit_code": 0,
+      "duration_ms": 304013.8
+    },
+    {
+      "ledger": "run.jsonl",
+      "exit_code": 0,
+      "duration_ms": 305687.1
+    }
+  ],
+  "logs": [
+    {
+      "path": "outputs/debug-cycle-1.log",
+      "sha256": "29e88bc3db69a876bb36e8be37aa6748c2f3b2915fca672bb3b6863a927283ee"
+    },
+    {
+      "path": "outputs/debug-cycle-2.log",
+      "sha256": "0ad19edcc1903311c23c6102ec8b334b080db11169e663c5bc0b784dc1f4bb91"
+    },
+    {
+      "path": "outputs/debug-cycle-3.log",
+      "sha256": "e0636bcf97b61c8c12faae67c132c0f54a0e4a314fe1def37626ebf22fb4d8fa"
+    },
+    {
+      "path": "outputs/debug-cycle-4.log",
+      "sha256": "5b578f04491d3b5651868fdd2808fbff8c69252cf6b312b1e2e6c7e222390092"
+    },
+    {
+      "path": "outputs/debug-cycle-5.log",
+      "sha256": "117a180b31f4c73510e751bd9ebf95d537dc9409e903b1fc37cf701c64a9215e"
+    },
+    {
+      "path": "outputs/debug-cycle-cli.json",
+      "sha256": "c0ca794c1bb1b0a74192dc4136e70ac24112a9209130585d7917f6ed6a451b65"
+    },
+    {
+      "path": "outputs/debug-cycle-examples.log",
+      "sha256": "d7cb86dc853d9550fc325095dbc15aaa7fa4a8808626e95802eb3727a2d21662"
+    },
+    {
+      "path": "outputs/debug-cycle-final.log",
+      "sha256": "c0eb0abd9038c3dc1efc011aa6b73cf4eadcda55b4075782b70645af09d3e8f2"
+    },
+    {
+      "path": "outputs/debug-cycle-final.xml",
+      "sha256": "b73feda80993266d19182d2c4c6bad6633f751606d110f90eb55d40f48b38884"
+    },
+    {
+      "path": "outputs/debug-cycle-format.log",
+      "sha256": "bec96068dcba3dadb2ff02f2772f0af3801558bbec5616cd740b1e15e5a73a06"
+    },
+    {
+      "path": "outputs/debug-cycle-mypy.log",
+      "sha256": "875fcf159a6b8b3de03b5084f1448b3c6ac75e0456a25494f0dcd0a10a81352a"
+    },
+    {
+      "path": "outputs/debug-cycle-ruff.log",
+      "sha256": "a4443afdcfb6d7363adb285762515ccf7cf50473b1a05c20c1a50f6bed4d26b0"
+    },
+    {
+      "path": "outputs/debug-cycle-spa.json",
+      "sha256": "083ca3d437290700aba59ac320a788bdc44ff17291549aa0cf21edd6f91c4964"
+    }
+  ],
+  "spa_probe": {
+    "scenario": "async SPA root + controlled input + API polling",
+    "environment": {
+      "os": "Windows-11-10.0.26100-SP0",
+      "python": "3.12.14",
+      "playwright": "1.62.0"
+    },
+    "iterations": 20,
+    "goto_ms": 89.54,
+    "engine_fill_ms": {
+      "p50": 6.34,
+      "p95": 21.86,
+      "n": 20
+    },
+    "engine_fast_fill_ms": {
+      "p50": 3.87,
+      "p95": 4.56,
+      "n": 20
+    },
+    "actions_fill_ms": {
+      "p50": 10.33,
+      "p95": 12.77,
+      "n": 20
+    },
+    "actions_fast_fill_ms": {
+      "p50": 9.87,
+      "p95": 12.46,
+      "n": 20
+    },
+    "mutation_response_ms": 0.01,
+    "settle_750_ms": 755.65,
+    "note": "single-host diagnostic; compare before/after from the same environment"
+  },
+  "scope": "local synthetic engineering verification; private pilot and public release unverified"
+}
