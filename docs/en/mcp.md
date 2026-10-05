@@ -73,3 +73,5 @@ trusted test lifetimes; deliberately detached POSIX processes are outside that g
   the CLI ([agent workflow](agent-workflow.md)).
 
 `testence_status` returns the active package/settings and declared parallel policy. `testence_debug` takes `node`, optional `workers`, `allow_multiple` and `timeout_s`; it refuses accidental suite execution and returns failure ARIA/triage and phase timings. Collection and replay use separate owned processes. Parallel declarations must be backed by application-specific isolation and cleanup checks.
+
+`testence_debug` accepts `browser_reuse: true` for one owned browser per worker and a fresh context per case. Attached/persistent/warm modes are rejected; browser process isolation requires the default fresh-browser mode. Final worker shutdown is included in the run. See the authoring-loop guide.

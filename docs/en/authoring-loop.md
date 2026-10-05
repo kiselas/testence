@@ -112,3 +112,33 @@ Seed/create/delete semantics and downloaded-file server validation require the
 application's API contract. Keep these adapters in the consumer project and verify
 cleanup with its authoritative absence predicate; a successful DELETE status alone
 does not establish absence.
+
+## Reuse only the owned browser process
+
+For several independent cases in one pytest session, `--testence-browser-reuse`
+(or boolean `extra.browser_reuse`) keeps one browser/driver per worker and gives each
+case a new context, authentication and page. Cookies, local/session storage, headers,
+routes and evidence buffers are isolated; each case still navigates normally. Trace
+and video policies remain per case. The final worker shutdown is included in run wall
+time. This avoids repeated process launch/close, not reloads within a case.
+
+```bash
+testence debug tests/test_import.py --allow-multiple --reuse-browser --json
+python -m pytest tests/test_import.py --testence-browser-reuse --testence-headless
+```
+
+MCP `testence_debug` accepts boolean `browser_reuse`. This mode rejects attached,
+persistent-profile and warm sessions. Default replay retains a fresh browser per test.
+Browser-wide settings/crashes need that default process isolation; a new context does
+not provide a new OS process. Reuse offers little benefit for a single case. Keep
+worker data namespace and cleanup assertions when adding `--workers 4`.
+
+Shutdown reports `context.close`, `browser.process_close` and `driver.stop`, nested
+inside the owning close phase. Worker-level `browser.worker_start/close` are separate
+from per-case `context.fresh/release`. Failed authentication also reports duration and
+`ok=false`. Internal close errors remain visible even under best-effort cleanup.
+
+Measure a synthetic comparison with `python bench/browser_lifecycle_latency.py
+--cases 8 --workers 4 --check` in the framework repository. `--check` verifies identical
+context/namespace assertions and exact launch/close counts; timings are a host-specific
+diagnostic, not an automatic acceptance budget or a private-pilot measurement.

@@ -474,11 +474,17 @@ class PlaywrightCdpEngine(Engine):
         other._headers_routed = None
         other._tracing = False
         other._video_dir = None
-        other._context = self._browser.new_context(
-            ignore_https_errors=self.ignore_https_errors, **other._context_options()
-        )
         other._owns_context = True
-        other._configure_context()
+        try:
+            with other._timed("context.create"):
+                other._context = self._browser.new_context(
+                    ignore_https_errors=self.ignore_https_errors, **other._context_options()
+                )
+            with other._timed("context.configure"):
+                other._configure_context()
+        except BaseException:
+            other.stop()
+            raise
         return other
 
     def reset_session(self) -> None:
@@ -545,6 +551,8 @@ class PlaywrightCdpEngine(Engine):
         return saved
 
     def stop(self, *, keep_browser: bool = False) -> None:
+        # Retain references only when preserving a failure scene. A later stop or
+        # the suite's leak guard must not close stale transports a second time.
         self._close_native_routes()
         self._native_mock_observer = None
         if keep_browser:
@@ -558,18 +566,21 @@ class PlaywrightCdpEngine(Engine):
             # that point close() reports a dead transport, but the desired state
             # (the owned context is gone) already holds. Continue best-effort so a
             # dev-browser shutdown never ends in a misleading stack trace.
-            with suppress(Exception):
+            with suppress(Exception), self._measure("context.close"):
                 self._context.close()
         if self._browser and self._launched_here:
-            with suppress(Exception):
+            with suppress(Exception), self._measure("browser.process_close"):
                 self._browser.close()
         if self._pw and not self._shares_driver:
-            with suppress(Exception):
+            with suppress(Exception), self._measure("driver.stop"):
                 self._pw.stop()
         if self._video_dir is not None:
             shutil.rmtree(self._video_dir, ignore_errors=True)
             self._video_dir = None
         self._tapped_pages = []
+        self._page = self._scope = self._js_scope = None
+        self._context = self._browser = self._pw = None
+        self._owns_context = self._launched_here = False
 
     # -- taps --------------------------------------------------------------
 
@@ -740,17 +751,25 @@ class PlaywrightCdpEngine(Engine):
 
     @contextmanager
     def _timed(self, op: str, detail: str = "") -> Iterator[None]:
+        with self._measure(op, detail):
+            try:
+                yield
+                if self._response_rewrites is not None:
+                    self._response_rewrites.check()
+            except Exception:
+                if self._response_rewrites is not None:
+                    self._response_rewrites.check()
+                raise
+
+    @contextmanager
+    def _measure(self, op: str, detail: str = "") -> Iterator[None]:
         """Record how long an action or wait took, success or not."""
         started = time.monotonic()
         ok = True
         try:
             yield
-            if self._response_rewrites is not None:
-                self._response_rewrites.check()
-        except Exception:
+        except BaseException:
             ok = False
-            if self._response_rewrites is not None:
-                self._response_rewrites.check()
             raise
         finally:
             self._waits.append(

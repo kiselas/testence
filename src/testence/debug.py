@@ -62,6 +62,7 @@ def debug(
     workers: int = 1,
     allow_multiple: bool = False,
     timeout_s: int = 300,
+    browser_reuse: bool = False,
 ) -> dict[str, Any]:
     from testence.application import inspect_run
 
@@ -71,6 +72,8 @@ def debug(
         raise ValueError("workers must be an integer from 1 to 16")
     if type(timeout_s) is not int or not 1 <= timeout_s <= 900:
         raise ValueError("timeout must be an integer from 1 to 900 seconds")
+    if type(browser_reuse) is not bool:
+        raise ValueError("browser_reuse must be a boolean")
     project = project.resolve()
     settings = _settings(project, profile)
     started = time.monotonic()
@@ -85,6 +88,8 @@ def debug(
         str(root),
         "-q",
     ]
+    if browser_reuse:
+        common.append("--testence-browser-reuse")
     if profile:
         common.extend(["--testence-profile", profile])
     result: dict[str, Any] = {

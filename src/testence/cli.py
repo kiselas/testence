@@ -416,6 +416,7 @@ def main(argv: list[str] | None = None) -> int:
     p_debug.add_argument("--profile", default="")
     p_debug.add_argument("--workers", type=int, default=1)
     p_debug.add_argument("--allow-multiple", action="store_true")
+    p_debug.add_argument("--reuse-browser", action="store_true")
     p_debug.add_argument("--timeout", type=int, default=300)
     p_debug.add_argument("--json", dest="json_output", action="store_true")
 
@@ -638,6 +639,7 @@ def main(argv: list[str] | None = None) -> int:
                     workers=args.workers,
                     allow_multiple=args.allow_multiple,
                     timeout_s=args.timeout,
+                    browser_reuse=args.reuse_browser,
                 )
             )
         except (ValueError, OSError) as exc:

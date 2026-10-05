@@ -63,6 +63,7 @@ TOOLS: list[dict[str, Any]] = [
                 "node": {"type": "string"},
                 "workers": {"type": "integer", "minimum": 1, "maximum": 16, "default": 1},
                 "allow_multiple": {"type": "boolean", "default": False},
+                "browser_reuse": {"type": "boolean", "default": False},
                 "timeout_s": {"type": "integer", "minimum": 1, "maximum": 900, "default": 300},
             },
             "required": ["node"],
@@ -335,6 +336,7 @@ class McpServer:
             workers=arguments.get("workers", 1),
             allow_multiple=multiple,
             timeout_s=arguments.get("timeout_s", 300),
+            browser_reuse=arguments.get("browser_reuse", False),
         )
 
     def _load_settings(self) -> Any:
