@@ -64,6 +64,12 @@ oracle. Добавлять dependency или API только после кон�
 а не ради названия метода. Основные показатели: detection по каждому классу дефекта,
 false positives на healthy controls, wrong-reason failures, replayability и latency.
 
+Приёмку дополняют pre-action actionability и ожидание assertion-condition, как в
+[официальной модели Playwright](https://playwright.dev/python/docs/actionability).
+Это не повторная отправка мутации: отказ ждать состояние и повторный click имеют
+разную семантику. Для будущего asynchronous corpus сохранять причину ожидания,
+границы deadline, число независимых чтений и отсутствие duplicate send.
+
 Направленный mutation control уже добавлен в synthetic native corpus: запись
 создана реальным API заранее и соответствует expected entity/fields, затем Save
 получает подменённый ответ. Свежий read успешен, но oracle обязан отвергнуть саму
@@ -81,3 +87,8 @@ POSIX process-group реализован, но Windows-проверка не у�
 Временный stdout/stderr ограничен по памяти возвращаемых tails, но использует диск
 до окончания команды. Никакой публикации, hosted matrix или независимого клиентского
 испытания не заявлено. Итоговые команды и receipts — в [handoff](2026-10-05-testing-quality-handoff.md).
+Exact candidate `ebc3d7192df091cd3d48ddb8bd6ffc36a735f85b` прошёл 853 tests
+(2 Windows symlink skips), examples и static в isolated Python 3.12.14.
+Падение nested xdist/WMI на прежнем Python 3.12.4 сохранено; причинная локализация
+без crash dump остаётся гипотезой. Машиночитаемый [receipt](2026-10-05-testing-quality-receipt.json)
+фиксирует и успехи, и сбой, а не только зелёный результат.

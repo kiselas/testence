@@ -30,6 +30,19 @@ The supported development platforms are Windows, Linux and macOS on Apple Silico
 Python 3.10 or newer. On macOS and Linux the virtual environment interpreter is
 `.venv/bin/python`; on Windows it is `.venv/Scripts/python`.
 
+On Windows, use a patched Python runtime. Early CPython 3.12 releases can crash
+inside slow WMI queries used by `platform` and xdist ([CPython issue 125315](https://github.com/python/cpython/issues/125315),
+[3.12 fix](https://github.com/python/cpython/pull/126203)). A native access violation
+is a failed check even if pytest printed passed cases before crashing. Do not hide
+it with retries or a global `platform` monkeypatch. For isolated diagnosis without
+replacing the working `.venv`, create an environment under ignored `outputs/`:
+
+```powershell
+$env:UV_PROJECT_ENVIRONMENT = "$PWD/outputs/qa-venv"
+uv sync --locked --python 3.12.14 --extra dev --extra parallel --extra visual
+uv run --no-sync pytest -q
+```
+
 ## Required checks
 
 ```bash
