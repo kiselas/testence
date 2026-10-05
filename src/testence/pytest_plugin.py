@@ -901,6 +901,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
             "python": platform.python_version(),
             "kernels": kernels.active_backend(),
             "worker": writer.worker or "(single)",
+            "browser_reuse": _browser_reuse(config, settings),
             **settings.describe(),
         },
     )

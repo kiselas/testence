@@ -141,6 +141,9 @@ def test_parallel_reuse_has_one_browser_per_worker_and_exact_cleanup(consumer):
         for p in Path(result["run_dir"]).glob("run*.jsonl")
         for s in p.read_text().splitlines()
     ]
+    assert all(
+        e["fingerprint"]["browser_reuse"] is True for e in events if e.get("kind") == "run.start"
+    )
     assert len([e for e in events if e.get("lifecycle_phase") == "browser.worker_start"]) == 4
     assert len([e for e in events if e.get("lifecycle_phase") == "browser.worker_close"]) == 4
 

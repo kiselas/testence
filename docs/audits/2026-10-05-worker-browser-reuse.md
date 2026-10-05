@@ -56,3 +56,12 @@ All focus commands: same isolated interpreter, -m pytest <listed files> -q
 --basetemp=.tmp-pytest-lifecycle-focus-N --durations=8;
 logs outputs/lifecycle-focus-N.log. Fresh basetemp for every run. These development
 runs are not the final frozen-source release checks; source refinements continued.
+
+First comparison at d6a631a74a6a0bcdb3116fc6c1a2b3d75a71d866:
+bench/browser_lifecycle_latency.py --cases 4 --workers 1 --check,
+outputs/lifecycle-benchmark-serial.json. Both arms passed identical assertions;
+fresh 10516.0ms, 4 launches/closes; reuse 4343.0ms, 1 launch/close, observed wall
+reduction 58.7%. This includes preflight and final shutdown and is one paired
+sample, not a statistical or private-target speedup. Benchmark raw directories
+were temporary; the structured result is retained, not a hosted/raw-run receipt.
+A final refinement binds the actual reuse choice in run.start fingerprint metadata.
