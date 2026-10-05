@@ -108,6 +108,8 @@ def browser_launch_hint(channel: str, failure: str) -> str:
     channel usually runs at once.
     """
     if any(marker in failure for marker in _MISSING_BROWSER):
+        if "ffmpeg" in failure.lower():
+            return "python -m playwright install ffmpeg"
         if channel in {"chromium", "chromium-headless-shell"}:
             return f"python -m playwright install {channel}"
         return (

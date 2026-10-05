@@ -48,6 +48,14 @@ A session that fits in a few calls: snapshot the page, click and fill to learn w
 flow does, write an ordinary pytest file with `ex`, run it, inspect it, then ask for the
 oracle suggestions and add the API check.
 
+`testence_run.timeout_s` is an integer from 1 to 900 (default 300). On deadline it
+returns `isError: true` with a JSON document containing `timed_out: true`,
+`exit_code: null`, the available `run_dir`, its summary and bounded, redacted output.
+The owned process tree is terminated; partial evidence remains inspectable and no
+completion event is fabricated. Leftover descendants are also stopped after normal
+CLI exit. Windows uses a gated process job; POSIX uses a process group. This controls
+trusted test lifetimes; deliberately detached POSIX processes are outside that group.
+
 ## What it will not do
 
 - There is no file-writing tool: source changes stay ordinary edits under the client's own

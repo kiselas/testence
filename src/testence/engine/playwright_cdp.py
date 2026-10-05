@@ -39,6 +39,7 @@ from playwright.sync_api import expect as pw_expect
 from testence.config import default_browser_channel
 
 from .capabilities import Capability
+from .native_routes import NativeRoutes
 from .protocol import Engine, NetRecord, Target
 
 _DEFAULT_TIMEOUT_MS = 10_000
@@ -286,6 +287,8 @@ class PlaywrightCdpEngine(Engine):
         self._shares_driver = False
         #: Requests answered by ``route``, so their records say the server never saw them.
         self._mocked: set[Any] = set()
+        self._native_routes: NativeRoutes | None = None
+        self._native_mock_observer: Callable[..., None] | None = None
 
     # -- lifecycle -------------------------------------------------------
 
@@ -394,6 +397,7 @@ class PlaywrightCdpEngine(Engine):
         return options
 
     def _configure_context(self) -> None:
+        self._close_native_routes()
         if self._context is None:
             raise RuntimeError("browser context was not created")
         self._context.set_default_timeout(self.timeout_ms)
@@ -455,6 +459,8 @@ class PlaywrightCdpEngine(Engine):
         other._waits = []
         other._extra_headers = {}
         other._mocked = set()
+        other._native_routes = None
+        other._native_mock_observer = None
         other._headers_routed = None
         other._tracing = False
         other._video_dir = None
@@ -512,6 +518,7 @@ class PlaywrightCdpEngine(Engine):
             else:
                 context.tracing.stop()
         if self.video != "off":
+            self._close_native_routes()
             videos = [page.video for page in context.pages if page.video is not None]
             with suppress(Exception):
                 context.close()
@@ -528,6 +535,8 @@ class PlaywrightCdpEngine(Engine):
         return saved
 
     def stop(self, *, keep_browser: bool = False) -> None:
+        self._close_native_routes()
+        self._native_mock_observer = None
         if keep_browser:
             # Leave the crime scene intact; only detach our client if we attached.
             if self._pw and not self._launched_here and not self._shares_driver:
@@ -628,11 +637,13 @@ class PlaywrightCdpEngine(Engine):
             self._net.append(rec)
 
         def on_response(response: Any) -> None:
+            mocked = response.request in self._mocked
+            self._mocked.discard(response.request)
             rec = self._pending.pop(response.request, None)
             if rec is None:
                 return
             rec.duration_ms = time.monotonic() * 1000 - rec.started_ms
-            rec.mocked = response.request in self._mocked
+            rec.mocked = rec.mocked or mocked
             # Bodies are kept for every error AND every mutation: the response to
             # a POST/PATCH the UI just made carries the entity (with its id), which
             # is what wait_for_response callers synchronize on. GET bodies stay
@@ -671,11 +682,14 @@ class PlaywrightCdpEngine(Engine):
             such a record sat at ``status=None`` forever and every
             ``wait_for_response`` on it spent its whole budget learning nothing.
             """
+            mocked = request in self._mocked
+            self._mocked.discard(request)
             rec = self._pending.pop(request, None)
             if rec is None:
                 return
             rec.duration_ms = time.monotonic() * 1000 - rec.started_ms
             rec.failure = str(getattr(request, "failure", None) or "aborted")
+            rec.mocked = rec.mocked or mocked
 
         def on_console(msg: Any) -> None:
             if msg.type in ("error", "warning"):
@@ -1038,6 +1052,7 @@ class PlaywrightCdpEngine(Engine):
                 return
             route.fulfill(status=status, body=body, headers=headers, content_type=content_type)
 
+        setattr(answer, "_testence_builtin_mock", True)
         with self._timed("route", f"{'abort' if abort else status} {pattern}"):
             self._context.route(pattern, answer)
 
@@ -1555,7 +1570,28 @@ class PlaywrightCdpEngine(Engine):
         (ADR-0027): the DSL records the step around it, so evidence still knows an
         unrecorded interaction happened and why.
         """
-        return self._require_page()
+        page = self._require_page()
+        if self._native_routes is None:
+            self._native_routes = NativeRoutes(self._record_native_mock, self._attach_taps)
+            self._native_routes.install(page.context)
+        return page
+
+    def set_native_mock_observer(self, observer: Callable[..., None]) -> None:
+        self._native_mock_observer = observer
+
+    def _record_native_mock(self, request: Any, outcome: str) -> None:
+        self._mocked.add(request)
+        if request in self._pending:
+            self._pending[request].mocked = True
+        if self._native_mock_observer is not None:
+            self._native_mock_observer(
+                pattern=request.url, outcome=outcome, source="native", method=request.method
+            )
+
+    def _close_native_routes(self) -> None:
+        if self._native_routes is not None:
+            self._native_routes.close()
+            self._native_routes = None
 
     def current_url(self) -> str:
         return self._require_page().url

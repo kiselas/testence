@@ -19,7 +19,6 @@ agent, and a filled value is never echoed. stdout carries protocol messages only
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -95,7 +94,12 @@ TOOLS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "pytest_args": {"type": "array", "items": {"type": "string"}, "default": []},
-                "timeout_s": {"type": "integer", "default": 300, "maximum": _RUN_TIMEOUT_S},
+                "timeout_s": {
+                    "type": "integer",
+                    "default": 300,
+                    "minimum": 1,
+                    "maximum": _RUN_TIMEOUT_S,
+                },
             },
         },
     },
@@ -124,6 +128,10 @@ TOOLS: list[dict[str, Any]] = [
 
 class ToolError(Exception):
     """A tool failed in a way the agent should read; it is a result, not a crash."""
+
+    def __init__(self, message: str, *, payload: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.payload = payload
 
 
 def _python(target: dict[str, Any]) -> str:
@@ -179,7 +187,14 @@ class McpServer:
             if method == "tools/call":
                 return self._result(request_id, self._call(params))
         except ToolError as exc:
-            return self._result(request_id, self._tool_result(str(exc), error=True))
+            return self._result(
+                request_id,
+                self._tool_result(
+                    json.dumps(exc.payload) if exc.payload is not None else str(exc),
+                    error=True,
+                    structured=exc.payload is not None,
+                ),
+            )
         return self._error(request_id, -32601, f"method not found: {method}")
 
     def serve(self, reader: TextIO, writer: TextIO) -> None:
@@ -258,7 +273,9 @@ class McpServer:
             raise ToolError(f"{type(exc).__name__}: {first}") from exc
         return self._tool_result(json.dumps(payload, ensure_ascii=False, indent=1))
 
-    def _tool_result(self, text: str, *, error: bool = False) -> dict[str, Any]:
+    def _tool_result(
+        self, text: str, *, error: bool = False, structured: bool = False
+    ) -> dict[str, Any]:
         """Apply the same privacy boundary to every success and failure response."""
         from testence.evidence.sanitize import sanitize, sanitize_text
 
@@ -270,7 +287,7 @@ class McpServer:
             text = "cannot return tool details: fix the project's redaction configuration"
             error = True
         else:
-            if error:
+            if error and not structured:
                 text = sanitize_text(text, secrets=secrets, policy=policy, limit=_TEXT_LIMIT)
             else:
                 # Redact the document before serializing it. Clipping serialized JSON
@@ -414,13 +431,16 @@ class McpServer:
         return path
 
     def _run(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        from testence._process import run_owned
         from testence.application import inspect_run
         from testence.evidence import new_run_id
 
         args = arguments.get("pytest_args") or []
         if not isinstance(args, list) or not all(isinstance(item, str) for item in args):
             raise ToolError("pytest_args must be a list of strings")
-        timeout = min(int(arguments.get("timeout_s") or 300), _RUN_TIMEOUT_S)
+        timeout = arguments.get("timeout_s", 300)
+        if type(timeout) is not int or not 1 <= timeout <= _RUN_TIMEOUT_S:
+            raise ToolError("timeout_s must be an integer between 1 and 900")
         run_id = new_run_id()
         command = [
             sys.executable,
@@ -434,19 +454,7 @@ class McpServer:
             "--",
             *args,
         ]
-        try:
-            completed = subprocess.run(
-                command,
-                cwd=self.project,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout,
-                check=False,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise ToolError(f"the run did not finish within {timeout} s") from exc
+        completed = run_owned(command, cwd=self.project, timeout=timeout)
         run_dir = self.project / "runs" / run_id
         summary: Any = None
         if run_dir.is_dir():
@@ -454,12 +462,16 @@ class McpServer:
                 summary = inspect_run(run_dir)
             except Exception as exc:  # noqa: BLE001 - reported next to the output
                 summary = {"error": f"{type(exc).__name__}: {exc}"}
-        return {
+        payload = {
             "exit_code": completed.returncode,
             "run_dir": f"runs/{run_id}" if run_dir.is_dir() else None,
             "summary": summary,
             "output_tail": self._clean(completed.stdout[-4_000:] + completed.stderr[-2_000:]),
         }
+        if completed.timed_out:
+            payload.update(timed_out=True, error=f"the run did not finish within {timeout} s")
+            raise ToolError(str(payload["error"]), payload=payload)
+        return payload
 
     def _inspect(self, arguments: dict[str, Any]) -> dict[str, Any]:
         from testence.application import ApplicationError, inspect_run

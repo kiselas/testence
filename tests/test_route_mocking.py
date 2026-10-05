@@ -122,8 +122,76 @@ def test_route_arguments_are_checked(tmp_path):
         actions.route("**/x", abort=True, body="x")
 
 
-def _run(project: Path) -> subprocess.CompletedProcess[str]:
-    (project / "test_route.py").write_text(SUITE.lstrip(), encoding="utf-8")
+NATIVE_SUITE = """
+from playwright.sync_api import Page
+
+
+@pytest.mark.parametrize('scope', ['page', 'context'])
+def test_native_fake_save_cannot_prove_persistence(ex, testence_api, scope):
+    def fake(route):
+        route.fulfill(status=201, json=FAKE)
+
+    with ex.native('register a native fabricated save') as page:
+        assert isinstance(page, Page)
+        owner = page if scope == 'page' else page.context
+        owner.route('**/api/v1/widgets', fake)
+    _fill(ex)
+    with pytest.raises(OracleFailed, match='answered by'):
+        save_and_verify_state(
+            ex, Target('css', '#save-widget'), name='native widget',
+            request=RequestExpectation('/api/v1/widgets', 'POST'),
+            read=lambda: testence_api.get_fresh('/api/v1/widgets/w-fake'),
+            expected=ExpectedState.fields('stored', {'name': 'edge'}), deadline_ms=300,
+        )
+    ex.expect_visible(Target('css', "#saved[data-id='w-fake']"))
+    fresh = testence_api.get_fresh('/api/v1/widgets/w-fake')
+    assert fresh.status == 200
+    assert fresh.json == {'id': 'w-fake', 'cidr': '10.0.0.0/24'}
+    assert fresh.json != FAKE
+    records = [r for r in ex.engine.network_log() if r.method == 'POST']
+    assert records and records[-1].mocked
+
+
+@pytest.mark.parametrize('scope', ['page', 'context'])
+def test_native_abort_is_marked_even_without_a_response(ex, scope):
+    with ex.native('abort a native save') as page:
+        owner = page if scope == 'page' else page.context
+        owner.route('**/api/v1/widgets', lambda route: route.abort())
+    _fill(ex)
+    ex.click(Target('css', '#save-widget'))
+    assert ex.engine.wait_for_request('/api/v1/widgets', method='POST', timeout_ms=500)
+    ex.engine.settle(500)
+    records = [r for r in ex.engine.network_log() if r.method == 'POST']
+    assert records and records[-1].mocked and records[-1].failure
+
+
+@pytest.mark.parametrize('scope', ['page', 'context'])
+@pytest.mark.parametrize('method', ['continue_', 'fallback'])
+def test_native_passthrough_is_real_backend_evidence(ex, testence_api, scope, method):
+    with ex.native('observe without replacing the response') as page:
+        owner = page if scope == 'page' else page.context
+        owner.route('**/api/v1/widgets', lambda route: getattr(route, method)())
+    test_an_unmocked_save_is_still_proved(ex, testence_api)
+    assert not any(r.mocked for r in ex.engine.network_log())
+
+
+@pytest.mark.parametrize('scope', ['page', 'context'])
+def test_native_unroute_keeps_the_original_handler_identity(ex, testence_api, scope):
+    def fake(route, request):
+        route.fulfill(status=201, json=FAKE)
+
+    with ex.native('register and remove the same handler') as page:
+        owner = page if scope == 'page' else page.context
+        owner.route('**/api/v1/widgets', fake, times=1)
+        owner.unroute('**/api/v1/widgets', fake)
+    test_an_unmocked_save_is_still_proved(ex, testence_api)
+    assert not any(r.mocked for r in ex.engine.network_log())
+"""
+
+
+def _run(project: Path, *, native: bool = False) -> subprocess.CompletedProcess[str]:
+    suite = SUITE + NATIVE_SUITE if native else SUITE
+    (project / "test_route.py").write_text(suite.lstrip(), encoding="utf-8")
     (project / "testence.json").write_text(json.dumps(FORM), encoding="utf-8")
     with MockApp() as app:
         env = os.environ.copy()
@@ -170,3 +238,21 @@ def test_mocking_in_a_real_browser(tmp_path: Path):
     assert len(mocked) == 3
     assert {event["outcome"] for event in mocked} == {"201", "abort"}
     assert all(event["pattern"] == "**/api/v1/widgets" for event in mocked)
+
+
+def test_native_mocking_in_a_real_browser(tmp_path: Path):
+    project = tmp_path / "native-mocked"
+    project.mkdir()
+    result = _run(project, native=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "14 passed" in result.stdout
+    ledger = next((project / "runs").glob("*/run.jsonl")).read_text(encoding="utf-8")
+    events = [json.loads(line) for line in ledger.splitlines() if line]
+    mocked = [
+        event
+        for event in events
+        if event["kind"] == "network.mocked" and event.get("source") == "native"
+    ]
+    assert len(mocked) == 4
+    assert {event["outcome"] for event in mocked} == {"201", "abort"}
+    assert all(event["source"] == "native" for event in mocked)

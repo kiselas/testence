@@ -138,3 +138,7 @@ native mocks, timeout descendants и внешняя product acceptance.
 После этого следующий implementation slice — native network mocks с controls из
 таблицы плана. Hosted matrix должна проверять exact clean candidate; локальная
 проверка не заменяет её. Коммиты сохранены локально, push/release не выполнялись.
+
+Продолжение на 2026-10-05: [исследования и slice Q26](2026-10-05-testing-quality-research.md),
+[новый handoff](2026-10-05-testing-quality-handoff.md). Статусы и assurance выше
+относятся к исходному аудиту 2026-10-01; итог нового slice фиксируется отдельно.

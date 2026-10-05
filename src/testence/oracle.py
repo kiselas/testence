@@ -632,7 +632,8 @@ def save_and_verify_state(
         operation["mocked"] = True
         observation = OracleObservation(
             "failed",
-            "matching mutation was answered by ex.route and never reached the server",
+            "matching mutation was answered by ex.route or native Playwright; "
+            "a mocked response cannot prove persistence",
             operation,
             0,
             0.0,

@@ -113,6 +113,9 @@ class Actions:
         self._children: list[int] = []
         #: Failed checks collected by the open ``ex.soft`` block, if any.
         self._soft: list[StepFailure] | None = None
+        observer = getattr(engine, "set_native_mock_observer", None)
+        if callable(observer):
+            observer(lambda **data: self.writer.emit("network.mocked", test=self.test_id, **data))
 
     # -- core wrapper ------------------------------------------------------
 
