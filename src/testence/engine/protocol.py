@@ -40,10 +40,13 @@ class Target:
     name: str | None = None
     nth: int | None = None
     exact: bool | None = None
+    within: Target | None = None
 
     def __post_init__(self) -> None:
         if self.kind not in TARGET_KINDS:
             raise ValueError(f"unknown target kind: {self.kind!r}")
+        if self.within is not None and not isinstance(self.within, Target):
+            raise TypeError("within must be a Target")
 
     def matches_exactly(self) -> bool:
         if self.exact is not None:
@@ -58,6 +61,8 @@ class Target:
             parts.append(f"nth={self.nth}")
         if not self.matches_exactly():
             parts.append("substring")
+        if self.within is not None:
+            parts.append(f"within=({self.within.describe()})")
         return " ".join(parts)
 
 
@@ -307,6 +312,10 @@ class Engine(Protocol):
         ...
 
     def read_text(self, target: Target) -> str: ...
+    def input_value(self, target: Target) -> str:
+        """Read one field, including an empty value; duplicate matches must fail."""
+        ...
+
     def read_all_texts(self, target: Target) -> list[str]:
         """Texts of every element matching the target.
 

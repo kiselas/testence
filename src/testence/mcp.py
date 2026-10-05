@@ -39,6 +39,11 @@ _TARGET_SCHEMA = {
         "value": {"type": "string"},
         "name": {"type": "string", "description": "accessible name, for kind=role"},
         "nth": {"type": "integer", "description": "which of several matches, from 0"},
+        "exact": {"type": "boolean"},
+        "within": {
+            "type": "object",
+            "description": "Parent Target; same fields, optionally nested",
+        },
     },
     "required": ["kind", "value"],
 }
@@ -63,7 +68,7 @@ TOOLS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "url": {"type": "string"},
-                "limit": {"type": "integer", "default": 60, "maximum": _MAX_ELEMENTS},
+                "limit": {"type": "integer", "default": 60, "minimum": 1, "maximum": _MAX_ELEMENTS},
             },
         },
     },
@@ -132,15 +137,6 @@ class ToolError(Exception):
     def __init__(self, message: str, *, payload: dict[str, Any] | None = None) -> None:
         super().__init__(message)
         self.payload = payload
-
-
-def _python(target: dict[str, Any]) -> str:
-    parts = [repr(target["kind"]), repr(target["value"])]
-    if target.get("name"):
-        parts.append(f"name={target['name']!r}")
-    if target.get("nth") is not None:
-        parts.append(f"nth={target['nth']}")
-    return f"Target({', '.join(parts)})"
 
 
 class McpServer:
@@ -352,11 +348,18 @@ class McpServer:
         if not isinstance(raw.get("value"), str) or not raw["value"]:
             raise ToolError("target.value must be a non-empty string")
         nth = raw.get("nth")
+        if nth is not None and type(nth) is not int:
+            raise ToolError("target.nth must be an integer")
+        exact = raw.get("exact")
+        if exact is not None and type(exact) is not bool:
+            raise ToolError("target.exact must be a boolean")
         return Target(
             raw["kind"],
             raw["value"],
             name=raw.get("name") or None,
             nth=nth if isinstance(nth, int) else None,
+            exact=exact,
+            within=McpServer._target(raw["within"]) if raw.get("within") is not None else None,
         )
 
     def _doctor(self, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -365,44 +368,13 @@ class McpServer:
         return doctor(self.project, target=bool(arguments.get("target")))
 
     def _snapshot(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        from testence.engine import Target
+        from testence.discovery import snapshot
 
         engine = self._session()
         url = arguments.get("url")
         if url:
             engine.goto(str(url))
-        engine.settle(1_500)
-        limit = min(int(arguments.get("limit") or 60), _MAX_ELEMENTS)
-        elements: list[dict[str, Any]] = []
-        seen: set[tuple[str, str, str]] = set()
-        for candidate in engine.candidate_elements():
-            target = candidate["target"]
-            key = (target["kind"], target["value"], target.get("name") or "")
-            if key in seen:
-                continue
-            seen.add(key)
-            spec = {k: target[k] for k in ("kind", "value", "name") if target.get(k)}
-            count = engine.count(Target(spec["kind"], spec["value"], name=spec.get("name")))
-            elements.append(
-                {
-                    "target": spec,
-                    "python": _python(spec),
-                    "matches": count,
-                    "unique": count == 1,
-                }
-            )
-            if len(elements) >= limit:
-                break
-        for element in elements:
-            for field in ("value", "name"):
-                if field in element["target"]:
-                    element["target"][field] = self._clean(str(element["target"][field]), 300)
-            element["python"] = _python(element["target"])
-        return {
-            "url": engine.current_url(),
-            "aria": self._clean(engine.aria_snapshot()),
-            "elements": elements,
-        }
+        return snapshot(engine, self._load_settings(), limit=arguments.get("limit", 60))
 
     def _click(self, arguments: dict[str, Any]) -> dict[str, Any]:
         target = self._target(arguments.get("target"))

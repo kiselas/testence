@@ -179,6 +179,11 @@ Follow [Testing a UI feature](https://github.com/kiselas/testence/blob/main/docs
 
 ## Fast agent authoring
 
+Start with the [short authoring loop](docs/en/authoring-loop.md): locate the consumer
+project (including older Exhibit/`stf_autotests` pilots), map one page with
+`testence explore`, scope duplicate controls with `Target(..., within=...)`, and run
+one exact pytest node before the full suite.
+
 Keep the authenticated browser alive and attach short runs over CDP:
 
 ```bash

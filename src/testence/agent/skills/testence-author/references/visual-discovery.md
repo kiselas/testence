@@ -3,6 +3,15 @@
 Use this reference for a visible UI exploration, external application or visual
 testing request. Keep browser actions inside the authorized target and data scope.
 
+For a one-command initial map use `testence explore <url> --project <consumer-root>
+--profile <declared-profile> --json`; the existing MCP snapshot session also supports
+continued observations of open menus/dialogs. Scope duplicate controls with
+`Target(..., within=Target(...))`. Prove one exact pytest node first; inspect its
+ARIA/triage pack before another run. Use collect-only to catch imported test cases
+in a debug module. The opt-in `testence watch --warm` retains the engine for edits;
+accepted proof still needs a fresh process and clean seed. Details:
+`docs/en/authoring-loop.md` in the framework repository.
+
 1. Record the target revision/build, URL, viewport, browser, locale and starting
    state. Fix synthetic seed data and the permission boundary before mutations.
 2. Inspect a screenshot and the accessible UI together. Identify the user task,

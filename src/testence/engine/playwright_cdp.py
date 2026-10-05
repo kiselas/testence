@@ -751,7 +751,9 @@ class PlaywrightCdpEngine(Engine):
     # -- targets -----------------------------------------------------------
 
     def _locate(self, target: Target) -> Locator:
-        page = self._scope or self._require_page()
+        page = (
+            self._locate(target.within) if target.within else (self._scope or self._require_page())
+        )
         exact = target.matches_exactly()
         if target.kind == "role":
             loc = page.get_by_role(target.value, name=target.name, exact=exact)  # type: ignore[arg-type]
@@ -1186,6 +1188,10 @@ class PlaywrightCdpEngine(Engine):
             f"{target.describe()} == {value!r}",
             lambda: pw_expect(self._locate(target)).to_have_value(value, timeout=timeout),
         )
+
+    def input_value(self, target: Target) -> str:
+        with self._timed("input_value", target.describe()):
+            return self._locate(target).input_value(timeout=self.timeout_ms)
 
     def expect_count(self, target: Target, count: int, timeout_ms: int | None = None) -> None:
         timeout = timeout_ms or self.timeout_ms
@@ -1645,9 +1651,12 @@ class PlaywrightCdpEngine(Engine):
                     texts.append(" ".join(locator.nth(index).inner_text(timeout=500).split()))
                 except Exception:  # noqa: BLE001 - diagnostic only
                     texts.append("?")
-            shown = ", ".join(repr(_clip(text)) for text in texts)
+            shown = ", ".join(f"nth={index}: {_clip(text)!r}" for index, text in enumerate(texts))
             more = ", ..." if count > 3 else ""
-            return f"{count} elements match ({shown}{more}); narrow the target or pass nth="
+            return (
+                f"{count} elements match ({shown}{more}); narrow with within=Target(...) "
+                "or pass an explicit nth="
+            )
         needle = (target.name if target.kind == "role" else target.value) or ""
         similar: list[str] = []
         if target.kind != "css" and needle.strip():

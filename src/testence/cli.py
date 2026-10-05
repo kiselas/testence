@@ -201,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Agent-first browser testing with evidence-backed verdicts.",
         epilog=(
             "Start here: doctor, init, run, inspect, report.\n"
-            "Authoring: plan, capabilities, watch, bench, demo, agent.\n"
+            "Authoring: explore, plan, capabilities, watch, bench, demo, agent.\n"
             "Results: export, metrics, verdict, repair, quality, ci, delivery.\n"
             "Testence maintainers only: corpus, release.\n"
             "\n"
@@ -397,6 +397,16 @@ def main(argv: list[str] | None = None) -> int:
         nargs=argparse.REMAINDER,
         help="passed to pytest unchanged, after an optional --; default: the onboarding test",
     )
+
+    p_explore = sub.add_parser(
+        "explore", help="map one page: ARIA, unique Targets and data-key rows"
+    )
+    p_explore.add_argument("url", help="absolute URL or path relative to configured base_url")
+    p_explore.add_argument("--project", type=Path, default=Path("."))
+    p_explore.add_argument("--profile", default="")
+    p_explore.add_argument("--headed", action="store_true")
+    p_explore.add_argument("--limit", type=int, default=60)
+    p_explore.add_argument("--json", dest="json_output", action="store_true")
 
     p_inspect = sub.add_parser("inspect", help="inspect one explicit run directory")
     p_inspect.add_argument("run_dir", type=Path, help="run directory, for example runs/r-123")
@@ -595,6 +605,23 @@ def main(argv: list[str] | None = None) -> int:
                     "then read its evidence: testence inspect runs/<new run id>"
                 )
         return int(completed.returncode)
+
+    if args.command == "explore":
+        from .discovery import explore
+
+        try:
+            result = explore(
+                args.project, args.url, profile=args.profile, headed=args.headed, limit=args.limit
+            )
+        except (ValueError, OSError) as exc:
+            print(f"explore failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            # ASCII JSON is portable to legacy Windows consoles; decoding preserves Unicode.
+            print(json.dumps(result, ensure_ascii=True))
+        else:
+            print(json.dumps(result, ensure_ascii=True, indent=2))
+        return 0
 
     if args.command == "inspect":
         from .application import ApplicationError, inspect_run

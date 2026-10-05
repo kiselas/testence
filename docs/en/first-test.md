@@ -1,6 +1,6 @@
 # Your first test
 
-Ten minutes, your own app, no plan file. A PlanSpec is for tracking claims across a
+Your own app, no plan file. A PlanSpec is for tracking claims across a
 team ([testing a feature](testing-a-feature.md)); a test does not need one to run, fail
 with evidence, or prove something.
 
@@ -22,6 +22,9 @@ Then `testence doctor --target` reaches `base_url`, checks the credentials and t
 login once, so a wrong URL or password is one line, not a timeout.
 
 ## 2. Write one test
+
+Map the screen with `testence explore / --project . --json` first. See the
+[short authoring loop](authoring-loop.md) for dialog scopes and exact-case reruns.
 
 `ex` is the browser, already logged in. Address elements by role and accessible name;
 say in `intent` what the step is for, it is what the report shows.

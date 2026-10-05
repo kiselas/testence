@@ -406,6 +406,14 @@ class Actions:
     # Exact by default, like expect_text. A state that never holds is a failed
     # assertion (AssertionError), which reports file as ``failed``.
 
+    def input_value(self, target: Target, intent: str | None = None) -> str:
+        """Read a field once. Use expect_value first when waiting for an app suggestion.
+
+        The value is returned to test code, never included in the step ledger.
+        """
+        with self.step(intent or f"read value of {target.describe()}", target):
+            return self.engine.input_value(target)
+
     def expect_value(self, target: Target, value: str, intent: str | None = None) -> None:
         """A form control holds exactly ``value`` (inputs have no text to match)."""
         with self.step(
