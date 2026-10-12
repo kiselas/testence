@@ -1,0 +1,151 @@
+{
+  "schema": "testence/acceptance-receipt/1",
+  "task_ids": [
+    "S3-09"
+  ],
+  "check_ids": [
+    "G1",
+    "G2",
+    "G3",
+    "G5",
+    "G6",
+    "G8",
+    "R01",
+    "R02",
+    "R03",
+    "R04",
+    "R05",
+    "R06",
+    "R07",
+    "R08",
+    "R09",
+    "R10",
+    "R11",
+    "R12",
+    "R15",
+    "R16",
+    "R18",
+    "R19",
+    "R20",
+    "R21",
+    "R22",
+    "R24"
+  ],
+  "profile": "rc",
+  "evidence_kind": "hosted_ci",
+  "producer": {
+    "tool": "github-actions",
+    "version": "hosted",
+    "runner": "ubuntu/windows/macos hosted matrix"
+  },
+  "source": {
+    "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642",
+    "dirty": false,
+    "materialized_digest": "sha256:920809f053631829e6cec810454339150e43bbf0781de06db3bfb18172be4fef"
+  },
+  "subjects": [
+    {
+      "path": "dist/reproducible-build.json",
+      "bytes": 849,
+      "sha256": "16625afd5145f10de003711a894537d1659746de147d1a613ff27c0dd7250572"
+    },
+    {
+      "path": "dist/testence-0.1.0a2-py3-none-any.whl",
+      "bytes": 336722,
+      "sha256": "39fe8b54acb492e624428d436b0c923d57d93abde96294e4e461dc18ebf63aad"
+    },
+    {
+      "path": "dist/testence-0.1.0a2.tar.gz",
+      "bytes": 442836,
+      "sha256": "ed68c413b75fc8fefa3685f7d14afb556136a4886ff671d59048248b6dbb8283"
+    }
+  ],
+  "environment": {
+    "run_id": "38220146275",
+    "python": [
+      "3.10",
+      "3.12"
+    ],
+    "platforms": [
+      "ubuntu-latest",
+      "windows-latest",
+      "macos-latest"
+    ]
+  },
+  "command": {
+    "argv": [
+      "github-actions",
+      "ci.yml",
+      "38220146275"
+    ],
+    "cwd_profile": "fresh-checkout",
+    "started_at": "2026-10-12T07:51:56Z",
+    "finished_at": "2026-10-12T08:08:02Z",
+    "exit_code": 0
+  },
+  "expected": {
+    "all_jobs": "success",
+    "reproducible_build": true,
+    "installed_wheel_smoke": true
+  },
+  "observed": {
+    "conclusion": "success",
+    "jobs": 17,
+    "run_url": "https://github.com/kiselas/testence/actions/runs/38220146275",
+    "reproducible_build": true,
+    "installed_wheel_smoke": true
+  },
+  "status": "passed",
+  "skipped": [],
+  "limitations": [
+    "This alpha receipt proves the automated candidate matrix; deferred R1-only external acceptance is listed in the release manifest."
+  ],
+  "artifacts": [
+    {
+      "path": "dist/reproducible-build.json",
+      "bytes": 849,
+      "sha256": "16625afd5145f10de003711a894537d1659746de147d1a613ff27c0dd7250572"
+    },
+    {
+      "path": "dist/testence-0.1.0a2-py3-none-any.whl",
+      "bytes": 336722,
+      "sha256": "39fe8b54acb492e624428d436b0c923d57d93abde96294e4e461dc18ebf63aad"
+    },
+    {
+      "path": "dist/testence-0.1.0a2.tar.gz",
+      "bytes": 442836,
+      "sha256": "ed68c413b75fc8fefa3685f7d14afb556136a4886ff671d59048248b6dbb8283"
+    },
+    {
+      "path": "release-artifacts/checksums.sha256",
+      "bytes": 190,
+      "sha256": "18d3b985e39a2d282a2ab88d38cd4d70e39a06c55fdbb0a68f8448bb7dbf1d40"
+    },
+    {
+      "path": "release-artifacts/dependency-inventory.json",
+      "bytes": 3148,
+      "sha256": "186293d21771ba4cc985ee171c6c8a4567ae2a0b746c4340b2cc3c1029fb6418"
+    },
+    {
+      "path": "release-artifacts/installed-wheel-smoke.json",
+      "bytes": 1300,
+      "sha256": "520970ad06b44b685abdc5941719da0d62568bc5c309bac3b0d129714e15c70c"
+    },
+    {
+      "path": "release-artifacts/provenance.json",
+      "bytes": 2321,
+      "sha256": "c3691205324d0201a18aa76151dbbbe997f47c0f9c7032836a03a883363b1085"
+    },
+    {
+      "path": "release-artifacts/sbom.json",
+      "bytes": 11017,
+      "sha256": "e89ed68837feeb790ab701af4913da7aaf4ec0ff1ad6f0503eeba1cac981df20"
+    },
+    {
+      "path": "release-artifacts/sdist-rebuild.json",
+      "bytes": 737,
+      "sha256": "7bdebfa3382b14dc60d0488d9e30eabe51f848cc0a887531fc6c38e5aa147cc4"
+    }
+  ],
+  "review": null
+}

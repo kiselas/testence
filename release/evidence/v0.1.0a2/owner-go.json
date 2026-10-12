@@ -1,0 +1,64 @@
+{
+  "schema": "testence/acceptance-receipt/1",
+  "task_ids": [
+    "S3-09"
+  ],
+  "check_ids": [
+    "OWNER-01"
+  ],
+  "profile": "external",
+  "evidence_kind": "external_review",
+  "producer": {
+    "tool": "release-owner-review",
+    "version": "1",
+    "runner": "kiselas"
+  },
+  "source": {
+    "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642",
+    "dirty": false,
+    "materialized_digest": "sha256:920809f053631829e6cec810454339150e43bbf0781de06db3bfb18172be4fef"
+  },
+  "subjects": [
+    {
+      "path": "dist/reproducible-build.json",
+      "bytes": 849,
+      "sha256": "16625afd5145f10de003711a894537d1659746de147d1a613ff27c0dd7250572"
+    },
+    {
+      "path": "dist/testence-0.1.0a2-py3-none-any.whl",
+      "bytes": 336722,
+      "sha256": "39fe8b54acb492e624428d436b0c923d57d93abde96294e4e461dc18ebf63aad"
+    },
+    {
+      "path": "dist/testence-0.1.0a2.tar.gz",
+      "bytes": 442836,
+      "sha256": "ed68c413b75fc8fefa3685f7d14afb556136a4886ff671d59048248b6dbb8283"
+    }
+  ],
+  "environment": {
+    "repository": "https://github.com/kiselas/testence",
+    "release": "0.1.0a2"
+  },
+  "command": null,
+  "expected": {
+    "decision": "accepted",
+    "scope": "public alpha"
+  },
+  "observed": {
+    "decision": "accepted",
+    "instruction": "Публикуемся с списком фиксов."
+  },
+  "status": "passed",
+  "skipped": [],
+  "limitations": [
+    "Approval is scoped to the 0.1.0a2 public alpha and the limitations recorded in its manifest."
+  ],
+  "artifacts": [],
+  "review": {
+    "reviewer": "kiselas",
+    "scope_digest": "sha256:920809f053631829e6cec810454339150e43bbf0781de06db3bfb18172be4fef",
+    "decision": "accepted",
+    "reference": "Owner instruction in the Claude Code release session, 2026-10-12",
+    "reviewed_at": "2026-10-12T08:08:02Z"
+  }
+}
