@@ -88,6 +88,11 @@ testence oracle suggest runs/r-local
 Тест должен быть коротким и читаемым:
 
 ```python
+import pytest
+
+from testence.oracle import ExpectedState, RequestExpectation, save_and_verify_state
+
+
 @pytest.mark.testence(
     plan="specs/widgets-create.md",
     claims=["widgets.create.persisted"],
@@ -98,17 +103,25 @@ def test_created_widget_is_visible(ex, testence_api, widget_seed):
     ex.goto("/widgets", intent="open the widget collection")
     ex.click(CREATE_BUTTON, intent="start creating a widget")
     ex.fill(NAME_FIELD, widget.name, intent="name the widget")
-    ex.click(SAVE_BUTTON, intent="save the widget")
-
-    ex.expect_text(ROW_NAME, widget.name, intent="show the created widget")
-    ex.verify_state(
-        "created widget",
-        lambda: testence_api.get_fresh(f"/api/widgets/{widget.id}"),
-        ExpectedState.fields("the widget is persisted", {"name": widget.name}),
+    save_and_verify_state(
+        ex,
+        SAVE_BUTTON,
+        name="created widget",
+        request=RequestExpectation("/api/widgets", "POST"),
+        read=lambda created: testence_api.get_fresh(f"/api/widgets/{created['id']}"),
+        expected=lambda created: ExpectedState.fields(
+            "the widget is persisted", {"name": widget.name}, entity_id=created["id"]
+        ),
         assertion_id="assert.widget.persisted",
         claim_id="widgets.create.persisted",
     )
+    ex.expect_text(ROW_NAME, widget.name, intent="show the created widget")
 ```
+
+`save_and_verify_state` один раз нажимает Save и читает виджет, id которого вернул
+ответ этого сохранения. Чтение по id, выбранному тестом до нажатия, находит только
+запись, которая уже была, и даёт `verified`, даже если Save не дошёл до сервера;
+`ex.verify_state` доказывает состояние, а не то, какое действие его вызвало.
 
 Избегайте произвольных sleeps. Ждите значимое состояние: request, response, видимое
 значение, количество строк или специфичный сигнал готовности приложения.
