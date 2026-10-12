@@ -2,12 +2,12 @@
 
 Testence is in alpha. The supported development and CI matrix is Windows, Linux and
 macOS on Apple Silicon, Python 3.10 and 3.12, and the Playwright-bundled Chromium
-browser. The published `0.1.0a1` predates macOS support. Intel macOS,
+browser. `0.1.0a2` is the first release with macOS receipts. Intel macOS,
 Firefox, WebKit, mobile, hosted dashboards and production-data handling are outside the
 current support promise.
 
-During the alpha the latest `main` is the supported development line; the published
-`0.1.0a1` receives no backported fixes. Upgrade notes: [upgrading](docs/en/upgrading.md).
+During the alpha the latest `main` is the supported development line; published
+alphas receive no backported fixes. Upgrade notes: [upgrading](docs/en/upgrading.md).
 After `0.1.x`, the latest patch of the current minor receives bug and critical security
 fixes until 90 days after the next minor release. `0.x` releases may change Python APIs,
 but a breaking change requires a changelog entry and migration instructions. Public

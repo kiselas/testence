@@ -96,7 +96,7 @@ def test_release_version_is_consistent_across_package_and_public_manifests() -> 
     )
 
     assert project_version is not None
-    assert project_version.group(1) == __version__ == support["version"] == "0.1.0a1"
+    assert project_version.group(1) == __version__ == support["version"] == "0.1.0a2"
     assert skill_pack["minimum_testence"] == __version__
     assert support["status"] == "alpha"
     assert '"Development Status :: 3 - Alpha"' in pyproject
