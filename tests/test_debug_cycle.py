@@ -98,7 +98,9 @@ def ex(tmp_path, receiver):
 
 def test_upload_rewrite_preserves_exact_file_once_and_marks_provenance(ex, receiver, tmp_path):
     raw = bytes(range(256)) * 64 + b"\x00multipart\r\nend"
-    path = tmp_path / "synthetic.bin"
+    # An extension no OS maps to a type: macOS sends .bin as application/macbinary,
+    # so the browser-chosen type would differ by host rather than by adapter.
+    path = tmp_path / "synthetic.tstbin"
     path.write_bytes(raw)
     ex.rewrite_response(
         "*/api/upload", lambda original: {"adapted": original["sha256"]}, method="POST"
@@ -113,7 +115,7 @@ def test_upload_rewrite_preserves_exact_file_once_and_marks_provenance(ex, recei
     assert receiver[1] == [
         {
             "bytes": raw,
-            "filename": "synthetic.bin",
+            "filename": "synthetic.tstbin",
             "content_type": "application/octet-stream",
             "authorization": None,
         }
@@ -128,7 +130,7 @@ def test_rewrite_failure_does_not_send_a_second_upload(ex, receiver, tmp_path):
         raise ValueError("synthetic adapter error")
 
     ex.rewrite_response("*/api/upload", broken)
-    path = tmp_path / "synthetic.bin"
+    path = tmp_path / "synthetic.tstbin"
     path.write_bytes(b"original file")
     ex.upload(Target("css", "#file"), [str(path)])
     with pytest.raises(StepFailed, match="response adapter failed"):
@@ -247,7 +249,7 @@ def test_phase_timings_never_add_nested_totals():
 
 
 def test_xhr_upload_and_context_reset_leave_no_adapter(ex, receiver, tmp_path):
-    path = tmp_path / "synthetic.bin"
+    path = tmp_path / "synthetic.tstbin"
     path.write_bytes(b"xhr bytes")
     ex.rewrite_response("*/api/upload", lambda _body: {"via": "xhr"})
     ex.upload(Target("css", "#file"), [str(path)])
@@ -335,7 +337,7 @@ def test_parallel_waits_do_not_become_serial_wall_percent():
 def test_response_adapter_coexists_with_authorization_headers(ex, receiver, tmp_path):
     ex.engine.set_extra_http_headers({"Authorization": "Bearer synthetic-header"})
     ex.rewrite_response("*/api/upload", lambda body: {"adapted": body["backend"]})
-    path = tmp_path / "synthetic.bin"
+    path = tmp_path / "synthetic.tstbin"
     path.write_bytes(b"authorized original file")
     ex.upload(Target("css", "#file"), [str(path)])
     ex.click(Target("css", "#send"))
