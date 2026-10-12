@@ -8,6 +8,20 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- `oracle suggest` wrote a save snippet that could not prove the save: it read an id
+  the test chose before the click (only a row that already existed can have it), named
+  the recorded run's origin, imported nothing and, without fields, swallowed its own
+  closing brackets in a comment. `save_and_verify_state` now accepts
+  `read=lambda created: ...` and `expected=lambda created: ...`, bound to the response
+  of the save it made, and the snippet uses them; it pastes and proves the created row.
+- `ExpectedState.absent(..., entity_id=...)`, the snippet for a DELETE, never passed: the
+  binding was checked on the empty answer that proves the absence.
+- Request bodies were never captured, even with `network_bodies` on: Chromium lists no
+  `content-length` on a request. `oracle suggest` now sees the keys the test sent.
+- The author skill and the docs proved a save with `ex.verify_state` on a seeded row
+  after the click, which is `verified` without any save; they now use
+  `save_and_verify_state` bound to the created row and import what they use.
+  Skill pack 0.1.19.
 - [MCP](mcp.md) listed seven tools; `testence_status` and `testence_debug` are now in the
   table, and a test keeps the table equal to what the server offers.
 - Two README links to the authoring loop were relative and broke on the PyPI page; a test

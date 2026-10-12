@@ -634,6 +634,15 @@ class PlaywrightCdpEngine(Engine):
             headers = request.headers
             content_type = str(headers.get("content-type", ""))
             size = declared_size(headers)
+            if size is None and admitted(content_type):
+                # Chromium does not list content-length among a request's headers, so
+                # every request body went uncaptured. The body already arrived with the
+                # request event; its length costs nothing to read.
+                try:
+                    raw = request.post_data_buffer
+                except Exception:  # noqa: BLE001 - evidence capture is best-effort
+                    raw = None
+                size = len(raw) if raw is not None else None
             captured_body = None
             if admitted(content_type) and size is not None and size <= self.body_cap_bytes:
                 body = request.post_data or None

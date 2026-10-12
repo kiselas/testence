@@ -7,6 +7,7 @@ data (product review 2026-09-28, P1-1).
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import subprocess
@@ -98,7 +99,9 @@ def test_a_ledger_without_traffic_is_explained_not_empty():
 def test_every_snippet_is_valid_python():
     records = _widgets(NetRecord("DELETE", "http://app.test/api/v1/widgets/w7", 204, 2, 5))
     for candidate in _candidates(records)["candidates"]:
-        compile(candidate["snippet"], "<suggestion>", "eval")
+        # A pasted snippet must parse on the oldest supported Python: quotes reused inside
+        # an f-string, or a comment that swallows a closing bracket, broke it in 0.1.0a2.
+        ast.parse(candidate["snippet"], "<suggestion>", feature_version=(3, 10))
     assert "save_and_verify_state(" in render(_candidates(records))
 
 
@@ -123,8 +126,8 @@ def test_save_a_widget(ex):
 """
 
 
-def _record(project: Path, settings: dict[str, Any]) -> Path:
-    (project / "test_widgets.py").write_text(SUITE.lstrip(), encoding="utf-8")
+def _record(project: Path, settings: dict[str, Any], suite: str = SUITE) -> Path:
+    (project / "test_widgets.py").write_text(suite.lstrip(), encoding="utf-8")
     (project / "testence.json").write_text(json.dumps(settings), encoding="utf-8")
     with MockApp() as app:
         env = os.environ.copy()
@@ -184,6 +187,15 @@ def test_a_real_run_yields_the_oracle_for_the_save(tmp_path: Path):
     assert candidate["mutation"] == "POST /api/v1/widgets"
     assert candidate["fields"] == ["cidr", "name"]
     assert result["warnings"] == []
+    # Chromium lists no content-length on a request, which left every request body
+    # uncaptured even with network_bodies on; the keys must come from what was sent.
+    (net,) = [
+        json.loads(line)
+        for line in (run / "run.jsonl").read_text(encoding="utf-8").splitlines()
+        if '"kind":"net"' in line
+    ]
+    assert net["mutations"][0]["request_keys"] == ["cidr", "name"]
+    assert not any("not captured" in note for note in candidate["notes"])
     assert "edge" not in (run / "run.jsonl").read_text(encoding="utf-8").split('"kind":"net"')[1]
 
 
@@ -201,3 +213,38 @@ def test_a_mistyped_run_directory_is_an_error_not_an_empty_answer(tmp_path: Path
     completed = _suggest(tmp_path / "no-such-run")
     assert completed.returncode == 2
     assert "oracle suggest failed" in completed.stderr
+
+
+def test_the_suggested_snippet_pastes_into_the_test_and_proves_the_save(tmp_path: Path):
+    """The 0.1.0a2 snippet bound `entity_id` before the click (only an existing row can
+    have that id, so the read proved nothing about the save), named the run's own
+    origin and did not import its names. Pasted with the target and the typed values
+    filled in, it must now run and prove the widget this save created."""
+    settings = {**FORM, "extra": {"capture_policy": {"network_bodies": True}}}
+    recorded = tmp_path / "recorded"
+    recorded.mkdir()
+    (candidate,) = json.loads(_suggest(_record(recorded, settings)).stdout)["candidates"]
+    snippet = candidate["snippet"].replace("SAVE_TARGET", 'Target("css", "#save-widget")')
+    body = "\n".join("    " + line if line else "" for line in snippet.splitlines())
+    suite = (
+        "from testence.engine import Target\n\n\n"
+        "def test_save_a_widget(ex, testence_api):\n"
+        '    name, cidr = "edge", "10.0.0.0/8"\n'
+        '    ex.goto("/widgets/new")\n'
+        "    ex.fill(Target('css', '#name'), name)\n"
+        "    ex.fill(Target('css', '#cidr'), cidr)\n"
+        f"{body}\n"
+    )
+    pasted = tmp_path / "pasted"
+    pasted.mkdir()
+    run = _record(pasted, settings, suite)
+    events = [
+        json.loads(line) for line in (run / "run.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    oracle = [event for event in events if event.get("kind") == "oracle"]
+    assert [event["observation"]["outcome"] for event in oracle] == ["passed"], oracle
+    created = oracle[0]["expected"]["entity_id"]
+    assert oracle[0]["actual"]["id"] == created and oracle[0]["expected"]["fields"] == {
+        "cidr": "10.0.0.0/8",
+        "name": "edge",
+    }

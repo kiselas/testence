@@ -8,8 +8,9 @@ Start from a validated `testence/planspec/2` and bind only declared claim IDs:
 import pytest
 
 from testence.engine import Target
+from testence.oracle import ExpectedState, RequestExpectation, save_and_verify_state
 
-
+NAME = Target("role", "textbox", name="Name")
 SAVE = Target("role", "button", name="Save")
 
 
@@ -19,16 +20,24 @@ SAVE = Target("role", "button", name="Save")
 )
 def test_created_widget_is_persisted(ex, testence_api, widget_seed):
     widget = widget_seed.valid()
-    ex.goto("/widgets", intent="open the widget collection")
-    ex.click(SAVE, intent="save the widget")
-    ex.verify_state(
-        "persisted widget",
-        lambda: testence_api.get_fresh(f"/api/widgets/{widget.id}"),
-        ExpectedState.fields("the widget is persisted", {"name": widget.name}),
+    ex.goto("/widgets/new", intent="open the widget form")
+    ex.fill(NAME, widget.name, intent="name the widget")
+    save_and_verify_state(
+        ex,
+        SAVE,
+        name="persisted widget",
+        request=RequestExpectation("/api/widgets", "POST"),
+        read=lambda created: testence_api.get_fresh(f"/api/widgets/{created['id']}"),
+        expected=lambda created: ExpectedState.fields(
+            "the widget is persisted", {"name": widget.name}, entity_id=created["id"]
+        ),
         assertion_id="assert.widget.persisted",
         claim_id="widgets.create.persisted",
     )
 ```
+
+The read takes its id from the response of the save the test made. A read of a row the
+seed created, after a click, is `verified` even when Save never reached the server.
 
 Collection must reject an external plan path or unknown claim. Use repository-relative plan paths so bindings survive across machines.
 
