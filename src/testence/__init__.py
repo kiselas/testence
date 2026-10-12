@@ -9,6 +9,6 @@ Public API surface (kept deliberately small; Playwright never leaks through it):
 
 from .identity import EVIDENCE_SCHEMA
 
-__version__ = "0.1.0a1"
+__version__ = "0.1.0a2"
 
 SCHEMA_VERSION = EVIDENCE_SCHEMA

@@ -13,6 +13,10 @@ On a fresh checkout their structure can be inspected with
 (expected exit 3: no-go). Full verification requires the original bundle and
 must never substitute `--structure-only` for artifact verification.
 
+`publish.yml` reads the decision of the release it publishes from
+`release/manifest-<tag>.json` and its receipts from `release/evidence/<tag>/`, so each
+release keeps its own record and earlier ones stay verifiable.
+
 Current candidates are built by CI from a clean SHA. Download the immutable
 candidate-distributions artifact and all required acceptance evidence before
 assembling a new candidate-bound manifest. A green private CI run may lack signed

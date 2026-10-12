@@ -11,7 +11,7 @@ body:
     attributes:
       label: Testence version or commit
       description: Output of `testence --version`, or the commit SHA for a source checkout.
-      placeholder: 0.1.0a1 or commit SHA
+      placeholder: 0.1.0a2 or commit SHA
     validations:
       required: true
   - type: dropdown

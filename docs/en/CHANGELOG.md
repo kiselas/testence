@@ -1,13 +1,45 @@
 # Changelog
 
-Testence is in alpha: `0.1.0a1` is published on PyPI. Changes since the last published
-release are grouped under `Unreleased`; compatibility between alphas is not guaranteed,
-and a breaking change comes with migration notes ([upgrading](upgrading.md)).
+Testence is in alpha: `0.1.0a2` is the latest release on PyPI. Changes since the last
+published release are grouped under `Unreleased`; compatibility between alphas is not
+guaranteed, and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.1.0a2 — 2026-10-12
+
+The launch-hardening release. The API oracle now works on token single-page apps and
+proves deletions. `ex` logs in by default. The release adds oracle discovery
+(`testence oracle suggest`), several users per test, request mocking that cannot pass as
+proof, a narrow MCP server, a JUnit exporter and live Allure TestOps streaming. Over a
+hundred fixes are listed below; the security ones close credential leaks to third-party
+origins and to evidence. Breaking changes and how to keep the old behaviour:
+[upgrading from 0.1.0a1](upgrading.md).
+
 ### Added
 
+- Authoring loop ([short iterations](authoring-loop.md)): `Target(..., within=...)` scopes
+  a control to a dialog or row, nested scopes included, and a duplicate names every match
+  with its index. `testence explore URL --json` maps a page once: ARIA, uniqueness counts
+  and data rows, redacted. `ex.input_value(target)` reads a field strictly.
+  `with ex.expect_outcome({...}, expected=...)` observes which declared result an action
+  produced instead of guessing from a timeout.
+- `testence debug <node>` replays exactly one case in a fresh process, with a guarded
+  collection (pinned node ids and test-file hashes; more than one case is refused unless
+  `--allow-multiple`). It returns bounded failure triage, evidence paths and phase
+  timings. `testence status` reports the installation. MCP gains `testence_debug` and
+  `testence_status` ([ADR-0031](adr/0031-guarded-debug-response-adapters.md)).
+- `ex.rewrite_response(pattern, transform)` adapts JSON at the CDP response stage while
+  the browser sends its original request, so a multipart upload keeps its exact bytes.
+  Adapted traffic is marked mocked and cannot prove persistence.
+- `--testence-browser-reuse` (or `extra.browser_reuse`): one owned browser per pytest
+  worker and a fresh context per test, opt-in. Attached, persistent and warm
+  configurations are refused ([ADR-0032](adr/0032-worker-browser-reuse.md)).
+- Skill pack 0.1.18: `testence-author` maps a page with `testence explore`, scopes
+  duplicate controls with `within=` and proves one case with `testence debug` before a
+  full run.
 - `testence mcp`: a narrow MCP server (stdio) with seven tools for the write-and-prove loop:
   doctor, snapshot (elements with ready-to-use, uniqueness-checked `Target`s), click, fill,
   run, inspect and oracle suggest. Page text is redacted, values are never echoed and
@@ -127,6 +159,11 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ### Security
 
+- MCP responses and errors now pass the project's redaction as a whole: a URL, the
+  description of a clicked target or an exception could carry a secret past the
+  per-field masking. A broken privacy configuration hides the details.
+- MCP accepted an absolute `project/../outside` path as inside the project. Paths are
+  resolved before the containment check.
 - Bearer and Basic auth headers were set on the whole browser context, so the token or
   the password went with every request the page made, to any origin: a CDN, analytics,
   a font host. They now go only to `base_url` and `api_allowed_origins`, as with
@@ -155,6 +192,27 @@ and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ### Fixed
 
+- `page.route` and `context.route` answers inside `ex.native` were invisible to the
+  oracle, so a fulfilled save could pass as persistence. Native fulfil and abort are now
+  recorded as mocked ([ADR-0030](adr/0030-native-network-provenance.md)); `continue_` and
+  `fallback` are not substitution.
+- Oracle identity: a boolean id, correlation id or revision matched a numeric one
+  (`True == 1`) and could bind the proof to the wrong entity.
+- `ExpectedState.fields`: a missing field matched the literal expectation `<missing>`,
+  the diagnostic placeholder; changing the dict passed in, or the public document, after
+  the fact could weaken the expectation. Presence is checked apart from the value, and
+  expectations are deep copies.
+- The MCP `testence_run` deadline killed only the CLI; pytest and the browser could
+  outlive it, and the partial run reference was lost. The run now owns its process tree
+  (a Windows job, a POSIX process group) and a timeout returns the incomplete run
+  ([ADR-0029](adr/0029-owned-mcp-run-deadlines.md)).
+- A JSON-RPC request whose `params` was a list, a string or a number stopped the MCP
+  stdio server; it is now error `-32602` and the stream continues.
+- Redaction read a `Target` named "Password" as a secret pair and lost its role, which
+  made the target unusable.
+- A missing FFmpeg for `evidence.video` advised installing a browser; it now says
+  `python -m playwright install ffmpeg`, and `doctor` checks the video encoder when video
+  is configured.
 - A form login without a success signal could read a wrong password as a login: the
   password field is briefly absent while the submit replaces the page. The login now
   lets the navigation land and looks once more.
