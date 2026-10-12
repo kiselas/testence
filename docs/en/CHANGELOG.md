@@ -37,6 +37,9 @@ origins and to evidence. Breaking changes and how to keep the old behaviour:
 - `--testence-browser-reuse` (or `extra.browser_reuse`): one owned browser per pytest
   worker and a fresh context per test, opt-in. Attached, persistent and warm
   configurations are refused ([ADR-0032](adr/0032-worker-browser-reuse.md)).
+- Skill pack 0.1.18: `testence-author` maps a page with `testence explore`, scopes
+  duplicate controls with `within=` and proves one case with `testence debug` before a
+  full run.
 - `testence mcp`: a narrow MCP server (stdio) with seven tools for the write-and-prove loop:
   doctor, snapshot (elements with ready-to-use, uniqueness-checked `Target`s), click, fill,
   run, inspect and oracle suggest. Page text is redacted, values are never echoed and
