@@ -37,7 +37,9 @@ opt-in because tests assert user emails.
 The policy carries names only and is recorded in `run.start`. Export and report apply
 it again to events and text attachments, so evidence from before a rule reaches an
 integration redacted; the run directory of record is never rewritten. `testence export
---attachments full|minimal|none` limits which pack files leave the machine.
+--attachments full|minimal|none|raw` limits which pack files leave the machine; only
+`raw` ships what is stored unredacted (trace, video, binary attachments). Amended
+2026-10-12: `full` shipped them while being the default.
 
 `evidence.mask` lists targets that every screenshot paints black through Playwright's
 `mask`. A visual baseline records non-empty masks in its profile: changing masks makes

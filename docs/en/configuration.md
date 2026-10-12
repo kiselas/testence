@@ -339,7 +339,8 @@ per page. Both are listed on `test.end` as `recordings`.
 screenshots exactly as the page showed them, a video holds the pixels; redaction and
 `evidence.mask` do not reach inside either. Enable them where the data a test touches
 may be kept, and note each file is marked `redaction: none`. Only
-`testence export --attachments full` ships them. They need a context Testence owns, so
+`testence export --attachments raw` ships them; the default export and the live Allure
+stream do not. They need a context Testence owns, so
 an attached browser or a persistent profile refuses them.
 
 ## Running in parallel

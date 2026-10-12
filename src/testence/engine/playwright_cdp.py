@@ -57,6 +57,16 @@ _POLL_MS = 10
 #: Any scheme means the caller addressed a document directly: http(s), file, data,
 #: about. Matching only "http"/"file:" prefixed base_url onto everything else.
 _URL_SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
+#: Values of fields that hold a secret by type or autocomplete hint. An ARIA snapshot
+#: prints a textbox's value (`textbox "Passwort": s3cret`) whatever its label says.
+_SECRET_FIELD_VALUES_JS = """() => {
+  const hints = ['current-password', 'new-password', 'one-time-code', 'cc-number', 'cc-csc'];
+  return Array.from(document.querySelectorAll('input'))
+    .filter((field) => field.type === 'password'
+      || (field.autocomplete || '').split(/\\s+/).some((hint) => hints.includes(hint)))
+    .map((field) => field.value)
+    .filter((value) => value);
+}"""
 #: Verbs that must never be accepted as a URL fragment: see wait_for_request.
 _HTTP_VERBS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"})
 
@@ -1617,10 +1627,24 @@ class PlaywrightCdpEngine(Engine):
             except Exception as exc:  # noqa: BLE001 - browser evidence is best-effort
                 snapshot = f"<aria snapshot failed: {type(exc).__name__}>"
             if snapshot.strip() and not snapshot.startswith("<aria"):
-                return snapshot
+                return self._mask_secret_fields(snapshot)
             if attempt == 0:
                 self.wait_until_rendered(timeout_ms=2_000)
         return snapshot or "<page rendered no accessible content>"
+
+    def _mask_secret_fields(self, tree: str) -> str:
+        """Hide the values of password, one-time-code and card fields in an ARIA tree.
+
+        Label-based redaction missed `Passwort`, `Пароль` or `Password confirmation`, so
+        the typed value reached the pack, the MCP snapshot and every export.
+        """
+        values: set[str] = set()
+        for frame in self._require_page().frames:
+            with suppress(Exception):
+                values.update(str(value) for value in frame.evaluate(_SECRET_FIELD_VALUES_JS))
+        for value in sorted(values, key=len, reverse=True):
+            tree = re.sub(rf"(:[ ]){re.escape(value)}$", r"\1<redacted>", tree, flags=re.MULTILINE)
+        return tree
 
     def screenshot(self, path: str) -> None:
         page = self._require_page()
@@ -1744,7 +1768,9 @@ class PlaywrightCdpEngine(Engine):
         similar: list[str] = []
         if target.kind != "css" and needle.strip():
             try:
-                tree = self._require_page().locator("body").aria_snapshot(timeout=1_000)
+                tree = self._mask_secret_fields(
+                    self._require_page().locator("body").aria_snapshot(timeout=1_000)
+                )
             except Exception:  # noqa: BLE001 - diagnostic only
                 tree = ""
             lowered = needle.strip().lower()

@@ -314,6 +314,9 @@ suite into Testence.
         ".testence/examples/test_demo_failure.py": failure_test.encode(),
         ".testence/examples/test_demo_harmless.py": harmless_test.encode(),
         ".testence/README.md": readme.encode(),
+        # Evidence and the cached login session (runs/.session-*.json) stay out of
+        # version control without touching the project's own .gitignore.
+        "runs/.gitignore": b"# Testence evidence and session caches; never commit them.\n*\n",
     }
 
 
@@ -541,6 +544,18 @@ def export_auth(
     if target.exists():
         target.unlink()
     descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    if os.name == "nt":
+        # The mode bits restrict nothing on Windows: the file inherited the folder's
+        # ACL (Users, Administrators). Restrict it before the session is written.
+        from testence.auth.strategies import _restrict_to_current_user
+
+        if not _restrict_to_current_user(target):
+            os.close(descriptor)
+            target.unlink()
+            raise ApplicationError(
+                f"could not restrict {target} to the current user; the session was not "
+                "written. Choose a folder only you can read with -o"
+            )
     with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(document)
     return {

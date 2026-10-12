@@ -6,6 +6,31 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ## Unreleased
 
+### Security
+
+- The default export (`--attachments full`) and the live Allure stream shipped the
+  Playwright trace and video, which hold the typed password, auth headers, cookies and
+  bodies unredacted, and binary attachments. They now ship only with the new
+  `--attachments raw` ([upgrading](upgrading.md#after-010a2)).
+- An ARIA snapshot (`aria.txt`, the MCP snapshot, a failed step's hint) printed the value
+  of a password or one-time-code field whose label was not English for "password":
+  `Passwort`, `Пароль`, `Password confirmation`. Such values are now masked by the field's
+  type and autocomplete hint, whatever its label.
+- `base_url` with `user:password@` reached `run.start`, packs and the Allure environment.
+  The password is now dropped from the settings description and redacted in any text.
+- Login cookies and stored tokens were not registered as run secrets, so a session cookie
+  in an assertion message reached the ledger and exports; they now are (values of 8
+  characters or more), for `testence_actor` sessions too.
+- Redaction now covers `Authorization` with any scheme (`Token`, `ApiKey`, `Digest`), the
+  whole of a quoted value (`password = 'correct horse ...'` kept all but the first word),
+  names after an escaped line break in repr()ed text (`\npin: ...`), known secrets in
+  URL-encoded, JSON- and repr-escaped form, PEM private keys, and Stripe, Google, npm and
+  Slack webhook tokens.
+- `testence auth export` restricts the session file to the current user on Windows, where
+  the 0600 mode bits restrict nothing, and refuses to write it when it cannot.
+- `testence init` writes `runs/.gitignore`, so run evidence and the cached login session
+  stay out of version control.
+
 ### Fixed
 
 - [MCP](mcp.md) listed seven tools; `testence_status` and `testence_debug` are now in the
