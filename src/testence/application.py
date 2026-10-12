@@ -432,13 +432,19 @@ def doctor(
             [
                 sys.executable,
                 "-c",
-                "import sys\n"
+                "import sys, tempfile\n"
                 "from playwright.sync_api import sync_playwright\n"
                 "with sync_playwright() as p:\n"
                 "    browser = p.chromium.launch(channel=sys.argv[1], headless=True)\n"
                 "    print(browser.version)\n"
+                "    if sys.argv[2] != 'off':\n"
+                "        with tempfile.TemporaryDirectory() as directory:\n"
+                "            context = browser.new_context(record_video_dir=directory)\n"
+                "            context.new_page()\n"
+                "            context.close()\n"
                 "    browser.close()\n",
                 browser_channel,
+                str(settings.evidence_config().get("video", "off")) if settings else "off",
             ],
             text=True,
             capture_output=True,
@@ -447,6 +453,8 @@ def doctor(
         )
         started = browser_probe.returncode == 0
         detail = f"playwright={version}; channel={browser_channel}"
+        if settings and settings.evidence_config().get("video", "off") != "off":
+            detail += "; video=checked"
         if started:
             detail += f"; {browser_probe.stdout.strip()}"
         else:

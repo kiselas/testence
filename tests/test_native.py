@@ -46,6 +46,25 @@ def test_native_code_drives_the_page_inside_one_recorded_step(engine, tmp_path):
     assert step["intent"] == "open the command palette with Ctrl+K"
 
 
+def test_native_context_new_pages_and_replaced_sessions_are_observed(engine, tmp_path):
+    from tests.mock_app import MockApp
+
+    with MockApp() as app, EvidenceWriter(tmp_path, worker="") as writer:
+        for index in range(2):
+            ex = Actions(engine, writer, f"native-{index}")
+            with ex.native("mock a request on a new page") as page:
+                child = page.context.new_page()
+                child.route("**/api/v1/widgets", lambda route: route.fulfill(json={"fake": True}))
+                child.goto(app.base_url + "/login")
+                assert child.evaluate("fetch('/api/v1/widgets').then(r => r.json())") == {
+                    "fake": True
+                }
+            assert any(record.mocked for record in engine.network_log())
+            engine.reset_session()
+        mocked = [event for event in _events(writer) if event["kind"] == "network.mocked"]
+        assert [event["test"] for event in mocked] == ["native-0", "native-1"]
+
+
 def test_a_failure_inside_is_a_failed_step_without_a_heal_target(engine, tmp_path):
     with EvidenceWriter(tmp_path, worker="") as writer:
         ex = Actions(engine, writer, "native-fail")

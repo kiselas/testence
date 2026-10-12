@@ -87,6 +87,11 @@ class ExpectedRequest:
         return self.record
 
 
+@dataclass
+class ExpectedOutcome:
+    name: str | None = None
+
+
 class Actions:
     """Engine + evidence, bound to one test. Projects build ActionMaps on top."""
 
@@ -113,6 +118,9 @@ class Actions:
         self._children: list[int] = []
         #: Failed checks collected by the open ``ex.soft`` block, if any.
         self._soft: list[StepFailure] | None = None
+        observer = getattr(engine, "set_native_mock_observer", None)
+        if callable(observer):
+            observer(lambda **data: self.writer.emit("network.mocked", test=self.test_id, **data))
 
     # -- core wrapper ------------------------------------------------------
 
@@ -402,6 +410,14 @@ class Actions:
     #
     # Exact by default, like expect_text. A state that never holds is a failed
     # assertion (AssertionError), which reports file as ``failed``.
+
+    def input_value(self, target: Target, intent: str | None = None) -> str:
+        """Read a field once. Use expect_value first when waiting for an app suggestion.
+
+        The value is returned to test code, never included in the step ledger.
+        """
+        with self.step(intent or f"read value of {target.describe()}", target):
+            return self.engine.input_value(target)
 
     def expect_value(self, target: Target, value: str, intent: str | None = None) -> None:
         """A form control holds exactly ``value`` (inputs have no text to match)."""
@@ -767,6 +783,61 @@ class Actions:
                 f"the block sent no request matching {label}: the UI accepted the "
                 "action but nothing reached the server"
             )
+
+    @contextmanager
+    def expect_outcome(
+        self,
+        outcomes: dict[str, Target],
+        *,
+        expected: str | None = None,
+        timeout_ms: int = 3_000,
+        intent: str | None = None,
+    ) -> Iterator[ExpectedOutcome]:
+        """Send the action once, then observe one declared UI result within a deadline.
+
+        Existing visible results and conflicting results fail explicitly. No result
+        means unobserved, not evidence of silent rejection.
+        """
+        if not outcomes or not all(
+            isinstance(k, str) and k and isinstance(v, Target) for k, v in outcomes.items()
+        ):
+            raise ValueError("outcomes must map non-empty names to Targets")
+        if type(timeout_ms) is not int or timeout_ms <= 0:
+            raise ValueError("timeout_ms must be a positive integer")
+        if expected is not None and expected not in outcomes:
+            raise ValueError("expected outcome must be declared")
+        outcomes = dict(outcomes)
+        holder = ExpectedOutcome()
+        with self.step(intent or "observe the action's UI outcome"):
+            existing = self.engine.visible_outcomes(outcomes)
+            if existing:
+                raise AssertionError(f"outcomes already visible before the action: {existing}")
+            yield holder
+            holder.name = self.engine.wait_for_outcome(outcomes, timeout_ms)
+            self.writer.emit(
+                "note", test=self.test_id, text="UI outcome observed", outcome=holder.name
+            )
+            if expected is not None and holder.name != expected:
+                raise AssertionError(f"expected outcome {expected!r}, observed {holder.name!r}")
+
+    def rewrite_response(
+        self,
+        pattern: str,
+        transform: Callable[[Any], Any],
+        *,
+        method: str | None = None,
+        intent: str | None = None,
+    ) -> None:
+        """Adapt a JSON response after the original browser request is sent once.
+
+        Chromium/CDP only. Responses are mocked evidence, never proof of persistence.
+        """
+        rewrite = getattr(self.engine, "rewrite_response", None)
+        if not callable(rewrite):
+            raise UnsupportedCapability("rewrite_response", {"browser.response-rewrite"}, set())
+        require_capabilities(self.engine, "rewrite_response", Capability.RESPONSE_REWRITE)
+        with self.step(intent or f"adapt JSON responses for {pattern}"):
+            rewrite(pattern, transform, method=method)
 
     def route(
         self,

@@ -24,6 +24,19 @@ from testence.report import render_report
 from testence.triage import assemble_pack
 
 ROOT = Path(__file__).parents[1]
+
+
+def test_typed_target_names_are_addresses_but_secret_values_stay_redacted():
+    target = {"kind": "role", "value": "textbox", "name": "Password"}
+    assert sanitize({"target": target}) == {"target": target}
+    secret_target = {**target, "name": "synthetic-credential"}
+    assert (
+        sanitize({"target": secret_target}, secrets=["synthetic-credential"])["target"]["name"]
+        == REDACTED
+    )
+    assert sanitize({"name": "Password", "value": "synthetic-credential"})["value"] == REDACTED
+
+
 _JWT = (
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
     "eyJzdWIiOiJzeW50aGV0aWMtdXNlciJ9."

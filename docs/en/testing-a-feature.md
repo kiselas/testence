@@ -257,9 +257,17 @@ ex.route("**/api/widgets", abort=True)               # a dropped connection
 Every mock is recorded (`network.mocked`), and each response it produces is marked
 `mocked` in the network log and the pack. A mocked response looks like the server's,
 so it is refused as proof: `save_and_verify_state` and `save_and_verify` fail with
-"answered by ex.route" rather than accept it as the mutation. Prove persistence against
-the real backend, and keep mocked tests to what the UI does with the answer. A
-`page.route` inside `ex.native` is not recorded. Needs the `browser.network_mock`
+"answered by ex.route or native Playwright" rather than accept it as the mutation.
+Prove persistence against the real backend, and keep mocked tests to what the UI does
+with the answer. Public `page.route` and `page.context.route` registered after entering
+`ex.native` are observed too: actual `fulfill`/`abort` emit `network.mocked` with
+`source: native`; `continue_`/`fallback` alone remain passthrough. Registration may
+happen inside the block and the request later. The same context's new pages are
+observed, original handler identities work with `unroute`, and the separate
+`ApiClient.get_fresh` read is unaffected. `route.fetch` followed by `fulfill` still
+produces a substituted answer, even if the fetch reached the server. HAR replay,
+service workers, external interception and routes installed before this seam are
+outside this observation contract. Needs the `browser.network_mock`
 capability ([engine capabilities](engine-capabilities.md)).
 
 ## 5. Prove the test can fail correctly

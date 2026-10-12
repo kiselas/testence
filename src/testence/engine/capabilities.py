@@ -12,6 +12,7 @@ class Capability(str, Enum):
     NAVIGATION = "browser.navigation"
     DOM = "browser.dom"
     NETWORK = "browser.network"
+    RESPONSE_REWRITE = "browser.response-rewrite"
     WEBSOCKET = "browser.websocket"
     VISUAL = "visual.screenshot"
     ACCESSIBILITY = "browser.accessibility"

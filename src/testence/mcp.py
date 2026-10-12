@@ -19,7 +19,6 @@ agent, and a filled value is never echoed. stdout carries protocol messages only
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -40,11 +39,36 @@ _TARGET_SCHEMA = {
         "value": {"type": "string"},
         "name": {"type": "string", "description": "accessible name, for kind=role"},
         "nth": {"type": "integer", "description": "which of several matches, from 0"},
+        "exact": {"type": "boolean"},
+        "within": {
+            "type": "object",
+            "description": "Parent Target; same fields, optionally nested",
+        },
     },
     "required": ["kind", "value"],
 }
 
 TOOLS: list[dict[str, Any]] = [
+    {
+        "name": "testence_status",
+        "description": "Locate the installed package, project settings and declared parallel policy.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "testence_debug",
+        "description": "Preflight one exact pytest node, run it in a fresh process and return failure ARIA and phase timings. Multiple cases require explicit opt-in.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "node": {"type": "string"},
+                "workers": {"type": "integer", "minimum": 1, "maximum": 16, "default": 1},
+                "allow_multiple": {"type": "boolean", "default": False},
+                "browser_reuse": {"type": "boolean", "default": False},
+                "timeout_s": {"type": "integer", "minimum": 1, "maximum": 900, "default": 300},
+            },
+            "required": ["node"],
+        },
+    },
     {
         "name": "testence_doctor",
         "description": "Check the Testence runtime. With target=true also reach the app's "
@@ -64,7 +88,7 @@ TOOLS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "url": {"type": "string"},
-                "limit": {"type": "integer", "default": 60, "maximum": _MAX_ELEMENTS},
+                "limit": {"type": "integer", "default": 60, "minimum": 1, "maximum": _MAX_ELEMENTS},
             },
         },
     },
@@ -95,7 +119,12 @@ TOOLS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "pytest_args": {"type": "array", "items": {"type": "string"}, "default": []},
-                "timeout_s": {"type": "integer", "default": 300, "maximum": _RUN_TIMEOUT_S},
+                "timeout_s": {
+                    "type": "integer",
+                    "default": 300,
+                    "minimum": 1,
+                    "maximum": _RUN_TIMEOUT_S,
+                },
             },
         },
     },
@@ -125,14 +154,9 @@ TOOLS: list[dict[str, Any]] = [
 class ToolError(Exception):
     """A tool failed in a way the agent should read; it is a result, not a crash."""
 
-
-def _python(target: dict[str, Any]) -> str:
-    parts = [repr(target["kind"]), repr(target["value"])]
-    if target.get("name"):
-        parts.append(f"name={target['name']!r}")
-    if target.get("nth") is not None:
-        parts.append(f"nth={target['nth']}")
-    return f"Target({', '.join(parts)})"
+    def __init__(self, message: str, *, payload: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.payload = payload
 
 
 class McpServer:
@@ -166,7 +190,9 @@ class McpServer:
             if method == "notifications/initialized":
                 self._initialized = True
             return None
-        params = message.get("params") or {}
+        params = message.get("params", {})
+        if not isinstance(params, dict):
+            return self._error(request_id, -32602, "params must be an object")
         try:
             if method == "initialize":
                 return self._result(request_id, self._initialize(params))
@@ -177,7 +203,14 @@ class McpServer:
             if method == "tools/call":
                 return self._result(request_id, self._call(params))
         except ToolError as exc:
-            return self._result(request_id, self._tool_result(str(exc), error=True))
+            return self._result(
+                request_id,
+                self._tool_result(
+                    json.dumps(exc.payload) if exc.payload is not None else str(exc),
+                    error=True,
+                    structured=exc.payload is not None,
+                ),
+            )
         return self._error(request_id, -32601, f"method not found: {method}")
 
     def serve(self, reader: TextIO, writer: TextIO) -> None:
@@ -239,6 +272,8 @@ class McpServer:
             "testence_click": self._click,
             "testence_fill": self._fill,
             "testence_run": self._run,
+            "testence_status": self._status,
+            "testence_debug": self._debug,
             "testence_inspect": self._inspect,
             "testence_oracle_suggest": self._oracle_suggest,
         }
@@ -256,11 +291,53 @@ class McpServer:
             raise ToolError(f"{type(exc).__name__}: {first}") from exc
         return self._tool_result(json.dumps(payload, ensure_ascii=False, indent=1))
 
-    @staticmethod
-    def _tool_result(text: str, *, error: bool = False) -> dict[str, Any]:
+    def _tool_result(
+        self, text: str, *, error: bool = False, structured: bool = False
+    ) -> dict[str, Any]:
+        """Apply the same privacy boundary to every success and failure response."""
+        from testence.evidence.sanitize import sanitize, sanitize_text
+
+        try:
+            settings = self._load_settings()
+            secrets = settings.redaction_values()
+            policy = settings.redaction_policy()
+        except Exception:  # noqa: BLE001 - invalid privacy policy must fail closed
+            text = "cannot return tool details: fix the project's redaction configuration"
+            error = True
+        else:
+            if error and not structured:
+                text = sanitize_text(text, secrets=secrets, policy=policy, limit=_TEXT_LIMIT)
+            else:
+                # Redact the document before serializing it. Clipping serialized JSON
+                # could break its syntax; limits apply to individual string fields.
+                payload = sanitize(
+                    json.loads(text), secrets=secrets, policy=policy, limit=_TEXT_LIMIT
+                )
+                text = json.dumps(payload, ensure_ascii=False, indent=1)
         return {"content": [{"type": "text", "text": text}], "isError": error}
 
     # -- tools ------------------------------------------------------------------------
+
+    def _status(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        from testence.debug import project_status
+
+        return project_status(self.project)
+
+    def _debug(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        from testence.debug import debug
+
+        node = arguments.get("node")
+        multiple = arguments.get("allow_multiple", False)
+        if not isinstance(node, str) or type(multiple) is not bool:
+            raise ToolError("debug requires a string node and boolean allow_multiple")
+        return debug(
+            self.project,
+            node,
+            workers=arguments.get("workers", 1),
+            allow_multiple=multiple,
+            timeout_s=arguments.get("timeout_s", 300),
+            browser_reuse=arguments.get("browser_reuse", False),
+        )
 
     def _load_settings(self) -> Any:
         if self._settings is None:
@@ -314,11 +391,18 @@ class McpServer:
         if not isinstance(raw.get("value"), str) or not raw["value"]:
             raise ToolError("target.value must be a non-empty string")
         nth = raw.get("nth")
+        if nth is not None and type(nth) is not int:
+            raise ToolError("target.nth must be an integer")
+        exact = raw.get("exact")
+        if exact is not None and type(exact) is not bool:
+            raise ToolError("target.exact must be a boolean")
         return Target(
             raw["kind"],
             raw["value"],
             name=raw.get("name") or None,
             nth=nth if isinstance(nth, int) else None,
+            exact=exact,
+            within=McpServer._target(raw["within"]) if raw.get("within") is not None else None,
         )
 
     def _doctor(self, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -327,44 +411,13 @@ class McpServer:
         return doctor(self.project, target=bool(arguments.get("target")))
 
     def _snapshot(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        from testence.engine import Target
+        from testence.discovery import snapshot
 
         engine = self._session()
         url = arguments.get("url")
         if url:
             engine.goto(str(url))
-        engine.settle(1_500)
-        limit = min(int(arguments.get("limit") or 60), _MAX_ELEMENTS)
-        elements: list[dict[str, Any]] = []
-        seen: set[tuple[str, str, str]] = set()
-        for candidate in engine.candidate_elements():
-            target = candidate["target"]
-            key = (target["kind"], target["value"], target.get("name") or "")
-            if key in seen:
-                continue
-            seen.add(key)
-            spec = {k: target[k] for k in ("kind", "value", "name") if target.get(k)}
-            count = engine.count(Target(spec["kind"], spec["value"], name=spec.get("name")))
-            elements.append(
-                {
-                    "target": spec,
-                    "python": _python(spec),
-                    "matches": count,
-                    "unique": count == 1,
-                }
-            )
-            if len(elements) >= limit:
-                break
-        for element in elements:
-            for field in ("value", "name"):
-                if field in element["target"]:
-                    element["target"][field] = self._clean(str(element["target"][field]), 300)
-            element["python"] = _python(element["target"])
-        return {
-            "url": engine.current_url(),
-            "aria": self._clean(engine.aria_snapshot()),
-            "elements": elements,
-        }
+        return snapshot(engine, self._load_settings(), limit=arguments.get("limit", 60))
 
     def _click(self, arguments: dict[str, Any]) -> dict[str, Any]:
         target = self._target(arguments.get("target"))
@@ -385,7 +438,7 @@ class McpServer:
     def _run_dir(self, raw: Any) -> Path:
         if not isinstance(raw, str) or not raw:
             raise ToolError("run_dir must be a path such as runs/r-123")
-        path = (self.project / raw).resolve() if not Path(raw).is_absolute() else Path(raw)
+        path = (self.project / raw).resolve()
         try:
             path.relative_to(self.project)
         except ValueError as exc:
@@ -393,13 +446,16 @@ class McpServer:
         return path
 
     def _run(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        from testence._process import run_owned
         from testence.application import inspect_run
         from testence.evidence import new_run_id
 
         args = arguments.get("pytest_args") or []
         if not isinstance(args, list) or not all(isinstance(item, str) for item in args):
             raise ToolError("pytest_args must be a list of strings")
-        timeout = min(int(arguments.get("timeout_s") or 300), _RUN_TIMEOUT_S)
+        timeout = arguments.get("timeout_s", 300)
+        if type(timeout) is not int or not 1 <= timeout <= _RUN_TIMEOUT_S:
+            raise ToolError("timeout_s must be an integer between 1 and 900")
         run_id = new_run_id()
         command = [
             sys.executable,
@@ -413,19 +469,7 @@ class McpServer:
             "--",
             *args,
         ]
-        try:
-            completed = subprocess.run(
-                command,
-                cwd=self.project,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout,
-                check=False,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise ToolError(f"the run did not finish within {timeout} s") from exc
+        completed = run_owned(command, cwd=self.project, timeout=timeout)
         run_dir = self.project / "runs" / run_id
         summary: Any = None
         if run_dir.is_dir():
@@ -433,12 +477,16 @@ class McpServer:
                 summary = inspect_run(run_dir)
             except Exception as exc:  # noqa: BLE001 - reported next to the output
                 summary = {"error": f"{type(exc).__name__}: {exc}"}
-        return {
+        payload = {
             "exit_code": completed.returncode,
             "run_dir": f"runs/{run_id}" if run_dir.is_dir() else None,
             "summary": summary,
             "output_tail": self._clean(completed.stdout[-4_000:] + completed.stderr[-2_000:]),
         }
+        if completed.timed_out:
+            payload.update(timed_out=True, error=f"the run did not finish within {timeout} s")
+            raise ToolError(str(payload["error"]), payload=payload)
+        return payload
 
     def _inspect(self, arguments: dict[str, Any]) -> dict[str, Any]:
         from testence.application import ApplicationError, inspect_run

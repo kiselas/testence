@@ -254,9 +254,17 @@ ex.route("**/api/widgets", abort=True)               # a dropped connection
 Каждая подмена записывается (`network.mocked`), а каждый ответ от неё помечается
 `mocked` в журнале сети и pack. Подменённый ответ выглядит как ответ сервера, поэтому как
 доказательство он отвергается: `save_and_verify_state` и `save_and_verify` падают с
-«answered by ex.route», а не принимают его за мутацию. Сохранность доказывайте на
-настоящем backend, а тесты с подменой ограничивайте тем, что UI делает с ответом.
-`page.route` внутри `ex.native` не записывается. Нужна capability `browser.network_mock`
+«answered by ex.route or native Playwright», а не принимают его за мутацию.
+Сохранность доказывайте на настоящем backend, а тесты с подменой ограничивайте тем,
+что UI делает с ответом. `page.route` и `page.context.route`, зарегистрированные после
+входа в `ex.native`, тоже наблюдаются: фактические `fulfill`/`abort` записывают
+`network.mocked` с `source: native`; `continue_`/`fallback` сами по себе остаются
+пропуском запроса. Обработчик может сработать после выхода из блока. Новые страницы
+того же context наблюдаются; `unroute` принимает исходный handler, а независимый
+`ApiClient.get_fresh` не подменяется. `route.fetch` с последующим `fulfill` всё равно
+считается подменённым ответом, даже если fetch дошёл до сервера. HAR replay, service
+workers, внешние перехватчики и маршруты, установленные до этого seam, не входят в
+этот контракт наблюдения. Нужна capability `browser.network_mock`
 ([возможности движка](engine-capabilities.md)).
 
 ## 5. Докажите, что тест правильно падает

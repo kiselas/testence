@@ -25,7 +25,7 @@ from testence.auth import (
     MissingCredentials,
     NoAuth,
 )
-from testence.engine import Target, worker_port_offset
+from testence.engine import Target
 from testence.engine.playwright_cdp import PlaywrightCdpEngine
 from testence.loopback import LoopbackHTTPServer
 
@@ -46,7 +46,7 @@ def engine(app):
         base_url=app.base_url,
         headed=False,
         api_prefix="/api/",
-        debug_port=9222 + worker_port_offset(),
+        debug_port=0,
     )
     eng.start()
     yield eng

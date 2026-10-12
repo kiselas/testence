@@ -12,7 +12,7 @@ import pytest
 from testence.api import ApiClient
 from testence.auth import ApiSessionAuth, Credentials
 from testence.dsl import Actions
-from testence.engine import Target, worker_port_offset
+from testence.engine import Target
 from testence.engine.playwright_cdp import PlaywrightCdpEngine
 from testence.evidence import EvidenceWriter
 from testence.oracle import OracleFailed, save_and_verify
@@ -40,7 +40,7 @@ def session(app, tmp_path):
         base_url=app.base_url,
         headed=False,
         api_prefix="/api/",
-        debug_port=9222 + worker_port_offset(),
+        debug_port=0,
     )
     engine.start()
     context = ApiSessionAuth(CREDS, login_url=f"{app.base_url}/api/v1/auth/login").authenticate(

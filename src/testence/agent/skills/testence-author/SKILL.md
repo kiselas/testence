@@ -47,7 +47,8 @@ For automated screenshot regression or an isolated client simulation, also read
   When the `testence` MCP server is connected, explore with `testence_snapshot`
   (each element comes with a uniqueness-checked `Target`) and try steps with
   `testence_click`/`testence_fill` before writing them; run and read with
-  `testence_run`/`testence_inspect`.
+  `testence_debug` for one guarded case and immediate failure ARIA, then
+  `testence_run`/`testence_inspect` for acceptance. `testence_status` locates the package.
   Prove a save with `ex.verify_state(name, read, ExpectedState.fields(...))`: it polls
   a fresh read and names each differing field; `ex.verify` compares two views taken once.
   Do not guess an oracle's endpoint: run the test once, then `testence oracle suggest

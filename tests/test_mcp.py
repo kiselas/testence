@@ -1,7 +1,7 @@
 """The narrow MCP server (product review 2026-09-28, P1-3).
 
 An agent that could not drive Testence from its own tool loop had to shell out and parse
-text. ``testence mcp`` gives it the seven calls the write-and-prove loop needs, over
+text. ``testence mcp`` gives it the nine calls the write-and-prove loop needs, over
 stdio, with page text redacted and nothing but protocol on stdout.
 """
 
@@ -42,6 +42,72 @@ def _payload(result: dict[str, Any]) -> Any:
     return json.loads(result["content"][0]["text"])
 
 
+@pytest.mark.parametrize("timeout", [0, -1, True, "1", 1.5, None, 901])
+def test_invalid_run_deadlines_are_rejected_before_launch(tmp_path, monkeypatch, timeout):
+    def forbidden(*args, **kwargs):
+        pytest.fail("invalid deadline must not launch a process")
+
+    monkeypatch.setattr("testence._process.run_owned", forbidden)
+    result = _call(McpServer(tmp_path), "testence_run", {"timeout_s": timeout})
+    assert result["isError"]
+    assert "timeout_s must be an integer between 1 and 900" in result["content"][0]["text"]
+
+
+def test_run_timeout_returns_partial_evidence_as_an_error(tmp_path, monkeypatch):
+    monkeypatch.setenv("TESTENCE_PASSWORD", "synthetic-deadline-secret")
+    monkeypatch.setattr("testence.evidence.new_run_id", lambda: "r-deadline")
+    run_dir = tmp_path / "runs" / "r-deadline"
+    run_dir.mkdir(parents=True)
+
+    def timeout(*args, **kwargs):
+        from testence._process import CommandResult
+
+        return CommandResult(None, "partial stdout synthetic-deadline-secret", "", True)
+
+    monkeypatch.setattr("testence._process.run_owned", timeout)
+    result = _call(McpServer(tmp_path), "testence_run", {"timeout_s": 1})
+    assert result["isError"]
+    payload = json.loads(result["content"][0]["text"])
+    assert payload["timed_out"] is True
+    assert payload["run_dir"] == "runs/r-deadline"
+    assert payload["exit_code"] is None
+    assert "partial stdout" in payload["output_tail"]
+    assert "synthetic-deadline-secret" not in result["content"][0]["text"]
+    assert payload["summary"]["run_status"] == "incomplete"
+
+
+def test_real_run_deadline_preserves_incomplete_ledger_and_stops_pytest_children(tmp_path):
+    from tests.test_owned_process import TREE, assert_listener_stopped
+
+    (tmp_path / "tree.py").write_text(TREE, encoding="utf-8")
+    (tmp_path / "testence.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "test_hang.py").write_text(
+        "import subprocess, sys, time\n"
+        "def test_hang(testence_writer):\n"
+        "    testence_writer.emit('note', test='test_hang', text='synthetic deadline entered')\n"
+        "    subprocess.Popen([sys.executable, 'tree.py', '2', 'timeout'])\n"
+        "    print('synthetic deadline entered', flush=True)\n"
+        "    time.sleep(600)\n",
+        encoding="utf-8",
+    )
+    server = McpServer(tmp_path)
+    result = _call(server, "testence_run", {"pytest_args": ["test_hang.py", "-s"], "timeout_s": 8})
+    assert result["isError"], result
+    payload = json.loads(result["content"][0]["text"])
+    assert payload["timed_out"] and payload["exit_code"] is None
+    assert payload["summary"]["run_status"] == "incomplete"
+    assert "synthetic deadline entered" in payload["output_tail"]
+    ledger = tmp_path / payload["run_dir"] / "run.jsonl"
+    events = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
+    assert any(event.get("text") == "synthetic deadline entered" for event in events)
+    assert not any(event["kind"] == "run.end" for event in events)
+    for depth in range(3):
+        port, _pid = json.loads((tmp_path / f"port-{depth}.json").read_text())
+        assert_listener_stopped(port)
+    inspected = _payload(_call(server, "testence_inspect", {"run_dir": payload["run_dir"]}))
+    assert inspected["run_status"] == "incomplete"
+
+
 def test_initialize_negotiates_a_known_protocol_version(tmp_path):
     server = McpServer(tmp_path)
     for asked, expected in (("2024-11-05", "2024-11-05"), ("1999-01-01", PROTOCOL_VERSIONS[0])):
@@ -69,12 +135,12 @@ def test_notifications_are_never_answered_and_bad_requests_are_errors(tmp_path):
     assert invalid is not None and invalid["error"]["code"] == -32600
 
 
-def test_the_seven_tools_have_schemas(tmp_path):
+def test_the_nine_tools_have_schemas(tmp_path):
     reply = McpServer(tmp_path).handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
     assert reply is not None
     names = [tool["name"] for tool in reply["result"]["tools"]]
     assert names == [tool["name"] for tool in TOOLS]
-    assert len(names) == 7 and all(name.startswith("testence_") for name in names)
+    assert len(names) == 9 and all(name.startswith("testence_") for name in names)
     for tool in TOOLS:
         assert tool["description"] and tool["inputSchema"]["type"] == "object"
 
@@ -109,6 +175,71 @@ def test_tool_failures_are_results_the_agent_can_read(tmp_path):
     assert bad["isError"] and "target.kind must be one of" in bad["content"][0]["text"]
     args = _call(server, "testence_run", {"pytest_args": "-q"})
     assert args["isError"] and "list of strings" in args["content"][0]["text"]
+
+
+@pytest.mark.parametrize("params", [[], ["bad"], "bad", 7, True, None])
+def test_invalid_params_do_not_break_the_protocol_stream(tmp_path, params):
+    messages = [
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": params},
+        {"jsonrpc": "2.0", "id": 2, "method": "ping"},
+    ]
+    out = io.StringIO()
+    McpServer(tmp_path).serve(io.StringIO("\n".join(map(json.dumps, messages))), out)
+    replies = [json.loads(line) for line in out.getvalue().splitlines()]
+    assert replies[0]["error"]["code"] == -32602
+    assert replies[1]["result"] == {}
+
+
+def test_absolute_run_paths_cannot_escape_through_parent_segments(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    server = McpServer(project)
+    outside = str(project / ".." / "outside")
+    result = _call(server, "testence_inspect", {"run_dir": outside})
+    assert result["isError"] and "inside the project" in result["content"][0]["text"]
+
+
+def test_all_result_fields_and_errors_are_redacted(explorer, monkeypatch):
+    server, _ = explorer
+    secret = "synthetic-mcp-password"
+    monkeypatch.setenv("TESTENCE_PASSWORD", secret)
+    page = _payload(_call(server, "testence_snapshot"))
+    server._engine.current_url = lambda: f"http://app.test/?token={secret}"
+    clicked = _call(server, "testence_click", {"target": {"kind": "text", "value": secret}})
+    assert secret not in clicked["content"][0]["text"]
+    assert _payload(clicked)["url"].startswith("http://app.test/")
+    assert page["elements"]
+
+    def fail(_target):
+        raise RuntimeError(f"the page exposed {secret}")
+
+    server._engine.click = fail
+    failed = _call(server, "testence_click", {"target": {"kind": "text", "value": "Save"}})
+    assert failed["isError"]
+    assert secret not in failed["content"][0]["text"]
+    assert "RuntimeError" in failed["content"][0]["text"]
+
+
+def test_invalid_redaction_configuration_does_not_expose_error_details(tmp_path):
+    (tmp_path / "testence.json").write_text(
+        json.dumps({"evidence": {"redact": {"pii": ["synthetic-secret-invalid-kind"]}}}),
+        encoding="utf-8",
+    )
+    result = _call(McpServer(tmp_path), "testence_snapshot")
+    assert result["isError"]
+    assert "synthetic-secret-invalid-kind" not in result["content"][0]["text"]
+    assert "redaction configuration" in result["content"][0]["text"]
+
+
+def test_a_password_field_keeps_its_usable_target(explorer):
+    server, _ = explorer
+    _payload(_call(server, "testence_snapshot"))
+    server._engine.candidate_elements = lambda: [
+        {"target": {"kind": "role", "value": "textbox", "name": "Password"}}
+    ]
+    element = _payload(_call(server, "testence_snapshot"))["elements"][0]
+    assert element["target"] == {"kind": "role", "value": "textbox", "name": "Password"}
+    assert element["python"] == "Target('role', 'textbox', name='Password')"
 
 
 class _FakeEngine:
@@ -264,7 +395,7 @@ def test_the_cli_speaks_only_protocol_on_stdout(tmp_path):
     assert completed.returncode == 0, completed.stderr
     replies = [json.loads(line) for line in completed.stdout.splitlines()]
     assert [reply["id"] for reply in replies] == [1, 2, 3]
-    assert len(replies[1]["result"]["tools"]) == 7
+    assert len(replies[1]["result"]["tools"]) == 9
     assert replies[2]["result"]["isError"] is True
 
 

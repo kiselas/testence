@@ -286,6 +286,45 @@ def test_browser_launch_hint_tells_a_missing_browser_from_one_that_will_not_star
     assert "playwright install" not in hint
 
 
+@pytest.mark.parametrize("channel", ["chromium", "chrome", "msedge"])
+def test_missing_video_encoder_names_ffmpeg_instead_of_the_browser(channel):
+    from testence.engine import browser_launch_hint
+
+    failure = (
+        "BrowserContext.new_page: Executable doesn't exist at "
+        "C:\\ms-playwright\\ffmpeg-1011\\ffmpeg-win64.exe"
+    )
+    assert browser_launch_hint(channel, failure) == "python -m playwright install ffmpeg"
+
+
+@pytest.mark.parametrize("video", ["off", "on", "retain-on-failure"])
+def test_doctor_probes_configured_video_and_reports_a_missing_encoder(tmp_path, monkeypatch, video):
+    (tmp_path / "testence.json").write_text(
+        json.dumps({"evidence": {"video": video}}), encoding="utf-8"
+    )
+
+    def probe(command, **kwargs):
+        assert command[-1] == video
+        assert "context.new_page()" in command[2]
+        missing = "Executable doesn't exist at /synthetic/ffmpeg-1011/ffmpeg"
+        return subprocess.CompletedProcess(command, int(video != "off"), "1.0", missing)
+
+    monkeypatch.setattr(subprocess, "run", probe)
+    result = doctor(tmp_path)
+    browser = next(check for check in result["checks"] if check["name"] == "browser")
+    assert browser["ok"] == (video == "off")
+    if video != "off":
+        assert "python -m playwright install ffmpeg" in browser["detail"]
+
+
+def test_doctor_starts_a_real_video_context_when_video_is_enabled(tmp_path):
+    (tmp_path / "testence.json").write_text('{"evidence": {"video": "on"}}', encoding="utf-8")
+    result = doctor(tmp_path)
+    browser = next(check for check in result["checks"] if check["name"] == "browser")
+    assert browser["ok"], browser["detail"]
+    assert "video=checked" in browser["detail"]
+
+
 def test_a_browser_that_will_not_start_names_the_fix_in_the_test_failure(tmp_path):
     project = tmp_path / "nobrowser"
     project.mkdir()

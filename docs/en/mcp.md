@@ -48,15 +48,30 @@ A session that fits in a few calls: snapshot the page, click and fill to learn w
 flow does, write an ordinary pytest file with `ex`, run it, inspect it, then ask for the
 oracle suggestions and add the API check.
 
+`testence_run.timeout_s` is an integer from 1 to 900 (default 300). On deadline it
+returns `isError: true` with a JSON document containing `timed_out: true`,
+`exit_code: null`, the available `run_dir`, its summary and bounded, redacted output.
+The owned process tree is terminated; partial evidence remains inspectable and no
+completion event is fabricated. Leftover descendants are also stopped after normal
+CLI exit. Windows uses a gated process job; POSIX uses a process group. This controls
+trusted test lifetimes; deliberately detached POSIX processes are outside that group.
+
 ## What it will not do
 
 - There is no file-writing tool: source changes stay ordinary edits under the client's own
   permissions.
-- Page text is redacted with the project's policy before the agent sees it
+- Every tool response, including URLs, target descriptions and errors, is redacted
+  with the project's policy before the agent sees it
   ([configuration](configuration.md#evidence-capture-policy)); a filled value is never
-  echoed; `run_dir` must be inside the project.
+  echoed; resolved `run_dir` paths must be inside the project. If the redaction
+  configuration is invalid, details are withheld until it is fixed. Invalid JSON-RPC
+  parameters return an error without closing the protocol stream.
 - The exploration browser is separate from the browsers a run starts, and it is signed in
   with the project's `auth`. `testence_run` runs the project's own tests, which is code
   execution by design: give it only to a client you would let run `pytest`.
 - Not covered yet: repairing from a proposal, verdict submission and PlanSpec tools stay on
   the CLI ([agent workflow](agent-workflow.md)).
+
+`testence_status` returns the active package/settings and declared parallel policy. `testence_debug` takes `node`, optional `workers`, `allow_multiple` and `timeout_s`; it refuses accidental suite execution and returns failure ARIA/triage and phase timings. Collection and replay use separate owned processes. Parallel declarations must be backed by application-specific isolation and cleanup checks.
+
+`testence_debug` accepts `browser_reuse: true` for one owned browser per worker and a fresh context per case. Attached/persistent/warm modes are rejected; browser process isolation requires the default fresh-browser mode. Final worker shutdown is included in the run. See the authoring-loop guide.

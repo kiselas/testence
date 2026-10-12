@@ -201,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Agent-first browser testing with evidence-backed verdicts.",
         epilog=(
             "Start here: doctor, init, run, inspect, report.\n"
-            "Authoring: plan, capabilities, watch, bench, demo, agent.\n"
+            "Authoring: status, debug, explore, plan, capabilities, watch, bench, demo, agent.\n"
             "Results: export, metrics, verdict, repair, quality, ci, delivery.\n"
             "Testence maintainers only: corpus, release.\n"
             "\n"
@@ -397,6 +397,35 @@ def main(argv: list[str] | None = None) -> int:
         nargs=argparse.REMAINDER,
         help="passed to pytest unchanged, after an optional --; default: the onboarding test",
     )
+
+    p_explore = sub.add_parser(
+        "explore", help="map one page: ARIA, unique Targets and data-key rows"
+    )
+    p_explore.add_argument("url", help="absolute URL or path relative to configured base_url")
+    p_explore.add_argument("--project", type=Path, default=Path("."))
+    p_explore.add_argument("--profile", default="")
+    p_explore.add_argument("--headed", action="store_true")
+    p_explore.add_argument("--limit", type=int, default=60)
+    p_explore.add_argument("--json", dest="json_output", action="store_true")
+
+    p_debug = sub.add_parser(
+        "debug", help="collect one exact case, run it and return ARIA on failure"
+    )
+    p_debug.add_argument("node")
+    p_debug.add_argument("--project", type=Path, default=Path("."))
+    p_debug.add_argument("--profile", default="")
+    p_debug.add_argument("--workers", type=int, default=1)
+    p_debug.add_argument("--allow-multiple", action="store_true")
+    p_debug.add_argument("--reuse-browser", action="store_true")
+    p_debug.add_argument("--timeout", type=int, default=300)
+    p_debug.add_argument("--json", dest="json_output", action="store_true")
+
+    p_status = sub.add_parser(
+        "status", help="locate the actual package, consumer project and profile"
+    )
+    p_status.add_argument("--project", type=Path, default=Path("."))
+    p_status.add_argument("--profile", default="")
+    p_status.add_argument("--json", dest="json_output", action="store_true")
 
     p_inspect = sub.add_parser("inspect", help="inspect one explicit run directory")
     p_inspect.add_argument("run_dir", type=Path, help="run directory, for example runs/r-123")
@@ -595,6 +624,46 @@ def main(argv: list[str] | None = None) -> int:
                     "then read its evidence: testence inspect runs/<new run id>"
                 )
         return int(completed.returncode)
+
+    if args.command in ("debug", "status"):
+        from .debug import debug, project_status
+
+        try:
+            result = (
+                project_status(args.project, args.profile)
+                if args.command == "status"
+                else debug(
+                    args.project,
+                    args.node,
+                    profile=args.profile,
+                    workers=args.workers,
+                    allow_multiple=args.allow_multiple,
+                    timeout_s=args.timeout,
+                    browser_reuse=args.reuse_browser,
+                )
+            )
+        except (ValueError, OSError) as exc:
+            print(f"{args.command} failed: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(result, ensure_ascii=True, indent=None if args.json_output else 2))
+        return int(result.get("exit_code", 0))
+
+    if args.command == "explore":
+        from .discovery import explore
+
+        try:
+            result = explore(
+                args.project, args.url, profile=args.profile, headed=args.headed, limit=args.limit
+            )
+        except (ValueError, OSError) as exc:
+            print(f"explore failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            # ASCII JSON is portable to legacy Windows consoles; decoding preserves Unicode.
+            print(json.dumps(result, ensure_ascii=True))
+        else:
+            print(json.dumps(result, ensure_ascii=True, indent=2))
+        return 0
 
     if args.command == "inspect":
         from .application import ApplicationError, inspect_run

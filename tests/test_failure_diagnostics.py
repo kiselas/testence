@@ -60,8 +60,9 @@ def test_a_wrong_text_names_the_text_that_is_there(ex):
 def test_an_ambiguous_target_says_how_many_matched(ex):
     failure = _failed(lambda: ex.click(ITEMS))
 
-    assert "4 elements match ('alpha', 'beta', 'gamma', ...)" in str(failure)
+    assert "4 elements match (nth=0: 'alpha', nth=1: 'beta', nth=2: 'gamma', ...)" in str(failure)
     assert "nth=" in str(failure)
+    assert "within=Target" in str(failure)
 
 
 def test_a_missing_target_points_at_the_same_name_in_the_accessibility_tree(ex):

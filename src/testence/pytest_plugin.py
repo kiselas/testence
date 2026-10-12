@@ -14,6 +14,7 @@ import re
 import time
 import warnings
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -121,6 +122,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="browser channel to launch (default: Playwright-bundled chromium)",
     )
     group.addoption("--testence-headless", action="store_true", default=False)
+    group.addoption(
+        "--testence-browser-reuse",
+        action="store_true",
+        default=False,
+        help="keep one owned browser per worker; create a fresh context for every test",
+    )
     group.addoption("--testence-runs-root", default=None)
     group.addoption("--testence-api-prefix", default=None)
     group.addoption(
@@ -165,6 +172,10 @@ def pytest_configure(config: pytest.Config) -> None:
     directory instead of inventing a directory each. ``setdefault``: a worker runs
     this hook too and must keep the inherited value.
     """
+    config.addinivalue_line(
+        "markers",
+        "testence_parallel: declares worker-isolated seed/cleanup for explicit parallel debug",
+    )
     config.addinivalue_line(
         "markers",
         "testence(plan, claims, case_id, allure_id, title, description, severity, labels, "
@@ -858,6 +869,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         # A usage error is one line naming the setting; an exception escaping a
         # session hook is an INTERNALERROR traceback that reads like a crash.
         raise pytest.UsageError(f"invalid Testence settings: {exc}") from exc
+    _browser_reuse(config, settings)
     try:
         redaction_policy = settings.redaction_policy()
         redact_values = settings.redaction_values()
@@ -889,6 +901,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
             "python": platform.python_version(),
             "kernels": kernels.active_backend(),
             "worker": writer.worker or "(single)",
+            "browser_reuse": _browser_reuse(config, settings),
             **settings.describe(),
         },
     )
@@ -1526,6 +1539,87 @@ def testence_writer(request: pytest.FixtureRequest) -> EvidenceWriter:
     return state.writer
 
 
+@contextmanager
+def _lifecycle_phase(writer: EvidenceWriter, test: str, phase: str) -> Iterator[None]:
+    started = time.perf_counter()
+    ok = False
+    try:
+        yield
+        ok = True
+    finally:
+        writer.emit(
+            "note",
+            test=test,
+            text="lifecycle timing",
+            lifecycle_phase=phase,
+            duration_ms=round((time.perf_counter() - started) * 1000, 1),
+            ok=ok,
+        )
+
+
+def _browser_reuse(config: pytest.Config, settings: Settings) -> bool:
+    configured = settings.extra.get("browser_reuse", False)
+    if type(configured) is not bool:
+        raise pytest.UsageError("extra.browser_reuse must be a boolean")
+    enabled = configured or config.getoption("--testence-browser-reuse", default=False)
+    if enabled and (
+        settings.cdp_url
+        or settings.execution_mode != "isolated"
+        or settings.extra.get("user_data_dir")
+        or os.environ.get("TESTENCE_WARM_ENGINE") == "1"
+    ):
+        raise pytest.UsageError(
+            "browser reuse requires isolated mode without an attached/persistent/warm session"
+        )
+    return bool(enabled)
+
+
+def _engine_phase_notes(
+    writer: EvidenceWriter, test: str, engine: Engine, parent: str, *, start: int = 0
+) -> None:
+    for entry in getattr(engine, "wait_ledger", lambda: [])()[start:]:
+        if entry.get("op") in {
+            "driver.start",
+            "browser.connect",
+            "browser.launch",
+            "browser.persistent_launch",
+            "context.create",
+            "context.configure",
+            "context.close",
+            "browser.process_close",
+            "driver.stop",
+        }:
+            writer.emit(
+                "note",
+                test=test,
+                text="engine lifecycle timing",
+                lifecycle_phase=entry["op"],
+                duration_ms=entry["ms"],
+                nested_in=parent,
+                ok=entry["ok"],
+            )
+
+
+@pytest.fixture(scope="session")
+def _testence_browser_owner(
+    testence_settings: Settings,
+    testence_writer: EvidenceWriter,
+) -> Iterator[Engine]:
+    owner = create_engine(testence_settings)
+    try:
+        try:
+            with _lifecycle_phase(testence_writer, "", "browser.worker_start"):
+                owner.start()
+        finally:
+            _engine_phase_notes(testence_writer, "", owner, "browser.worker_start")
+        yield owner
+    finally:
+        mark = len(getattr(owner, "wait_ledger", lambda: [])())
+        with _lifecycle_phase(testence_writer, "", "browser.worker_close"):
+            owner.stop()
+        _engine_phase_notes(testence_writer, "", owner, "browser.worker_close", start=mark)
+
+
 @pytest.fixture
 def testence_engine(
     request: pytest.FixtureRequest,
@@ -1539,15 +1633,25 @@ def testence_engine(
         else ("attached" if testence_settings.cdp_url else testence_settings.execution_mode)
     )
     warm = mode == "warm"
-    engine = _acquire_warm_engine(testence_settings) if warm else create_engine(testence_settings)
+    reuse = _browser_reuse(request.config, testence_settings)
+    if reuse:
+        owner = request.getfixturevalue("_testence_browser_owner")
+        with _lifecycle_phase(testence_writer, request.node.nodeid, "context.fresh"):
+            engine = owner.sibling()
+        mode = "reused"
+    else:
+        engine = (
+            _acquire_warm_engine(testence_settings) if warm else create_engine(testence_settings)
+        )
     if warm:
         if hasattr(engine, "reset_session"):
             engine.reset_session()
         else:  # compatibility path for pre-R1 custom engines
             engine.reset_taps()
-    else:
+    elif not reuse:
         try:
-            engine.start()
+            with _lifecycle_phase(testence_writer, request.node.nodeid, "browser.start"):
+                engine.start()
         except Exception as exc:
             from testence.engine import browser_launch_hint
 
@@ -1558,6 +1662,10 @@ def testence_engine(
                 f"fix: {browser_launch_hint(channel, str(exc))}; "
                 "run `testence doctor` for a full check"
             ) from exc
+        finally:
+            _engine_phase_notes(testence_writer, request.node.nodeid, engine, "browser.start")
+    if reuse:
+        _engine_phase_notes(testence_writer, request.node.nodeid, engine, "context.fresh")
     state: dict[str, Any] = {"any_failed": False, "mode": mode}
     engine._testence_state = state  # type: ignore[attr-defined]
     try:
@@ -1566,19 +1674,20 @@ def testence_engine(
         finish = getattr(engine, "finish_recording", None)
         if callable(finish):
             try:
-                state["recordings"] = [
-                    {
-                        **entry,
-                        "path": Path(entry["path"])
-                        .resolve()
-                        .relative_to(testence_writer.run_dir.resolve())
-                        .as_posix(),
-                    }
-                    for entry in finish(
-                        failed=bool(state["any_failed"]),
-                        directory=testence_writer.test_dir(request.node.nodeid),
-                    )
-                ]
+                with _lifecycle_phase(testence_writer, request.node.nodeid, "recording"):
+                    state["recordings"] = [
+                        {
+                            **entry,
+                            "path": Path(entry["path"])
+                            .resolve()
+                            .relative_to(testence_writer.run_dir.resolve())
+                            .as_posix(),
+                        }
+                        for entry in finish(
+                            failed=bool(state["any_failed"]),
+                            directory=testence_writer.test_dir(request.node.nodeid),
+                        )
+                    ]
             except Exception as exc:  # noqa: BLE001 - a recording never changes the result
                 testence_writer.emit(
                     "note",
@@ -1591,11 +1700,18 @@ def testence_engine(
         else:
             # CI/default isolation owns and closes its browser even after failure.
             # Attached mode only detaches; the launcher's browser is never ours.
-            engine.stop(keep_browser=mode == "attached" and state["any_failed"])
+            mark = len(getattr(engine, "wait_ledger", lambda: [])())
+            close_phase = "context.release" if reuse else "browser.close"
+            with _lifecycle_phase(testence_writer, request.node.nodeid, close_phase):
+                engine.stop(keep_browser=mode == "attached" and state["any_failed"])
+            _engine_phase_notes(
+                testence_writer, request.node.nodeid, engine, close_phase, start=mark
+            )
 
 
 @pytest.fixture
 def testence_auth(
+    request: pytest.FixtureRequest,
     testence_settings: Settings,
     testence_engine: Engine,
     testence_writer: EvidenceWriter,
@@ -1605,16 +1721,17 @@ def testence_auth(
     Logged as an evidence event (scheme and names only) so a failed run always
     shows whether it was authenticated — a surprisingly common root cause.
     """
-    adapter = from_settings(testence_settings)
     started = time.perf_counter()
-    context = adapter.authenticate(testence_engine)
-    spec = testence_settings.extra.get("api_auth_from_storage")
-    if spec and context.scheme != "none":
-        context.headers.update(
-            api_headers_from_storage(
-                spec, testence_engine, timeout_ms=min(testence_settings.timeout_ms, 10_000)
+    with _lifecycle_phase(testence_writer, request.node.nodeid, "auth"):
+        adapter = from_settings(testence_settings)
+        context = adapter.authenticate(testence_engine)
+        spec = testence_settings.extra.get("api_auth_from_storage")
+        if spec and context.scheme != "none":
+            context.headers.update(
+                api_headers_from_storage(
+                    spec, testence_engine, timeout_ms=min(testence_settings.timeout_ms, 10_000)
+                )
             )
-        )
     for value in context.headers.values():
         # A token produced at run time is masked like a configured secret, whole
         # and without its "Bearer " scheme.
@@ -1747,6 +1864,15 @@ def ex(
     """
     if (testence_settings.auth or "none").lower() != "none" and not _anonymous(request.node):
         request.getfixturevalue("testence_auth")
+    else:
+        testence_writer.emit(
+            "note",
+            test=_test_id(request.node),
+            text="authentication not required",
+            lifecycle_phase="auth",
+            duration_ms=0,
+            skipped=True,
+        )
     test_id = _test_id(request.node)
     request.node.stash[_ACTIONS_KEY] = actions = Actions(
         testence_engine,

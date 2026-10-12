@@ -1,0 +1,398 @@
+{
+  "schema": "testence/local-audit-receipt/1",
+  "date": "2026-10-05",
+  "plan_id": "AUD-Q26",
+  "claim_ids": [
+    "Q26-01",
+    "Q26-02",
+    "Q26-03"
+  ],
+  "source_revision": "ebc3d7192df091cd3d48ddb8bd6ffc36a735f85b",
+  "base_revision": "d527312",
+  "live_origin_main": "15ad5d23385dc64c447c7077cb280972185838a4",
+  "source_git_blob_sha256": {
+    "src/testence/_process.py": "3de460e526361ba5763fffbb744ddba04e45e511dd1c345d55d4b4d62006dd44",
+    "src/testence/_process_gate.py": "2edb0fb048d1c7e55148514b8da80ba63eb55b4d2ba927fa31986909b779371a",
+    "src/testence/application.py": "7b631602bc89e2265801e832af70e7b37e27a2040df403c6685eb4ad762405b3",
+    "src/testence/dsl/steps.py": "7d1e0df7aa913e8ea2ad4ad9bb4101e7e0aa1803ba5ff09ad77566b5b93335f2",
+    "src/testence/engine/__init__.py": "7748eb7c6ad5313e84ed7ed785e51ee648a6c33192d8fc37cb9050aacbde56f2",
+    "src/testence/engine/native_routes.py": "7e077beb90c1b53496fb17e93bd1afa8d533955e4f6479c2b1c38cb673f135d0",
+    "src/testence/engine/playwright_cdp.py": "69692ec74bf2466b91a8755aa9a4f87a7041b4e0fd40fa828fffa0091f687adc",
+    "src/testence/mcp.py": "f8b9574a8625bd7b36247c01a317836a144584377b254a46219a677cac4ca5e2",
+    "src/testence/oracle.py": "3740ba29eb51c4efe7ee73b95357f5435c7a8e35886e64098bb29ec8c3274052",
+    "tests/test_application.py": "e266ec607ab2ae863f1afe7bc324dc55be825736ad6c335689e7cb8ae3ce58fd",
+    "tests/test_mcp.py": "adb96a4e2f7a23562f25677e306e3fda1b4d40bb9b104caeee0b89a8019bf5b3",
+    "tests/test_native.py": "6e4bb52fcc0c093dcd42107cf9452afbfc66245b5a970f34ec9165485007ade1",
+    "tests/test_native_routes.py": "2d7314c5769ea10313029e49630e7355b0ed8894855a33830cdee652d790b55a",
+    "tests/test_owned_process.py": "fc607c064fc0b13c08cf5509d3637cfbf6a4ca3ae534efb7e2f9873da0780a78",
+    "tests/test_route_mocking.py": "857f6eb05da8a8f3f0a6426d9ae16986211beb30aace6b760e2b9d011e77824b"
+  },
+  "environment": {
+    "platform": "Windows 11 10.0.26100 AMD64",
+    "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]",
+    "isolated_environment": "outputs/quality-venv31214",
+    "legacy_default_python": "3.12.4 (unchanged)",
+    "packages": {
+      "playwright": "1.62.0",
+      "pytest": "9.1.1",
+      "pytest-xdist": "3.8.0",
+      "execnet": "2.1.2",
+      "ruff": "0.16.5",
+      "mypy": "2.3.1"
+    },
+    "TESTENCE_BROWSER_CHANNEL": "msedge",
+    "TESTENCE_DEBUG_PORT": "0",
+    "lockfile_sha256": "e2e14d3a3e93f08a490adf682418a6c06eb748e90a409bce2a2382ed3fbf2fe4"
+  },
+  "checks": [
+    {
+      "command": "& 'outputs/quality-venv31214/Scripts/python.exe' -m pytest -q -n 4 --basetemp=.tmp-pytest-quality-20261005-runtime-final --durations=15 --junitxml=outputs/quality-20261005-runtime-final.xml",
+      "status": "passed",
+      "artifacts": [
+        {
+          "path": "outputs/quality-20261005-runtime-final.log",
+          "sha256": "67023c60c224923e1cf939383ffe0d3912f6c338953c2438eb07cd5b7feaf48c"
+        },
+        {
+          "path": "outputs/quality-20261005-runtime-final.xml",
+          "sha256": "f7e41ce814d43186f9760457159945e8e780b0323865170b7dcb122524b6aeef"
+        }
+      ],
+      "junit": [
+        {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "0",
+          "skipped": "2",
+          "tests": "855",
+          "time": "297.774",
+          "timestamp": "2026-10-05T14:05:28.803437+03:00",
+          "hostname": "NB-PW0860ZN"
+        }
+      ]
+    },
+    {
+      "command": "& 'outputs/quality-venv31214/Scripts/python.exe' -m pytest examples -q --testence-headless --basetemp=.tmp-pytest-quality-runtime-examples",
+      "status": "passed",
+      "artifacts": [
+        {
+          "path": "outputs/quality-runtime-examples.log",
+          "sha256": "aecc2db5c5aa752e4ed13b85026a941c0ceb605e71d42e1e17760750ea8714a8"
+        }
+      ],
+      "passed": 5,
+      "skipped": 1,
+      "elapsed_s": 13.03
+    },
+    {
+      "command": "& 'outputs/quality-venv31214/Scripts/python.exe' -m ruff format --check src tests bench scripts examples; & 'outputs/quality-venv31214/Scripts/python.exe' -m ruff check src tests bench scripts examples; & 'outputs/quality-venv31214/Scripts/python.exe' -m mypy src scripts",
+      "status": "passed",
+      "artifacts": [
+        {
+          "path": "outputs/quality-runtime-static.log",
+          "sha256": "2b7236a7671c1ad3e6ac63f0033c9a62b95402dfcc73047cafa8bcbde768e20a"
+        }
+      ],
+      "formatted_files": 224,
+      "mypy_files": 82
+    },
+    {
+      "command": "& 'outputs/quality-venv31214/Scripts/python.exe' -m pytest tests/test_pytest_lifecycle.py -q --basetemp=.tmp-pytest-quality-runtime31214-lifecycle --durations=5",
+      "status": "passed",
+      "artifacts": [
+        {
+          "path": "outputs/quality-runtime31214-lifecycle.log",
+          "sha256": "e00bdee40094fb38021a5b503ea23d640be92cbced81a3c8c44b55d74bccc5b4"
+        }
+      ],
+      "passed": 9,
+      "elapsed_s": 15.92
+    },
+    {
+      "command": "uv run python bench/scale_profile.py --repeats 3 --check --output outputs/quality-20261005-scale.json",
+      "status": "passed",
+      "artifacts": [
+        {
+          "path": "outputs/quality-20261005-scale.log",
+          "sha256": "59573349a988ff9f80a3cfc0de610feb24dfc2465d663faaa8ea5bdf1076866a"
+        },
+        {
+          "path": "outputs/quality-20261005-scale.json",
+          "sha256": "fc706dfee8cf54aafef667a5b4f84a1dfbd1abda09d427a22a91c14ec0447560"
+        }
+      ],
+      "source_revision": "75ce00315e030a982d33109c17c0b1696fbb6cf0",
+      "python": "3.12.4",
+      "note": "Production source equals final candidate; later commit changes only native test controls.",
+      "result": {
+        "schema": "testence/scale-profile/1",
+        "environment": {
+          "os": "Windows-11-10.0.26100-SP0",
+          "python": "3.12.4",
+          "testence": "0.1.0a1"
+        },
+        "repeats": 3,
+        "ten_thousand": {
+          "warm": {
+            "elapsed_ms": {
+              "p50": 1860.66,
+              "p95": 2463.99,
+              "min": 1459.42,
+              "max": 2463.99,
+              "n": 3
+            },
+            "peak_memory_bytes": {
+              "p50": 48214445.0,
+              "p95": 48214453.0,
+              "min": 48213785.0,
+              "max": 48214453.0,
+              "n": 3
+            },
+            "artifact_bytes": {
+              "p50": 5553484.0,
+              "p95": 5553484.0,
+              "min": 5553484.0,
+              "max": 5553484.0,
+              "n": 3
+            },
+            "unique_output_digests": 1,
+            "raw": [
+              {
+                "elapsed_ms": 1459.42,
+                "peak_memory_bytes": 48213785,
+                "artifact_bytes": 5553484,
+                "sha256": "3073b4a4520f7ef3db50a37e1976b7485a90ef36640b7b6d5e3e0b2d56b13ff6",
+                "results": 10000,
+                "failures": 0
+              },
+              {
+                "elapsed_ms": 1860.66,
+                "peak_memory_bytes": 48214453,
+                "artifact_bytes": 5553484,
+                "sha256": "3073b4a4520f7ef3db50a37e1976b7485a90ef36640b7b6d5e3e0b2d56b13ff6",
+                "results": 10000,
+                "failures": 0
+              },
+              {
+                "elapsed_ms": 2463.99,
+                "peak_memory_bytes": 48214445,
+                "artifact_bytes": 5553484,
+                "sha256": "3073b4a4520f7ef3db50a37e1976b7485a90ef36640b7b6d5e3e0b2d56b13ff6",
+                "results": 10000,
+                "failures": 0
+              }
+            ]
+          },
+          "cold": {
+            "elapsed_ms": {
+              "p50": 1426.93,
+              "p95": 1431.47,
+              "min": 1383.79,
+              "max": 1431.47,
+              "n": 3
+            },
+            "peak_memory_bytes": {
+              "p50": 48213785.0,
+              "p95": 48213785.0,
+              "min": 48213785.0,
+              "max": 48213785.0,
+              "n": 3
+            },
+            "artifact_bytes": {
+              "p50": 5553484.0,
+              "p95": 5553484.0,
+              "min": 5553484.0,
+              "max": 5553484.0,
+              "n": 3
+            },
+            "unique_output_digests": 1,
+            "raw": [
+              {
+                "elapsed_ms": 1426.93,
+                "peak_memory_bytes": 48213785,
+                "artifact_bytes": 5553484,
+                "sha256": "3073b4a4520f7ef3db50a37e1976b7485a90ef36640b7b6d5e3e0b2d56b13ff6",
+                "results": 10000,
+                "failures": 0
+              },
+              {
+                "elapsed_ms": 1383.79,
+                "peak_memory_bytes": 48213785,
+                "artifact_bytes": 5553484,
+                "sha256": "3073b4a4520f7ef3db50a37e1976b7485a90ef36640b7b6d5e3e0b2d56b13ff6",
+                "results": 10000,
+                "failures": 0
+              },
+              {
+                "elapsed_ms": 1431.47,
+                "peak_memory_bytes": 48213785,
+                "artifact_bytes": 5553484,
+                "sha256": "3073b4a4520f7ef3db50a37e1976b7485a90ef36640b7b6d5e3e0b2d56b13ff6",
+                "results": 10000,
+                "failures": 0
+              }
+            ]
+          }
+        },
+        "failure_storm": {
+          "elapsed_ms": {
+            "p50": 314.22,
+            "p95": 316.15,
+            "min": 227.12,
+            "max": 316.15,
+            "n": 3
+          },
+          "peak_memory_bytes": {
+            "p50": 13161037.0,
+            "p95": 13161885.0,
+            "min": 13160973.0,
+            "max": 13161885.0,
+            "n": 3
+          },
+          "artifact_bytes": {
+            "p50": 4669776.0,
+            "p95": 4669776.0,
+            "min": 4669776.0,
+            "max": 4669776.0,
+            "n": 3
+          },
+          "unique_output_digests": 1,
+          "raw": [
+            {
+              "elapsed_ms": 314.22,
+              "peak_memory_bytes": 13161037,
+              "artifact_bytes": 4669776,
+              "sha256": "457cebdcde31e5628fc89af33ea70099f39b612c204b28027358bff956d899c4",
+              "results": 1000,
+              "failures": 1000
+            },
+            {
+              "elapsed_ms": 316.15,
+              "peak_memory_bytes": 13160973,
+              "artifact_bytes": 4669776,
+              "sha256": "457cebdcde31e5628fc89af33ea70099f39b612c204b28027358bff956d899c4",
+              "results": 1000,
+              "failures": 1000
+            },
+            {
+              "elapsed_ms": 227.12,
+              "peak_memory_bytes": 13161885,
+              "artifact_bytes": 4669776,
+              "sha256": "457cebdcde31e5628fc89af33ea70099f39b612c204b28027358bff956d899c4",
+              "results": 1000,
+              "failures": 1000
+            }
+          ]
+        },
+        "protocol": {
+          "export": "CTRF from LoadedRun",
+          "failure_storm": "1000 failed results with 4096-byte bounded errors",
+          "memory": "Python allocations measured by tracemalloc",
+          "flake": "all repeated output SHA-256 digests must be identical"
+        },
+        "budget": {
+          "checked": true,
+          "source": "bench/budgets/scale_profile.json",
+          "passed": true,
+          "violations": []
+        }
+      }
+    },
+    {
+      "command": "uv run pytest -q -n 4 --basetemp=.tmp-pytest-quality-20261005-final --durations=15 --junitxml=outputs/quality-20261005-final.xml",
+      "status": "passed",
+      "artifacts": [
+        {
+          "path": "outputs/quality-20261005-final.log",
+          "sha256": "df54b139f763c22c435d10933cfe629a8a56b52daf14472bc98fcca422b869cf"
+        },
+        {
+          "path": "outputs/quality-20261005-final.xml",
+          "sha256": "dc1d040436818589f0cf739db0161e4ebc63a093b3b2c894e8c2e0dd32555741"
+        }
+      ],
+      "source_revision": "75ce00315e030a982d33109c17c0b1696fbb6cf0",
+      "python": "3.12.4",
+      "passed": 852,
+      "skipped": 2,
+      "elapsed_s": 287.48
+    },
+    {
+      "command": "uv run pytest -q -n 4 --basetemp=.tmp-pytest-quality-20261005-final2 --durations=15 --junitxml=outputs/quality-20261005-final2.xml",
+      "status": "failed",
+      "artifacts": [
+        {
+          "path": "outputs/quality-20261005-final2.log",
+          "sha256": "029839f3de454f0d0f3feb58fb5ff1b974aeff16b5338f67dddcd3a0ce8733d6"
+        },
+        {
+          "path": "outputs/quality-20261005-final2.xml",
+          "sha256": "d6828af35de59a8788a20eb26573b5abdb6d63370ce04722eb2071282b3e080b"
+        }
+      ],
+      "source_revision": "ebc3d7192df091cd3d48ddb8bd6ffc36a735f85b",
+      "python": "3.12.4",
+      "passed": 852,
+      "failed": 1,
+      "skipped": 2,
+      "elapsed_s": 267.12,
+      "failing_step": "tests/test_pytest_lifecycle.py::test_xdist_workers_preserve_one_terminal_event_per_case",
+      "subprocess_exit_code": 2147483649,
+      "diagnosis": "Native WMI stack matches known CPython issue 125315; inference, no native crash dump.",
+      "evidence_run": "r-20261005-105609-ead6bd",
+      "run_status": "incomplete",
+      "inspect_errors": [
+        "run_not_complete",
+        "manifest_shards",
+        "manifest_digest"
+      ]
+    },
+    {
+      "command": "uv run pytest tests/test_route_mocking.py -q --basetemp=.tmp-pytest-quality-provenance-strength --durations=5",
+      "status": "passed",
+      "artifacts": [
+        {
+          "path": "outputs/quality-provenance-strength.log",
+          "sha256": "6b050cf33f3557bddc7d9138312d2e55ba408c49b027affce8ee39472abe8a94"
+        }
+      ],
+      "passed": 5,
+      "elapsed_s": 51.86,
+      "healthy_nested_passed": 14,
+      "expected_mutant_failures": 2,
+      "mutant": "Synthetic instance tracker disabled; matching backend state must not validate a fabricated mutation.",
+      "mutant_failure": "DID NOT RAISE",
+      "mutation_score_claim": false
+    }
+  ],
+  "supplemental_browser_process_proof": {
+    "normal": {
+      "run_dir": "runs/r-20261005-110406-db3306",
+      "elapsed_s": 3.234,
+      "exit_code": 0,
+      "browser_listener_stopped": true
+    },
+    "deadline": {
+      "run_dir": "runs/r-20261005-110409-ccc938",
+      "elapsed_s": 20.266,
+      "timeout_s": 20,
+      "run_status": "incomplete",
+      "browser_listener_stopped": true
+    },
+    "suite_source": "import socket, time\nfrom pathlib import Path\nfrom urllib.parse import urlsplit\nfrom testence.engine import Target\n\ndef _page(ex):\n    ex.goto('data:text/html,<h1>owned browser</h1>')\n    ex.expect_text(Target('css', 'h1'), 'owned browser')\n    port = urlsplit(ex.engine.browser_manifest()['cdp_endpoint']).port\n    with socket.create_connection(('127.0.0.1', port), timeout=2):\n        pass\n    Path('browser-port').write_text(str(port))\n\ndef test_browser(ex):\n    _page(ex)\n\ndef test_browser_deadline(ex, testence_writer):\n    _page(ex)\n    testence_writer.emit('note', text='owned browser entered')\n    print('owned browser entered', flush=True)\n    time.sleep(120)\n",
+    "command": "& 'outputs/quality-venv31214/Scripts/python.exe' outputs/quality-mcp-browser-probe.py",
+    "project": "outputs/quality-mcp-browser-project",
+    "log_sha256": "0859d248ef1b530d235d68b204c4baa84fca1f588c9f12c4929c9aba812a2b98",
+    "assurance": "UI/process lifecycle only; not persistence",
+    "reproduce": "Initialize an auth-none headless project with debug_port=0, save suite_source as test_owned_browser.py. Call McpServer tools/call testence_run selecting test_browser -q -s (timeout 60), then test_browser_deadline -q -s (timeout 20). Verify prior loopback connection and closed CDP listener afterward, exit 0 for normal and structured timed_out/incomplete for deadline. Use a fresh project; never repeat a mutation to hide failure."
+  },
+  "bounded_model_sequences": 340,
+  "development_failures_and_commands": "2026-10-05-testing-quality-handoff.md",
+  "limitations": [
+    "Windows local checks only; no Linux/macOS runtime or dependency-floor acceptance.",
+    "Native public route seam excludes HAR, service workers, external proxies and pre-seam handlers.",
+    "No independent client trial, hosted receipt, public release or market-ranking claim.",
+    "Legacy Python crash retained; isolated patched runtime pass does not prove all flakiness resolved.",
+    "Output tails bounded in memory, temporary output files consume disk until completion."
+  ]
+}

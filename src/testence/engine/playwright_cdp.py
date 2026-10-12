@@ -39,7 +39,9 @@ from playwright.sync_api import expect as pw_expect
 from testence.config import default_browser_channel
 
 from .capabilities import Capability
+from .native_routes import NativeRoutes
 from .protocol import Engine, NetRecord, Target
+from .response_rewrites import ResponseRewrites
 
 _DEFAULT_TIMEOUT_MS = 10_000
 _RENDER_TIMEOUT_MS = 2_000
@@ -261,6 +263,7 @@ class PlaywrightCdpEngine(Engine):
         self._scope: Any | None = None
         self._js_scope: Any | None = None
         self._net: list[NetRecord] = []
+        self._response_rewrites: ResponseRewrites | None = None
         self._pending: dict[Any, NetRecord] = {}
         self._console: list[dict[str, Any]] = []
         self._ws: list[dict[str, Any]] = []
@@ -286,6 +289,8 @@ class PlaywrightCdpEngine(Engine):
         self._shares_driver = False
         #: Requests answered by ``route``, so their records say the server never saw them.
         self._mocked: set[Any] = set()
+        self._native_routes: NativeRoutes | None = None
+        self._native_mock_observer: Callable[..., None] | None = None
 
     # -- lifecycle -------------------------------------------------------
 
@@ -311,12 +316,14 @@ class PlaywrightCdpEngine(Engine):
     def _open_session(self) -> None:
         if not self.cdp_url and self.debug_port == 0:
             self.debug_port = _free_tcp_port()
-        playwright = sync_playwright().start()
+        with self._timed("driver.start"):
+            playwright = sync_playwright().start()
         self._pw = playwright
         if self.test_id_attribute:
             playwright.selectors.set_test_id_attribute(self.test_id_attribute)
         if self.cdp_url:
-            self._browser = playwright.chromium.connect_over_cdp(self.cdp_url)
+            with self._timed("browser.connect"):
+                self._browser = playwright.chromium.connect_over_cdp(self.cdp_url)
             # The context with pages in it is the one that is logged in. Taking
             # contexts[0] blindly can hand back a pristine default context whose
             # cookie jar is empty, which surfaces as "attached browser has no
@@ -325,7 +332,8 @@ class PlaywrightCdpEngine(Engine):
             if contexts:
                 self._context = contexts[0]
             else:
-                self._context = self._browser.new_context()
+                with self._timed("context.create"):
+                    self._context = self._browser.new_context()
                 self._owns_context = True
         elif self.user_data_dir:
             # Persistent profile. Required for the long-lived dev browser: a
@@ -334,29 +342,33 @@ class PlaywrightCdpEngine(Engine):
             # session established in one would be unreachable by the runs meant to
             # reuse it. A profile on disk is the default context, and it also
             # survives restarts of the browser itself.
-            self._context = playwright.chromium.launch_persistent_context(
-                self.user_data_dir,
-                channel=self.browser_channel,
-                headless=not self.headed,
-                args=[f"--remote-debugging-port={self.debug_port}"],
-                ignore_https_errors=self.ignore_https_errors,
-                **self._context_options(),
-            )
+            with self._timed("browser.persistent_launch"):
+                self._context = playwright.chromium.launch_persistent_context(
+                    self.user_data_dir,
+                    channel=self.browser_channel,
+                    headless=not self.headed,
+                    args=[f"--remote-debugging-port={self.debug_port}"],
+                    ignore_https_errors=self.ignore_https_errors,
+                    **self._context_options(),
+                )
             self._browser = self._context.browser
             self._launched_here = True
             self._owns_context = True
         else:
-            self._browser = playwright.chromium.launch(
-                channel=self.browser_channel,
-                headless=not self.headed,
-                args=[f"--remote-debugging-port={self.debug_port}"],
-            )
+            with self._timed("browser.launch"):
+                self._browser = playwright.chromium.launch(
+                    channel=self.browser_channel,
+                    headless=not self.headed,
+                    args=[f"--remote-debugging-port={self.debug_port}"],
+                )
             self._launched_here = True
-            self._context = self._browser.new_context(
-                ignore_https_errors=self.ignore_https_errors, **self._context_options()
-            )
+            with self._timed("context.create"):
+                self._context = self._browser.new_context(
+                    ignore_https_errors=self.ignore_https_errors, **self._context_options()
+                )
             self._owns_context = True
-        self._configure_context()
+        with self._timed("context.configure"):
+            self._configure_context()
 
     def _context_options(self) -> dict[str, Any]:
         """``new_context`` keyword arguments for the configured emulation.
@@ -394,6 +406,7 @@ class PlaywrightCdpEngine(Engine):
         return options
 
     def _configure_context(self) -> None:
+        self._close_native_routes()
         if self._context is None:
             raise RuntimeError("browser context was not created")
         self._context.set_default_timeout(self.timeout_ms)
@@ -439,6 +452,7 @@ class PlaywrightCdpEngine(Engine):
                 "browser or a persistent profile has one context"
             )
         other = copy.copy(self)
+        other._response_rewrites = None
         other._shares_driver = True
         other._launched_here = False
         other._context = None
@@ -455,14 +469,22 @@ class PlaywrightCdpEngine(Engine):
         other._waits = []
         other._extra_headers = {}
         other._mocked = set()
+        other._native_routes = None
+        other._native_mock_observer = None
         other._headers_routed = None
         other._tracing = False
         other._video_dir = None
-        other._context = self._browser.new_context(
-            ignore_https_errors=self.ignore_https_errors, **other._context_options()
-        )
         other._owns_context = True
-        other._configure_context()
+        try:
+            with other._timed("context.create"):
+                other._context = self._browser.new_context(
+                    ignore_https_errors=self.ignore_https_errors, **other._context_options()
+                )
+            with other._timed("context.configure"):
+                other._configure_context()
+        except BaseException:
+            other.stop()
+            raise
         return other
 
     def reset_session(self) -> None:
@@ -512,6 +534,7 @@ class PlaywrightCdpEngine(Engine):
             else:
                 context.tracing.stop()
         if self.video != "off":
+            self._close_native_routes()
             videos = [page.video for page in context.pages if page.video is not None]
             with suppress(Exception):
                 context.close()
@@ -528,6 +551,10 @@ class PlaywrightCdpEngine(Engine):
         return saved
 
     def stop(self, *, keep_browser: bool = False) -> None:
+        # Retain references only when preserving a failure scene. A later stop or
+        # the suite's leak guard must not close stale transports a second time.
+        self._close_native_routes()
+        self._native_mock_observer = None
         if keep_browser:
             # Leave the crime scene intact; only detach our client if we attached.
             if self._pw and not self._launched_here and not self._shares_driver:
@@ -539,18 +566,21 @@ class PlaywrightCdpEngine(Engine):
             # that point close() reports a dead transport, but the desired state
             # (the owned context is gone) already holds. Continue best-effort so a
             # dev-browser shutdown never ends in a misleading stack trace.
-            with suppress(Exception):
+            with suppress(Exception), self._measure("context.close"):
                 self._context.close()
         if self._browser and self._launched_here:
-            with suppress(Exception):
+            with suppress(Exception), self._measure("browser.process_close"):
                 self._browser.close()
         if self._pw and not self._shares_driver:
-            with suppress(Exception):
+            with suppress(Exception), self._measure("driver.stop"):
                 self._pw.stop()
         if self._video_dir is not None:
             shutil.rmtree(self._video_dir, ignore_errors=True)
             self._video_dir = None
         self._tapped_pages = []
+        self._page = self._scope = self._js_scope = None
+        self._context = self._browser = self._pw = None
+        self._owns_context = self._launched_here = False
 
     # -- taps --------------------------------------------------------------
 
@@ -628,11 +658,13 @@ class PlaywrightCdpEngine(Engine):
             self._net.append(rec)
 
         def on_response(response: Any) -> None:
+            mocked = response.request in self._mocked
+            self._mocked.discard(response.request)
             rec = self._pending.pop(response.request, None)
             if rec is None:
                 return
             rec.duration_ms = time.monotonic() * 1000 - rec.started_ms
-            rec.mocked = response.request in self._mocked
+            rec.mocked = rec.mocked or mocked
             # Bodies are kept for every error AND every mutation: the response to
             # a POST/PATCH the UI just made carries the entity (with its id), which
             # is what wait_for_response callers synchronize on. GET bodies stay
@@ -671,11 +703,14 @@ class PlaywrightCdpEngine(Engine):
             such a record sat at ``status=None`` forever and every
             ``wait_for_response`` on it spent its whole budget learning nothing.
             """
+            mocked = request in self._mocked
+            self._mocked.discard(request)
             rec = self._pending.pop(request, None)
             if rec is None:
                 return
             rec.duration_ms = time.monotonic() * 1000 - rec.started_ms
             rec.failure = str(getattr(request, "failure", None) or "aborted")
+            rec.mocked = rec.mocked or mocked
 
         def on_console(msg: Any) -> None:
             if msg.type in ("error", "warning"):
@@ -716,12 +751,24 @@ class PlaywrightCdpEngine(Engine):
 
     @contextmanager
     def _timed(self, op: str, detail: str = "") -> Iterator[None]:
+        with self._measure(op, detail):
+            try:
+                yield
+                if self._response_rewrites is not None:
+                    self._response_rewrites.check()
+            except Exception:
+                if self._response_rewrites is not None:
+                    self._response_rewrites.check()
+                raise
+
+    @contextmanager
+    def _measure(self, op: str, detail: str = "") -> Iterator[None]:
         """Record how long an action or wait took, success or not."""
         started = time.monotonic()
         ok = True
         try:
             yield
-        except Exception:
+        except BaseException:
             ok = False
             raise
         finally:
@@ -737,7 +784,9 @@ class PlaywrightCdpEngine(Engine):
     # -- targets -----------------------------------------------------------
 
     def _locate(self, target: Target) -> Locator:
-        page = self._scope or self._require_page()
+        page = (
+            self._locate(target.within) if target.within else (self._scope or self._require_page())
+        )
         exact = target.matches_exactly()
         if target.kind == "role":
             loc = page.get_by_role(target.value, name=target.name, exact=exact)  # type: ignore[arg-type]
@@ -1038,6 +1087,7 @@ class PlaywrightCdpEngine(Engine):
                 return
             route.fulfill(status=status, body=body, headers=headers, content_type=content_type)
 
+        setattr(answer, "_testence_builtin_mock", True)
         with self._timed("route", f"{'abort' if abort else status} {pattern}"):
             self._context.route(pattern, answer)
 
@@ -1171,6 +1221,38 @@ class PlaywrightCdpEngine(Engine):
             f"{target.describe()} == {value!r}",
             lambda: pw_expect(self._locate(target)).to_have_value(value, timeout=timeout),
         )
+
+    def input_value(self, target: Target) -> str:
+        with self._timed("input_value", target.describe()):
+            return self._locate(target).input_value(timeout=self.timeout_ms)
+
+    def visible_outcomes(self, outcomes: dict[str, Target]) -> list[str]:
+        found = []
+        for name, target in outcomes.items():
+            locator = self._locate(target)
+            if locator.count() > 1:
+                raise AssertionError(
+                    f"outcome {name!r} is ambiguous: {self.describe_matches(target)}"
+                )
+            if locator.is_visible():
+                found.append(name)
+        return found
+
+    def wait_for_outcome(self, outcomes: dict[str, Target], timeout_ms: int) -> str:
+        deadline = time.monotonic() + timeout_ms / 1000
+        with self._timed("wait_for_outcome"):
+            while True:
+                found = self.visible_outcomes(outcomes)
+                if len(found) > 1:
+                    raise AssertionError(f"conflicting outcomes visible: {found}")
+                if found:
+                    return found[0]
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise AssertionError(
+                        f"outcome unobserved within {timeout_ms} ms; no silent rejection established"
+                    )
+                self._require_page().wait_for_timeout(min(50, remaining * 1000))
 
     def expect_count(self, target: Target, count: int, timeout_ms: int | None = None) -> None:
         timeout = timeout_ms or self.timeout_ms
@@ -1555,7 +1637,50 @@ class PlaywrightCdpEngine(Engine):
         (ADR-0027): the DSL records the step around it, so evidence still knows an
         unrecorded interaction happened and why.
         """
-        return self._require_page()
+        page = self._require_page()
+        if self._native_routes is None:
+            self._native_routes = NativeRoutes(self._record_native_mock, self._attach_taps)
+            self._native_routes.install(page.context)
+        return page
+
+    def set_native_mock_observer(self, observer: Callable[..., None]) -> None:
+        self._native_mock_observer = observer
+
+    def _record_native_mock(self, request: Any, outcome: str) -> None:
+        self._mocked.add(request)
+        if request in self._pending:
+            self._pending[request].mocked = True
+        if self._native_mock_observer is not None:
+            self._native_mock_observer(
+                pattern=request.url, outcome=outcome, source="native", method=request.method
+            )
+
+    def _close_native_routes(self) -> None:
+        if self._response_rewrites is not None:
+            self._response_rewrites.close()
+            self._response_rewrites = None
+        if self._native_routes is not None:
+            self._native_routes.close()
+            self._native_routes = None
+
+    def rewrite_response(
+        self, pattern: str, transform: Callable[[Any], Any], method: str | None = None
+    ) -> None:
+        if self._context is None:
+            raise RuntimeError("engine not started")
+        if self._response_rewrites is None:
+            self._response_rewrites = ResponseRewrites(self._context, self._record_response_rewrite)
+        self._response_rewrites.add(pattern, transform, method)
+
+    def _record_response_rewrite(self, url: str, method: str, outcome: str) -> None:
+        for request, record in self._pending.items():
+            if record.url == url and record.method == method:
+                record.mocked = True
+                self._mocked.add(request)
+        if self._native_mock_observer is not None:
+            self._native_mock_observer(
+                pattern=url, outcome=outcome, source="response-rewrite", method=method
+            )
 
     def current_url(self) -> str:
         return self._require_page().url
@@ -1609,9 +1734,12 @@ class PlaywrightCdpEngine(Engine):
                     texts.append(" ".join(locator.nth(index).inner_text(timeout=500).split()))
                 except Exception:  # noqa: BLE001 - diagnostic only
                     texts.append("?")
-            shown = ", ".join(repr(_clip(text)) for text in texts)
+            shown = ", ".join(f"nth={index}: {_clip(text)!r}" for index, text in enumerate(texts))
             more = ", ..." if count > 3 else ""
-            return f"{count} elements match ({shown}{more}); narrow the target or pass nth="
+            return (
+                f"{count} elements match ({shown}{more}); narrow with within=Target(...) "
+                "or pass an explicit nth="
+            )
         needle = (target.name if target.kind == "role" else target.value) or ""
         similar: list[str] = []
         if target.kind != "css" and needle.strip():
