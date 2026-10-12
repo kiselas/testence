@@ -179,7 +179,7 @@ Follow [Testing a UI feature](https://github.com/kiselas/testence/blob/main/docs
 
 ## Fast agent authoring
 
-Start with the [short authoring loop](docs/en/authoring-loop.md): locate the consumer
+Start with the [short authoring loop](https://github.com/kiselas/testence/blob/main/docs/en/authoring-loop.md): locate the consumer
 project (including older Exhibit/`stf_autotests` pilots), map one page with
 `testence explore`, scope duplicate controls with `Target(..., within=...)`, and run
 one exact pytest node before the full suite.
@@ -321,4 +321,4 @@ Review an evidence pack before sharing it outside your team. See
 [Apache-2.0](https://github.com/kiselas/testence/blob/main/LICENSE). Runtime dependencies are restricted to permissive licenses. The
 runner contains no LLM SDK and makes no call to a model provider during ordinary replay.
 
-For short authoring iterations, use `testence status --json` to locate the active installation and `testence debug tests/test_case.py::test_case --json` for one guarded replay with failure ARIA and phase timings. Exhibit is the previous name. See [authoring loop](docs/en/authoring-loop.md).
+For short authoring iterations, use `testence status --json` to locate the active installation and `testence debug tests/test_case.py::test_case --json` for one guarded replay with failure ARIA and phase timings. Exhibit is the previous name. See [authoring loop](https://github.com/kiselas/testence/blob/main/docs/en/authoring-loop.md).

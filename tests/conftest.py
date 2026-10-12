@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from contextlib import suppress
 
 import pytest
@@ -40,3 +41,33 @@ def _stop_engines_a_test_left_running():
         with suppress(Exception):
             engine.stop()
     del _STARTED[mark:]
+
+
+#: How much of a killed subprocess's output a failure report keeps.
+_TIMEOUT_TAIL_CHARS = 12_000
+
+
+def _tail(output: bytes | str | None) -> str:
+    if output is None:
+        return "(none)"
+    text = output.decode("utf-8", "replace") if isinstance(output, bytes) else output
+    return text[-_TIMEOUT_TAIL_CHARS:] or "(empty)"
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Show what a nested process printed before its timeout killed it.
+
+    ``TimeoutExpired`` carries the output, but the report only names the command, so
+    a nested pytest that hung on a CI runner left nothing to read. With
+    ``faulthandler_timeout`` in ``PYTEST_ADDOPTS`` (CI sets it) that output includes
+    the stack of every thread of the hung process.
+    """
+    outcome = yield
+    excinfo = call.excinfo
+    if excinfo is None or not isinstance(excinfo.value, subprocess.TimeoutExpired):
+        return
+    report = outcome.get_result()
+    error = excinfo.value
+    report.sections.append(("nested process stdout before the timeout", _tail(error.stdout)))
+    report.sections.append(("nested process stderr before the timeout", _tail(error.stderr)))

@@ -623,6 +623,13 @@ def main(argv: list[str] | None = None) -> int:
                     "  testence run -- .testence/examples/test_demo_failure.py -q\n"
                     "then read its evidence: testence inspect runs/<new run id>"
                 )
+        if completed.returncode == 5:  # pytest.ExitCode.NO_TESTS_COLLECTED
+            # Options alone (`-- -x`) select pytest's own default paths, not the example.
+            print(
+                "testence run: pytest collected no tests. Name them after --, for example\n"
+                "  testence run --project . -- tests/ -q",
+                file=sys.stderr,
+            )
         return int(completed.returncode)
 
     if args.command in ("debug", "status"):

@@ -92,9 +92,12 @@ jobs:
       - name: Run test suite
         # Per-test timings make a platform slowdown diagnosable from the artifact
         # instead of from a second run.
-        # A test still running after 7 minutes dumps every thread's stack, so a hang that
-        # the job timeout cancels names its test instead of leaving a silent log.
-        run: uv run pytest -q -o faulthandler_timeout=420 --durations=25 --junitxml=test-timings/junit.xml
+        # A test, or a pytest a test started, still running after 2 minutes dumps every
+        # thread's stack: nested runs inherit PYTEST_ADDOPTS, and tests/conftest.py shows a
+        # killed process's output, so a hang names its test instead of a silent timeout.
+        env:
+          PYTEST_ADDOPTS: -o faulthandler_timeout=120
+        run: uv run pytest -q --durations=25 --junitxml=test-timings/junit.xml
       - name: Save per-test timings
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -149,7 +152,9 @@ jobs:
             "$FLOOR_PY" -m playwright install chromium
           fi
       - name: Run suite at dependency floor
-        run: '"$FLOOR_PY" -m pytest -q -o faulthandler_timeout=420'
+        env:
+          PYTEST_ADDOPTS: -o faulthandler_timeout=120
+        run: '"$FLOOR_PY" -m pytest -q'
 
   user-ci-template:
     name: Documented CI template

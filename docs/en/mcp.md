@@ -32,10 +32,12 @@ OpenCode, `opencode.json`:
 Each block is that client's own format; check your client's MCP
 documentation if it differs from your version. `--headed` shows the exploration browser.
 
-## The seven tools
+## The tools
 
 | tool | what it does |
 |---|---|
+| `testence_status` | the active package, settings and declared parallel policy, to locate the installation |
+| `testence_debug` | replays exactly one pytest node in a fresh, guarded process and returns failure ARIA, triage and phase timings ([authoring loop](authoring-loop.md)) |
 | `testence_doctor` | checks the runtime; `target: true` also reaches `base_url`, checks credentials and tries the login |
 | `testence_snapshot` | opens a page (`url`, a path on `base_url` or absolute) and lists its interactive elements; each has the `Target` that addresses it, the Python that spells it and how many elements it matches: `unique: true` is usable as is |
 | `testence_click` | clicks a `Target` in the exploration browser, to see what happens before writing the step |

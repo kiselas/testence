@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -428,3 +429,13 @@ def test_exploring_a_real_page(tmp_path, monkeypatch):
             )
         finally:
             server.close()
+
+
+@pytest.mark.parametrize("language", ["en", "ru"])
+def test_the_documented_tool_table_lists_every_tool_the_server_offers(language):
+    """docs/*/mcp.md said "the seven tools" after testence_status and testence_debug
+    made nine, so a client author could not find two of them."""
+    root = Path(__file__).resolve().parents[1]
+    page = (root / "docs" / language / "mcp.md").read_text(encoding="utf-8")
+    documented = re.findall(r"^\| `(testence_[a-z_]+)` \|", page, re.MULTILINE)
+    assert sorted(documented) == sorted(tool["name"] for tool in TOOLS)

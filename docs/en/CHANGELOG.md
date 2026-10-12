@@ -6,7 +6,15 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- [MCP](mcp.md) listed seven tools; `testence_status` and `testence_debug` are now in the
+  table, and a test keeps the table equal to what the server offers.
+- Two README links to the authoring loop were relative and broke on the PyPI page; a test
+  now keeps every README link absolute.
+- `testence run --project . -- -q` (options without test paths) runs pytest's default
+  discovery, which skips the hidden `.testence/examples`, and ended with an empty run and
+  no word why. A run that collects no tests now says how to name them.
 
 ## 0.1.0a2 — 2026-10-12
 
