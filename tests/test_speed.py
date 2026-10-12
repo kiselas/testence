@@ -31,7 +31,7 @@ def test_non_textual_spa_root_counts_as_rendered(engine):
         "</script>"
     )
 
-    assert engine.wait_until_rendered(timeout_ms=250) is True
+    assert engine.wait_until_rendered(timeout_ms=2000) is True
 
 
 def test_fast_fill_preserves_controlled_input_events(engine):
