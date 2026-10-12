@@ -222,6 +222,16 @@ def test_init_and_inspect_cli_return_clean_json(tmp_path, capsys):
     assert "{" not in human and "1 verified" in human
 
 
+def test_run_that_collects_nothing_says_how_to_name_the_tests(tmp_path, capsys):
+    """Options alone (`-- -q`) select pytest's default paths, which skip the hidden
+    `.testence/examples`; the run used to end with an empty ledger and no word why."""
+    project = tmp_path / "empty"
+    assert main(["init", str(project), "--json"]) == 0
+    capsys.readouterr()
+    assert main(["run", "--project", str(project), "--run-id", "r-empty", "--", "-q"]) == 5
+    assert "testence run --project . -- tests/ -q" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize(
     "command",
     [
