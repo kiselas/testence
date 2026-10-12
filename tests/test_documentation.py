@@ -57,6 +57,18 @@ def test_current_documentation_has_no_broken_local_links() -> None:
     assert not broken, "\n".join(broken)
 
 
+
+def test_readme_links_resolve_on_pypi() -> None:
+    """The README is the PyPI description, where a relative link has no repository to
+    resolve against: two `docs/en/authoring-loop.md` links shipped broken in 0.1.0a2."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    relative = [
+        target
+        for target in re.findall(r"!?\[[^]]*\]\(([^)]+)\)", readme)
+        if not target.strip().startswith(("http://", "https://", "mailto:", "#"))
+    ]
+    assert not relative, relative
+
 def test_current_agent_and_demo_commands_match_the_cli() -> None:
     combined = "\n".join(path.read_text(encoding="utf-8") for path in _current_docs())
     assert "testence agent init" not in combined

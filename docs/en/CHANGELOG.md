@@ -8,6 +8,8 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- Two README links to the authoring loop were relative and broke on the PyPI page; a test
+  now keeps every README link absolute.
 - `testence run --project . -- -q` (options without test paths) runs pytest's default
   discovery, which skips the hidden `.testence/examples`, and ended with an empty run and
   no word why. A run that collects no tests now says how to name them.
