@@ -16,6 +16,7 @@ import time
 from collections.abc import Mapping
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 from . import __version__
 from .agent.install import CLIENTS
@@ -193,6 +194,27 @@ def _watch(
         if warm_runner is not None:
             warm_runner.close()
     return 0
+
+
+def _agent_summary(result: dict[str, Any]) -> str:
+    """One line per client instead of the receipt; `--json` keeps the document."""
+    lines = [f"{result['status']}: skill pack {result['pack_version']} in {result['project']}"]
+    for client in result.get("clients", []):
+        name = client.get("client", "?") if isinstance(client, dict) else str(client)
+        problems = (
+            (client.get("drift") or client.get("conflicts") or [])
+            if isinstance(client, dict)
+            else []
+        )
+        state = client.get("status", result["status"]) if isinstance(client, dict) else ""
+        lines.append(
+            f"  {name}: {state}" + (f", {len(problems)} file(s) differ" if problems else "")
+        )
+        for entry in problems[:5]:
+            lines.append(f"    {entry.get('path')}: {entry.get('actual', 'changed')}")
+    if result["status"] in {"conflict", "drift"}:
+        lines.append("  a file you changed is kept; delete it and install again to restore it")
+    return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -623,6 +645,12 @@ def main(argv: list[str] | None = None) -> int:
                     "  testence run -- .testence/examples/test_demo_failure.py -q\n"
                     "then read its evidence: testence inspect runs/<new run id>"
                 )
+        if completed.returncode == 1:
+            # The pass path already points at the next step; a failure is where the
+            # evidence matters most and said nothing.
+            runs = project / "runs" / run_id
+            shown = os.path.relpath(runs) if runs.is_relative_to(Path.cwd()) else str(runs)
+            print(f"next: read what failed: testence inspect {shown}")
         if completed.returncode == 5:  # pytest.ExitCode.NO_TESTS_COLLECTED
             # Options alone (`-- -x`) select pytest's own default paths, not the example.
             print(
@@ -835,7 +863,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.json_output:
             print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
         else:
-            print(json.dumps(result, ensure_ascii=False, indent=2))
+            print(_agent_summary(result))
         return 3 if result["status"] in {"conflict", "drift"} else 0
 
     if args.command == "corpus":

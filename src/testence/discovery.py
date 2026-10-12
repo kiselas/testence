@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +64,30 @@ def snapshot(
     return cleaned
 
 
+def _check_explore_url(url: str) -> None:
+    """A page of the application: a path on base_url or an http(s) URL, never a file.
+
+    Git Bash on Windows rewrites `/` to `C:/Program Files/Git/`, and explore then mapped
+    that directory as a file:// page and exited 0. An inline `data:` page stays allowed
+    for synthetic fixtures.
+    """
+    text = url.strip()
+    lowered = text.lower()
+    if lowered.startswith(("http://", "https://", "data:", "about:")):
+        return
+    if text.startswith("/") and not text.startswith("//"):
+        return
+    hint = (
+        " Git Bash rewrote the path: run `MSYS_NO_PATHCONV=1 testence explore / ...` or pass "
+        "the full http URL."
+        if re.match(r"^[A-Za-z]:[/\\]", text)
+        else ""
+    )
+    raise ValueError(
+        f"explore takes a path on base_url (such as /login) or an http(s) URL, not {text!r}." + hint
+    )
+
+
 def explore(
     project: Path, url: str, *, profile: str = "", headed: bool = False, limit: int = 60
 ) -> dict[str, Any]:
@@ -78,6 +103,7 @@ def explore(
     # Validate before launching or navigating.
     if type(limit) is not int or not 1 <= limit <= 200:
         raise ValueError("limit must be an integer from 1 to 200")
+    _check_explore_url(url)
     engine = create_engine(settings)
     try:
         engine.start()
