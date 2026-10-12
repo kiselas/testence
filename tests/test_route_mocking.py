@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -282,4 +283,7 @@ def test_native_provenance_controls_detect_a_disabled_tracker(tmp_path: Path):
     project.mkdir()
     result = _run(project, native=True, mutant=True)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert "2 failed" in result.stdout and result.stdout.count("DID NOT RAISE") == 2
+    # Count the tracebacks, not the short summary: pytest truncates summary lines to the
+    # terminal width locally and prints them whole under CI, which doubled the count there.
+    raised = re.findall(r"^E\s+Failed: DID NOT RAISE", result.stdout, re.MULTILINE)
+    assert "2 failed" in result.stdout and len(raised) == 2, result.stdout
