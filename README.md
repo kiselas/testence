@@ -101,7 +101,8 @@ testence report runs/r-onboarding
 testence demo run --project testence-demo --json
 ```
 
-Every command that takes `--json` also prints a readable summary without it.
+Every command that takes `--json` also prints a readable summary without it, except
+`explore`, `status` and `debug`, whose output is the document an agent reads.
 `testence doctor --target` also reaches your app's `base_url`, checks the credentials and
 tries the login once. `doctor` exits 2 when a check fails, `plan prepare` exits 3 when a scenario is blocked and 2 when
 the plan or configuration is invalid.

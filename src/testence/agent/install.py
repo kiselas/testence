@@ -256,6 +256,13 @@ def verify_skills(project: Path, clients: list[str] | tuple[str, ...]) -> dict[s
             if actual != item.digest:
                 drift.append({"path": relative, "expected": item.digest, "actual": actual})
         record = state["clients"].get(client)
+        if not record and all(entry["actual"] == "missing" for entry in drift):
+            # Twenty "missing" drift entries read as breakage to someone who has simply
+            # not installed the pack yet.
+            raise AgentInstallError(
+                f"the skill pack is not installed for {client}; run: testence agent install "
+                f"--project {project} --client {client}"
+            )
         state_matches = bool(record) and record.get("pack_digest") == digest
         status = "valid" if not drift and state_matches else "drift"
         results.append(

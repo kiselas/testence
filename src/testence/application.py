@@ -578,6 +578,14 @@ def _target_checks(settings: Settings, say: Callable[[str], None]) -> list[dict[
             "base_url is not set; fix: set it in testence.json or TESTENCE_BASE_URL",
         )
         return checks
+    if not base_url.lower().startswith(("http://", "https://")):
+        check(
+            "target",
+            False,
+            f"base_url must start with http:// or https://, not {base_url!r}; "
+            f"fix: base_url http://{base_url}",
+        )
+        return checks
     say(f"reaching {base_url}...")
     try:
         with urllib.request.urlopen(base_url, timeout=10) as response:  # noqa: S310
@@ -592,7 +600,12 @@ def _target_checks(settings: Settings, say: Callable[[str], None]) -> list[dict[
             f"cannot reach {base_url}: {reason}; fix: start the app or correct base_url",
         )
         return checks
-    check("target", True, f"{base_url} answered HTTP {status}")
+    answered = f"{base_url} answered HTTP {status}"
+    if status >= 400:
+        # The server is up, which is what this check proves; a 404 on base_url is still
+        # worth a look before the first test navigates there.
+        answered += "; check that base_url is the application's address"
+    check("target", True, answered)
 
     scheme = str(settings.auth or "none").strip()
     if scheme.lower() in ("none", "", "attached"):

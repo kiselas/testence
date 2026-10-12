@@ -8,6 +8,16 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- `testence explore` refuses anything but a path on `base_url` or an http(s) URL. Git
+  Bash rewrites `/` to `C:/Program Files/Git/`, and `explore /` mapped that folder as a
+  file:// page and exited 0; the error now names `MSYS_NO_PATHCONV=1`.
+- `testence agent verify` before any install said `drift` with every file missing; it
+  now says the pack is not installed and prints the install command. `agent install`
+  and `agent verify` print a short summary instead of the receipt (`--json` keeps it).
+- A failed `testence run` prints `next: read what failed: testence inspect runs/<id>`;
+  `inspect` of a bare run id points at `runs/<id>`.
+- `doctor --target` names a `base_url` without `http://` and flags an HTTP 4xx/5xx
+  answer from it.
 - [MCP](mcp.md) listed seven tools; `testence_status` and `testence_debug` are now in the
   table, and a test keeps the table equal to what the server offers.
 - Two README links to the authoring loop were relative and broke on the PyPI page; a test

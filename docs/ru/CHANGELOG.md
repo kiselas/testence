@@ -9,6 +9,16 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
 
 ### Исправлено
 
+- `testence explore` принимает только путь на `base_url` или http(s)-URL. Git Bash
+  превращает `/` в `C:/Program Files/Git/`, и `explore /` снимал этот каталог как
+  file://-страницу с кодом 0; теперь ошибка называет `MSYS_NO_PATHCONV=1`.
+- `testence agent verify` до установки сообщал `drift` со всеми отсутствующими файлами;
+  теперь он говорит, что набор не установлен, и печатает команду установки. `agent
+  install` и `agent verify` печатают короткую сводку вместо квитанции (`--json` её
+  сохраняет).
+- Упавший `testence run` печатает `next: read what failed: testence inspect runs/<id>`;
+  `inspect` с голым id запуска подсказывает `runs/<id>`.
+- `doctor --target` называет `base_url` без `http://` и отмечает ответ HTTP 4xx/5xx.
 - [MCP](mcp.md) перечислял семь инструментов; `testence_status` и `testence_debug` теперь в
   таблице, а тест держит таблицу равной тому, что отдаёт сервер.
 - Две ссылки README на цикл авторинга были относительными и не работали на странице PyPI;
