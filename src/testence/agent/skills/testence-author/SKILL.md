@@ -49,8 +49,13 @@ For automated screenshot regression or an isolated client simulation, also read
   `testence_click`/`testence_fill` before writing them; run and read with
   `testence_debug` for one guarded case and immediate failure ARIA, then
   `testence_run`/`testence_inspect` for acceptance. `testence_status` locates the package.
-  Prove a save with `ex.verify_state(name, read, ExpectedState.fields(...))`: it polls
-  a fresh read and names each differing field; `ex.verify` compares two views taken once.
+  Prove a save with `save_and_verify_state(ex, SAVE, name=..., request=RequestExpectation(
+  path, "POST"), read=lambda created: ..., expected=lambda created:
+  ExpectedState.fields(..., entity_id=created["id"]))` (from `testence.oracle`): it clicks
+  once, binds the mutation's response and proves the entity that save created, naming
+  each differing field. `ex.verify_state` proves a state, not which action caused it: a
+  read of a row that already matched is `verified` without any save, so use it only when
+  the checked fields cannot hold before the action. `ex.verify` compares two views taken once.
   Do not guess an oracle's endpoint: run the test once, then `testence oracle suggest
   <run dir> --json` lists the reads that prove each mutation the run made and a
   `save_and_verify_state` call to complete.

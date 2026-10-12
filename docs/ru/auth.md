@@ -47,6 +47,9 @@ credentials (env)  ──►  AuthAdapter  ──►  AuthContext ──┬─�
 по настроенной схеме:
 
 ```python
+from testence.oracle import ExpectedState
+
+
 def test_widget_matches_api(ex, testence_api):
     ex.goto("/widgets/42", intent="open the widget")
     shown = ex.engine.read_text(CIDR_FIELD)

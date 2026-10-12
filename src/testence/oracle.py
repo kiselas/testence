@@ -238,6 +238,11 @@ class ExpectedState:
             raise ValueError("accepted_statuses must contain valid HTTP statuses")
 
     def evaluate(self, actual: Any) -> tuple[bool, str]:
+        if self.empty_is_state and _is_absent(actual):
+            # Nothing is there: an empty answer carries no id, role or correlation to
+            # bind, and the read that returned it already names the entity. A body that
+            # is still there is checked below, bindings first.
+            return True, "matched"
         bindings = (
             (self.entity_id, self.entity_path, "entity"),
             (self.actor_role, self.role_path, "role"),
@@ -593,19 +598,35 @@ def save_and_verify_state(
     *,
     name: str,
     request: RequestExpectation,
-    read: Callable[[], Response],
-    expected: ExpectedState,
+    read: Callable[[], Response] | Callable[[Any], Response],
+    expected: ExpectedState | Callable[[Any], ExpectedState],
     request_timeout_ms: int = 3_000,
     deadline_ms: int = 3_000,
     poll_ms: int = 100,
     assertion_id: str | None = None,
     claim_id: str | None = None,
 ) -> OracleObservation:
-    """Perform one mutation, bind its response, then prove stable persisted state."""
+    """Perform one mutation, bind its response, then prove stable persisted state.
+
+    ``read`` and ``expected`` may take one argument, the JSON body of the mutation's
+    response, to bind the proof to the entity this save created:
+    ``read=lambda created: api.get_fresh(f"/api/widgets/{created['id']}")`` and
+    ``expected=lambda created: ExpectedState.fields(..., entity_id=created["id"])``.
+    An id chosen before the click can only name an entity that already existed.
+    """
     assertion_source = _source_location()
     _assertion_identity(assertion_id, claim_id)
     # A misconfigured window must fail before the mutation, not after it was sent.
-    _check_observation_window(expected, deadline_ms, poll_ms)
+    if isinstance(expected, ExpectedState):
+        _check_observation_window(expected, deadline_ms, poll_ms)
+    state = (
+        expected
+        if isinstance(expected, ExpectedState)
+        else ExpectedState(
+            f"{name}: bound to the response of {request.method.upper()} {request.path}",
+            _never,
+        )
+    )
     mark = actions.engine.net_mark()
     actions.click(save_target, intent=f"save {name}")
     response = actions.engine.wait_for_response(
@@ -668,9 +689,20 @@ def save_and_verify_state(
             0.0,
         )
     else:
+        created = response.json_body()
+        bound_read: Callable[[], Response] = (
+            (lambda: read(created))  # type: ignore[call-arg]
+            if _takes_one_argument(read)
+            else read  # type: ignore[assignment]
+        )
+        if not isinstance(expected, ExpectedState):
+            state = expected(created)
+            if not isinstance(state, ExpectedState):
+                raise TypeError("expected(created) must return an ExpectedState")
+            _check_observation_window(state, deadline_ms, poll_ms)
         observation = observe_expected_state(
-            read,
-            expected,
+            bound_read,
+            state,
             deadline_ms=deadline_ms,
             poll_ms=poll_ms,
         )
@@ -678,7 +710,7 @@ def save_and_verify_state(
         actions.writer,
         actions.test_id,
         name,
-        expected,
+        state,
         observation,
         assertion_id=assertion_id,
         claim_id=claim_id,
@@ -687,6 +719,25 @@ def save_and_verify_state(
     )
     _raise_observation(name, observation)
     return observation
+
+
+def _never(_value: Any) -> bool:
+    return False
+
+
+def _takes_one_argument(function: Callable[..., Any]) -> bool:
+    """Whether ``read`` wants the mutation's response body (``lambda created: ...``)."""
+    try:
+        parameters = inspect.signature(function).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    required = [
+        parameter
+        for parameter in parameters
+        if parameter.default is inspect.Parameter.empty
+        and parameter.kind in (parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD)
+    ]
+    return len(required) == 1
 
 
 def save_and_verify(

@@ -46,6 +46,9 @@ The plugin does the work; a test just asks for what it needs. `ex` is already
 logged in with the configured scheme:
 
 ```python
+from testence.oracle import ExpectedState
+
+
 def test_widget_matches_api(ex, testence_api):
     ex.goto("/widgets/42", intent="open the widget")
     shown = ex.engine.read_text(CIDR_FIELD)
