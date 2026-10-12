@@ -1,0 +1,654 @@
+{
+  "schema": "testence/release-manifest/2",
+  "release_profile": "alpha",
+  "target_version": "0.1.0a2",
+  "candidate": {
+    "base_sha": "b3b1004996a444c9a2a6ad3e5176607f1912d371",
+    "version": "0.1.0a2",
+    "rc_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642",
+    "tag": "v0.1.0a2",
+    "dirty_worktree": false
+  },
+  "environment": {
+    "python": [
+      "3.10",
+      "3.12"
+    ],
+    "platforms": [
+      "ubuntu-latest",
+      "windows-latest",
+      "macos-latest"
+    ],
+    "tools": {
+      "pytest": "9.1.1 locked matrix",
+      "playwright": "1.63.0 candidate environment",
+      "uv": "0.8.22 build workflow",
+      "pip-audit": "2.10.1 local runtime-lock audit"
+    }
+  },
+  "inputs": {
+    "dependency_inventory": {
+      "path": "release-artifacts/dependency-inventory.json",
+      "bytes": 3148,
+      "sha256": "186293d21771ba4cc985ee171c6c8a4567ae2a0b746c4340b2cc3c1029fb6418"
+    },
+    "corpus_registry": {
+      "path": "corpus/r1-correctness-v2.json",
+      "bytes": 15091,
+      "sha256": "dbf091eb94301fed6fa7926b81d8a1aa071611a4b90e48a16bafa9dd7238f9a0"
+    },
+    "corpus_digest": "sha256:8b25b39d09d26c639a77e2b3aa568df18c9ab09daac64f180940ba6f46dac4de"
+  },
+  "artifacts": [
+    {
+      "path": "dist/reproducible-build.json",
+      "bytes": 849,
+      "sha256": "16625afd5145f10de003711a894537d1659746de147d1a613ff27c0dd7250572"
+    },
+    {
+      "path": "dist/testence-0.1.0a2-py3-none-any.whl",
+      "bytes": 336722,
+      "sha256": "39fe8b54acb492e624428d436b0c923d57d93abde96294e4e461dc18ebf63aad"
+    },
+    {
+      "path": "dist/testence-0.1.0a2.tar.gz",
+      "bytes": 442836,
+      "sha256": "ed68c413b75fc8fefa3685f7d14afb556136a4886ff671d59048248b6dbb8283"
+    },
+    {
+      "path": "release-artifacts/checksums.sha256",
+      "bytes": 190,
+      "sha256": "18d3b985e39a2d282a2ab88d38cd4d70e39a06c55fdbb0a68f8448bb7dbf1d40"
+    },
+    {
+      "path": "release-artifacts/dependency-inventory.json",
+      "bytes": 3148,
+      "sha256": "186293d21771ba4cc985ee171c6c8a4567ae2a0b746c4340b2cc3c1029fb6418"
+    },
+    {
+      "path": "release-artifacts/installed-wheel-smoke.json",
+      "bytes": 1300,
+      "sha256": "520970ad06b44b685abdc5941719da0d62568bc5c309bac3b0d129714e15c70c"
+    },
+    {
+      "path": "release-artifacts/provenance.json",
+      "bytes": 2321,
+      "sha256": "c3691205324d0201a18aa76151dbbbe997f47c0f9c7032836a03a883363b1085"
+    },
+    {
+      "path": "release-artifacts/sbom.json",
+      "bytes": 11017,
+      "sha256": "e89ed68837feeb790ab701af4913da7aaf4ec0ff1ad6f0503eeba1cac981df20"
+    },
+    {
+      "path": "release-artifacts/sdist-rebuild.json",
+      "bytes": 737,
+      "sha256": "7bdebfa3382b14dc60d0488d9e30eabe51f848cc0a887531fc6c38e5aa147cc4"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R01",
+      "name": "lifecycle",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R02",
+      "name": "identity",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R03",
+      "name": "completeness",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R04",
+      "name": "claims",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R05",
+      "name": "oracle",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R06",
+      "name": "auth",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R07",
+      "name": "redaction and paths",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R08",
+      "name": "evidence budgets",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R09",
+      "name": "verdict and repair",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R10",
+      "name": "isolation",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R11",
+      "name": "browser primitives",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R12",
+      "name": "web surface",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R13",
+      "name": "Allure",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "Deferred from the 0.1.0a2 alpha profile: Allure requires broader R1 acceptance."
+      ]
+    },
+    {
+      "id": "R14",
+      "name": "TestOps",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "Deferred from the 0.1.0a2 alpha profile: TestOps requires broader R1 acceptance."
+      ]
+    },
+    {
+      "id": "R15",
+      "name": "CI and export",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R16",
+      "name": "agents",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R17",
+      "name": "multi-project quality",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "Deferred from the 0.1.0a2 alpha profile: multi-project quality requires broader R1 acceptance."
+      ]
+    },
+    {
+      "id": "R18",
+      "name": "correctness corpus",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R19",
+      "name": "performance",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R20",
+      "name": "supply chain",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R21",
+      "name": "quality pack integrity",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R22",
+      "name": "documentation",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "R23",
+      "name": "adoption",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "Deferred from the 0.1.0a2 alpha profile: adoption requires broader R1 acceptance."
+      ]
+    },
+    {
+      "id": "R24",
+      "name": "OSS release",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    }
+  ],
+  "gates": [
+    {
+      "id": "G1",
+      "name": "Truth",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "G2",
+      "name": "Safety",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "G3",
+      "name": "Web reliability",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "G4",
+      "name": "Integrations",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "Deferred from the 0.1.0a2 alpha profile: Integrations requires broader R1 acceptance."
+      ]
+    },
+    {
+      "id": "G5",
+      "name": "Agent workflow",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "G6",
+      "name": "Measured quality",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    },
+    {
+      "id": "G7",
+      "name": "Adoption",
+      "status": "incomplete",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [],
+      "missing": [
+        "Deferred from the 0.1.0a2 alpha profile: Adoption requires broader R1 acceptance."
+      ]
+    },
+    {
+      "id": "G8",
+      "name": "Distribution",
+      "status": "passed",
+      "required_profiles": [
+        "rc"
+      ],
+      "receipts": [
+        {
+          "path": "release/evidence/v0.1.0a2/alpha-ci.json",
+          "bytes": 3816,
+          "sha256": "bab0df4743d3d4daa1e12d6ff7b7e47bbd387f86447a4c5cff092ed61ea9d4a0",
+          "profile": "rc",
+          "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+        }
+      ],
+      "missing": []
+    }
+  ],
+  "exemptions": [],
+  "limitations": [
+    "This is an alpha release. Broader multi-project acceptance, the comparative correctness slice against other agent testing tools and adoption evidence remain R1 work.",
+    "Every automated check ran on synthetic targets in the hosted matrix; no external pilot receipt is part of this release.",
+    "Publication requires the protected pypi environment and a post-publication clean-environment install smoke."
+  ],
+  "machine_readiness": true,
+  "owner_decision": {
+    "status": "go",
+    "owner": "kiselas",
+    "reason": "Owner authorized publishing 0.1.0a2 with its list of fixes after the exact candidate passed the hosted matrix and release artifact checks.",
+    "payload_digest": "sha256:c247c86e08a623bfb0531e041a58f1d90bfa9a6f3143b8fd3eb0d5db9639bb54",
+    "receipt": {
+      "path": "release/evidence/v0.1.0a2/owner-go.json",
+      "bytes": 1813,
+      "sha256": "5c3bc21dae10851e2ae5e2f36d7b9e57789689951774bfa248421ca934b534bd",
+      "profile": "external",
+      "candidate_sha": "3bf338150c29ea800461dbf067f6a2c3d9624642"
+    }
+  },
+  "rollback": "If publication validation fails, do not move the tag. If PyPI upload completes but the package is unusable, yank 0.1.0a2, retain provenance, and publish a new immutable alpha version after correction."
+}

@@ -24,7 +24,7 @@ verified through the API on 21 September 2026. `0.1.0a1` has since been publishe
 PyPI; every later release goes through the same gate: the final clean commit is
 rescanned and a maintainer reviews all intended source assets.
 See [support policy](../../SUPPORT.md), [security policy](../../SECURITY.md), and the
-[current release decision](../../release/rc-manifest-v2.json). The manual
+[current release decision](../../release/manifest-v0.1.0a2.json). The manual
 `publish.yml` workflow accepts only an existing tag, artifacts from the selected CI
 run, and a protected acceptance bundle that makes this manifest validate as `go`.
 Its `pypi` environment and trusted-publisher identity must be configured and reviewed

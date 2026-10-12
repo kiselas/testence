@@ -25,7 +25,7 @@ review лицензий.
 и review всех предназначенных для публикации материалов.
 См. [support policy](../../SUPPORT.md),
 [security policy](../../SECURITY.md) и
-[текущее release-решение](../../release/rc-manifest-v2.json). Ручной workflow
+[текущее release-решение](../../release/manifest-v0.1.0a2.json). Ручной workflow
 `publish.yml` принимает только существующий tag, артефакты выбранного CI run и
 защищённый acceptance bundle, при котором manifest возвращает `go`. До запуска нужно
 фактически настроить и проверить environment `pypi` и trusted publisher в GitHub/PyPI.

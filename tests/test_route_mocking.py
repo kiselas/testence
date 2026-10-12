@@ -125,6 +125,7 @@ def test_route_arguments_are_checked(tmp_path):
 
 NATIVE_SUITE = """
 import os
+import time
 from playwright.sync_api import Page
 
 
@@ -174,8 +175,14 @@ def test_native_abort_is_marked_even_without_a_response(ex, scope):
     _fill(ex)
     ex.click(Target('css', '#save-widget'))
     assert ex.engine.wait_for_request('/api/v1/widgets', method='POST', timeout_ms=500)
-    ex.engine.settle(500)
-    records = [r for r in ex.engine.network_log() if r.method == 'POST']
+    # The abort is marked mocked before dispatch; Playwright's requestfailed event that
+    # fills failure can land after a fixed pause on a slow runner, so wait for it.
+    deadline = time.monotonic() + 10
+    while True:
+        records = [r for r in ex.engine.network_log() if r.method == 'POST']
+        if (records and records[-1].failure) or time.monotonic() > deadline:
+            break
+        ex.engine.settle(100)
     assert records and records[-1].mocked and records[-1].failure
 
 
