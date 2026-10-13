@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -21,6 +20,7 @@ import pytest
 from testence import allure_compat
 from testence.evidence import RUN_ID_ENV
 from testence.export import export_run
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 REFERENCE = ROOT / "tests" / "fixtures" / "allure-pytest-reference"
@@ -41,7 +41,7 @@ def _run_reference(tmp_path: Path, *extra_files: tuple[str, str]) -> tuple[Path,
     env["PYTHONPATH"] = os.pathsep.join(
         [str(ROOT / "src"), value] if (value := env.get("PYTHONPATH")) else [str(ROOT / "src")]
     )
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -58,9 +58,6 @@ def _run_reference(tmp_path: Path, *extra_files: tuple[str, str]) -> tuple[Path,
         ],
         cwd=project,
         env=env,
-        text=True,
-        capture_output=True,
-        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     (run_dir,) = [path for path in runs.iterdir() if path.is_dir()]

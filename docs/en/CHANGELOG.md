@@ -8,6 +8,11 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- Nested pytest checks now own their process trees, with a 300-second default deadline
+  and bounded stdout/stderr on timeout. Descendants holding inherited output handles
+  cannot keep cleanup waiting indefinitely. The frozen lifecycle corpus is unchanged.
+- The quality transaction crash test publishes its worker PID marker atomically, so
+  the parent cannot observe an empty file before killing the worker.
 - [MCP](mcp.md) listed seven tools; `testence_status` and `testence_debug` are now in the
   table, and a test keeps the table equal to what the server offers.
 - Two README links to the authoring loop were relative and broke on the PyPI page; a test

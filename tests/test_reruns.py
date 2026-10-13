@@ -19,6 +19,7 @@ import pytest
 
 from testence.evidence import RUN_ID_ENV
 from testence.metrics import load_run
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -57,7 +58,7 @@ def _run(project: Path, *args: str) -> tuple[subprocess.CompletedProcess[str], l
     env["PYTHONPATH"] = os.pathsep.join(
         [str(ROOT / "src"), value] if (value := env.get("PYTHONPATH")) else [str(ROOT / "src")]
     )
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -74,9 +75,6 @@ def _run(project: Path, *args: str) -> tuple[subprocess.CompletedProcess[str], l
         ],
         cwd=project,
         env=env,
-        text=True,
-        capture_output=True,
-        check=False,
     )
     (run_dir,) = (project / "runs").iterdir()
     return result, load_run(run_dir)
@@ -300,7 +298,7 @@ def test_an_invalid_rerun_count_is_a_usage_error(tmp_path: Path, value):
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     env["PYTHONPATH"] = str(ROOT / "src")
 
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -314,9 +312,6 @@ def test_an_invalid_rerun_count_is_a_usage_error(tmp_path: Path, value):
         ],
         cwd=project,
         env=env,
-        text=True,
-        capture_output=True,
-        check=False,
     )
 
     assert result.returncode == 4, result.stdout + result.stderr

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -22,6 +21,7 @@ from testence.contracts._validation import ContractError
 from testence.evidence import RUN_ID_ENV, EvidenceWriter
 from testence.export import export_run
 from testence.pytest_plugin import _resolve_tms
+from tests.owned_pytest import run_pytest
 
 from .test_export import GOLDEN_DIR, build_ledger
 
@@ -211,7 +211,7 @@ def test_the_marker_reaches_the_junit_report_through_a_real_run(tmp_path):
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     env["PYTHONPATH"] = str(ROOT / "src")
     runs = tmp_path / "runs"
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -228,9 +228,6 @@ def test_the_marker_reaches_the_junit_report_through_a_real_run(tmp_path):
         ],
         cwd=project,
         env=env,
-        capture_output=True,
-        text=True,
-        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     run_dir = next(runs.iterdir())

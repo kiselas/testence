@@ -1,0 +1,156 @@
+{
+  "schema": "testence/oss-ui-smoke/1",
+  "scope": "UI-only synthetic controls; not frozen R1 corpus acceptance or independent client proof",
+  "revision": "cff7bdbd027b7c54fa848c7540a1201184ced909",
+  "dirty": true,
+  "python": "3.12.14",
+  "platform": "Windows-11-10.0.26100-SP0",
+  "playwright": "1.62.0",
+  "targets": [
+    {
+      "name": "adminlte",
+      "repository": "https://github.com/ColorlibHQ/AdminLTE.git",
+      "revision": "12b4b06ffe8fb1e5337a1022d7d4967c4d942a30",
+      "checkout": ".tmp/oss-adminlte",
+      "web_root": "dist",
+      "license": "LICENSE",
+      "license_id": "MIT",
+      "license_sha256": "9e8b0d4e7ce8c13e67a2373d5094910c263fd95b1e49bdf45dc2a9813be5996b",
+      "built_tree_sha256": "226117bc13ec4d74a145b2b31fad34b93e0866a3bf5b0010fca09b6ac48e2f60"
+    },
+    {
+      "name": "tabler",
+      "repository": "https://github.com/tabler/tabler.git",
+      "revision": "68c844c7d16697a2dbab903de156b6d8f137b7e3",
+      "checkout": ".tmp/oss-tabler",
+      "web_root": "preview/dist",
+      "license": "LICENSE",
+      "license_id": "MIT",
+      "license_sha256": "8ae01434d2466e421a196f97308a0876c4b9089c0dc5352bb4cc7ba68b12dbcd",
+      "built_tree_sha256": "e58cb75aa7c9a2691caa01aa760791d96c4f81a0feb4ddd9a85b6db2638b2933"
+    }
+  ],
+  "tests_sha256": "b18bef56150b5b44a01f363da7f2fc4b97abf6e8057eacfb419afa00b0f274a5",
+  "plan_sha256": "20b41813612fff39c509ebae3fb0a475b51b6b5a4022b55e691018dc03daf281",
+  "records": [
+    {
+      "phase": "healthy",
+      "repeat": 1,
+      "wall_ms": 31499.4,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-healthy-1.xml",
+      "run_id": "oss-healthy-1",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "defect",
+      "repeat": 1,
+      "wall_ms": 35293.9,
+      "exit_code": 1,
+      "timed_out": false,
+      "passed": true,
+      "failures": {
+        "test_admin_checkbox": "testence.dsl.steps.StepFailed: step failed: Selection is visibly checked: no element matches (AssertionError: target did not become visible: css='#exampleCheck1:checked')",
+        "test_tabler_password": "testence.dsl.steps.StepFailed: step failed: Password is revealed: no element matches (AssertionError: target did not become visible: css='#signin-password[type=text]')"
+      },
+      "junit": "oss-defect-1.xml",
+      "run_id": "oss-defect-1",
+      "assurance": {
+        "violated": 2,
+        "verified": 2
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "restored",
+      "repeat": 1,
+      "wall_ms": 24244.1,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-restored-1.xml",
+      "run_id": "oss-restored-1",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    },
+    {
+      "phase": "restyle",
+      "repeat": 1,
+      "wall_ms": 26192.9,
+      "exit_code": 0,
+      "timed_out": false,
+      "passed": true,
+      "failures": {},
+      "junit": "oss-restyle-1.xml",
+      "run_id": "oss-restyle-1",
+      "assurance": {
+        "verified": 4
+      },
+      "integrity_errors": []
+    }
+  ],
+  "summary": {
+    "healthy": {
+      "n": 1,
+      "p50_ms": 31499.4,
+      "max_ms": 31499.4
+    },
+    "defect": {
+      "n": 1,
+      "p50_ms": 35293.9,
+      "max_ms": 35293.9
+    },
+    "restored": {
+      "n": 1,
+      "p50_ms": 24244.1,
+      "max_ms": 24244.1
+    },
+    "restyle": {
+      "n": 1,
+      "p50_ms": 26192.9,
+      "max_ms": 26192.9
+    }
+  },
+  "passed": true,
+  "tested_source_sha256": {
+    "src/testence/_process.py": "763d31da7b22dbd8b4f5def76fda8bcf347796c95249509dec143512fe26fc1e",
+    "tests/owned_pytest.py": "9fdca7cfeadf7479944e527be5cf7606c982b38f0103cc58635da48fc949d33d",
+    "tests/test_actors.py": "f28cd1200a9ce4513af8da8a348ff62ed5ebdda9f09561c67cd325851677790e",
+    "tests/test_allure_card.py": "ff70e8add6f935d76d440ae568cf2614cc2097663121c351e36a1579c041d2d4",
+    "tests/test_allure_compat.py": "9f65e00283d71b2ffe65cc00a8b77ab53e4d8fa2049c94e73ac95e25135ca842",
+    "tests/test_allure_hooks.py": "be5a4f9bf93467786aba0087a3b3e7d6a5cd71a84b42f5249ef02a10775e7b33",
+    "tests/test_allure_stream.py": "668285bb9037d5acb624c0fc80b93a27b8781e350d436d36daaec2b308f0ceb9",
+    "tests/test_application.py": "ced62e682f5169040f94bd91b9e18678179e817a999021c70353ec9bebad82e7",
+    "tests/test_attachments.py": "1a7e3aa703e1177c62faff2765bf0fbd481a5b7b050c7a4a362d6b200b8fe8ea",
+    "tests/test_auth_extension.py": "7134aa1c2bfab62e7cabe4e6d4e49105c3011f8b13d94a53dd3820c175e6294b",
+    "tests/test_ex_logs_in.py": "3c8ac872517e70204494d80244f650714f53d61a6a756b17563334945b1cab21",
+    "tests/test_expect_request_and_auth_export.py": "88485a51dad4262ee5b13c51cbb0a6d031ce35eb7b98be8874af888854122b0c",
+    "tests/test_export_junit.py": "55fbbfc9c667288f2e429f08d1096ca90fd4c687b1563ee2eb189227514d4cbc",
+    "tests/test_oracle_suggest.py": "47b68acf8d7ad01de6b7c257a24b070f25f060ff4ad226b7d60697452a52d400",
+    "tests/test_owned_pytest.py": "8992cd4b49f1bd386ea4794a5fd7a1eadd6fa09f623b2bb49a11e6f42c744f3e",
+    "tests/test_parallel_evidence.py": "89773f86cd9bcd924067a6d0da668bd8d3c5fedd2fe456f81d64c161967efd61",
+    "tests/test_plugin_opt_in.py": "ecdd61afbf0d0febdcebac252fac8b4fa152fc4c025971cca3bb4024c844d25b",
+    "tests/test_redaction_policy.py": "821b89929d711ce08877ce7c35f0f485e96d5f77ca1c9d9bc50141f2aeb19e54",
+    "tests/test_reruns.py": "90c8a5d99a56485f6c3c3e266d22564568a25eb465ed86d9112b47bbc31ea80f",
+    "tests/test_route_mocking.py": "15c0b1545f244914df5c6406e7e48a1bff3098d951ad0e6bcc58ac91dc1a019f",
+    "tests/test_storage_token_auth.py": "47a943d55e3d724b778055f3d0d3096f2a022623d97e4f1529cdae125eb5c3da",
+    "tests/test_testplan.py": "51cbf504b40869fd546f9745e60cf5620fbc281338f34d3900258a859999d7f6",
+    "tests/test_trace_video.py": "9b25623742c443b515676221087e56f0609559d9f07cd92965e0385b22d2a2d8"
+  },
+  "command": "uv run python bench/oss/run.py --repeats 1 --output outputs/owned-pytest-20261013/oss",
+  "environment_overrides": {
+    "TESTENCE_BROWSER_CHANNEL": "msedge",
+    "TESTENCE_DEBUG_PORT": "0",
+    "PYTEST_ADDOPTS": "-o faulthandler_timeout=120",
+    "UV_PROJECT_ENVIRONMENT": "outputs/quality-venv31214"
+  }
+}

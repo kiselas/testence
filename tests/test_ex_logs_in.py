@@ -8,12 +8,12 @@ failed on its first target. Only tests that also requested ``testence_api`` logg
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
 from testence.evidence import RUN_ID_ENV
 from tests.mock_app import PASSWORD, USER, MockApp
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -52,7 +52,7 @@ def test_ex_logs_in_unless_the_test_is_anonymous(tmp_path: Path):
             TESTENCE_USER=USER,
             TESTENCE_PASSWORD=PASSWORD,
         )
-        result = subprocess.run(
+        result = run_pytest(
             [
                 sys.executable,
                 "-m",
@@ -68,9 +68,6 @@ def test_ex_logs_in_unless_the_test_is_anonymous(tmp_path: Path):
             ],
             cwd=project,
             env=env,
-            text=True,
-            capture_output=True,
-            check=False,
             timeout=300,
         )
     assert result.returncode == 0, result.stdout + result.stderr

@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -113,12 +114,21 @@ def _tail(stream: _Output, characters: int) -> str:
     return stream.read().decode("utf-8", errors="replace")[-characters:]
 
 
-def run_owned(command: list[str], *, cwd: Path, timeout: float) -> CommandResult:
+def run_owned(
+    command: list[str],
+    *,
+    cwd: Path,
+    timeout: float,
+    env: Mapping[str, str] | None = None,
+    output_limit: int | None = None,
+) -> CommandResult:
     """Run once; close the owned tree on timeout, interruption and normal exit.
 
     File-backed output avoids inherited pipe handles hanging timeout cleanup and
     bounds the memory used for returned diagnostics. Temporary output is removed.
     """
+    if output_limit is not None and output_limit <= 0:
+        raise ValueError("output_limit must be positive")
     deadline = time.monotonic() + timeout
     process: subprocess.Popen[bytes] | None = None
     with (
@@ -145,6 +155,7 @@ def run_owned(command: list[str], *, cwd: Path, timeout: float) -> CommandResult
             process = subprocess.Popen(
                 command,
                 cwd=cwd,
+                env=env,
                 stdin=subprocess.PIPE if job is not None else subprocess.DEVNULL,
                 stdout=stdout,
                 stderr=stderr,
@@ -187,4 +198,9 @@ def run_owned(command: list[str], *, cwd: Path, timeout: float) -> CommandResult
                 if process.poll() is None:
                     process.kill()
                 process.wait(timeout=10)
-        return CommandResult(code, _tail(stdout, 4_000), _tail(stderr, 2_000), timed_out)
+        return CommandResult(
+            code,
+            _tail(stdout, output_limit or 4_000),
+            _tail(stderr, output_limit or 2_000),
+            timed_out,
+        )
