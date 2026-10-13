@@ -8,6 +8,8 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- Click/fill step evidence now identifies the DSL producer, engine type and whether
+  the engine method was not called, raised or returned; generic intent steps remain distinct.
 - Failure packs now include bounded, sanitized execution history from the same proof
   and attempt, with source references and explicit omissions in `events.json`.
 - Nested pytest checks now own their process trees, with a 300-second default deadline
