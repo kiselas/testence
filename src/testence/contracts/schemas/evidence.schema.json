@@ -27,6 +27,10 @@
   },
   "allOf": [
     {
+      "if": {"properties": {"kind": {"enum": ["step.start", "step.end"]}}, "required": ["kind", "operation"]},
+      "then": {"properties": {"operation": {"$ref": "#/$defs/step_operation"}}}
+    },
+    {
       "if": {"required": ["test"]},
       "then": {"required": ["case_id", "variant_id", "attempt_id", "proof_id", "parameters"]}
     },
@@ -38,6 +42,16 @@
     }
   ],
   "$defs": {
+    "step_operation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["producer", "engine_type", "method", "dispatch"],
+      "properties": {
+        "producer": {"type": "string", "minLength": 1},
+        "engine_type": {"type": "string", "minLength": 1},
+        "method": {"enum": ["click", "fill"]},
+        "dispatch": {"enum": ["not_called", "raised", "returned"]}
+      }
+    },
     "id": {
       "type": "string",
       "minLength": 1,

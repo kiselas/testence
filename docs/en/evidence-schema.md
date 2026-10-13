@@ -83,6 +83,21 @@ a deterministic source-derived fallback that does not promise stability across r
 
 ## Execution and assurance
 
+Built-in `Actions.click` and `Actions.fill` add an `operation` object to their
+`step.start` and `step.end`: `producer` names the DSL primitive, `engine_type` is
+the runtime class's qualified name, `method` is `click` or `fill`, and `dispatch`
+is `not_called`, `raised` or `returned`. The start records a request with
+`not_called`; only a matching end establishes the subsequent call state. A capability
+or method-lookup failure stays `not_called`; an invoked method that throws is `raised`.
+Fast operations keep their existing `weakenings`. Fill values/arguments are not copied.
+
+Generic/composite wrappers and other primitives have no operation annotation; native
+escape hatches keep `native.used`. Missing annotations or missing ends cannot prove an
+interaction never ran. Producer/class names are metadata under a trusted source/version
+contract, not implementation attestation: custom or monkeypatched engines need their
+own contract. Returning from an engine method does not itself establish native/trusted
+DOM dispatch, product success, initial state or backend effects. Assurance is unchanged.
+
 Pytest execution status and proof assurance are separate axes. Reconciliation adds
 `assurance` to each logical `test.end`: `verified`, `violated`, `inconclusive`, or
 `unverified`. A passing test is `verified` only when its bound PlanSpec has a required

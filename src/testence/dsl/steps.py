@@ -92,6 +92,33 @@ class ExpectedOutcome:
     name: str | None = None
 
 
+@dataclass
+class _EngineOperation:
+    """DSL producer metadata, not an attestation of browser-side dispatch."""
+
+    producer: str
+    engine_type: str
+    method: str
+    dispatch: str = "not_called"
+
+    def to_json(self) -> dict[str, str]:
+        return {
+            "producer": self.producer,
+            "engine_type": self.engine_type,
+            "method": self.method,
+            "dispatch": self.dispatch,
+        }
+
+    def invoke(self, method: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        try:
+            result = method(*args, **kwargs)
+        except Exception:
+            self.dispatch = "raised"
+            raise
+        self.dispatch = "returned"
+        return result
+
+
 class Actions:
     """Engine + evidence, bound to one test. Projects build ActionMaps on top."""
 
@@ -133,6 +160,7 @@ class Actions:
         weakenings: tuple[str, ...] = (),
         check: bool = False,
         destination: Target | None = None,
+        _operation: _EngineOperation | None = None,
     ) -> Iterator[None]:
         """One recorded step. ``check=True`` marks an assertion, which an open
         ``ex.soft`` block records and lets the test continue past. ``destination``
@@ -151,6 +179,7 @@ class Actions:
             target=target.describe() if target else None,
             weakenings=list(weakenings),
             depth=depth,
+            **({"operation": _operation.to_json()} if _operation else {}),
         )
         started = time.perf_counter()
         try:
@@ -187,6 +216,7 @@ class Actions:
                 depth=depth,
                 children=self._children.pop(),
                 **({"soft": True} if softened else {}),
+                **({"operation": _operation.to_json()} if _operation else {}),
             )
             if softened:
                 assert self._soft is not None
@@ -209,6 +239,7 @@ class Actions:
             fingerprint=fingerprint or None,
             depth=depth,
             children=self._children.pop(),
+            **({"operation": _operation.to_json()} if _operation else {}),
         )
 
     def _describe_matches(self, target: Target) -> str:
@@ -239,6 +270,14 @@ class Actions:
 
     # -- primitives ------------------------------------------------------------
 
+    def _operation(self, method: str) -> _EngineOperation:
+        engine_type = type(self.engine)
+        return _EngineOperation(
+            producer=f"testence.dsl.steps.Actions.{method}",
+            engine_type=f"{engine_type.__module__}.{engine_type.__qualname__}",
+            method=method,
+        )
+
     def goto(self, url: str, intent: str | None = None) -> None:
         with self.step(intent or f"open {url}"):
             require_capabilities(self.engine, "goto", Capability.NAVIGATION)
@@ -263,9 +302,15 @@ class Actions:
         checks are the only thing that reports an overlay swallowing the click.
         """
         weakening = ("fast-actionability",) if fast else ()
-        with self.step(intent or f"click {target.describe()}", target, weakenings=weakening):
+        operation = self._operation("click")
+        with self.step(
+            intent or f"click {target.describe()}",
+            target,
+            weakenings=weakening,
+            _operation=operation,
+        ):
             require_capabilities(self.engine, "click", Capability.DOM)
-            self.engine.click(target, fast=fast)
+            operation.invoke(self.engine.click, target, fast=fast)
 
     def fill(
         self, target: Target, value: str, intent: str | None = None, *, fast: bool = False
@@ -277,14 +322,20 @@ class Actions:
         control.
         """
         weakening = ("fast-actionability",) if fast else ()
-        with self.step(intent or f"fill {target.describe()}", target, weakenings=weakening):
+        operation = self._operation("fill")
+        with self.step(
+            intent or f"fill {target.describe()}",
+            target,
+            weakenings=weakening,
+            _operation=operation,
+        ):
             require_capabilities(self.engine, "fill", Capability.DOM)
             if fast:
-                self.engine.fill(target, value, fast=True)
+                operation.invoke(self.engine.fill, target, value, fast=True)
             else:
                 # Keep the default call compatible with existing Engine adapters
                 # whose pre-fast signature accepted only target and value.
-                self.engine.fill(target, value)
+                operation.invoke(self.engine.fill, target, value)
 
     def select(
         self,
