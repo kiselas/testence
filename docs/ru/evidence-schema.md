@@ -173,6 +173,22 @@ Authorization, cookies, passwords, tokens, API/private keys, значения Be
 остаётся визуальным capture и может содержать данные приложения, поэтому ограничение
 alpha-кандидата на production data действует до visual masking и полного security review T12.
 
+## Метаданные engine operation
+
+Built-in `Actions.click` и `Actions.fill` добавляют `operation` в step.start/end:
+`producer` — primitive DSL, `engine_type` — qualified name runtime класса,
+`method` — click/fill, `dispatch` — not_called/raised/returned. Start фиксирует запрос
+с not_called; дальнейшее состояние устанавливает только matching end. Capability
+или method-lookup failure остаётся not_called; исключение вызванного метода — raised.
+Fast сохраняет прежние weakenings; fill values/arguments не копируются.
+
+Generic/composite steps и остальные primitives пока без annotation; native escape
+hatch сохраняет native.used. Отсутствие annotation или end не доказывает отсутствие
+взаимодействия. Producer/class names — metadata при trusted source/version contract,
+не implementation attestation. Custom/monkeypatched engines требуют своего контракта.
+Returned engine method сам по себе не доказывает trusted/native DOM dispatch,
+product success, pre-state или backend effect. Assurance не меняется.
+
 ## Совместимость `/1`
 
 Readers принимают `testence/1`, нормализуют legacy status spellings и сохраняют

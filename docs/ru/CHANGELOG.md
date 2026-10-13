@@ -9,6 +9,8 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
 
 ### Исправлено
 
+- Evidence шагов click/fill различает producer DSL, engine type и отсутствие вызова,
+  исключение или возврат engine method; generic intent steps сохраняются отдельно.
 - Failure pack теперь включает ограниченную sanitized историю той же proof/attempt
   в `events.json`, со ссылками на исходные записи и явными отметками пропусков.
 - Вложенные проверки pytest теперь владеют деревом процессов, имеют таймаут по умолчанию
