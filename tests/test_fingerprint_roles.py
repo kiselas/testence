@@ -24,6 +24,10 @@ CASES = [
     ("missing-list", 'type="text" list="not-present"', "textbox"),
     ("empty-list", 'type="text" list=""', "textbox"),
     ("wrong-list-element", 'type="search" list="agree"', "searchbox"),
+    ("search-missing-list", 'type="search" list="not-present"', "searchbox"),
+    ("search-empty-list", 'type="search" list=""', "searchbox"),
+    ("search:escaped", 'type="search" list=""', "searchbox"),
+    ("search-explicit", 'type="search" list="" role="searchbox"', "searchbox"),
     ("number", 'type="number"', "spinbutton"),
     ("range", 'type="range"', "slider"),
     ("button", 'type="button" value="Button"', "button"),
@@ -53,6 +57,8 @@ def role_engine():
             for name, attributes, _ in CASES
         )
         + '<input id="hidden" type="hidden">'
+        + '<input type="search" list="" aria-label="unaddressed-search">'
+        + '<input type="search" list="" aria-label="testid-search" data-testid="search-hint">'
     )
     engine = PlaywrightCdpEngine(headed=False)
     try:
@@ -67,7 +73,8 @@ def role_engine():
 def test_input_roles_generate_a_unique_address_for_the_same_control(
     role_engine, name, attributes, role
 ):
-    original = role_engine.element_fingerprint(Target("css", f"#{name}"))
+    css_id = name.replace(":", r"\:")
+    original = role_engine.element_fingerprint(Target("css", f"#{css_id}"))
     assert original["role"] == role
     candidate = next(
         row for row in role_engine.candidate_elements() if row["fingerprint"]["id"] == name
@@ -79,7 +86,21 @@ def test_input_roles_generate_a_unique_address_for_the_same_control(
     assert candidate["fingerprint"] == original
     if role is None:
         assert candidate["target"] == {"kind": "css", "value": f"#{name}", "name": None}
+    if name in {"wrong-list-element", "search-missing-list", "search-empty-list", "search:escaped"}:
+        assert candidate["target"] == {"kind": "css", "value": f"#{css_id}", "name": None}
     assert "synthetic-only" not in str(original)
+
+
+def test_invalid_search_list_requires_a_stable_address(role_engine):
+    candidates = role_engine.candidate_elements()
+    assert not any(row["fingerprint"]["ariaLabel"] == "unaddressed-search" for row in candidates)
+    candidate = next(
+        row for row in candidates if row["fingerprint"]["ariaLabel"] == "testid-search"
+    )
+    assert candidate["target"] == {"kind": "testid", "value": "search-hint", "name": None}
+    target = Target(**candidate["target"])
+    role_engine.expect_count(target, 1)
+    assert role_engine.element_fingerprint(target) == candidate["fingerprint"]
 
 
 def test_hidden_input_has_no_fabricated_role_or_visible_candidate(role_engine):

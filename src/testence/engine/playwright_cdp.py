@@ -1866,6 +1866,15 @@ class PlaywrightCdpEngine(Engine):
                 let target;
                 // Addressing preference: stable test id, then semantics, then id.
                 if (fp.testid) target = {kind: 'testid', value: fp.testid, name: null};
+                // Playwright 1.49 treats any search list attribute as combobox,
+                // even without a datalist. Keep the fingerprint's semantics,
+                // but offer an address that works across supported versions.
+                else if (el.tagName === 'INPUT' && el.type === 'search'
+                        && el.hasAttribute('list') && !el.list
+                        && !el.getAttribute('role')) {
+                    if (!fp.id) return null;
+                    target = {kind: 'css', value: '#' + CSS.escape(fp.id), name: null};
+                }
                 else if (fp.role && name) target = {kind: 'role', value: fp.role, name};
                 else if (fp.id) target = {kind: 'css', value: '#' + fp.id, name: null};
                 else if (name) target = {kind: 'text', value: name, name: null};
