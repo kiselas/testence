@@ -363,3 +363,13 @@ TESTENCE_UPDATE_GOLDENS=1 pytest tests/test_export.py -k golden   # regenerate, 
 The fixture ledger has fixed timestamps deliberately: one produced by `EvidenceWriter`
 is stamped with the current time, which proves determinism inside a run but not across
 commits. When an upstream format drifts, that diff is the review.
+
+## Sensitive parameter IDs
+
+Use non-sensitive explicit IDs for credential parameters, for example
+`pytest.mark.parametrize("password", [synthetic_password], ids=["valid-login"])`.
+Testence warns when a sensitive value appears in the generated test ID, including
+pytest's escaped Unicode representation. That warning names the test without its
+parameter suffix, so the warning does not repeat the value. Pytest node IDs and Allure
+identities are unchanged; ordinary pytest output and other reporters can still show
+the original ID. Safe explicit IDs prevent that exposure at its source.

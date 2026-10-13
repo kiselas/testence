@@ -370,3 +370,13 @@ TESTENCE_UPDATE_GOLDENS=1 pytest tests/test_export.py -k golden
 Fixture ledger намеренно имеет фиксированные timestamps. Ledger от `EvidenceWriter`
 получает текущее время и доказывает детерминизм внутри запуска, но не между commits.
 Когда upstream format изменится, этот diff станет предметом review.
+
+## Чувствительные значения в ID параметров
+
+Задавайте нечувствительные ID для параметров с credentials, например
+`pytest.mark.parametrize("password", [synthetic_password], ids=["valid-login"])`.
+Testence предупреждает, когда чувствительное значение попадает в ID теста, в том числе
+в экранированном Unicode-представлении pytest. Сообщение называет тест без суффикса
+параметров и не повторяет значение. Pytest node IDs и Allure identities сохраняются;
+обычный вывод pytest и другие reporters могут показывать исходный ID. Явные безопасные
+ID устраняют эту утечку у источника.

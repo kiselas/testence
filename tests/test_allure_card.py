@@ -259,5 +259,6 @@ def test_secret_parameter_in_a_pytest_id_is_warned_about(tmp_path):
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "test_w.py::test_w[tok-123456]: parameter 'api_token'" in result.stdout
+    assert "test_w.py::test_w: parameter 'api_token'" in result.stdout
+    assert "test_w[tok-123456]: parameter" not in result.stdout
     assert "test_ok[staging]: parameter" not in result.stdout

@@ -154,13 +154,20 @@ def run_owned(command: list[str], *, cwd: Path, timeout: float) -> CommandResult
                 if job is not None:
                     # The gate is isolated (-I -S) and cannot run project code
                     # while this readiness/ownership handshake is in progress.
-                    while not ready.exists():
-                        if process.poll() is not None:
-                            raise OSError("the run's process gate exited before readiness")
+                    while True:
                         if time.monotonic() >= deadline:
                             raise subprocess.TimeoutExpired("process gate", timeout)
+                        try:
+                            gate_pid = int(ready.read_text(encoding="ascii"))
+                            break
+                        except (FileNotFoundError, PermissionError):
+                            # Publication is atomic, but Windows can briefly deny
+                            # sharing the file. Observe within the original budget;
+                            # never release project code without a verified PID.
+                            pass
+                        if process.poll() is not None:
+                            raise OSError("the run's process gate exited before readiness")
                         time.sleep(0.01)
-                    gate_pid = int(ready.read_text(encoding="ascii"))
                     job.assign(gate_pid)
                     if gate_pid != process.pid:
                         job.assign(process.pid)
