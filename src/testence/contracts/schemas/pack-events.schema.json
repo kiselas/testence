@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:testence:schema:pack-events:1",
+  "title": "Testence bounded pack execution history v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "binding", "source", "status", "omitted", "events"],
+  "properties": {
+    "schema": {"const": "testence/pack-events/1"},
+    "binding": {
+      "type": "object",
+      "required": ["project_id", "case_id", "variant_id", "attempt_id", "run_id", "proof_id"],
+      "additionalProperties": {"type": "string"}
+    },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[^/\\\\]+$"},
+        "bytes": {"$ref": "#/$defs/count"},
+        "sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "status": {"enum": ["complete", "partial", "unavailable"]},
+    "error": {"type": "string"},
+    "omitted": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_prefix_bytes", "events", "invalid_records"],
+      "properties": {
+        "source_prefix_bytes": {"$ref": "#/$defs/count"},
+        "events": {"$ref": "#/$defs/count"},
+        "invalid_records": {"$ref": "#/$defs/count"}
+      }
+    },
+    "events": {
+      "type": "array", "maxItems": 64,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["offset", "bytes", "sha256", "event"],
+        "properties": {
+          "offset": {"$ref": "#/$defs/count"},
+          "bytes": {"type": "integer", "minimum": 1},
+          "sha256": {"$ref": "#/$defs/hash"},
+          "event": {
+            "type": "object",
+            "required": ["v", "kind", "event_id", "seq", "worker", "test", "project_id", "case_id", "variant_id", "attempt_id", "run_id", "proof_id"],
+            "properties": {
+              "v": {"const": "testence/2"},
+              "kind": {"enum": ["step.start", "step.end", "assertion", "oracle", "native.used", "network.mocked"]}
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "count": {"type": "integer", "minimum": 0},
+    "hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

@@ -9,11 +9,19 @@ which is exactly the situation a real failure often creates.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
+from pathlib import Path
 from typing import Any
 
+import pytest
+
+from testence.contracts import loads_document, validate_document
 from testence.engine import NetRecord
 from testence.evidence import EvidenceWriter
+from testence.evidence.sanitize import RedactionPolicy
+from testence.identity import TestIdentity as Identity
+from testence.identity import proof_id
 from testence.triage import assemble_pack
 from testence.triage.heal import HealProposal
 
@@ -69,6 +77,7 @@ def test_pack_contains_every_section_an_agent_needs(tmp_path):
         "network.jsonl",
         "console.txt",
         "browser.json",
+        "events.json",
     ):
         assert (pack / name).exists(), f"missing {name}"
 
@@ -177,6 +186,221 @@ def test_pack_event_lands_in_the_ledger(tmp_path):
     assert len(pack_events) == 1
     assert pack_events[0]["test"] == "test_ledger"
     assert "aria" in pack_events[0]["sections_est_tokens"]
+
+
+def test_pack_preserves_the_completed_action_and_failed_assertion(tmp_path):
+    writer = EvidenceWriter(tmp_path, worker="gw2")
+    writer.emit("step.start", test="test_toggle", step="s1", intent="Enable", target="#toggle")
+    writer.emit("step.end", test="test_toggle", step="s1", status="ok")
+    writer.emit(
+        "assertion",
+        test="test_toggle",
+        assertion_id="a.on",
+        claim_id="toggle.on",
+        oracle_kind="ui",
+        outcome="failed",
+        expected={"checked": True},
+        actual={"checked": False},
+        source="ex.expect_visible",
+    )
+    pack = assemble_pack(FakeEngine(), writer, "test_toggle", error="not checked")
+    history = json.loads((pack / "events.json").read_text(encoding="utf-8"))
+    validate_document(history, "pack-events.schema.json")
+    assert history["status"] == "complete"
+    events = [record["event"] for record in history["events"]]
+    assert [event["kind"] for event in events] == ["step.start", "step.end", "assertion"]
+    assert events[1]["status"] == "ok"
+    assert events[2]["actual"] == {"checked": False}
+    assert history["source"]["path"] == "run-gw2.jsonl"
+    source = writer.path.read_bytes()[: history["source"]["bytes"]]
+    assert history["source"]["sha256"] == hashlib.sha256(source).hexdigest()
+    for record in history["events"]:
+        raw = source[record["offset"] : record["offset"] + record["bytes"]]
+        assert record["sha256"] == hashlib.sha256(raw).hexdigest()
+    manifest = json.loads((pack / "manifest.json").read_text(encoding="utf-8"))
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "events.json")
+    assert artifact["sha256"] == hashlib.sha256((pack / "events.json").read_bytes()).hexdigest()
+
+
+def _bind_history(writer, *, attempt="attempt-1", variant="default"):
+    identity = Identity(
+        project_id=writer.project_id,
+        case_id="toggle",
+        variant_id=variant,
+        attempt_id=attempt,
+        run_id=writer.run_id,
+        proof_id=proof_id(writer.run_id, "toggle", variant, attempt),
+        parameters={},
+    )
+    writer.bind_test("test_toggle", identity=identity.as_dict(), test_digest="sha256:" + "a" * 64)
+
+
+def test_pack_history_isolates_attempt_variant_test_and_writer(tmp_path):
+    writer = EvidenceWriter(tmp_path, run_id="isolation", worker="gw1")
+    _bind_history(writer, attempt="attempt-old")
+    writer.emit("step.start", test="test_toggle", step="old")
+    _bind_history(writer, variant="other")
+    writer.emit("step.start", test="test_toggle", step="variant")
+    _bind_history(writer)
+    writer.emit("step.start", test="test_other", step="other-test")
+    writer.emit("step.start", test="test_toggle", step="stale-digest", test_digest="stale")
+    writer.emit("step.start", test="test_toggle", step="current")
+    other = EvidenceWriter(tmp_path, run_id=writer.run_id, worker="gw2")
+    _bind_history(other)
+    other.emit("step.start", test="test_toggle", step="other-worker")
+    pack = assemble_pack(FakeEngine(), writer, "test_toggle", error="failure")
+    history = json.loads((pack / "events.json").read_text())
+    assert [record["event"]["step"] for record in history["events"]] == ["current"]
+    assert history["binding"]["attempt_id"] == "attempt-1"
+
+
+def test_history_reapplies_runtime_secrets_and_policy_without_copying_unrelated_fields(tmp_path):
+    writer = EvidenceWriter(
+        tmp_path, worker="", redaction_policy=RedactionPolicy.from_config({"keys": ["internal_id"]})
+    )
+    writer.emit(
+        "step.start",
+        test="test_toggle",
+        step="s1",
+        intent="Click runtime-secret-value",
+        parameters={"private": "parameter-value"},
+        error_trace="source-secret-value",
+        risk="truth-hint-value",
+        unexpected="arbitrary-payload-value",
+    )
+    writer.emit(
+        "oracle",
+        test="test_toggle",
+        name="state",
+        ok=False,
+        actual={"password": "password-value", "internal_id": "private-id-value"},
+    )
+    writer.remember_secret("runtime-secret-value")
+    pack = assemble_pack(FakeEngine(), writer, "test_toggle", error="failure")
+    raw = (pack / "events.json").read_text()
+    assert "<redacted>" in raw
+    for secret in (
+        "runtime-secret-value",
+        "parameter-value",
+        "source-secret-value",
+        "truth-hint-value",
+        "arbitrary-payload-value",
+        "password-value",
+        "private-id-value",
+    ):
+        assert secret not in raw
+
+
+def test_history_retains_evidence_strength_markers(tmp_path):
+    writer = EvidenceWriter(tmp_path, worker="")
+    writer.emit("native.used", test="test_toggle", intent="Unrecorded native interactions")
+    writer.emit("network.mocked", test="test_toggle", pattern="/api/*", outcome=200)
+    writer.emit("step.start", test="test_toggle", step="s1", weakenings=["fast-actionability"])
+    pack = assemble_pack(FakeEngine(), writer, "test_toggle", error="failure")
+    records = json.loads((pack / "events.json").read_text())["events"]
+    assert records[0]["event"]["kind"] == "native.used"
+    assert records[1]["event"]["outcome"] == 200
+    assert records[2]["event"]["weakenings"] == ["fast-actionability"]
+
+
+@pytest.mark.parametrize("mode", ["events", "budget", "source"])
+def test_history_budgets_keep_valid_json_and_report_omissions(tmp_path, mode):
+    from testence.evidence import budgets_for, estimate_tokens
+
+    writer = EvidenceWriter(tmp_path, worker="")
+    if mode == "source":
+        for _ in range(100):
+            writer.emit("note", text="x" * 16_000)
+    count = 80 if mode == "events" else 10 if mode == "budget" else 1
+    for index in range(count):
+        writer.emit(
+            "step.start",
+            test="test_toggle",
+            step=f"s{index}",
+            intent="x" * 4000 if mode == "budget" else "Click",
+        )
+    pack = assemble_pack(FakeEngine(), writer, "test_toggle", error="failure")
+    raw = (pack / "events.json").read_text()
+    history = json.loads(raw)
+    validate_document(history, "pack-events.schema.json")
+    assert estimate_tokens(raw) <= budgets_for("events")
+    assert history["status"] == "partial"
+    assert history["events"][-1]["event"]["step"] == f"s{count - 1}"
+    if mode == "source":
+        assert history["omitted"]["source_prefix_bytes"] > 0
+    else:
+        assert history["omitted"]["events"] > 0
+
+
+@pytest.mark.parametrize("damage", ["missing", "shortened", "changed", "corrupt-record"])
+def test_history_source_damage_never_erases_the_failure_pack(tmp_path, monkeypatch, damage):
+    writer = EvidenceWriter(tmp_path, worker="")
+    writer.emit("step.start", test="test_toggle", step="s1")
+    raw = writer.path.read_bytes()
+    if damage == "corrupt-record":
+        raw += b"not-json\n"
+        monkeypatch.setattr(
+            writer,
+            "ledger_checkpoint",
+            lambda: {
+                "path": writer.path.name,
+                "bytes": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            },
+        )
+    original = Path.open
+
+    def damaged_read(path, mode="r", *args, **kwargs):
+        if path == writer.path and mode == "rb":
+            if damage == "missing":
+                raise FileNotFoundError(path)
+            if damage == "shortened":
+                return io.BytesIO(b"")
+            if damage == "changed":
+                return io.BytesIO(raw.replace(b"s1", b"s2"))
+            return io.BytesIO(raw)
+        return original(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", damaged_read)
+    pack = assemble_pack(FakeEngine(), writer, "test_toggle", error="failure")
+    history = json.loads((pack / "events.json").read_text())
+    assert (pack / "aria.txt").exists()
+    validate_document(history, "pack-events.schema.json")
+    if damage == "corrupt-record":
+        assert history["status"] == "partial"
+        assert history["omitted"]["invalid_records"] == 1
+        assert len(history["events"]) == 1
+    else:
+        assert history["status"] == "unavailable"
+        assert history["events"] == []
+
+
+def test_history_checkpoint_excludes_later_appends(tmp_path, monkeypatch):
+    writer = EvidenceWriter(tmp_path, worker="")
+    writer.emit("step.start", test="test_toggle", step="before")
+    original = writer.ledger_checkpoint
+
+    def checkpoint_then_append():
+        checkpoint = original()
+        writer.emit("step.end", test="test_toggle", step="after", status="ok")
+        return checkpoint
+
+    monkeypatch.setattr(writer, "ledger_checkpoint", checkpoint_then_append)
+    pack = assemble_pack(FakeEngine(), writer, "test_toggle", error="failure")
+    records = json.loads((pack / "events.json").read_text())["events"]
+    assert [record["event"]["step"] for record in records] == ["before"]
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_history_keeps_strict_json_when_custom_oracle_records_nonfinite_numbers(tmp_path, value):
+    writer = EvidenceWriter(tmp_path, worker="")
+    writer.emit("step.start", test="test_toggle", step="s1")
+    writer.emit("oracle", test="test_toggle", name="custom", actual=value)
+    pack = assemble_pack(FakeEngine(), writer, "test_toggle", error="failure")
+    history = loads_document((pack / "events.json").read_bytes())
+    assert history["status"] == "partial"
+    assert history["omitted"]["invalid_records"] == 1
+    assert len(history["events"]) == 1
 
 
 def test_pack_carries_the_plan_claims_and_failed_oracle(tmp_path):

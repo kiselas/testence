@@ -26,6 +26,8 @@ from testence.evidence import EvidenceWriter, budgets_for, estimate_tokens
 from testence.evidence.sanitize import FULL_SECTION_CHAR_LIMIT
 from testence.identity import proof_id, source_case_id
 
+from .history import execution_history
+
 #: The answers a judge is allowed to give (ADR-0014).
 #:
 #: ``behaviour_change`` distinguishes coherent current behaviour from a broken
@@ -34,8 +36,14 @@ from testence.identity import proof_id, source_case_id
 VERDICTS = VERDICT_KINDS
 
 _TRIAGE_PROMPT = """You are the judge for a failed browser test.
-Read the sections of this evidence pack (aria.txt, network.jsonl, console.txt,
+Read the sections of this evidence pack (events.json, aria.txt, network.jsonl, console.txt,
 oracle.json if present) and return a verdict.
+
+events.json projects recorded execution for this proof before pack assembly. Check
+its status and omitted counts before relying on absence: partial/unavailable history
+cannot prove an action never ran. A successful generic intent-step is not proof of
+native dispatch, initial state or an exact handler mechanism. Use weakenings,
+native.used and network.mocked markers when assessing the strength of the evidence.
 
 Verdict taxonomy (choose one with confidence 0..1 when supported; otherwise return
 `verdict: null` with a non-empty `blocked_on`):
@@ -206,6 +214,9 @@ def assemble_pack(
             }
         )
     plan = context.get("plan") or {}
+    history = execution_history(writer, test_id, context)
+    (pack_dir / "events.json").write_text(history, encoding="utf-8", newline="\n")
+    sections["events"] = estimate_tokens(history)
     claims = context.get("claims") or []
     proof_digests = {
         "plan_digest": context.get("plan_digest") or plan.get("digest"),

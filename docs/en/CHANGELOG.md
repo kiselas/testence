@@ -62,6 +62,8 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   `inspect` of a bare run id points at `runs/<id>`.
 - `doctor --target` names a `base_url` without `http://` and flags an HTTP 4xx/5xx
   answer from it.
+- Failure packs now include bounded, sanitized execution history from the same proof
+  and attempt, with source references and explicit omissions in `events.json`.
 - Nested pytest checks now own their process trees, with a 300-second default deadline
   and bounded stdout/stderr on timeout. Descendants holding inherited output handles
   cannot keep cleanup waiting indefinitely. The frozen lifecycle corpus is unchanged.
