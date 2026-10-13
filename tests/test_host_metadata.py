@@ -11,7 +11,7 @@ import pytest
 from testence._process import run_owned
 
 PROBE = """
-import platform, sys, threading
+import builtins, platform, sys, threading
 from types import SimpleNamespace
 mode = sys.argv[1]
 calls = []
@@ -25,9 +25,22 @@ def provider():
     if mode == 'concurrent':
         assert release.wait(3), 'probe release missing'
     return SimpleNamespace(system='SyntheticOS', release='R1')
-platform.uname = provider
-import testence.pytest_plugin
-from testence import host
+real_uname = platform.uname
+original_import = builtins.__import__
+host_platform = SimpleNamespace(uname=provider, uname_result=platform.uname_result)
+def scoped_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if name == 'platform' and globals and globals.get('__name__') == 'testence.host':
+        return host_platform
+    return original_import(name, globals, locals, fromlist, level)
+builtins.__import__ = scoped_import
+try:
+    import testence.pytest_plugin
+    from testence import host
+finally:
+    builtins.__import__ = original_import
+assert platform.uname is real_uname
+assert builtins.__import__ is original_import
+assert platform.system() != 'SyntheticOS'  # foreign calls cannot consume the host stub
 assert calls == [], calls
 assert not any(t.name == 'testence-host' for t in threading.enumerate())
 if mode == 'values':
