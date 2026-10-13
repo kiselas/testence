@@ -6,10 +6,41 @@ import socket
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import pytest
 
 from testence._process import run_owned
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows gate file sharing")
+@pytest.mark.parametrize("persistent", [False, True])
+def test_gate_read_sharing_denial_preserves_deadline_and_ownership(
+    tmp_path, monkeypatch, persistent
+):
+    original = Path.read_text
+    denied = []
+
+    def read(path, *args, **kwargs):
+        if path.name == "ready" and path.parent.name.startswith("testence-gate-"):
+            if persistent or len(denied) < 2:
+                denied.append(path)
+                raise PermissionError("synthetic Windows sharing denial")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read)
+    result = run_owned(
+        [sys.executable, "-c", "from pathlib import Path; Path('executed').write_text('once')"],
+        cwd=tmp_path,
+        timeout=3,
+    )
+    assert denied
+    if persistent:
+        assert result.timed_out and not (tmp_path / "executed").exists()
+    else:
+        assert result.returncode == 0 and not result.timed_out
+        assert (tmp_path / "executed").read_text() == "once"
+
 
 TREE = """
 import json, os, socket, subprocess, sys, time

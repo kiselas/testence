@@ -8,6 +8,9 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- Windows launch gates wait within the existing deadline when their PID marker is
+  temporarily unreadable; permanent denial times out before project code starts.
+
 - The warning about sensitive parameter IDs no longer repeats the parameter value;
   escaped Unicode IDs are detected too. Use explicit safe IDs to protect other reporters.
 

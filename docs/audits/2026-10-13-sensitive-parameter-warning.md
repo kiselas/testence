@@ -33,3 +33,31 @@ still contain its original ID. Use non-sensitive explicit `ids` for credentials.
 This patch is based on current main and does not depend on the unmerged PR 32. Its
 diagnostic-only change should be reconciled with PR 32 if that branch is integrated.
 The source-string traceback case PILOT-04 is separate and remains open.
+
+## Additional verification failures and corrections
+
+The first broad Windows run recorded 894 passed, seven failed and two symlink skips.
+Four failures were nested pytest processes using an inaccessible shared system temp
+directory; the affected scenarios passed with an owned TEMP/TMP directory. The old
+warning regression explicitly required the leaked credential in the message and was
+updated to require the safe location instead.
+
+Two origin tests failed identically on unchanged baseline. A local diagnostic showed
+`/pixel.png` rendering as a one-pixel image without reaching the recording server,
+while another resource path on the same origin reached it. The cause of this local
+URL-specific handling is not attributed to Testence. The fixture now uses a neutral
+resource URL and waits for completion before browser cleanup, preserving server-side
+header assertions for both denied and allowed origins.
+
+A subsequent broad run recorded 900 passed, one failed and two symlink skips. The
+remaining failure was a Windows sharing denial reading the launch gate's PID file.
+The controller now observes readability within its original deadline and grants no
+execution permission until the PID is read and job assignment succeeds. Deterministic
+injected denial fails on baseline; after the fix both transient and permanent-denial
+cases pass with real child processes. Permanent denial must time out without creating
+the child marker. No browser interaction or requested command is retried.
+
+The process, origin and warning selection passed 15 tests in 23.21 seconds. The initial
+clean candidate produced identical wheel/sdist bytes in two builds; a fresh environment
+loaded the installed wheel (not source checkout) and passed the actual warning smoke.
+Final full-suite, corpus and distribution receipts are recorded in the accepting PR.

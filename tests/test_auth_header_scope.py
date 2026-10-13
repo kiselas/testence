@@ -46,7 +46,7 @@ def origins() -> Iterator[tuple[type[_Recorder], str, type[_Recorder], str]]:
     third = type("Third", (_Recorder,), {"seen": []})
     third_server, third_url = _serve(third)
     target.page = (
-        f"<img src='{third_url}/pixel.png'>"
+        f"<img src='{third_url}/auth-scope-probe.png'>"
         "<script>fetch('/api/me').then(() => document.title = 'loaded')</script>"
     ).encode()
     target_server, target_url = _serve(target)
@@ -63,6 +63,9 @@ def _open(engine: PlaywrightCdpEngine, url: str) -> None:
     engine.set_extra_http_headers({"Authorization": "Bearer secret-token"})
     engine.goto(url + "/")
     engine._require_page().wait_for_function("document.title === 'loaded'")
+    # The API response can finish before the cross-origin image request. Wait for
+    # the resource before closing the browser, then inspect the server's receipt.
+    engine._require_page().wait_for_function("document.images[0].complete")
 
 
 def _authorization(recorder: type[_Recorder], path: str) -> str | None:
@@ -78,7 +81,7 @@ def test_the_token_goes_to_the_target_and_not_to_a_third_party(origins):
         engine.stop()
     assert _authorization(target, "/") == "Bearer secret-token"
     assert _authorization(target, "/api/me") == "Bearer secret-token"
-    assert _authorization(third, "/pixel.png") is None
+    assert _authorization(third, "/auth-scope-probe.png") is None
 
 
 def test_an_allowed_api_origin_receives_the_token_too(origins):
@@ -88,7 +91,7 @@ def test_an_allowed_api_origin_receives_the_token_too(origins):
         _open(engine, target_url)
     finally:
         engine.stop()
-    assert _authorization(third, "/pixel.png") == "Bearer secret-token"
+    assert _authorization(third, "/auth-scope-probe.png") == "Bearer secret-token"
 
 
 def test_headers_without_a_named_origin_are_refused():
