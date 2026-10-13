@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -20,6 +19,7 @@ from testence.config import Settings
 from testence.engine.playwright_cdp import PlaywrightCdpEngine
 from testence.evidence import RUN_ID_ENV
 from testence.export import export_run
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -53,7 +53,7 @@ def _run(tmp_path: Path, evidence: dict) -> Path:
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     env["PYTHONPATH"] = str(ROOT / "src")
     runs = tmp_path / "runs"
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -71,9 +71,6 @@ def _run(tmp_path: Path, evidence: dict) -> Path:
         ],
         cwd=project,
         env=env,
-        capture_output=True,
-        text=True,
-        check=False,
     )
     assert result.returncode == 1, result.stdout + result.stderr
     return next(runs.iterdir())

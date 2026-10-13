@@ -22,6 +22,7 @@ from testence.engine import NetRecord
 from testence.evidence import RUN_ID_ENV
 from testence.oracle import RequestExpectation
 from tests.mock_app import PASSWORD, USER, MockApp
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -209,7 +210,7 @@ def test_an_exported_session_starts_a_fresh_run_signed_in(tmp_path: Path):
         env = _env(app.base_url)
         env.pop("TESTENCE_USER")
         env.pop("TESTENCE_PASSWORD")
-        run = subprocess.run(
+        run = run_pytest(
             [
                 sys.executable,
                 "-m",
@@ -225,9 +226,6 @@ def test_an_exported_session_starts_a_fresh_run_signed_in(tmp_path: Path):
             ],
             cwd=project,
             env=env,
-            text=True,
-            capture_output=True,
-            check=False,
             timeout=300,
         )
     assert run.returncode == 0, run.stdout + run.stderr
@@ -256,7 +254,7 @@ def test_the_save_sends_one_post(ex):
         encoding="utf-8",
     )
     with MockApp() as app:
-        run = subprocess.run(
+        run = run_pytest(
             [
                 sys.executable,
                 "-m",
@@ -272,9 +270,6 @@ def test_the_save_sends_one_post(ex):
             ],
             cwd=project,
             env=_env(app.base_url),
-            text=True,
-            capture_output=True,
-            check=False,
             timeout=300,
         )
     assert run.returncode == 0, run.stdout + run.stderr

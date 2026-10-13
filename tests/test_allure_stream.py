@@ -10,6 +10,7 @@ from pathlib import Path
 
 from testence.evidence import RUN_ID_ENV
 from testence.export import export_run
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -55,7 +56,7 @@ def _run(tmp_path: Path, suite: str, *args: str) -> tuple[subprocess.CompletedPr
     env["PYTHONPATH"] = os.pathsep.join(
         [str(ROOT / "src"), value] if (value := env.get("PYTHONPATH")) else [str(ROOT / "src")]
     )
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -73,9 +74,6 @@ def _run(tmp_path: Path, suite: str, *args: str) -> tuple[subprocess.CompletedPr
         ],
         cwd=project,
         env=env,
-        text=True,
-        capture_output=True,
-        check=False,
     )
     return result, results
 

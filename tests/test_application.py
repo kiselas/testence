@@ -19,6 +19,7 @@ from testence.application import (
 )
 from testence.cli import main
 from testence.contracts import load_plan
+from tests.owned_pytest import run_pytest
 
 
 def test_init_is_idempotent_and_conflict_safe(tmp_path):
@@ -45,13 +46,8 @@ def test_scaffold_is_opt_in_and_default_run_produces_verified_proof(tmp_path):
     )
     environment = os.environ.copy()
     environment["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
-    collected = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
-        cwd=project,
-        env=environment,
-        text=True,
-        capture_output=True,
-        check=False,
+    collected = run_pytest(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q"], cwd=project, env=environment
     )
     assert collected.returncode == 0
     assert "test_existing" in collected.stdout
@@ -345,7 +341,7 @@ def test_a_browser_that_will_not_start_names_the_fix_in_the_test_failure(tmp_pat
     (project / "test_ui.py").write_text("def test_ui(ex):\n    pass\n", encoding="utf-8")
     env = dict(os.environ, PYTEST_DISABLE_PLUGIN_AUTOLOAD="1")
     env.pop("TESTENCE_BROWSER_CHANNEL", None)
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -360,9 +356,6 @@ def test_a_browser_that_will_not_start_names_the_fix_in_the_test_failure(tmp_pat
         ],
         cwd=project,
         env=env,
-        text=True,
-        capture_output=True,
-        check=False,
     )
     assert result.returncode != 0
     assert "browser did not start" in result.stdout

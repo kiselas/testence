@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 from testence.evidence import RUN_ID_ENV
 from testence.export import export_run
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -71,7 +71,7 @@ def _run(tmp_path: Path, suite: str = _SUITE, settings: dict[str, Any] | None = 
     env["PYTHONPATH"] = os.pathsep.join(
         [str(ROOT / "src"), value] if (value := env.get("PYTHONPATH")) else [str(ROOT / "src")]
     )
-    subprocess.run(
+    run_pytest(
         [
             sys.executable,
             "-m",
@@ -89,9 +89,6 @@ def _run(tmp_path: Path, suite: str = _SUITE, settings: dict[str, Any] | None = 
         ],
         cwd=project,
         env=env,
-        text=True,
-        capture_output=True,
-        check=False,
     )
     (run_dir,) = [path for path in runs.iterdir() if path.is_dir()]
     return run_dir
@@ -237,7 +234,7 @@ def test_secret_parameter_in_a_pytest_id_is_warned_about(tmp_path):
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     env.pop(RUN_ID_ENV, None)
     env["PYTHONPATH"] = str(ROOT / "src")
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -254,9 +251,6 @@ def test_secret_parameter_in_a_pytest_id_is_warned_about(tmp_path):
         ],
         cwd=project,
         env=env,
-        text=True,
-        capture_output=True,
-        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "test_w.py::test_w[tok-123456]: parameter 'api_token'" in result.stdout
