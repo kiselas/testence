@@ -1,0 +1,251 @@
+{
+  "claim_id": "PROD-05-COMPAT",
+  "status": "scoped_verified_full_gate_failed",
+  "base_revision": "5c6b4e7625d421f1aaa5e270b3704ac0e85ffe1b",
+  "source_files_sha256": {
+    "src/testence/engine/playwright_cdp.py": "b6a32581d478be24508ddb811bd58c384daac7256559e8e9b9adda4b951fb02d",
+    "tests/test_fingerprint_roles.py": "1986a95cbe85aa9c4a2047f05d08fbc8a74f01c4281c8581b28d897a0bc13c0a",
+    "docs/en/CHANGELOG.md": "56a438d1abda095daa9cbc7001f619fe1ebde0973eee3d7df65b00d626a5f778",
+    "docs/ru/CHANGELOG.md": "752679ebc29a2a19a4125340d9392f3eb5228fdc288af9e267f0bc24d64d42c2"
+  },
+  "frozen_unchanged": {
+    "tests/test_pytest_lifecycle.py": "8f68cdf27dc1e3922d0c98deef880ad19df75624efaa8dea484a9bce5b71beb0",
+    "tests/test_assurance.py": "b2505c6aebf215904fdafcf7f94574062f49f5abd11739174895e431dd0c2f5a",
+    "tests/test_evidence.py": "d2a3454d015b679e74cb83ad71cbcb9daff17a1d56f81ab9f659165110365314",
+    "tests/test_identity.py": "a24e9a318448cb99d2d1402c3eb58285dc132fccf282585c0d50ffe1c90f7668",
+    "tests/test_repair_contract.py": "549f38f4a197ea714d8682e14f4a62c73394d4a621e63d1d502d86d0f1e0729f",
+    "bench/corpus/items.py": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+    "corpus/items.py": "7925a124d3eb38654ea2d954a49a7223d763836407f07dc94f731be06ae7235f"
+  },
+  "local_full_passed": false,
+  "checks": [
+    {
+      "label": "format",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "ruff",
+        "format",
+        "--check",
+        "src",
+        "tests",
+        "bench",
+        "scripts",
+        "examples"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 0.8279999999795109,
+      "started_at": "2026-10-13T16:13:36.013094+00:00",
+      "ended_at": "2026-10-13T16:13:36.833651+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": null,
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [],
+      "receipt_sha256": "de9580a35e3f9a479ab0965a892885de91387fae8eb56d283939dc7cf56d1188"
+    },
+    {
+      "label": "lint",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "ruff",
+        "check",
+        "src",
+        "tests",
+        "bench",
+        "scripts",
+        "examples"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 0.8279999999795109,
+      "started_at": "2026-10-13T16:13:36.013600+00:00",
+      "ended_at": "2026-10-13T16:13:36.833651+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": null,
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [],
+      "receipt_sha256": "57baa9bc54810f65394c890c08f3277fa97af21a58d580d5fcdd4256cf851d38"
+    },
+    {
+      "label": "mypy",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "mypy",
+        "src",
+        "scripts"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 2.875,
+      "started_at": "2026-10-13T16:13:36.013600+00:00",
+      "ended_at": "2026-10-13T16:13:38.875300+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": null,
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [],
+      "receipt_sha256": "0fe50003b17ba9c7719cad46c851008b044197ae8ba30a988c92a735ccd18993"
+    },
+    {
+      "label": "targeted-corrected",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_fingerprint_roles.py",
+        "tests/test_fingerprints.py",
+        "tests/test_heal.py",
+        "tests/test_speed.py",
+        "--basetemp=outputs/product-verification-20261013-13/tmp-targeted-corrected"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 7.186999999918044,
+      "started_at": "2026-10-13T16:13:06.918338+00:00",
+      "ended_at": "2026-10-13T16:13:14.098395+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [
+        "67 passed in 6.10s"
+      ],
+      "receipt_sha256": "ed2ca6dccd656d026f916f719a2b240e0e1668f8e1219b82980853fc409eda7b"
+    },
+    {
+      "label": "full",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-n",
+        "4",
+        "--basetemp=outputs/product-verification-20261013-13/tmp-full"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 1,
+      "returncode": 1,
+      "timed_out": false,
+      "wall_seconds": 340.98499999998603,
+      "started_at": "2026-10-13T16:13:25.271152+00:00",
+      "ended_at": "2026-10-13T16:19:06.259772+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [
+        "2 failed, 962 passed, 2 skipped in 339.74s (0:05:39)"
+      ],
+      "receipt_sha256": "fd92462f424d050bac0af1b93af4750e2cff4ef35497de734fbd46c4ed1ddd2c"
+    },
+    {
+      "label": "examples",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "examples",
+        "-q",
+        "--testence-headless",
+        "--basetemp=outputs/product-verification-20261013-13/tmp-examples"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 12.968999999924563,
+      "started_at": "2026-10-13T16:19:38.294121+00:00",
+      "ended_at": "2026-10-13T16:19:51.258189+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [
+        "5 passed, 1 skipped in 11.75s"
+      ],
+      "receipt_sha256": "720720df43d585e501c3304af24de9ae4cfc55b8f9ea9bd898babf7707b84525"
+    },
+    {
+      "label": "oss",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "bench/oss/run.py",
+        "--repeats",
+        "1",
+        "--output",
+        "outputs/product-verification-20261013-13/oss"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 52.936999999918044,
+      "started_at": "2026-10-13T16:20:07.539023+00:00",
+      "ended_at": "2026-10-13T16:21:00.479584+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [
+        "oss-healthy-1: OK 12912 ms",
+        "oss-defect-1: OK 14116 ms",
+        "oss-restored-1: OK 11679 ms",
+        "oss-restyle-1: OK 11231 ms"
+      ],
+      "receipt_sha256": "9fe217724dcae223ec208261fb54a21fdb75714ef87a7098a491021f97877692"
+    }
+  ],
+  "prior_hosted_run": 38427037605,
+  "prior_hosted_merge_revision": "22eddf60a6a51a509321982cf633887c68c54f33",
+  "prior_merge_tree_equals_head_tree": true,
+  "prior_hosted_outcome": {
+    "success": 11,
+    "failure": 4,
+    "skipped": 3
+  },
+  "floor_mechanism": "Playwright1.49 implicit search list uses attribute presence, incompatible with fingerprint's resolved datalist semantics",
+  "compatibility_remedy": "Stable testid or escaped CSS ID for implicit malformed search-list candidates; omit without either; semantic fingerprint unchanged",
+  "runtime": {
+    "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]",
+    "playwright": "1.62.0",
+    "pytest": "9.1.1"
+  },
+  "limits": [
+    "New actual minimum-dependency hosted gates pending; local Playwright1.62 is not floor assurance",
+    "Prior native termination/access violation/navigation timeout remain unexplained",
+    "Prior ordinary Windows3.10 CI failed ERR_NO_BUFFER_SPACE during login navigation; not repaired by this change",
+    "No complete accessibility role/name or ID-less candidate guarantee, model trial or independent acceptance",
+    "No merge/release or latest-main integration; PR39 stacked on PR38"
+  ],
+  "oss_scope": "UI-only synthetic controls; not frozen R1 corpus acceptance or independent client proof",
+  "cost": null
+}

@@ -13,6 +13,8 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
   другие именованные controls дают подходящие candidate addresses. Datalist должен
   существовать; при отсутствии поддержанной role работает прежний fallback адреса.
   Explicit role сохраняет приоритет.
+  Search с неразрешённым атрибутом list получает candidate по testid или CSS ID,
+  совместимый с поддержанными версиями Playwright; без них candidate не предлагается.
 - Evidence шагов click/fill различает producer DSL, engine type и отсутствие вызова,
   исключение или возврат engine method; generic intent steps сохраняются отдельно.
 - Failure pack теперь включает ограниченную sanitized историю той же proof/attempt
