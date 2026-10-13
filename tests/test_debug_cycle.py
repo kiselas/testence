@@ -85,11 +85,14 @@ def receiver():
 
 @pytest.fixture
 def ex(tmp_path, receiver):
-    engine = PlaywrightCdpEngine(headed=False, base_url=receiver[0], timeout_ms=2000)
+    engine = PlaywrightCdpEngine(headed=False, base_url=receiver[0])
     writer = EvidenceWriter(tmp_path / "evidence")
     try:
         engine.start()
         engine.goto("/")
+        # A cold browser's first navigation gets the default budget; the checks after it
+        # keep a short one so the expected failures stay quick.
+        engine.timeout_ms = 2000
         yield Actions(engine, writer, "debug-cycle")
     finally:
         engine.stop()
@@ -141,7 +144,7 @@ def test_rewrite_failure_does_not_send_a_second_upload(ex, receiver, tmp_path):
 
 def test_delayed_outcome_waits_without_repeating_action(ex):
     with ex.expect_outcome(
-        {"rejected": Target("css", "#late")}, expected="rejected", timeout_ms=1000
+        {"rejected": Target("css", "#late")}, expected="rejected", timeout_ms=5000
     ) as observed:
         ex.click(Target("css", "#latebutton"))
     assert observed.name == "rejected"

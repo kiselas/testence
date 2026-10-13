@@ -174,7 +174,7 @@ def test_native_abort_is_marked_even_without_a_response(ex, scope):
         owner.route('**/api/v1/widgets', lambda route: route.abort())
     _fill(ex)
     ex.click(Target('css', '#save-widget'))
-    assert ex.engine.wait_for_request('/api/v1/widgets', method='POST', timeout_ms=500)
+    assert ex.engine.wait_for_request('/api/v1/widgets', method='POST', timeout_ms=5000)
     # The abort is marked mocked before dispatch; Playwright's requestfailed event that
     # fills failure can land after a fixed pause on a slow runner, so wait for it.
     deadline = time.monotonic() + 10

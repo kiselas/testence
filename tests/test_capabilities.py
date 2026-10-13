@@ -172,16 +172,18 @@ def test_web_capability_matrix_frame_shadow_keyboard_dialog_popup_and_files(web_
 
     assert web_engine.eval_js("document.querySelector('#file').id") == "file"
 
-    assert web_engine.click_with_dialog(Target("css", "#dialog"), prompt="QA") == "Name?"
-    web_engine.click_and_popup(Target("css", "#popup"))
-    assert web_engine.current_url() == "about:blank"
-    web_engine.switch_page(0)
-
+    # The download runs while this page is in front: after the popup it was a background
+    # tab on a slow Windows runner, and the download event missed its 10 s budget.
     destination = tmp_path / "proof.txt"
     assert (
         web_engine.click_and_download(Target("css", "#download"), str(destination)) == "proof.txt"
     )
     assert destination.read_text(encoding="utf-8") == "proof"
+
+    assert web_engine.click_with_dialog(Target("css", "#dialog"), prompt="QA") == "Name?"
+    web_engine.click_and_popup(Target("css", "#popup"))
+    assert web_engine.current_url() == "about:blank"
+    web_engine.switch_page(0)
 
     declared = web_engine.capabilities()
     for required in (
