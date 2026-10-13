@@ -9,6 +9,10 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
 
 ### Исправлено
 
+- Fingerprint input учитывает type вместо безусловного textbox: checkbox/radio и
+  другие именованные controls дают подходящие candidate addresses. Datalist должен
+  существовать; при отсутствии поддержанной role работает прежний fallback адреса.
+  Explicit role сохраняет приоритет.
 - Evidence шагов click/fill различает producer DSL, engine type и отсутствие вызова,
   исключение или возврат engine method; generic intent steps сохраняются отдельно.
 - Failure pack теперь включает ограниченную sanitized историю той же proof/attempt
