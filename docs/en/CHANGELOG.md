@@ -8,6 +8,9 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- The warning about sensitive parameter IDs no longer repeats the parameter value;
+  escaped Unicode IDs are detected too. Use explicit safe IDs to protect other reporters.
+
 - [MCP](mcp.md) listed seven tools; `testence_status` and `testence_debug` are now in the
   table, and a test keeps the table equal to what the server offers.
 - Two README links to the authoring loop were relative and broke on the PyPI page; a test

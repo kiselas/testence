@@ -582,11 +582,18 @@ def _warn_about_allure_identity(config: pytest.Config, items: list[pytest.Item])
                 is_sensitive_key(name)
                 and isinstance(value, (str, int))
                 and str(value)
-                and str(value) in item.nodeid
+                and any(
+                    candidate in item.nodeid
+                    for candidate in (
+                        str(value),
+                        str(value).encode("unicode_escape").decode("ascii"),
+                    )
+                )
             ):
                 warnings.warn(
                     pytest.PytestWarning(
-                        f"{item.nodeid}: parameter {name!r} puts its value into the test id, "
+                        f"{item.nodeid.partition('[')[0]}: parameter {name!r} "
+                        "puts its value into the test id, "
                         "which every report and upload shows; give parametrize ids=..."
                     ),
                     stacklevel=1,
