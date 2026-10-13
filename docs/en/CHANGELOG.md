@@ -62,6 +62,9 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   `inspect` of a bare run id points at `runs/<id>`.
 - `doctor --target` names a `base_url` without `http://` and flags an HTTP 4xx/5xx
   answer from it.
+- Loading the plugin no longer starts a host metadata query or background thread.
+  Run and visual profile consumers collect the exact platform description lazily;
+  concurrent consumers share the cache and provider errors propagate without a retry.
 - Input fingerprints infer roles from the input type instead of always using
   `textbox`, so checkbox/radio and other named controls generate usable candidate
   addresses. Resolved datalists produce comboboxes; inputs without a supported role
