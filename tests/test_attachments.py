@@ -185,12 +185,21 @@ def _shipped(out: Path) -> dict[str, bytes]:
 
 
 @pytest.mark.parametrize("target", ["allure", "ctrf", "junit"])
-def test_a_full_export_ships_all_three(run_dir, tmp_path, target):
-    files = _shipped(_export(run_dir, target, tmp_path / target, "full"))
+def test_a_raw_export_ships_all_three(run_dir, tmp_path, target):
+    files = _shipped(_export(run_dir, target, tmp_path / target, "raw"))
     joined = b"".join(files.values())
     assert b"a server line" in joined and b"edge" in joined
     assert PNG in files.values()
     assert PASSWORD.encode() not in joined
+
+
+@pytest.mark.parametrize("target", ["allure", "ctrf", "junit"])
+def test_the_default_full_export_ships_no_unredacted_binary(run_dir, tmp_path, target):
+    """A binary attachment cannot be redacted; the default export used to ship it."""
+    files = _shipped(_export(run_dir, target, tmp_path / target, "full"))
+    joined = b"".join(files.values())
+    assert b"a server line" in joined and b"edge" in joined
+    assert PNG not in files.values()
 
 
 @pytest.mark.parametrize("target", ["allure", "ctrf", "junit"])
@@ -209,7 +218,7 @@ def test_none_ships_nothing_of_it(run_dir, tmp_path, target):
 
 
 def test_an_allure_result_names_the_attachments(run_dir, tmp_path):
-    out = _export(run_dir, "allure", tmp_path / "allure", "full")
+    out = _export(run_dir, "allure", tmp_path / "allure", "raw")
     result = json.loads(next(out.glob("*-result.json")).read_text(encoding="utf-8"))
     names = {item["name"] for item in result["attachments"]}
     assert {"payload.json", "shot.png", "server.log"} <= names

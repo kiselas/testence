@@ -70,6 +70,22 @@ class Credentials:
         return f"Credentials(username={self.username!r}, password='***')"
 
 
+def session_secrets(context: AuthContext) -> list[str]:
+    """Every credential the login produced, as evidence must mask it.
+
+    A header value whole and without its scheme ("Bearer x" and "x"), and the values of
+    the session cookies and stored tokens: a session cookie used to reach the ledger
+    in an assertion message because only headers were registered. Values shorter
+    than 8 characters (flags such as "1" or "true") would mask ordinary text.
+    """
+    values: list[str] = []
+    for value in context.headers.values():
+        values.extend((value, value.rsplit(" ", 1)[-1]))
+    values.extend(str(cookie.get("value") or "") for cookie in context.cookies)
+    values.extend(str(value) for value in context.storage.values())
+    return [value for value in values if len(value) >= 8]
+
+
 @dataclass
 class AuthContext:
     """The authenticated session, in a form other clients can reuse."""

@@ -273,7 +273,8 @@ class Settings:
         return {
             "project_id": self.project_id,
             "profile": self.profile or "(default)",
-            "base_url": self.base_url,
+            # `http://user:password@host` would put the password in every run.start.
+            "base_url": re.sub(r"(?<=://)[^/@\s]*@", "", self.base_url or "") or self.base_url,
             "auth": self.auth,
             "attach": bool(self.cdp_url),
             "execution_mode": self.execution_mode,

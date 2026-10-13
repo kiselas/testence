@@ -24,6 +24,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from testence.auth import AuthContext, from_settings
+from testence.auth.base import session_secrets
 from testence.auth.strategies import api_headers_from_storage
 
 if TYPE_CHECKING:
@@ -218,9 +219,8 @@ class Actors:
             except BaseException:
                 engine.stop()
                 raise
-        for value in context.headers.values():
+        for value in session_secrets(context):
             self._remember(value)
-            self._remember(value.rsplit(" ", 1)[-1])
         self._note(
             text="authenticated",
             actor=role,
