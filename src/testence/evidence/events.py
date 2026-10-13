@@ -28,6 +28,7 @@ PACK_BUDGETS_TOKENS: dict[str, int] = {
     "network": 8_000,
     "console": 2_000,
     "oracle": 2_000,
+    "events": 4_000,
     "manifest": 500,
 }
 
