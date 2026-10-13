@@ -21,6 +21,7 @@ import pytest
 from testence.auth.strategies import api_headers_from_storage
 from testence.evidence import RUN_ID_ENV
 from tests.mock_app import PASSWORD, TOKEN_VALUE, USER, MockApp
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -58,7 +59,7 @@ def _run(project: Path, settings: dict) -> subprocess.CompletedProcess[str]:
             TESTENCE_USER=USER,
             TESTENCE_PASSWORD=PASSWORD,
         )
-        return subprocess.run(
+        return run_pytest(
             [
                 sys.executable,
                 "-m",
@@ -74,9 +75,6 @@ def _run(project: Path, settings: dict) -> subprocess.CompletedProcess[str]:
             ],
             cwd=project,
             env=env,
-            text=True,
-            capture_output=True,
-            check=False,
             timeout=300,
         )
 

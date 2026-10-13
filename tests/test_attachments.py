@@ -17,6 +17,7 @@ import pytest
 
 from testence.evidence import RUN_ID_ENV, EvidenceWriter
 from testence.evidence.writer import MAX_ATTACHMENT_BYTES
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 PNG = b"\x89PNG\r\n\x1a\n" + b"not really a picture"
@@ -121,7 +122,7 @@ def run_dir(tmp_path_factory) -> Path:
     project = tmp_path_factory.mktemp("attached")
     (project / "test_attach.py").write_text(SUITE.lstrip(), encoding="utf-8")
     (project / "testence.json").write_text("{}", encoding="utf-8")
-    completed = subprocess.run(
+    completed = run_pytest(
         [
             sys.executable,
             "-m",
@@ -136,9 +137,6 @@ def run_dir(tmp_path_factory) -> Path:
         ],
         cwd=project,
         env=_env(),
-        text=True,
-        capture_output=True,
-        check=False,
         timeout=300,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
@@ -230,7 +228,7 @@ def test_allure_attach_is_heard_without_allure_pytest(tmp_path):
     project.mkdir()
     (project / "test_allure.py").write_text(ALLURE_SUITE.lstrip(), encoding="utf-8")
     (project / "testence.json").write_text("{}", encoding="utf-8")
-    completed = subprocess.run(
+    completed = run_pytest(
         [
             sys.executable,
             "-m",
@@ -245,9 +243,6 @@ def test_allure_attach_is_heard_without_allure_pytest(tmp_path):
         ],
         cwd=project,
         env=_env(),
-        text=True,
-        capture_output=True,
-        check=False,
         timeout=300,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr

@@ -19,6 +19,7 @@ from testence.engine import NetRecord
 from testence.evidence import RUN_ID_ENV
 from testence.oracle_suggest import net_digest, render, suggest
 from tests.mock_app import PASSWORD, USER, MockApp
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -139,7 +140,7 @@ def _record(project: Path, settings: dict[str, Any], suite: str = SUITE) -> Path
             TESTENCE_USER=USER,
             TESTENCE_PASSWORD=PASSWORD,
         )
-        completed = subprocess.run(
+        completed = run_pytest(
             [
                 sys.executable,
                 "-m",
@@ -155,9 +156,6 @@ def _record(project: Path, settings: dict[str, Any], suite: str = SUITE) -> Path
             ],
             cwd=project,
             env=env,
-            text=True,
-            capture_output=True,
-            check=False,
             timeout=300,
         )
     assert completed.returncode == 0, completed.stdout + completed.stderr

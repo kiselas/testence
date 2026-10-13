@@ -8,7 +8,6 @@ churn reported as flakiness.
 
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -20,6 +19,7 @@ from testence.evidence import RUN_ID_ENV, WORKER_ENV, EvidenceWriter, ledger_pat
 from testence.fingerprints import FingerprintStore
 from testence.identity import source_case_id
 from testence.metrics import aggregate, load_run
+from tests.owned_pytest import run_pytest
 
 FP = {
     "tag": "tr",
@@ -94,7 +94,7 @@ def test_a_pytest_started_inside_a_worker_is_not_that_worker(tmp_path):
         }
     )
     runs = tmp_path / "runs"
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -111,9 +111,6 @@ def test_a_pytest_started_inside_a_worker_is_not_that_worker(tmp_path):
         ],
         cwd=project,
         env=env,
-        capture_output=True,
-        text=True,
-        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     run_dir = runs / "r-child"

@@ -1,0 +1,96 @@
+{
+  "schema": "testence/local-validation/1",
+  "base_revision": "cff7bdbd027b7c54fa848c7540a1201184ced909",
+  "dirty": true,
+  "run_id": "owned-pytest-20261013",
+  "environment": {
+    "os": "Windows 11",
+    "python": "3.12.14",
+    "playwright": "1.62.0",
+    "browser_channel": "msedge",
+    "debug_port": 0,
+    "uv_environment": "outputs/quality-venv31214",
+    "sync": "uv sync --locked --extra dev --extra parallel --extra visual"
+  },
+  "checks": [
+    {
+      "command": "uv run ruff format --check src tests bench scripts examples",
+      "exit_code": 0
+    },
+    {
+      "command": "uv run ruff check src tests bench scripts examples",
+      "exit_code": 0
+    },
+    {
+      "command": "uv run mypy src scripts",
+      "exit_code": 0,
+      "source_files": 86
+    },
+    {
+      "command": "uv run pytest -n 4 -q --basetemp=.tmp-pytest-owned-full-20261013a",
+      "exit_code": 1,
+      "passed": 897,
+      "failed": 1,
+      "skipped": 2,
+      "elapsed_seconds": 401.9,
+      "failure": "tests/test_quality.py::test_next_public_apply_recovers_after_a_real_process_kill: empty PID marker",
+      "log": "outputs/owned-pytest-20261013/full.log"
+    },
+    {
+      "command": "uv run pytest tests/test_quality.py::test_next_public_apply_recovers_after_a_real_process_kill tests/test_owned_pytest.py -q --basetemp=.tmp-pytest-owned-race-20261013a",
+      "exit_code": 0,
+      "passed": 3,
+      "elapsed_seconds": 7.82
+    },
+    {
+      "command": "uv run pytest -n 4 -q --basetemp=.tmp-pytest-owned-full-20261013b",
+      "exit_code": 0,
+      "passed": 898,
+      "skipped": 2,
+      "elapsed_seconds": 357.06,
+      "log": "outputs/owned-pytest-20261013/full-after-marker.log"
+    },
+    {
+      "command": "uv run pytest examples -q --testence-headless --basetemp=.tmp-pytest-owned-examples-20261013a",
+      "exit_code": 0,
+      "passed": 5,
+      "skipped": 1,
+      "elapsed_seconds": 36.14
+    },
+    {
+      "command": "uv run python bench/oss/run.py --repeats 1 --output outputs/owned-pytest-20261013/oss",
+      "exit_code": 0,
+      "receipt": "docs/audits/2026-10-13-owned-pytest-oss.json"
+    }
+  ],
+  "tested_source_sha256": {
+    "src/testence/_process.py": "763d31da7b22dbd8b4f5def76fda8bcf347796c95249509dec143512fe26fc1e",
+    "tests/owned_pytest.py": "9fdca7cfeadf7479944e527be5cf7606c982b38f0103cc58635da48fc949d33d",
+    "tests/test_actors.py": "f28cd1200a9ce4513af8da8a348ff62ed5ebdda9f09561c67cd325851677790e",
+    "tests/test_allure_card.py": "ff70e8add6f935d76d440ae568cf2614cc2097663121c351e36a1579c041d2d4",
+    "tests/test_allure_compat.py": "9f65e00283d71b2ffe65cc00a8b77ab53e4d8fa2049c94e73ac95e25135ca842",
+    "tests/test_allure_hooks.py": "be5a4f9bf93467786aba0087a3b3e7d6a5cd71a84b42f5249ef02a10775e7b33",
+    "tests/test_allure_stream.py": "668285bb9037d5acb624c0fc80b93a27b8781e350d436d36daaec2b308f0ceb9",
+    "tests/test_application.py": "ced62e682f5169040f94bd91b9e18678179e817a999021c70353ec9bebad82e7",
+    "tests/test_attachments.py": "1a7e3aa703e1177c62faff2765bf0fbd481a5b7b050c7a4a362d6b200b8fe8ea",
+    "tests/test_auth_extension.py": "7134aa1c2bfab62e7cabe4e6d4e49105c3011f8b13d94a53dd3820c175e6294b",
+    "tests/test_ex_logs_in.py": "3c8ac872517e70204494d80244f650714f53d61a6a756b17563334945b1cab21",
+    "tests/test_expect_request_and_auth_export.py": "88485a51dad4262ee5b13c51cbb0a6d031ce35eb7b98be8874af888854122b0c",
+    "tests/test_export_junit.py": "55fbbfc9c667288f2e429f08d1096ca90fd4c687b1563ee2eb189227514d4cbc",
+    "tests/test_oracle_suggest.py": "47b68acf8d7ad01de6b7c257a24b070f25f060ff4ad226b7d60697452a52d400",
+    "tests/test_owned_pytest.py": "8992cd4b49f1bd386ea4794a5fd7a1eadd6fa09f623b2bb49a11e6f42c744f3e",
+    "tests/test_parallel_evidence.py": "89773f86cd9bcd924067a6d0da668bd8d3c5fedd2fe456f81d64c161967efd61",
+    "tests/test_plugin_opt_in.py": "ecdd61afbf0d0febdcebac252fac8b4fa152fc4c025971cca3bb4024c844d25b",
+    "tests/test_quality.py": "6f1cfe59d6af08e0009b815c27610a7c166dc22cad862d22f160938279b98c59",
+    "tests/test_redaction_policy.py": "821b89929d711ce08877ce7c35f0f485e96d5f77ca1c9d9bc50141f2aeb19e54",
+    "tests/test_reruns.py": "90c8a5d99a56485f6c3c3e266d22564568a25eb465ed86d9112b47bbc31ea80f",
+    "tests/test_route_mocking.py": "15c0b1545f244914df5c6406e7e48a1bff3098d951ad0e6bcc58ac91dc1a019f",
+    "tests/test_storage_token_auth.py": "47a943d55e3d724b778055f3d0d3096f2a022623d97e4f1529cdae125eb5c3da",
+    "tests/test_testplan.py": "51cbf504b40869fd546f9745e60cf5620fbc281338f34d3900258a859999d7f6",
+    "tests/test_trace_video.py": "9b25623742c443b515676221087e56f0609559d9f07cd92965e0385b22d2a2d8"
+  },
+  "limitations": [
+    "Local engineering evidence; hosted macOS check pending.",
+    "Frozen lifecycle helper and synchronous engine shutdown remain unchanged."
+  ]
+}

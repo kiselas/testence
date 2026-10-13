@@ -401,7 +401,9 @@ original = quality.atomic_write_bytes
 def delayed(root, relative, raw):
     result = original(root, relative, raw)
     if relative == "quality/a":
-        marker.write_text(str(os.getpid()), encoding="utf-8")
+        pending = marker.with_suffix(".pending")
+        pending.write_text(str(os.getpid()), encoding="utf-8")
+        pending.replace(marker)
         time.sleep(60)
     return result
 quality.atomic_write_bytes = delayed

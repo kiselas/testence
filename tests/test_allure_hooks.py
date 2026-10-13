@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -19,6 +18,7 @@ import pytest
 
 from testence.evidence import RUN_ID_ENV
 from testence.export import export_run
+from tests.owned_pytest import run_pytest
 
 pytest.importorskip("allure")
 
@@ -70,7 +70,7 @@ def _run(tmp_path: Path) -> Path:
     env["PYTHONPATH"] = os.pathsep.join(
         [str(ROOT / "src"), value] if (value := env.get("PYTHONPATH")) else [str(ROOT / "src")]
     )
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -88,9 +88,6 @@ def _run(tmp_path: Path) -> Path:
         ],
         cwd=project,
         env=env,
-        text=True,
-        capture_output=True,
-        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     (run_dir,) = [path for path in runs.iterdir() if path.is_dir()]

@@ -22,6 +22,7 @@ from testence.engine import NetRecord
 from testence.engine.protocol import dump_net
 from testence.evidence import RUN_ID_ENV
 from tests.mock_app import PASSWORD, USER, MockApp
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 FORM = {
@@ -229,7 +230,7 @@ def _run(
         # This switch belongs only to the generated synthetic test, never to the
         # package: deliberately disable the instance's provenance tracker.
         env["TESTENCE_SYNTHETIC_PROVENANCE_MUTANT"] = "1" if mutant else "0"
-        return subprocess.run(
+        return run_pytest(
             [
                 sys.executable,
                 "-m",
@@ -246,9 +247,6 @@ def _run(
             ],
             cwd=project,
             env=env,
-            text=True,
-            capture_output=True,
-            check=False,
             timeout=300,
         )
 
