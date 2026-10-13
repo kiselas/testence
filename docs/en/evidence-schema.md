@@ -142,6 +142,7 @@ Directory `runs/<run>/<test>/pack/`, plain files so any agent can read them:
 | `aria.txt` | ARIA snapshot of the page at failure | 8 000 |
 | `network.jsonl` | full API request ledger since test start (bodies of non-2xx, plus `failure` on aborted requests) | 8 000 |
 | `console.txt` | errors/warnings/pageerrors | 2 000 |
+| `events.json` | bounded execution history for the same test/proof/attempt from the owning writer shard (`testence/pack-events/1`) | 4 000 |
 | `oracle.json` | UI↔API diff, when an oracle fired | 2 000 |
 | `heal.json` | drift proposal: new address, score, rationale, suggested edit ([ADR-0011](adr/0011-heal-as-proposal.md)) | — |
 | `browser.json` | live-attach manifest: CDP endpoint, page URL | 500 |
@@ -151,6 +152,21 @@ Directory `runs/<run>/<test>/pack/`, plain files so any agent can read them:
 Budgets are enforced by truncation with an explicit `<truncated: full content in …>`
 marker — an agent must always be able to tell "small" from "clipped". Token counts
 are estimates (~4 bytes/token); byte sizes are recoverable from the files themselves.
+
+`events.json` is a JSON projection, never a clipped JSON fragment. It retains up to
+64 recent step, assertion, oracle, native-use and network-mock records within the
+section budget, scanning at most the last 1 MiB of the writer's flushed ledger prefix.
+The source filename, prefix byte length/SHA-256 and each record's byte offset,
+length/SHA-256 identify the recorded source. The prefix digest is verified on read
+when the whole prefix fits; a tail read does not rehash the omitted prefix. Matching
+also requires the test, all six identity fields and any bound proof digests.
+Allowlisted payloads are sanitized again; parameters, risk labels, source traces and
+unrelated payloads are omitted. `status` is `complete`, `partial` or `unavailable`;
+`omitted` counts skipped source-prefix bytes, matching records dropped for budgets,
+and invalid records. Partial history cannot establish that an absent action never
+ran. No full-history companion is emitted. Generic successful steps do not establish
+pre-state, native dispatch or a handler's cause; this file does not change assurance.
+Older packs without this additive artifact remain readable.
 
 Sanitization happens before the ledger or pack text is written. Structured credential
 keys (Authorization, cookies, passwords, tokens and API/private keys), Bearer/Basic

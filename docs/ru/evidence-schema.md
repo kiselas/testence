@@ -140,6 +140,7 @@ Envelope key `test` в новых lifecycle events содержит полный
 | `aria.txt` | ARIA snapshot страницы в момент падения | 8 000 |
 | `network.jsonl` | полный журнал API requests с начала теста: body для non-2xx и `failure` для aborted requests | 8 000 |
 | `console.txt` | errors, warnings и pageerrors | 2 000 |
+| `events.json` | ограниченная история того же test/proof/attempt из shard текущего writer (`testence/pack-events/1`) | 4 000 |
 | `oracle.json` | UI↔API diff, если сработал oracle | 2 000 |
 | `heal.json` | предложение при drift: новый адрес, score, rationale и suggested edit ([ADR-0011](adr/0011-heal-as-proposal.md)) | — |
 | `browser.json` | manifest live attach: CDP endpoint и page URL | 500 |
@@ -150,6 +151,19 @@ Budgets применяются обрезкой с явным marker
 `<truncated: full content in …>`: агент всегда отличает маленькую секцию от
 обрезанной. Token count приблизителен, около 4 bytes/token; размер в bytes можно
 получить из файла.
+
+`events.json` всегда остаётся валидным JSON: до 64 последних записей step, assertion,
+oracle, native-use и network-mock в пределах budget. Чтение ограничено последним
+1 MiB flushed prefix своего writer shard. Source filename, bytes/SHA-256 prefix и
+offset/bytes/SHA-256 каждой записи связывают projection с ledger. Hash prefix проверяется
+при полном чтении; при чтении tail отброшенный prefix заново не хешируется. Фильтр
+требует совпадения test, шести identity fields и связанных proof digests. Allowlist
+проходит повторную redaction; parameters, risk labels, source traces и посторонние
+payloads не копируются. Status: `complete`, `partial`, `unavailable`; `omitted` считает
+отброшенные bytes prefix, matching records сверх budget и invalid records. Отсутствие
+действия в partial history не доказывает, что оно не выполнялось. Full-history companion
+не создаётся. Generic step со status ok не доказывает pre-state, native dispatch или
+причину handler; assurance не меняется. Старые packs без этого файла читаются как раньше.
 
 Sanitization выполняется до записи ledger или текстов pack. Structured keys для
 Authorization, cookies, passwords, tokens, API/private keys, значения Bearer/Basic,

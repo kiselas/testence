@@ -14,6 +14,7 @@ from .verdict import VERDICT_SCHEMA
 
 EVIDENCE_PACK_SCHEMA = "testence/evidence-pack/2"
 PACK_MANIFEST_SCHEMA = "testence/pack-manifest/2"
+PACK_EVENTS_SCHEMA = "testence/pack-events/1"
 RUN_MANIFEST_SCHEMA = "testence/run-manifest/2"
 CI_RECEIPT_SCHEMA = "testence/ci-receipt/1"
 DELIVERY_RECEIPT_SCHEMA = "testence/delivery-receipt/1"
@@ -39,6 +40,7 @@ SCHEMA_INVENTORY = MappingProxyType(
         "verdict": VERDICT_SCHEMA,
         "evidence_pack": EVIDENCE_PACK_SCHEMA,
         "pack_manifest": PACK_MANIFEST_SCHEMA,
+        "pack_events": PACK_EVENTS_SCHEMA,
         "run_manifest": RUN_MANIFEST_SCHEMA,
         "assurance_policy": ASSURANCE_POLICY_SCHEMA,
         "repair_proposal": REPAIR_SCHEMA,
