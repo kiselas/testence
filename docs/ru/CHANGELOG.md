@@ -9,6 +9,9 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
 
 ### Исправлено
 
+- Импорт плагина больше не запускает сбор host metadata и фоновый поток. Run и visual
+  profile получают прежнее описание platform при первом обращении; параллельные
+  callers используют общий cache, ошибка provider передаётся без повторного запроса.
 - Fingerprint input учитывает type вместо безусловного textbox: checkbox/radio и
   другие именованные controls дают подходящие candidate addresses. Datalist должен
   существовать; при отсутствии поддержанной role работает прежний fallback адреса.
