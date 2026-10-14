@@ -13,6 +13,104 @@ from testence.debug import debug
 from testence.engine.playwright_cdp import PlaywrightCdpEngine
 from testence.loopback import LoopbackHTTPServer
 
+PARALLEL_CASES = {f"test_contexts.py::test_parallel[{case}]" for case in range(8)}
+ALL_CASES = PARALLEL_CASES | {
+    f"test_contexts.py::{case}"
+    for case in ("test_a_seed", "test_b_isolated", "test_c_failed_case", "test_d_after_failure")
+}
+
+
+def _worker_pids(consumer, *, workers, cases):
+    """Read every record strictly; missing or corrupt observations cannot prove reuse."""
+    paths = sorted(consumer.glob("pids-*.jsonl"))
+    assert {path.stem.removeprefix("pids-") for path in paths} == workers
+    records = []
+    pids = []
+    for path in paths:
+        worker = path.stem.removeprefix("pids-")
+        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+        assert rows
+        for row in rows:
+            assert isinstance(row, dict) and set(row) == {"worker", "case", "pid"}
+            assert row["worker"] == worker
+            assert type(row["pid"]) is int and row["pid"] > 0
+            assert isinstance(row["case"], str) and row["case"] in cases
+        assert len({row["pid"] for row in rows}) == 1
+        pids.append(rows[0]["pid"])
+        records.extend(rows)
+    assert len(records) == len(cases)
+    assert {row["case"] for row in records} == cases
+    assert len(set(pids)) == len(workers)
+    return pids
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        None,
+        "blank",
+        "malformed",
+        "partial",
+        "missing-worker",
+        "unexpected-worker",
+        "duplicate-case",
+        "missing-case",
+        "changed-pid",
+        "same-pid",
+        "invalid-pid",
+        "unknown-case",
+        "wrong-worker",
+    ],
+)
+def test_pid_receipt_requires_all_workers_cases_and_stable_distinct_pids(tmp_path, fault):
+    for worker in range(4):
+        rows = [
+            {
+                "worker": f"gw{worker}",
+                "case": f"test_contexts.py::test_parallel[{case}]",
+                "pid": 100 + worker,
+            }
+            for case in (worker * 2, worker * 2 + 1)
+        ]
+        if worker == 0:
+            if fault == "duplicate-case":
+                rows[1] = dict(rows[0])
+            elif fault == "missing-case":
+                rows.pop()
+            elif fault == "changed-pid":
+                rows[1]["pid"] = 999
+            elif fault == "same-pid":
+                for row in rows:
+                    row["pid"] = 101
+            elif fault == "invalid-pid":
+                rows[0]["pid"] = True
+            elif fault == "unknown-case":
+                rows[0]["case"] = "unplanned case"
+            elif fault == "wrong-worker":
+                rows[0]["worker"] = "gw1"
+        text = "".join(json.dumps(row) + "\n" for row in rows)
+        if worker == 0 and fault in {"blank", "malformed", "partial"}:
+            text += {"blank": "\n", "malformed": "not-json\n", "partial": '{"worker":'}[fault]
+        (tmp_path / f"pids-gw{worker}.jsonl").write_text(text, encoding="utf-8")
+    if fault == "missing-worker":
+        (tmp_path / "pids-gw0.jsonl").unlink()
+    elif fault == "unexpected-worker":
+        (tmp_path / "pids-gw4.jsonl").write_text("{}\n", encoding="utf-8")
+    if fault is None:
+        assert (
+            len(
+                set(
+                    _worker_pids(
+                        tmp_path, workers={f"gw{i}" for i in range(4)}, cases=PARALLEL_CASES
+                    )
+                )
+            )
+            == 4
+        )
+    else:
+        with pytest.raises((AssertionError, json.JSONDecodeError)):
+            _worker_pids(tmp_path, workers={f"gw{i}" for i in range(4)}, cases=PARALLEL_CASES)
+
 
 @pytest.fixture
 def consumer(tmp_path):
@@ -59,7 +157,9 @@ def clean(ex):
  session=ex.engine._browser.new_browser_cdp_session()
  pid=next(p['id'] for p in session.send('SystemInfo.getProcessInfo')['processInfo'] if p['type']=='browser')
  session.detach()
- with Path('pids.jsonl').open('a') as stream: stream.write(json.dumps(pid)+'\\n')
+ worker=ex.writer.worker or 'controller'
+ record={'worker':worker,'case':ex.test_id,'pid':pid}
+ with Path(f'pids-{worker}.jsonl').open('a',encoding='utf-8') as stream: stream.write(json.dumps(record)+'\\n')
  ex.expect_text(Target('role','heading',name='Healthy page'),'Healthy page')
 
 def test_a_seed(ex):
@@ -112,7 +212,7 @@ def test_reuse_preserves_context_isolation_and_failure_trace(consumer, video):
     result = debug(consumer, "test_contexts.py", browser_reuse=True, allow_multiple=True)
     assert result["exit_code"] == 1 and not result["timed_out"]
     assert result["summary"]["execution"] == {"passed": 11, "failed": 1}
-    assert len(set(json.loads(s) for s in (consumer / "pids.jsonl").read_text().splitlines())) == 1
+    assert len(set(_worker_pids(consumer, workers={"controller"}, cases=ALL_CASES))) == 1
     assert any("Healthy page" in p["aria"] for p in result["failure_packs"])
     from pathlib import Path
 
@@ -132,7 +232,10 @@ def test_parallel_reuse_has_one_browser_per_worker_and_exact_cleanup(consumer):
         browser_reuse=True,
     )
     assert result["exit_code"] == 0 and result["summary"]["execution"] == {"passed": 8}
-    assert len(set(json.loads(s) for s in (consumer / "pids.jsonl").read_text().splitlines())) == 4
+    assert (
+        len(set(_worker_pids(consumer, workers={f"gw{i}" for i in range(4)}, cases=PARALLEL_CASES)))
+        == 4
+    )
     assert not list(consumer.glob("testence-*"))
     from pathlib import Path
 
@@ -165,7 +268,7 @@ def test_reuse_refuses_incompatible_scope_before_browser_launch(consumer, settin
     path.write_text(json.dumps(settings))
     result = debug(consumer, "test_contexts.py::test_b_isolated", browser_reuse=True)
     assert result["exit_code"] != 0
-    assert not (consumer / "pids.jsonl").exists()
+    assert not list(consumer.glob("pids-*.jsonl"))
     assert (
         "browser reuse requires isolated" in result["output_tail"]
         or "browser_reuse must be a boolean" in result["output_tail"]
@@ -228,7 +331,7 @@ plugin.from_settings=lambda settings: Adapter()
     path.write_text(json.dumps(settings))
     result = debug(consumer, "test_contexts.py::test_b_isolated", browser_reuse=True)
     assert result["exit_code"] == 1
-    assert not (consumer / "pids.jsonl").exists()
+    assert not list(consumer.glob("pids-*.jsonl"))
     from pathlib import Path
 
     events = [
