@@ -1693,9 +1693,20 @@ class PlaywrightCdpEngine(Engine):
     #: an attribute differently in the two places makes the same element score
     #: against itself as a stranger, which reads as "element gone".
     _FINGERPRINT_FN = """el => {
-        const implicitRole = {BUTTON: 'button', A: 'link', H1: 'heading',
+        let implicitRole = {BUTTON: 'button', A: 'link', H1: 'heading',
             H2: 'heading', H3: 'heading', SELECT: 'combobox', TEXTAREA: 'textbox',
-            LI: 'listitem', INPUT: 'textbox'}[el.tagName] || null;
+            LI: 'listitem'}[el.tagName] || null;
+        if (el.tagName === 'INPUT') {
+            // Use the DOM's normalized type: missing/invalid types are text.
+            // Non-text controls must not produce an unresolvable textbox hint.
+            implicitRole = {button: 'button', checkbox: 'checkbox', image: 'button',
+                number: 'spinbutton', radio: 'radio', range: 'slider', reset: 'button',
+                submit: 'button'}[el.type] || null;
+            if (['email', 'search', 'tel', 'text', 'url'].includes(el.type)) {
+                implicitRole = el.list ? 'combobox'
+                    : el.type === 'search' ? 'searchbox' : 'textbox';
+            }
+        }
         return {
             tag: el.tagName.toLowerCase(),
             role: el.getAttribute('role') || implicitRole,
@@ -1820,6 +1831,15 @@ class PlaywrightCdpEngine(Engine):
                 let target;
                 // Addressing preference: stable test id, then semantics, then id.
                 if (fp.testid) target = {kind: 'testid', value: fp.testid, name: null};
+                // Playwright 1.49 treats any search list attribute as combobox,
+                // even without a datalist. Keep the fingerprint's semantics,
+                // but offer an address that works across supported versions.
+                else if (el.tagName === 'INPUT' && el.type === 'search'
+                        && el.hasAttribute('list') && !el.list
+                        && !el.getAttribute('role')) {
+                    if (!fp.id) return null;
+                    target = {kind: 'css', value: '#' + CSS.escape(fp.id), name: null};
+                }
                 else if (fp.role && name) target = {kind: 'role', value: fp.role, name};
                 else if (fp.id) target = {kind: 'css', value: '#' + fp.id, name: null};
                 else if (name) target = {kind: 'text', value: name, name: null};

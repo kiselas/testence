@@ -1,0 +1,657 @@
+{
+  "schema": "testence-wiki/product-result/1",
+  "claim_id": "PROD-05",
+  "base_revision": "38265796597e22b3933b4112efdbaeb94a31f78c",
+  "source_files_sha256": {
+    "docs/en/CHANGELOG.md": "2d14b7de81eb234641ba77c229faf69f3b37d844b61b365523d7442f5aa2481a",
+    "docs/ru/CHANGELOG.md": "690cae0251594df4d87683cd8ad9a882c501431a4becb2b2de09ae5f097d634b",
+    "src/testence/engine/playwright_cdp.py": "9a789c6bebea1fae54095a6855837834149fc8b719764a7ac19f77fc84a89a6a",
+    "tests/test_fingerprint_roles.py": "fdfe224579a15820d21af69f6ad04af236a463aab693ad6bc175ca971e3894aa"
+  },
+  "status": "scoped_verified_full_gate_failed",
+  "local_required_full_gate_passed": false,
+  "scoped_role_candidate_checks_passed": true,
+  "targeted_passed": 62,
+  "checks": [
+    {
+      "label": "format",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "ruff",
+        "format",
+        "--check",
+        "src",
+        "tests",
+        "bench",
+        "scripts",
+        "examples"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 0.6559999999590218,
+      "started_at": "2026-10-13T15:11:53.399555+00:00",
+      "ended_at": "2026-10-13T15:11:54.055661+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": null,
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "lint",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "ruff",
+        "check",
+        "src",
+        "tests",
+        "bench",
+        "scripts",
+        "examples"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 0.6559999999590218,
+      "started_at": "2026-10-13T15:11:53.399555+00:00",
+      "ended_at": "2026-10-13T15:11:54.047651+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": null,
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "mypy",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "mypy",
+        "src",
+        "scripts"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 1.5469999999040738,
+      "started_at": "2026-10-13T15:11:53.401554+00:00",
+      "ended_at": "2026-10-13T15:11:54.948344+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": null,
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "targeted-complete",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "tests/test_fingerprint_roles.py",
+        "tests/test_fingerprints.py",
+        "tests/test_heal.py",
+        "tests/test_speed.py",
+        "-q",
+        "--basetemp=.tmp-pytest-fingerprint-complete-20261013"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 7.280999999959022,
+      "started_at": "2026-10-13T15:09:03.971721+00:00",
+      "ended_at": "2026-10-13T15:09:11.260090+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "examples",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "examples",
+        "-q",
+        "--testence-headless",
+        "--basetemp=.tmp-pytest-fingerprint-examples-20261013"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 13.375,
+      "started_at": "2026-10-13T15:52:43.911666+00:00",
+      "ended_at": "2026-10-13T15:52:57.286941+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "oss",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "bench/oss/run.py",
+        "--repeats",
+        "1",
+        "--output",
+        "outputs/product-fingerprint-20261013-12/oss"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 100.81299999996554,
+      "started_at": "2026-10-13T15:53:38.058237+00:00",
+      "ended_at": "2026-10-13T15:55:18.878274+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "heal",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "../testence_wiki/runs/product-fingerprint-20261013-12/heal_gate.py"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 212.90700000000652,
+      "started_at": "2026-10-13T15:55:45.087966+00:00",
+      "ended_at": "2026-10-13T15:59:18.001944+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "full",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-n",
+        "4",
+        "-q",
+        "--basetemp=.tmp-pytest-fingerprint-full-20261013"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 1,
+      "timed_out": false,
+      "wall_seconds": 299.9679999999935,
+      "started_at": "2026-10-13T15:11:55.990611+00:00",
+      "ended_at": "2026-10-13T15:16:55.970784+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": "C:\\Users\\alekkiselev\\PycharmProjects\\testence/outputs/quality-venv31214"
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "full-diagnostic",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-n",
+        "4",
+        "-q",
+        "--basetemp=.tmp-pytest-fingerprint-full-diagnostic-20261013"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 1,
+      "timed_out": false,
+      "wall_seconds": 240.26600000006147,
+      "started_at": "2026-10-13T15:32:14.220543+00:00",
+      "ended_at": "2026-10-13T15:36:14.479197+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": "C:\\Users\\alekkiselev\\PycharmProjects\\testence/outputs/quality-venv31214"
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "full-diagnostic-corrected",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-p",
+        "process_probe",
+        "-n",
+        "4",
+        "-q",
+        "--basetemp=.tmp-pytest-fingerprint-full-corrected-20261013"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 1,
+      "timed_out": false,
+      "wall_seconds": 307.78100000007544,
+      "started_at": "2026-10-13T15:40:35.502680+00:00",
+      "ended_at": "2026-10-13T15:45:43.284270+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": "C:\\Users\\alekkiselev\\PycharmProjects\\testence/outputs/quality-venv31214"
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "process-diagnostic",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "tests/test_testplan.py",
+        "tests/test_owned_process.py",
+        "tests/test_owned_pytest.py",
+        "tests/test_quality.py",
+        "-n",
+        "4",
+        "-q",
+        "--basetemp=.tmp-pytest-fingerprint-process-diagnostic-20261013"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 15.016000000061467,
+      "started_at": "2026-10-13T15:28:03.839694+00:00",
+      "ended_at": "2026-10-13T15:28:18.861314+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "testplan-diagnostic",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "tests/test_testplan.py",
+        "-q",
+        "-k",
+        "empty_plan",
+        "--basetemp=.tmp-pytest-fingerprint-testplan-diagnostic-20261013"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 3.280999999959022,
+      "started_at": "2026-10-13T15:18:44.681872+00:00",
+      "ended_at": "2026-10-13T15:18:47.970566+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    },
+    {
+      "label": "cli-and-debug-diagnostic",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "tests/test_application.py::test_init_and_inspect_cli_return_clean_json",
+        "tests/test_debug_cycle.py::test_xhr_upload_and_context_reset_leave_no_adapter",
+        "-q",
+        "--basetemp=.tmp-pytest-fingerprint-cli-diagnostic-20261013"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 10.609000000054948,
+      "started_at": "2026-10-13T15:51:11.172989+00:00",
+      "ended_at": "2026-10-13T15:51:21.785912+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]"
+    }
+  ],
+  "oss_assurance": {
+    "verified": 14,
+    "violated": 2
+  },
+  "oss_role_checks": {
+    "passed": true,
+    "rows": [
+      {
+        "phase": "healthy",
+        "ledger": "C:\\Users\\alekkiselev\\PycharmProjects\\testence\\outputs\\product-fingerprint-20261013-12\\oss\\runs\\oss-healthy-1\\run.jsonl",
+        "ledger_sha256": "c40b482baa2b520aa8b2ff3a10d524b0aa97404c24c880dc89a8f0da0ead1a3d",
+        "checkbox_roles": [
+          "checkbox",
+          "checkbox",
+          "checkbox",
+          "checkbox"
+        ],
+        "radio_roles": [
+          "radio",
+          "radio"
+        ]
+      },
+      {
+        "phase": "defect",
+        "ledger": "C:\\Users\\alekkiselev\\PycharmProjects\\testence\\outputs\\product-fingerprint-20261013-12\\oss\\runs\\oss-defect-1\\run.jsonl",
+        "ledger_sha256": "d4f4703d148b2424060c006611969aded231d22eb6ba63ef3287f4a8117016ff",
+        "checkbox_roles": [
+          "checkbox"
+        ],
+        "radio_roles": [
+          "radio",
+          "radio"
+        ]
+      },
+      {
+        "phase": "restored",
+        "ledger": "C:\\Users\\alekkiselev\\PycharmProjects\\testence\\outputs\\product-fingerprint-20261013-12\\oss\\runs\\oss-restored-1\\run.jsonl",
+        "ledger_sha256": "872481dcd4fe3d4c434926d46aca3a344fc9859521ddea90b27170e03d7713ed",
+        "checkbox_roles": [
+          "checkbox",
+          "checkbox",
+          "checkbox",
+          "checkbox"
+        ],
+        "radio_roles": [
+          "radio",
+          "radio"
+        ]
+      },
+      {
+        "phase": "restyle",
+        "ledger": "C:\\Users\\alekkiselev\\PycharmProjects\\testence\\outputs\\product-fingerprint-20261013-12\\oss\\runs\\oss-restyle-1\\run.jsonl",
+        "ledger_sha256": "b5f05771865522a15776218d273b60858c6c77351b90958f11f1347e44a1141f",
+        "checkbox_roles": [
+          "checkbox",
+          "checkbox",
+          "checkbox",
+          "checkbox"
+        ],
+        "radio_roles": [
+          "radio",
+          "radio"
+        ]
+      }
+    ],
+    "defect_pack_manifest_valid": true
+  },
+  "heal_corpus": {
+    "schema": "testence-wiki/heal-gate/1",
+    "summary": {
+      "items": 9,
+      "outcome_accuracy": 1.0,
+      "false_green_rate": 0.0,
+      "false_red_rate": 0.0,
+      "heal_recall": 1.0,
+      "heal_precision": 1.0,
+      "disappearance_discrimination": 1.0,
+      "failures": []
+    },
+    "records": [
+      {
+        "item": "ui_change_button_renamed",
+        "verdict_truth": "ui_change",
+        "note": "the add button's accessible name changed; the feature still works",
+        "checks": {
+          "failed_as_expected": true,
+          "observed": "fail",
+          "expected": "fail",
+          "heal_proposed": true,
+          "heal_correct": true,
+          "heal_hint": [
+            "ui_change"
+          ],
+          "heal_targets": [
+            {
+              "kind": "role",
+              "value": "button",
+              "name": "append"
+            }
+          ],
+          "heal_scores": [
+            0.899
+          ],
+          "packs": 1,
+          "pack_tokens": [
+            1726
+          ],
+          "baseline_green": true
+        }
+      },
+      {
+        "item": "ui_change_placeholder_renamed",
+        "verdict_truth": "ui_change",
+        "note": "the name field's placeholder changed; addressing by placeholder breaks",
+        "checks": {
+          "failed_as_expected": true,
+          "observed": "fail",
+          "expected": "fail",
+          "heal_proposed": true,
+          "heal_correct": true,
+          "heal_hint": [
+            "ui_change"
+          ],
+          "heal_targets": [
+            {
+              "kind": "role",
+              "value": "textbox",
+              "name": "full name"
+            }
+          ],
+          "heal_scores": [
+            1.0
+          ],
+          "packs": 1,
+          "pack_tokens": [
+            1251
+          ],
+          "baseline_green": true
+        }
+      },
+      {
+        "item": "ui_change_wrapped_in_container",
+        "verdict_truth": "ui_change",
+        "note": "element moved into a wrapper and gained a class; semantics unchanged",
+        "checks": {
+          "failed_as_expected": true,
+          "observed": "pass",
+          "expected": "pass",
+          "packs": 0,
+          "pack_tokens": [],
+          "baseline_green": true
+        }
+      },
+      {
+        "item": "real_bug_element_removed",
+        "verdict_truth": "real_bug",
+        "note": "the add button is gone; healing around this would hide a broken feature",
+        "checks": {
+          "failed_as_expected": true,
+          "observed": "fail",
+          "expected": "fail",
+          "refused_to_heal": true,
+          "heal_hint": [
+            "real_bug",
+            "real_bug"
+          ],
+          "heal_scores": [
+            0.5105,
+            0.0808
+          ],
+          "packs": 2,
+          "pack_tokens": [
+            1704,
+            1624
+          ],
+          "baseline_green": true
+        }
+      },
+      {
+        "item": "real_bug_wrong_value",
+        "verdict_truth": "real_bug",
+        "note": "counter increments by 2; element is present, the behaviour is wrong",
+        "checks": {
+          "failed_as_expected": true,
+          "observed": "fail",
+          "expected": "fail",
+          "refused_to_heal": true,
+          "heal_hint": [
+            "real_bug"
+          ],
+          "heal_scores": [
+            0.0
+          ],
+          "packs": 1,
+          "pack_tokens": [
+            1610
+          ],
+          "baseline_green": true
+        }
+      },
+      {
+        "item": "real_bug_action_does_nothing",
+        "verdict_truth": "real_bug",
+        "note": "add button no longer appends a row; the button itself is fine",
+        "checks": {
+          "failed_as_expected": true,
+          "observed": "fail",
+          "expected": "fail",
+          "packs": 1,
+          "pack_tokens": [
+            2107
+          ],
+          "baseline_green": true
+        }
+      },
+      {
+        "item": "flaky_timing_slow_async",
+        "verdict_truth": "flaky_timing",
+        "note": "async result arrives after the step timeout but does arrive",
+        "checks": {
+          "failed_as_expected": true,
+          "observed": "fail",
+          "expected": "fail",
+          "packs": 1,
+          "pack_tokens": [
+            1635
+          ],
+          "baseline_green": true
+        }
+      },
+      {
+        "item": "control_reordered",
+        "verdict_truth": "none",
+        "note": "pure reordering: reading this as a failure would make the tool unusable",
+        "checks": {
+          "failed_as_expected": true,
+          "observed": "pass",
+          "expected": "pass",
+          "packs": 0,
+          "pack_tokens": [],
+          "baseline_green": true
+        }
+      },
+      {
+        "item": "control_restyled",
+        "verdict_truth": "none",
+        "note": "classes changed only",
+        "checks": {
+          "failed_as_expected": true,
+          "observed": "pass",
+          "expected": "pass",
+          "packs": 0,
+          "pack_tokens": [],
+          "baseline_green": true
+        }
+      }
+    ],
+    "passed": true,
+    "owned_command_count": 18,
+    "items_sha256": "7925a124d3eb38654ea2d954a49a7223d763836407f07dc94f731be06ae7235f",
+    "runner_sha256": "f6bb4e94bb568f03ecd285e8ba5aaaf2d4a6ced0380ae6ac5e33c080aa24e9e9",
+    "scope": "existing authored heal corpus; no model/independent acceptance",
+    "browser_channel": "msedge"
+  },
+  "native_failure": {
+    "local_required_full_gate": "not_green",
+    "first_full": {
+      "passed": 958,
+      "failed": 1,
+      "skipped": 2,
+      "failure": "empty plan native termination 4294967295",
+      "cause": null
+    },
+    "global_probe_full": {
+      "passed": 923,
+      "failed": 25,
+      "errors": 11,
+      "skipped": 2,
+      "failure": "diagnostic plugin import pollution",
+      "cause": "harness"
+    },
+    "cli_only_probe_full": {
+      "passed": 957,
+      "failed": 1,
+      "errors": 1,
+      "skipped": 2,
+      "failure": "CLI access violation 3221225477 and local navigation 2000ms timeout",
+      "cause": null
+    },
+    "isolated_diagnostics": {
+      "empty_plan_passed": true,
+      "process_group_42_passed": true,
+      "cli_debug_2_passed": true
+    },
+    "not_a_causal_fix": true,
+    "next": "retain full failures and obtain clean hosted CI; no fourth unchanged full replay"
+  },
+  "frozen_files_unchanged": [
+    "tests/test_pytest_lifecycle.py",
+    "tests/test_assurance.py",
+    "tests/test_evidence.py",
+    "tests/test_identity.py",
+    "tests/test_repair_contract.py",
+    "bench/corpus/items.py",
+    "corpus/items.py"
+  ],
+  "model_quality_improvement": null,
+  "independent_acceptance": false,
+  "scope": "Input role/candidate fix tested; full QA remains unresolved. Not release approval."
+}

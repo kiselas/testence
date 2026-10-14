@@ -8,6 +8,15 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- Loading the plugin no longer starts a host metadata query or background thread.
+  Run and visual profile consumers collect the exact platform description lazily;
+  concurrent consumers share the cache and provider errors propagate without a retry.
+- Input fingerprints infer roles from the input type instead of always using
+  `textbox`, so checkbox/radio and other named controls generate usable candidate
+  addresses. Resolved datalists produce comboboxes; inputs without a supported role
+  use the existing address fallback. Explicit roles keep precedence.
+  Search inputs with unresolved `list` attributes use a stable test ID or CSS ID
+  candidate across supported Playwright versions, or are omitted without one.
 - Click/fill step evidence now identifies the DSL producer, engine type and whether
   the engine method was not called, raised or returned; generic intent steps remain distinct.
 - Failure packs now include bounded, sanitized execution history from the same proof

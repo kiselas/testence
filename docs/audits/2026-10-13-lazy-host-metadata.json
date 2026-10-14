@@ -1,0 +1,240 @@
+{
+  "claim_id": "PROD-06",
+  "status": "local_gates_passed_hosted_pending",
+  "base_revision": "6db716cfd344373e7e127f5a75311d0c8166b1ec",
+  "source_files_sha256": {
+    "src/testence/host.py": "2e5bfc33331bb7bb92942058017b58c9477e534fa1288795e76ce0d3eda0075c",
+    "tests/test_host_metadata.py": "8014ab90e1bf3a88215276a60b106547df15c12680aab535d8429b666f8acc76",
+    "docs/en/CHANGELOG.md": "18360b3c102de1c8e3ef1c1029730d9ca2a16e60ff73c3d56c4fd8860b02a862",
+    "docs/ru/CHANGELOG.md": "8b4349ac5227cf8b6f057603c33605b5785606a7b836e8f216073097e7903a6f"
+  },
+  "frozen_unchanged": {
+    "tests/test_pytest_lifecycle.py": "8f68cdf27dc1e3922d0c98deef880ad19df75624efaa8dea484a9bce5b71beb0",
+    "tests/test_assurance.py": "b2505c6aebf215904fdafcf7f94574062f49f5abd11739174895e431dd0c2f5a",
+    "tests/test_evidence.py": "d2a3454d015b679e74cb83ad71cbcb9daff17a1d56f81ab9f659165110365314",
+    "tests/test_identity.py": "a24e9a318448cb99d2d1402c3eb58285dc132fccf282585c0d50ffe1c90f7668",
+    "tests/test_repair_contract.py": "549f38f4a197ea714d8682e14f4a62c73394d4a621e63d1d502d86d0f1e0729f",
+    "bench/corpus/items.py": "e266e22893231e12c51b7dea5c06edf0d14d08faef1e9e33154424b6b35b7404",
+    "corpus/items.py": "7925a124d3eb38654ea2d954a49a7223d763836407f07dc94f731be06ae7235f"
+  },
+  "checks": [
+    {
+      "label": "targeted",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_host_metadata.py",
+        "tests/test_startup_cost.py",
+        "tests/test_plugin_opt_in.py",
+        "--basetemp=outputs/host-diagnostic-20261013-14/tmp-targeted"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 28.265999999945052,
+      "started_at": "2026-10-13T17:05:45.711415+00:00",
+      "ended_at": "2026-10-13T17:06:13.978212+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [
+        "22 passed in 26.90s"
+      ],
+      "receipt_sha256": "a62441c5b51b1f9bfeb2d3883c1825959b16c065ff1bf55a595ab757f975e2c5"
+    },
+    {
+      "label": "format",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "ruff",
+        "format",
+        "--check",
+        "src",
+        "tests",
+        "bench",
+        "scripts",
+        "examples"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 0.6719999999040738,
+      "started_at": "2026-10-13T17:06:45.050328+00:00",
+      "ended_at": "2026-10-13T17:06:45.727072+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": null,
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [],
+      "receipt_sha256": "c75fff7dbc15e32c846c910bd6a48c12a3ebd5fe2ec9a396af7d6da652227668"
+    },
+    {
+      "label": "lint",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "ruff",
+        "check",
+        "src",
+        "tests",
+        "bench",
+        "scripts",
+        "examples"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 0.6719999999040738,
+      "started_at": "2026-10-13T17:06:45.051328+00:00",
+      "ended_at": "2026-10-13T17:06:45.727072+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": null,
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [],
+      "receipt_sha256": "ae89f59b237dbda3b1355bbf664c5c3c77afc3f15ee06de8d94cac8920df8479"
+    },
+    {
+      "label": "mypy",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "mypy",
+        "src",
+        "scripts"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 1.765999999945052,
+      "started_at": "2026-10-13T17:06:45.052329+00:00",
+      "ended_at": "2026-10-13T17:06:46.821709+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": null,
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [],
+      "receipt_sha256": "40814814a57b4546419a3bc155e314ae2531c563fae2923b3c8df47eceea3ed2"
+    },
+    {
+      "label": "full",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-n",
+        "4",
+        "--basetemp=outputs/host-diagnostic-20261013-14/tmp-full"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 297.719000000041,
+      "started_at": "2026-10-13T17:06:55.781341+00:00",
+      "ended_at": "2026-10-13T17:11:53.504064+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [
+        "968 passed, 2 skipped in 296.45s (0:04:56)"
+      ],
+      "receipt_sha256": "8f4324294ecbbb6de339ba855fc3abad394e7ab467929de12614f2e7b4cf60d3"
+    },
+    {
+      "label": "examples",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "-m",
+        "pytest",
+        "examples",
+        "-q",
+        "--testence-headless",
+        "--basetemp=outputs/host-diagnostic-20261013-14/tmp-examples"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 15.780999999959022,
+      "started_at": "2026-10-13T17:12:47.180539+00:00",
+      "ended_at": "2026-10-13T17:13:02.963400+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [
+        "5 passed, 1 skipped in 14.34s"
+      ],
+      "receipt_sha256": "fa28d3a9fc3665d2758579978e1ed19828a11d7d64395d5c187565eebd8d698b"
+    },
+    {
+      "label": "lifecycle",
+      "command": [
+        "outputs/quality-venv31214/Scripts/python.exe",
+        "-B",
+        "../testence_wiki/runs/host-diagnostic-20261013-14/lifecycle_gate.py"
+      ],
+      "cwd": "C:\\Users\\alekkiselev\\PycharmProjects\\testence",
+      "effective_exit": 0,
+      "returncode": 0,
+      "timed_out": false,
+      "wall_seconds": 25.93799999996554,
+      "started_at": "2026-10-13T17:13:31.255763+00:00",
+      "ended_at": "2026-10-13T17:13:57.194956+00:00",
+      "environment": {
+        "TESTENCE_BROWSER_CHANNEL": "msedge",
+        "TESTENCE_DEBUG_PORT": "0",
+        "UV_PROJECT_ENVIRONMENT": null
+      },
+      "summary": [],
+      "receipt_sha256": "918a92da99762ed992898912d8f29e7233bb37f0e89c0de71bee1b87d45b910f"
+    }
+  ],
+  "local_full_passed": true,
+  "previous_head_hosted_ci": {
+    "head": "6db716cfd344373e7e127f5a75311d0c8166b1ec",
+    "base": "38265796597e22b3933b4112efdbaeb94a31f78c",
+    "run": 38430307815,
+    "successful_checks": 18,
+    "merge_revision": "2d4dff6d78620e1a28f8b16819f8c7e718bda366",
+    "tree_equals_previous_head": true,
+    "qualifies_current_host_change": false
+  },
+  "probe_result": "probe-evaluation.json",
+  "probe_correction": "probe-evaluation-correction.json",
+  "limits": [
+    "Lazy first-use metadata has no deadline or native crash isolation",
+    "Previous native/oracle/navigation failures remain unexplained",
+    "Current host change awaits exact-head hosted CI and review",
+    "No latency improvement or independent/model acceptance claimed"
+  ],
+  "runtime": {
+    "python": "3.12.14 (main, Sep  1 2026, 14:17:39) [MSC v.1944 64 bit (AMD64)]",
+    "playwright": "1.62.0",
+    "pytest": "9.1.1"
+  },
+  "cost": null
+}

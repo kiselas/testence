@@ -1,11 +1,9 @@
-"""Host description for run fingerprints, computed off the start-up path.
+"""Host description collected only when a run or visual profile needs it.
 
-``platform.release()`` is a WMI query on Windows with Python 3.12 (77 ms measured on
-Windows 11) and ``platform.system()`` pays for it too, because both read
-``platform.uname()``. That was most of the plugin's session start. The query releases
-the GIL, so it runs in a thread started when this module is imported — at plugin
-load — and overlaps pytest's own start-up; a caller blocks only while it is still
-running. The values are exactly what ``platform`` returns.
+Loading the plugin into an unrelated suite must not start a native metadata query.
+The first caller collects ``platform.uname()`` and later callers share its result.
+Values remain exactly what ``platform`` reports; native provider faults are not
+isolated by this cache.
 """
 
 from __future__ import annotations
@@ -14,19 +12,14 @@ import platform
 import threading
 
 _UNAME: list[platform.uname_result] = []
-
-
-def _query() -> None:
-    _UNAME.append(platform.uname())
-
-
-_THREAD = threading.Thread(target=_query, name="testence-host", daemon=True)
-_THREAD.start()
+_LOCK = threading.Lock()
 
 
 def _uname() -> platform.uname_result:
-    _THREAD.join()
-    return _UNAME[0] if _UNAME else platform.uname()
+    with _LOCK:
+        if not _UNAME:
+            _UNAME.append(platform.uname())
+        return _UNAME[0]
 
 
 def system() -> str:
