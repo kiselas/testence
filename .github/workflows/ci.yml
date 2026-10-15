@@ -46,7 +46,7 @@ jobs:
       - name: Enforce scale and deterministic-output budgets
         run: uv run python bench/scale_profile.py --repeats 3 --check --output scale-profile.json
       - name: Save scale profile
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: testence-${{ github.sha }}-scale-profile
           path: scale-profile.json
@@ -54,7 +54,7 @@ jobs:
       - name: Build reproducible wheel and sdist bytes
         run: uv run python scripts/reproducible_build.py --dist-dir dist --output dist/reproducible-build.json
       - name: Save immutable candidate distributions and build receipt
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: testence-${{ github.sha }}-candidate-distributions
           path: dist/*
@@ -100,7 +100,7 @@ jobs:
         run: uv run pytest -q --durations=25 --junitxml=test-timings/junit.xml
       - name: Save per-test timings
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: testence-${{ github.sha }}-timings-${{ matrix.os }}-py${{ matrix.python }}
           path: test-timings/junit.xml
@@ -236,7 +236,7 @@ jobs:
         if: github.event.repository.private && vars.PRIVATE_ATTESTATIONS_ENABLED != 'true'
         run: echo 'Unsigned private engineering candidate. GitHub artifact attestations require Enterprise Cloud for private repositories; signed release provenance remains pending.' >> "$GITHUB_STEP_SUMMARY"
       - name: Save release evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: testence-${{ github.sha }}-release-evidence
           path: |
@@ -276,7 +276,7 @@ jobs:
           $wheel = (Get-ChildItem -LiteralPath dist -Filter *.whl | Select-Object -First 1).FullName
           .wheel-venv/Scripts/python.exe -I scripts/installed_wheel_smoke.py --distribution $wheel --output release-artifacts/installed-wheel-smoke-windows.json
       - name: Save Windows wheel evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: testence-${{ github.sha }}-windows-wheel-smoke
           path: |
@@ -314,7 +314,7 @@ jobs:
           wheel=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
           .wheel-venv/bin/python -I scripts/installed_wheel_smoke.py --distribution "$wheel" --output release-artifacts/installed-wheel-smoke-macos.json
       - name: Save macOS wheel evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: testence-${{ github.sha }}-macos-wheel-smoke
           path: |
@@ -367,7 +367,7 @@ jobs:
           .visual-venv/Scripts/python.exe -I bench/client_simulation/run.py --distribution $visualWheel --output visual-evidence --repeats 1
       - name: Retain visual client proof including failed attempts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: testence-${{ github.sha }}-visual-${{ matrix.os }}
           path: visual-evidence/
