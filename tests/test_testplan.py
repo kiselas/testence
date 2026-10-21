@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -20,6 +19,7 @@ from testence.testplan import (
 from testence.testplan import TestPlan as Plan
 from testence.testplan import TestPlanEntry as PlanEntry
 from testence.testplan import TestPlanError as PlanError
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -33,7 +33,7 @@ def _run(project: Path, runs: Path, plan: Path, *args: str):
     env["PYTHONPATH"] = os.pathsep.join(
         [str(ROOT / "src"), value] if (value := env.get("PYTHONPATH")) else [str(ROOT / "src")]
     )
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -51,9 +51,6 @@ def _run(project: Path, runs: Path, plan: Path, *args: str):
         ],
         cwd=project,
         env=env,
-        text=True,
-        capture_output=True,
-        check=False,
     )
     run_dirs = [path for path in runs.iterdir() if path.is_dir()]
     assert len(run_dirs) == 1, result.stdout + result.stderr

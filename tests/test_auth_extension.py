@@ -23,6 +23,7 @@ from testence.auth.strategies import StorageStateAuth, needs_credentials
 from testence.config import Settings
 from testence.evidence import RUN_ID_ENV
 from tests.mock_app import PASSWORD, SESSION_COOKIE, SESSION_VALUE, USER, MockApp
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -208,7 +209,7 @@ def _run(project: Path, settings: dict[str, Any]) -> subprocess.CompletedProcess
             TESTENCE_USER=USER,
             TESTENCE_PASSWORD=PASSWORD,
         )
-        return subprocess.run(
+        return run_pytest(
             [
                 sys.executable,
                 "-m",
@@ -224,9 +225,6 @@ def _run(project: Path, settings: dict[str, Any]) -> subprocess.CompletedProcess
             ],
             cwd=project,
             env=env,
-            text=True,
-            capture_output=True,
-            check=False,
             timeout=300,
         )
 

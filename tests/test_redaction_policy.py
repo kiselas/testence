@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -22,6 +21,7 @@ from testence.evidence.sanitize import RedactionPolicy, sanitize, sanitize_text
 from testence.export import ExporterError, export_run
 from testence.report import render_report
 from testence.triage import assemble_pack
+from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -374,7 +374,7 @@ def test_invalid_evidence_settings_fail_the_session_before_tests(tmp_path):
     env["PYTHONPATH"] = os.pathsep.join(
         [str(ROOT / "src"), value] if (value := env.get("PYTHONPATH")) else [str(ROOT / "src")]
     )
-    result = subprocess.run(
+    result = run_pytest(
         [
             sys.executable,
             "-m",
@@ -391,9 +391,6 @@ def test_invalid_evidence_settings_fail_the_session_before_tests(tmp_path):
         ],
         cwd=project,
         env=env,
-        text=True,
-        capture_output=True,
-        check=False,
     )
     assert result.returncode != 0
     assert "invalid Testence evidence settings" in result.stdout + result.stderr
