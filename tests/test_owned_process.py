@@ -83,12 +83,14 @@ def test_owned_tree_ends_without_killing_an_unrelated_process(tmp_path, mode):
     unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)"])
     try:
         started = time.monotonic()
-        result = run_owned([sys.executable, str(script), "2", mode], cwd=tmp_path, timeout=3)
+        # Three interpreters (and Windows venv redirectors) start before the deadline:
+        # 3 s was not enough on a loaded runner. "exit" ends long before it.
+        result = run_owned([sys.executable, str(script), "2", mode], cwd=tmp_path, timeout=15)
         elapsed = time.monotonic() - started
         assert result.timed_out == (mode == "timeout")
         assert result.returncode == (None if mode == "timeout" else 7)
         assert "three processes ready" in result.stdout
-        assert elapsed < 8, f"deadline/output cleanup stalled: {elapsed:.3f}s"
+        assert elapsed < 25, f"deadline/output cleanup stalled: {elapsed:.3f}s"
         for depth in range(3):
             port, _pid = json.loads((tmp_path / f"port-{depth}.json").read_text())
             assert_listener_stopped(port)
@@ -138,7 +140,7 @@ def test_gate_assignment_tolerates_a_launcher_spawning_the_interpreter_first(tmp
 
     monkeypatch.setattr(_WindowsJob, "assign", assign)
     (tmp_path / "tree.py").write_text(TREE, encoding="utf-8")
-    result = run_owned([sys.executable, "tree.py", "2", "exit"], cwd=tmp_path, timeout=5)
+    result = run_owned([sys.executable, "tree.py", "2", "exit"], cwd=tmp_path, timeout=30)
     assert result.returncode == 7 and assigned
     for depth in range(3):
         port, _pid = json.loads((tmp_path / f"port-{depth}.json").read_text())

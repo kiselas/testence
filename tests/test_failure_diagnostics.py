@@ -7,6 +7,7 @@ the target matched instead — nothing, several elements, or one showing other t
 
 from __future__ import annotations
 
+import time
 import urllib.parse
 
 import pytest
@@ -87,7 +88,12 @@ def test_switching_back_to_a_tab_does_not_record_its_events_twice(ex):
     for index in (1, 0, 1, 0, 1, 0):
         engine.switch_page(index)
     engine._require_page().evaluate("console.error('marker-once')")
-    engine._require_page().wait_for_timeout(100)
+    # Wait for the event instead of a fixed pause, then give a duplicate time to land.
+    deadline = time.monotonic() + 5
+    while not any("marker-once" in entry["text"] for entry in engine.console_log()):
+        assert time.monotonic() < deadline, "the console event never arrived"
+        engine._require_page().wait_for_timeout(50)
+    engine._require_page().wait_for_timeout(300)
 
     messages = [entry for entry in engine.console_log() if "marker-once" in entry["text"]]
     assert len(messages) == 1

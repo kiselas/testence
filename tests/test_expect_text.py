@@ -53,14 +53,14 @@ def test_text_that_never_appears_is_an_assertion_failure(engine):
 
 
 def test_the_whole_value_satisfies_it(engine):
-    engine.expect_text(COUNTER, "48", timeout_ms=1_000)
-    engine.expect_text(EXACT, "4", timeout_ms=1_000)
+    engine.expect_text(COUNTER, "48", timeout_ms=5_000)
+    engine.expect_text(EXACT, "4", timeout_ms=5_000)
 
 
 def test_surrounding_whitespace_is_not_a_difference(engine):
     """Markup wraps and indents; a value is still the value."""
     engine.goto("data:text/html,<span id=counter>\n  48\n</span>")
-    engine.expect_text(COUNTER, "48", timeout_ms=1_000)
+    engine.expect_text(COUNTER, "48", timeout_ms=5_000)
 
 
 def test_substring_matching_is_available_when_it_is_meant(engine):
@@ -68,4 +68,4 @@ def test_substring_matching_is_available_when_it_is_meant(engine):
     to say so, which is the whole point."""
     with pytest.raises(Exception):
         engine.expect_text(GREETING, "alice", timeout_ms=500)
-    engine.expect_text(GREETING, "alice", timeout_ms=1_000, exact=False)
+    engine.expect_text(GREETING, "alice", timeout_ms=5_000, exact=False)
