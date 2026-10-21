@@ -353,6 +353,15 @@ class EvidenceWriter:
         """Sanitize a pack value with the same policy as the ledger."""
         return sanitize(value, secrets=self._redact_values, policy=self._policy, limit=limit)
 
+    def ledger_checkpoint(self) -> dict[str, Any]:
+        """Bind the flushed prefix of this writer's shard, excluding later appends."""
+        with self._lock:
+            return {
+                "path": self.path.name,
+                "bytes": self._ledger_bytes,
+                "sha256": self._ledger_sha.hexdigest(),
+            }
+
     @property
     def redact_values(self) -> tuple[str, ...]:
         return self._redact_values
