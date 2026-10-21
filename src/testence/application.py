@@ -430,22 +430,24 @@ def doctor(
         # Start the browser the project is configured to use, rather than checking that
         # a bundled executable path exists. A present file that cannot launch is the
         # failure people actually hit, and a project on `chrome`/`msedge` was reported
-        # as broken while its runs worked.
+        # as broken while its runs worked. The video folder outlives the browser: on
+        # Windows the recorder can still hold the .webm after context.close(), and a
+        # failed removal of a temporary folder is not a browser that failed to start.
         browser_probe = subprocess.run(
             [
                 sys.executable,
                 "-c",
                 "import sys, tempfile\n"
                 "from playwright.sync_api import sync_playwright\n"
-                "with sync_playwright() as p:\n"
-                "    browser = p.chromium.launch(channel=sys.argv[1], headless=True)\n"
-                "    print(browser.version)\n"
-                "    if sys.argv[2] != 'off':\n"
-                "        with tempfile.TemporaryDirectory() as directory:\n"
+                "with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:\n"
+                "    with sync_playwright() as p:\n"
+                "        browser = p.chromium.launch(channel=sys.argv[1], headless=True)\n"
+                "        print(browser.version)\n"
+                "        if sys.argv[2] != 'off':\n"
                 "            context = browser.new_context(record_video_dir=directory)\n"
                 "            context.new_page()\n"
                 "            context.close()\n"
-                "    browser.close()\n",
+                "        browser.close()\n",
                 browser_channel,
                 str(settings.evidence_config().get("video", "off")) if settings else "off",
             ],
