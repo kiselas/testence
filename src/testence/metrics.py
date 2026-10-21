@@ -45,7 +45,10 @@ def load_run(run_dir: Path) -> list[dict[str, Any]]:
     wrote anything, and reads as incomplete.
     """
     if not Path(run_dir).is_dir():
-        raise FileNotFoundError(f"{run_dir} is not a Testence run: no such run directory")
+        # `testence run` prints the bare id; point at the directory it means.
+        guess = Path("runs") / Path(run_dir)
+        hint = f"; did you mean {guess}?" if guess.is_dir() else ""
+        raise FileNotFoundError(f"{run_dir} is not a Testence run: no such run directory{hint}")
     return reconcile_events(read_run_ledgers(run_dir))
 
 
