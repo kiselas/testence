@@ -186,8 +186,8 @@ def _candidate(test: str, mutation: dict[str, Any], reads: set[str]) -> dict[str
     if mutation["request_keys"]:
         compared = sorted(set(mutation["request_keys"]) & set(mutation["response_keys"]))
     else:
-        # Browsers rarely declare a request's size, and a body of unknown size is never
-        # materialized (capture policy). The response still names what the server stored.
+        # The request body was not captured (bodies off, not JSON, or over the cap). The
+        # response still names what the server stored.
         compared = [key for key in mutation["response_keys"] if not _server_owned(key)]
         if expectation == "fields":
             notes.append(
@@ -216,28 +216,52 @@ def _literal(path: str) -> str:
 
 
 def _snippet(mutation: dict[str, Any], read: str, expectation: str, fields: list[str]) -> str:
-    method, path, origin = mutation["method"], mutation["path"], mutation["origin"]
+    method, path = mutation["method"], mutation["path"]
     resource = _collection(path).rsplit("/", 1)[-1] or "resource"
     verb = {"POST": "create", "PUT": "update", "PATCH": "update", "DELETE": "delete"}.get(
         method, method.lower()
     )
     name = f"{_identifier(resource)} {verb}"
-    read_path = read.replace("{id}", "{entity_id}")
+    id_path = mutation.get("id_path")
+    # Bind to the entity this mutation answered with: an id chosen before the click can
+    # only name a row that already existed, and that read proves nothing about the save.
+    bound = expectation != "absent" and bool(id_path) and "{id}" in read
+    key = "created" if method == "POST" else "saved"
+    entity = f"{key}[{str(id_path)!r}]" if bound else "entity_id"
+    url = read.replace("{id}", "{" + entity + "}")
+    prefix = "f" if "{" in url else ""
+    read_call = f'lambda{" " + key if bound else ""}: testence_api.get_fresh({prefix}"{url}")'
+    # The snippet must paste as valid Python on 3.10: no comment inside an expression
+    # (it swallowed the closing brackets) and no reused quotes inside an f-string.
+    hint = "    # fill in the values the test entered\n"
     if expectation == "absent":
+        hint = ""
         expected = f'ExpectedState.absent("{name} is gone", entity_id=entity_id)'
-    else:
-        checks = " and ".join(f'body["{field}"] == sent["{field}"]' for field in fields)
+    elif "{id}" not in read:
+        # A collection read: find the entry carrying what the test sent.
+        checks = (
+            " and ".join(f"item.get({field!r}) == {_identifier(field)}" for field in fields)
+            or "item == expected_item"
+        )
         expected = (
             f'ExpectedState(\n        "{name} is persisted",\n'
-            f"        lambda body: {checks or 'True  # TODO: compare the fields the UI claims'},\n"
-            "        entity_id=entity_id,\n    )"
+            f"        lambda items: any({checks} for item in items),\n    )"
         )
+    else:
+        values = ", ".join(f"{field!r}: {_identifier(field)}" for field in fields)
+        state = (
+            f'ExpectedState.fields(\n        "{name} is persisted",\n'
+            f"        {{{values}}},\n        entity_id={entity},\n    )"
+        )
+        expected = f"lambda {key}: {state}" if bound else state
     return (
+        "from testence.oracle import ExpectedState, RequestExpectation, save_and_verify_state\n\n"
         "save_and_verify_state(\n"
         f"    ex,\n    SAVE_TARGET,  # the control that sends {method} {path}\n"
         f'    name="{name}",\n'
-        f'    request=RequestExpectation({_literal(path)}, "{method}", origin="{origin}"),\n'
-        f'    read=lambda: testence_api.get_fresh(f"{read_path}"),\n'
+        f'    request=RequestExpectation({_literal(path)}, "{method}"),\n'
+        f"    read={read_call},\n"
+        f"{hint}"
         f"    expected={expected},\n)"
     )
 
