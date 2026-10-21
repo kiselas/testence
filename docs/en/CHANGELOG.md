@@ -33,6 +33,10 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- `testence doctor` with video on could report a working browser as broken on Windows
+  (`WinError 267`): the recorder still held the `.webm` when the probe removed its
+  temporary folder. The folder now outlives the browser and its removal cannot fail
+  the check.
 - Windows launch gates wait within the existing deadline when their PID marker is
   temporarily unreadable; permanent denial times out before project code starts.
 
