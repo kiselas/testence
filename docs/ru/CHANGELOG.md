@@ -64,6 +64,15 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
 - Упавший `testence run` печатает `next: read what failed: testence inspect runs/<id>`;
   `inspect` с голым id запуска подсказывает `runs/<id>`.
 - `doctor --target` называет `base_url` без `http://` и отмечает ответ HTTP 4xx/5xx.
+- Импорт плагина больше не запускает сбор host metadata и фоновый поток. Run и visual
+  profile получают прежнее описание platform при первом обращении; параллельные
+  callers используют общий cache, ошибка provider передаётся без повторного запроса.
+- Fingerprint input учитывает type вместо безусловного textbox: checkbox/radio и
+  другие именованные controls дают подходящие candidate addresses. Datalist должен
+  существовать; при отсутствии поддержанной role работает прежний fallback адреса.
+  Explicit role сохраняет приоритет.
+  Search с неразрешённым атрибутом list получает candidate по testid или CSS ID,
+  совместимый с поддержанными версиями Playwright; без них candidate не предлагается.
 - Evidence шагов click/fill различает producer DSL, engine type и отсутствие вызова,
   исключение или возврат engine method; generic intent steps сохраняются отдельно.
 - Failure pack теперь включает ограниченную sanitized историю той же proof/attempt
