@@ -25,7 +25,10 @@ Export applies the run's redaction policy again to every event and text attachme
 ([configuration](configuration.md#redaction-and-screenshot-masks)), so a run written
 before a rule existed does not leave in clear text. The run directory itself is never
 rewritten. `--attachments` chooses which pack files an export ships: `full` (default,
-redacted), `minimal` (no `network.jsonl`, `aria.txt` or screenshot) or `none`.
+redacted), `minimal` (no `network.jsonl`, `aria.txt` or screenshot), `none`, or `raw`:
+`full` plus the unredacted trace, video and binary attachments. A trace holds the typed
+password, headers and bodies, so neither the default export nor the live Allure stream
+ships it; ask for `raw` where the data may leave the machine.
 
 | exporter | writes | carries |
 |---|---|---|
@@ -72,7 +75,7 @@ allure.attach(body, name="response", attachment_type=allure.attachment_type.JSON
 `allure.attach` and `allure.attach.file` are heard as well, with or without
 allure-pytest. Text is redacted like all evidence, including secrets learned at run
 time. A binary file cannot be redacted: it is stored as given (`redaction: none` in the
-ledger) and only `--attachments full` ships it; `minimal` ships the text, `none`
+ledger) and only `--attachments raw` ships it; `minimal` ships the text, `none`
 nothing. Each attachment is limited to 8 MiB.
 
 ### Reruns and flaky tests

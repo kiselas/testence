@@ -395,9 +395,9 @@ def _attachments(
         target = _write_bytes(out_dir / target_name, final.read_bytes())
         written.append(target)
         attachments.append({"name": "screenshot.png", "source": target_name, "type": "image/png"})
-    # Trace and video are raw by nature (DOM snapshots, network, pixels); the run
-    # opted into them, and only a full export ships them.
-    if run.attachments == "full":
+    # Trace and video are raw by nature (DOM snapshots, network, pixels): only an
+    # explicit raw export ships them, never the default one or the live stream.
+    if run.attachments == "raw":
         for recording in test.recordings:
             source = run.run_file(recording["path"])
             if source is None:

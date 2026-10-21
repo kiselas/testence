@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
@@ -88,14 +89,25 @@ _VALUE_SLOTS = frozenset({"value", "ui", "api", "expected", "actual", "old", "ne
 
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 _AUTH_VALUE = re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]+")
+# Any scheme: `Authorization: Token x`, `ApiKey x`, `Digest username=..., response=...`.
+_AUTHORIZATION_HEADER = re.compile(
+    r"(?im)(\b(?:proxy-)?authorization\s*:\s*)(?!<redacted>)[^\r\n]+"
+)
+# The password of `scheme://user:password@host`.
+_URL_USERINFO = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://[^\s/@:]+:)[^\s/@]+@")
+_PEM_PRIVATE_KEY = re.compile(
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.S
+)
 _COOKIE_HEADER = re.compile(r"(?im)(\b(?:cookie|set-cookie)\s*:\s*)[^\r\n]+")
 _QUERY_PARAM = re.compile(r"(?P<prefix>[?&;])(?P<name>[^=&#\s?;]{1,64})=(?P<value>[^&#\s\"']*)")
 # Only ``name`` and ``sep`` are consumed; the value is a lookahead. ``console: token=x``
 # must still see ``token`` as the next name instead of swallowing it as a value.
+# A name may follow an escaped line break: in a repr()ed string `\npin: 1234` the `n`
+# of `\n` otherwise fused with the name into `npin`.
 _ASSIGNMENT = re.compile(
-    r"(?P<name>(?<![\w.-])[A-Za-z_][A-Za-z0-9_.-]{0,63})"
+    r"(?P<name>(?:(?<=\\[nrt])|(?<![\w.\\-]))[A-Za-z_][A-Za-z0-9_.-]{0,63})"
     r"(?P<sep>[\"']?\s*[:=]\s*[\"']?)"
-    r"(?=(?P<value>[^\s\"'&,;}]+))"
+    r"(?=(?P<value>(?:(?!\\[nrt])[^\s\"'&,;}])+))"
 )
 _JWT = re.compile(r"(?<![\w-])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*")
 _TOKEN_PREFIX = re.compile(
@@ -106,6 +118,11 @@ _TOKEN_PREFIX = re.compile(
     r"|xox[abprs]-[A-Za-z0-9-]{10,}"
     r"|sk-[A-Za-z0-9_-]{20,}"
     r"|AKIA[0-9A-Z]{16}"
+    r"|[sr]k_(?:live|test)_[A-Za-z0-9]{10,}"
+    r"|AIza[0-9A-Za-z_-]{35}"
+    r"|ya29\.[0-9A-Za-z_-]{20,}"
+    r"|npm_[A-Za-z0-9]{36}"
+    r"|https://hooks\.slack\.com/services/[A-Za-z0-9/_-]+"
     r")"
 )
 _CARD = re.compile(r"(?<![\w-])[2-6]\d{3}(?:[ -]?\d){9,15}(?![\w-])")
@@ -254,6 +271,14 @@ def _redact_assignments(text: str, policy: RedactionPolicy) -> str:
         if match.start() < cursor or not is_sensitive_key(match.group("name"), policy):
             continue
         value_end = match.end() + len(match.group("value"))
+        quote = match.group("sep")[-1:]
+        if quote in ("'", '"'):
+            # A quoted value ends at its closing quote: `password = 'correct horse
+            # staple'` kept everything after the first space in clear text.
+            closing = text.find(quote, match.end())
+            line_end = text.find("\n", match.end())
+            if closing != -1 and (line_end == -1 or closing < line_end):
+                value_end = closing
         pieces.append(text[cursor : match.end()])
         pieces.append(REDACTED)
         cursor = value_end
@@ -261,6 +286,26 @@ def _redact_assignments(text: str, policy: RedactionPolicy) -> str:
         return text
     pieces.append(text[cursor:])
     return "".join(pieces)
+
+
+def _known_forms(secrets: Iterable[str]) -> set[str]:
+    """Each known secret as text can carry it: verbatim, URL-encoded, JSON- and
+    repr-escaped. `SYNTH-S&Y#N` reached network.jsonl as `SYNTH-S%26Y%23N`."""
+    forms: set[str] = set()
+    for secret in secrets:
+        if len(secret) < 4:
+            continue
+        forms.update(
+            {
+                secret,
+                urllib.parse.quote(secret, safe=""),
+                urllib.parse.quote_plus(secret, safe=""),
+                json.dumps(secret, ensure_ascii=False)[1:-1],
+                json.dumps(secret)[1:-1],
+                repr(secret)[1:-1],
+            }
+        )
+    return {form for form in forms if len(form) >= 4}
 
 
 def _clip(text: str, limit: int) -> str:
@@ -278,8 +323,11 @@ def sanitize_text(
 ) -> str:
     """Redact credential forms, caller-known values and opted-in PII from free text."""
     safe = text
-    for secret in sorted({value for value in secrets if len(value) >= 4}, key=len, reverse=True):
+    for secret in sorted(_known_forms(secrets), key=len, reverse=True):
         safe = safe.replace(secret, REDACTED)
+    safe = _PEM_PRIVATE_KEY.sub(REDACTED, safe)
+    safe = _URL_USERINFO.sub(lambda match: f"{match.group(1)}{REDACTED}@", safe)
+    safe = _AUTHORIZATION_HEADER.sub(lambda match: f"{match.group(1)}{REDACTED}", safe)
     safe = _JWT.sub(REDACTED, safe)
     safe = _TOKEN_PREFIX.sub(REDACTED, safe)
     safe = _AUTH_VALUE.sub(lambda match: f"{match.group(1)} {REDACTED}", safe)

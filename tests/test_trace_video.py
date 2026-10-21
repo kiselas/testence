@@ -110,15 +110,17 @@ def test_on_keeps_a_trace_for_a_passing_test_too(tmp_path):
     assert [entry["kind"] for entry in recordings["test_passes"]] == ["trace"]
 
 
-def test_only_a_full_export_ships_the_recordings(tmp_path):
+def test_only_a_raw_export_ships_the_recordings(tmp_path):
+    """A trace holds the typed password, headers and bodies unredacted; the default
+    export (and so the live Allure stream) shipped it until 0.1.0a2."""
     run_dir = _run(tmp_path, {"trace": "retain-on-failure"})
-    full = export_run(run_dir, "allure", tmp_path / "full")
-    minimal = export_run(run_dir, "allure", tmp_path / "minimal", attachments="minimal")
-    assert any(path.suffix == ".zip" for path in full)
-    assert not any(path.suffix == ".zip" for path in minimal)
+    raw = export_run(run_dir, "allure", tmp_path / "raw", attachments="raw")
+    default = export_run(run_dir, "allure", tmp_path / "full")
+    assert any(path.suffix == ".zip" for path in raw)
+    assert not any(path.suffix == ".zip" for path in default)
     for name in ("junit", "ctrf"):
-        shipped = export_run(run_dir, name, tmp_path / f"{name}-full")
-        kept = export_run(run_dir, name, tmp_path / f"{name}-min", attachments="minimal")
+        shipped = export_run(run_dir, name, tmp_path / f"{name}-raw", attachments="raw")
+        kept = export_run(run_dir, name, tmp_path / f"{name}-full")
         assert any(path.name == "trace.zip" for path in shipped), name
         assert not any(path.name == "trace.zip" for path in kept), name
 

@@ -40,7 +40,7 @@ PACK_FILES = (
 
 #: Which pack files an export may ship. ``minimal`` drops the sections most likely
 #: to carry application data: raw traffic, the visible page text and pixels.
-ATTACHMENT_POLICIES = ("full", "minimal", "none")
+ATTACHMENT_POLICIES = ("full", "minimal", "none", "raw")
 _MINIMAL_EXCLUDED = frozenset({"network.jsonl", "aria.txt", "screenshot.png"})
 _TEXT_SUFFIXES = frozenset({".json", ".jsonl", ".txt", ".md"})
 
@@ -283,8 +283,9 @@ class LoadedRun:
     def own_attachments(self, test: Test) -> list[tuple[dict[str, Any], bytes]]:
         """The test's own attachments as an export ships them.
 
-        ``none`` ships nothing, ``minimal`` only text (redacted again with the run's
-        policy), ``full`` everything; a binary file is raw, as trace and video are.
+        ``none`` ships nothing, ``minimal`` and ``full`` only text (redacted again with
+        the run's policy); a binary file is unredacted, as trace and video are, so only
+        an explicit ``raw`` export ships it.
         """
         shipped: list[tuple[dict[str, Any], bytes]] = []
         if self.attachments == "none":
@@ -303,7 +304,7 @@ class LoadedRun:
                     text, suffix=source.suffix, policy=self.redaction_policy
                 )
                 raw = raw if cleaned == text else cleaned.encode("utf-8")
-            elif self.attachments != "full":
+            elif self.attachments != "raw":
                 continue
             shipped.append((entry, raw))
         return shipped
@@ -544,8 +545,9 @@ def copy_attachments(run: LoadedRun, test: Test, out_dir: Path) -> list[Exported
     final = run.run_file(test.screenshot) if run.ships("screenshot.png") else None
     if final is not None:
         shipped.append(("final-screenshot.png", final.read_bytes()))
-    # Trace and video are raw (redaction: none); only a full export ships them.
-    if run.attachments == "full":
+    # Trace and video are unredacted: a trace holds the typed password, headers and
+    # bodies. The default full export used to ship them; only an explicit raw one does.
+    if run.attachments == "raw":
         for recording in test.recordings:
             source = run.run_file(recording.get("path", ""))
             if source is not None:

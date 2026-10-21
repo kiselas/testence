@@ -231,9 +231,12 @@ def main(argv: list[str] | None = None) -> int:
     p_export.add_argument("-o", "--out", type=Path, default=None)
     p_export.add_argument(
         "--attachments",
-        choices=("full", "minimal", "none"),
+        choices=("full", "minimal", "none", "raw"),
         default="full",
-        help="pack files to ship: full (redacted), minimal (no network/ARIA/screenshot), none",
+        help=(
+            "pack files to ship: full (redacted), minimal (no network/ARIA/screenshot), none, "
+            "raw (full plus unredacted trace, video and binary attachments)"
+        ),
     )
     p_export.add_argument(
         "--list", dest="list_", action="store_true", help="list registered exporters and exit"
