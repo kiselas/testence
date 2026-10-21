@@ -44,6 +44,10 @@ its status and omitted counts before relying on absence: partial/unavailable his
 cannot prove an action never ran. A successful generic intent-step is not proof of
 native dispatch, initial state or an exact handler mechanism. Use weakenings,
 native.used and network.mocked markers when assessing the strength of the evidence.
+For annotated click/fill primitives, step.start operation is only a request. Match
+step.end to learn whether the engine method was not called, raised or returned.
+The producer and engine_type are recorded identities, not implementation attestation;
+interpret them under a verified executor contract, especially for third-party engines.
 
 Verdict taxonomy (choose one with confidence 0..1 when supported; otherwise return
 `verdict: null` with a non-empty `blocked_on`):
