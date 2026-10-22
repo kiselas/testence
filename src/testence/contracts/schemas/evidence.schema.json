@@ -59,6 +59,7 @@
         "duration_ms": {"type": "number", "minimum": 0},
         "error": {"type": "string", "minLength": 1},
         "role": {"type": "string", "minLength": 1},
+        "attempts": {"type": "integer", "minimum": 2},
         "request": {
           "type": "object", "additionalProperties": false, "required": ["body"],
           "properties": {"body": true}

@@ -24,7 +24,7 @@ from typing import Any
 import pytest
 
 from testence.actors import Actor
-from testence.api import BODY_LIMIT, ApiClient, evidence_recorder
+from testence.api import BODY_LIMIT, ApiClient, evidence_recorder, polling
 from testence.auth.base import AuthContext
 from testence.config import Settings
 from testence.contracts import validate_document
@@ -262,6 +262,43 @@ def test_seed_bodies_cannot_push_the_failing_step_out_of_the_pack(tmp_path):
     assert call["response"]["body"].endswith("<truncated:1200 chars>")
     full = [doc for doc in _events(writer)][0]
     assert full["response"]["body"] == "y" * 1_500
+
+
+@pytest.mark.parametrize("calls", [1, 2, 6])
+def test_a_polling_loop_records_its_first_and_last_call(tmp_path, server, calls):
+    writer = EvidenceWriter(tmp_path, worker="")
+    client = _client(server, writer)
+    with polling():
+        for _ in range(calls):
+            client.get("/items/9")
+    events = _events(writer)
+    assert len(events) == min(calls, 2)
+    assert "attempts" not in events[0]
+    if calls > 1:
+        assert events[-1]["attempts"] == calls
+        validate_document(events[-1], "evidence.schema.json")
+
+
+def test_an_oracle_that_polls_does_not_flood_the_evidence(tmp_path, server):
+    from testence.oracle import ExpectedState, observe_expected_state
+
+    writer = EvidenceWriter(tmp_path, worker="")
+    client = _client(server, writer)
+    observation = observe_expected_state(
+        lambda: client.get_fresh("/items/9"),
+        ExpectedState.fields("renamed", {"name": "never"}),
+        deadline_ms=400,
+        poll_ms=20,
+    )
+    assert observation.outcome == "failed" and observation.attempts > 2
+    first, last = _events(writer)
+    assert "attempts" not in first and last["attempts"] == observation.attempts
+    exported = LoadedRun.from_events(
+        [json.loads(line) for line in writer.path.read_text(encoding="utf-8").splitlines()],
+        tmp_path,
+    )
+    names = [step.intent for step in exported.tests[0].steps]
+    assert names[-1] == f"GET /items/9 → 200 (last of {observation.attempts} reads)"
 
 
 def _exported(tmp_path: Path, server: str, attachments: str = "full") -> dict[str, Any]:

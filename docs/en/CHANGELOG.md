@@ -14,7 +14,8 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   are in the failure pack's `events.json` and in Allure as steps (`POST /api/v1/widgets
   → 422`) with `request.json` and `response.json` attached, so a failed seed shows what
   it sent and what came back. A failed test that used only `testence_api`, without
-  `ex`, now gets a failure pack too.
+  `ex`, now gets a failure pack too. An oracle's polling is recorded as its first and
+  last read, the last with the number of attempts.
 
 ### Security
 

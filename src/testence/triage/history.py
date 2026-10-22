@@ -72,6 +72,7 @@ _FIELDS = {
     "request",
     "response",
     "role",
+    "attempts",
 }
 
 

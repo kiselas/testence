@@ -76,7 +76,7 @@ a deterministic source-derived fallback that does not promise stability across r
 | `pack` | `dir` (rel.), `sections_est_tokens` {aria, network, console, oracle}, `error` |
 | `network.mocked` | `pattern`, `outcome` (status or `abort`), `content_type`, `size` — `ex.route` answers matching requests from the test; their `NetRecord`s are `mocked` |
 | `native.used` | `intent` — an `ex.native` block ran; its interactions were not recorded one by one |
-| `api.request` | one call of `testence_api` or an actor's `api`: `method`, `url`, `duration_ms`, `request` {`body`}, then either `status` and `response` {`content_type`, `bytes`, `body`, `omitted`? (`binary`)} or `error` (no answer: refused, timed out); `role` for an actor. Headers are never recorded; a body is redacted, then clipped to 4 000 characters, and stays a JSON value when it fits |
+| `api.request` | one call of `testence_api` or an actor's `api`: `method`, `url`, `duration_ms`, `request` {`body`}, then either `status` and `response` {`content_type`, `bytes`, `body`, `omitted`? (`binary`)} or `error` (no answer: refused, timed out); `role` for an actor; `attempts` on the last call of an oracle's polling, whose first call is recorded too and the ones between are not. Headers are never recorded; a body is redacted, then clipped to 4 000 characters, and stays a JSON value when it fits |
 | `testplan.unresolved` | `count`, `policy` (`warn`/`fail`), `entries` [{`id`?, `selector`?}] — Allure test plan entries that matched no collected test |
 | `note` | `text` + free fields |
 | `attachment` | a file of the test's own (`ex.attach`, `allure.attach`): `name`, `path` (run-relative, under the test directory's `attachments/`), `media_type`, `size`, `redaction` (`redacted` for text, `none` for binary) |

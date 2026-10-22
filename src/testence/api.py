@@ -22,6 +22,9 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from ipaddress import ip_address
 from typing import TYPE_CHECKING, Any, Callable, Iterable
@@ -35,6 +38,34 @@ _DEFAULT_TIMEOUT_S = 30.0
 
 #: Receives one call's fields (``method``, ``url``, ``status`` or ``error``, ...).
 Recorder = Callable[..., None]
+
+
+@dataclass
+class _Poll:
+    calls: int = 0
+    last: tuple[Recorder, dict[str, Any]] | None = None
+
+
+_POLL: ContextVar[_Poll | None] = ContextVar("testence_api_poll", default=None)
+
+
+@contextmanager
+def polling() -> Iterator[None]:
+    """Record a polling loop's calls as its first and its last, with ``attempts``.
+
+    The last call is recorded when the loop ends, carrying how many calls the loop
+    made; a loop that called once records that one call only.
+    """
+    poll = _Poll()
+    token = _POLL.set(poll)
+    try:
+        yield
+    finally:
+        _POLL.reset(token)
+        if poll.last is not None:
+            recorder, fields = poll.last
+            recorder(**fields, attempts=poll.calls)
+
 
 #: Characters of one recorded body, after redaction. Enough to read an error answer
 #: or a seeded entity; a full listing belongs in a file the test attaches itself.
@@ -284,6 +315,12 @@ class ApiClient:
             fields["response"] = answer
         else:
             fields["error"] = f"{type(error).__name__}: {error}"
+        poll = _POLL.get()
+        if poll is not None:
+            poll.calls += 1
+            if poll.calls > 1:
+                poll.last = (self.recorder, fields)
+                return
         self.recorder(**fields)
 
     def _resolve_url(self, path: str) -> str:

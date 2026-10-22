@@ -609,7 +609,8 @@ def _http_step(doc: dict[str, Any]) -> Step:
     stop = parse_ts(doc.get("ts"))
     return Step(
         step="api.request",
-        intent=f"{method} {where} → {outcome}",
+        intent=f"{method} {where} → {outcome}"
+        + (f" (last of {doc['attempts']} reads)" if doc.get("attempts") else ""),
         status="failed" if error else "ok",
         duration_ms=duration_ms,
         error=error,
@@ -617,7 +618,16 @@ def _http_step(doc: dict[str, Any]) -> Step:
         stop=stop,
         http={
             key: doc[key]
-            for key in ("method", "url", "status", "error", "role", "request", "response")
+            for key in (
+                "method",
+                "url",
+                "status",
+                "error",
+                "role",
+                "attempts",
+                "request",
+                "response",
+            )
             if key in doc
         },
     )

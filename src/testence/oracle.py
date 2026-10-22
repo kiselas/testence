@@ -364,6 +364,25 @@ def observe_expected_state(
 ) -> OracleObservation:
     """Repeat safe reads until state matches for the required observation window.
 
+    The reads are recorded as the first and the last call with the number of attempts:
+    a three-second poll is one fact, and thirty identical calls would push the test's
+    seeds out of the failure pack and bury the step tree in Allure.
+    """
+    from testence.api import polling
+
+    with polling():
+        return _observe_expected_state(read, expected, deadline_ms=deadline_ms, poll_ms=poll_ms)
+
+
+def _observe_expected_state(
+    read: Callable[[], Response],
+    expected: ExpectedState,
+    *,
+    deadline_ms: int,
+    poll_ms: int,
+) -> OracleObservation:
+    """Repeat safe reads until state matches for the required observation window.
+
     A positive window passes only when it is observed inside the deadline and at
     least one matching read falls strictly between its first and last read. Two reads
     at the edges of a window say nothing about the time the scheduler slept through.

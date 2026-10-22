@@ -194,7 +194,9 @@ of a result are its Testence steps, and its attachments the evidence. Each call 
 `testence_api` or of an actor's `api` is a step of its own, `POST /api/v1/widgets →
 201`, inside the step that was open, with `request.json` and `response.json` attached:
 what a failed seed sent and got back, redacted, without headers. A call that got no
-answer is a failed step; an HTTP error status is an answer and leaves the step passed. A test bound
+answer is a failed step; an HTTP error status is an answer and leaves the step passed.
+An oracle that polls shows its first read and its last, `GET /api/v1/widgets/42 → 200
+(last of 18 reads)`. A test bound
 to a PlanSpec case keeps its Testence identity, because that id survives a rename.
 `export.allure.naming: nodeid` restores the identities Testence 0.1.0a1 exported.
 
