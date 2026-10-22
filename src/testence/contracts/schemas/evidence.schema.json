@@ -39,9 +39,42 @@
       "then": {
         "required": ["assertion_id", "claim_id", "oracle_kind", "outcome", "expected", "actual", "source"]
       }
+    },
+    {
+      "if": {"properties": {"kind": {"const": "api.request"}}, "required": ["kind"]},
+      "then": {"$ref": "#/$defs/api_request"}
     }
   ],
   "$defs": {
+    "api_request": {
+      "required": ["test", "method", "url", "duration_ms", "request"],
+      "oneOf": [
+        {"required": ["status", "response"]},
+        {"required": ["error"]}
+      ],
+      "properties": {
+        "method": {"type": "string", "minLength": 1, "maxLength": 16},
+        "url": {"type": "string", "minLength": 1},
+        "status": {"type": "integer", "minimum": 100, "maximum": 599},
+        "duration_ms": {"type": "number", "minimum": 0},
+        "error": {"type": "string", "minLength": 1},
+        "role": {"type": "string", "minLength": 1},
+        "request": {
+          "type": "object", "additionalProperties": false, "required": ["body"],
+          "properties": {"body": true}
+        },
+        "response": {
+          "type": "object", "additionalProperties": false,
+          "required": ["content_type", "bytes", "body"],
+          "properties": {
+            "content_type": {"type": "string"},
+            "bytes": {"type": "integer", "minimum": 0},
+            "body": true,
+            "omitted": {"const": "binary"}
+          }
+        }
+      }
+    },
     "step_operation": {
       "type": "object", "additionalProperties": false,
       "required": ["producer", "engine_type", "method", "dispatch"],

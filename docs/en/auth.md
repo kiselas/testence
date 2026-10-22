@@ -60,7 +60,8 @@ def test_widget_matches_api(ex, testence_api):
 ```
 
 Fixtures: `testence_settings` (resolved config), `testence_auth` (the test's
-`AuthContext`), `testence_api` (`ApiClient` on that session), `ex` (the DSL, logged
+`AuthContext`), `testence_api` (`ApiClient` on that session; each call is recorded as
+an [`api.request`](evidence-schema.md) event and an Allure step), `ex` (the DSL, logged
 in). A test of the login page itself, or of public pages, opts out:
 
 ```python

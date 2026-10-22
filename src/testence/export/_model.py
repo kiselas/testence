@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from testence.allure_compat import ALLURE_ID_LABELS, with_dynamic
 from testence.evidence.reconcile import reconcile_events
@@ -92,6 +93,9 @@ class Step:
     start: datetime | None = None
     stop: datetime | None = None
     substeps: list[Step] = field(default_factory=list)
+    #: The recorded call when this step is an ``api.request``: ``method``, ``url``,
+    #: ``status`` or ``error``, ``request`` and ``response``, as the ledger has them.
+    http: dict[str, Any] | None = None
 
     @property
     def failed(self) -> bool:
@@ -474,6 +478,10 @@ class LoadedRun:
                 step.error = doc.get("error")
                 step.stop = parse_ts(doc.get("ts"))
                 (stack[-1].substeps if stack else test.steps).append(step)
+            elif kind == "api.request":
+                # A call is a finished step at the point it happened, inside whatever
+                # step was open: a seed in a composite action sits under that action.
+                (stack[-1].substeps if stack else test.steps).append(_http_step(doc))
             elif kind == "attachment":
                 test.attachments.append(
                     {
@@ -583,6 +591,35 @@ def _links(value: Any) -> tuple[dict[str, str], ...]:
         {str(key): str(raw) for key, raw in item.items() if key in {"id", "url"}}
         for item in value
         if isinstance(item, dict) and item.get("id")
+    )
+
+
+def _http_step(doc: dict[str, Any]) -> Step:
+    """An ``api.request`` event as a step: ``GET /api/items/42 → 200``.
+
+    An HTTP error status is an answer, not a failed step — a test may expect a 404 —
+    so only a call that got no answer at all (refused, timed out) is a failed step.
+    """
+    method = str(doc.get("method") or "HTTP")
+    parts = urlsplit(str(doc.get("url") or ""))
+    where = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+    error = str(doc["error"]) if doc.get("error") else None
+    outcome = error.split(":", 1)[0] if error else str(doc.get("status"))
+    duration_ms = float(doc.get("duration_ms") or 0.0)
+    stop = parse_ts(doc.get("ts"))
+    return Step(
+        step="api.request",
+        intent=f"{method} {where} → {outcome}",
+        status="failed" if error else "ok",
+        duration_ms=duration_ms,
+        error=error,
+        start=stop - timedelta(milliseconds=duration_ms) if stop else None,
+        stop=stop,
+        http={
+            key: doc[key]
+            for key in ("method", "url", "status", "error", "role", "request", "response")
+            if key in doc
+        },
     )
 
 

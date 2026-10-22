@@ -48,6 +48,11 @@ For annotated click/fill primitives, step.start operation is only a request. Mat
 step.end to learn whether the engine method was not called, raised or returned.
 The producer and engine_type are recorded identities, not implementation attestation;
 interpret them under a verified executor contract, especially for third-party engines.
+api.request events are the test's own HTTP calls (seeding, oracle reads), with status
+or transport error and redacted, clipped bodies. A failed seed or precondition call
+means the test never reached the behaviour under test: weigh environment (5xx,
+refused connection, timeout) and test_bug (4xx on a payload the test built) before
+real_bug, unless that call is itself the claim.
 
 Verdict taxonomy (choose one with confidence 0..1 when supported; otherwise return
 `verdict: null` with a non-empty `blocked_on`):

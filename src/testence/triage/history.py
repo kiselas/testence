@@ -16,9 +16,21 @@ from testence.evidence import EvidenceWriter, budgets_for, estimate_tokens
 
 MAX_SOURCE_BYTES = 1024 * 1024
 MAX_EVENTS = 64
+#: Characters of an ``api.request`` body in the pack. The section budget is shared, and
+#: ledger-sized bodies let a few seeds push the failing step out of the history; an
+#: error answer fits, and the whole body stays in the ledger and in Allure.
+CALL_BODY_LIMIT = 300
 _IDENTITY = ("project_id", "case_id", "variant_id", "attempt_id", "run_id", "proof_id")
 _DIGESTS = ("plan_digest", "test_digest", "policy_digest")
-_KINDS = {"step.start", "step.end", "assertion", "oracle", "native.used", "network.mocked"}
+_KINDS = {
+    "step.start",
+    "step.end",
+    "assertion",
+    "oracle",
+    "native.used",
+    "network.mocked",
+    "api.request",
+}
 _FIELDS = {
     "v",
     "kind",
@@ -55,7 +67,29 @@ _FIELDS = {
     "pattern",
     "content_type",
     "size",
+    "method",
+    "url",
+    "request",
+    "response",
+    "role",
 }
+
+
+def _compact_call(projection: dict[str, Any]) -> dict[str, Any]:
+    """Clip the bodies of an already redacted call to ``CALL_BODY_LIMIT`` characters."""
+    for part in ("request", "response"):
+        section = projection.get(part)
+        if not isinstance(section, dict) or section.get("body") is None:
+            continue
+        body = section["body"]
+        text = body if isinstance(body, str) else json.dumps(body, ensure_ascii=False)
+        if len(text) > CALL_BODY_LIMIT:
+            cut = len(text) - CALL_BODY_LIMIT
+            projection[part] = {
+                **section,
+                "body": f"{text[:CALL_BODY_LIMIT]}<truncated:{cut} chars>",
+            }
+    return projection
 
 
 def _encode(document: dict[str, Any]) -> str:
@@ -126,6 +160,8 @@ def execution_history(writer: EvidenceWriter, test_id: str, context: dict[str, A
         projection = writer.sanitized(
             {key: value for key, value in event.items() if key in _FIELDS}
         )
+        if projection.get("kind") == "api.request":
+            projection = _compact_call(projection)
         document["events"].append(
             {
                 "offset": source_offset,

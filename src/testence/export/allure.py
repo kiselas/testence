@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from testence.allure_compat import IGNORED_TAG_MARKS
-from testence.evidence.sanitize import REDACTED
+from testence.evidence.sanitize import REDACTED, redact_document_text
 
 from ._model import PACK_FILES, FixturePhase, LoadedRun, Step, Test, epoch_ms
 
@@ -90,10 +90,12 @@ def write_test(run: LoadedRun, test: Test, out_dir: Path) -> list[Path]:
         test.attempt_id or "legacy",
     )
     attachments, written = _attachments(run, test, test_uuid, out_dir)
+    calls, call_files = _http_attachments(run, test, test_uuid, out_dir)
+    written.extend(call_files)
     if test.fixtures:
         container = _container(test, test_uuid)
         written.append(_write_json(out_dir / f"{container['uuid']}-container.json", container))
-    result = _result(run, test, test_uuid, attachments)
+    result = _result(run, test, test_uuid, attachments, calls)
     written.append(_write_json(out_dir / f"{test_uuid}-result.json", result))
     return written
 
@@ -146,8 +148,15 @@ def _identity(run: LoadedRun, test: Test) -> tuple[str, str, str]:
     return full_name, test_case_id, history.hexdigest()
 
 
-def _result(run: LoadedRun, test: Test, test_uuid: str, attachments: list[dict]) -> dict[str, Any]:
+def _result(
+    run: LoadedRun,
+    test: Test,
+    test_uuid: str,
+    attachments: list[dict],
+    calls: dict[int, list[dict[str, str]]] | None = None,
+) -> dict[str, Any]:
     full_name, test_case_id, history_id = _identity(run, test)
+    calls = calls or {}
     doc: dict[str, Any] = {
         "uuid": test_uuid,
         "testCaseId": test_case_id,
@@ -158,7 +167,7 @@ def _result(run: LoadedRun, test: Test, test_uuid: str, attachments: list[dict])
         "stage": "finished",
         "labels": _labels(test, run),
         "parameters": _parameters(run, test),
-        "steps": [_step(step) for step in test.steps],
+        "steps": [_step(step, calls) for step in test.steps],
         "links": _links(test),
     }
     if test.allure.get("title_path"):
@@ -346,7 +355,7 @@ def _fixture(fixture: FixturePhase) -> dict[str, Any]:
     return document
 
 
-def _step(step: Step) -> dict[str, Any]:
+def _step(step: Step, calls: dict[int, list[dict[str, str]]] | None = None) -> dict[str, Any]:
     doc: dict[str, Any] = {
         "name": step.intent or step.step,
         "status": "failed" if step.failed else "passed",
@@ -354,12 +363,67 @@ def _step(step: Step) -> dict[str, Any]:
     }
     if step.target:
         doc["parameters"] = [{"name": "target", "value": step.target}]
+    if step.http is not None:
+        doc["parameters"] = [{"name": "url", "value": str(step.http.get("url") or "")}]
+        if step.http.get("role"):
+            doc["parameters"].append({"name": "role", "value": str(step.http["role"])})
+        if calls and id(step) in calls:
+            doc["attachments"] = calls[id(step)]
     _put_window(doc, step.start, step.stop)
     if step.error:
         doc["statusDetails"] = {"message": step.error}
     if step.substeps:
-        doc["steps"] = [_step(child) for child in step.substeps]
+        doc["steps"] = [_step(child, calls) for child in step.substeps]
     return doc
+
+
+def _http_attachments(
+    run: LoadedRun, test: Test, test_uuid: str, out_dir: Path
+) -> tuple[dict[int, list[dict[str, str]]], list[Path]]:
+    """``request.json`` and ``response.json`` for every recorded API call, by step.
+
+    What a reader of a failed seed needs in TestOps: what was sent and what came back.
+    The bodies are the ledger's, already redacted and clipped when recorded, and are
+    redacted again with the run's policy like every other text attachment. Headers
+    were never recorded, so none can ship.
+    """
+    calls: dict[int, list[dict[str, str]]] = {}
+    written: list[Path] = []
+    if run.attachments == "none":
+        return calls, written
+    number = 0
+
+    def walk(steps: list[Step]) -> None:
+        nonlocal number
+        for step in steps:
+            if step.http is not None:
+                number += 1
+                http = step.http
+                request = {
+                    "method": http.get("method"),
+                    "url": http.get("url"),
+                    "body": (http.get("request") or {}).get("body"),
+                }
+                if "error" in http:
+                    response: dict[str, Any] = {"error": http["error"]}
+                else:
+                    response = {"status": http.get("status"), **(http.get("response") or {})}
+                files = []
+                for part, content in (("request", request), ("response", response)):
+                    target_name = (
+                        f"{_uuid_for(test_uuid, 'http', str(number), part)}-attachment.json"
+                    )
+                    text = json.dumps(content, ensure_ascii=False, indent=1, sort_keys=True) + "\n"
+                    text = redact_document_text(text, suffix=".json", policy=run.redaction_policy)
+                    written.append(_write_bytes(out_dir / target_name, text.encode("utf-8")))
+                    files.append(
+                        {"name": f"{part}.json", "source": target_name, "type": "application/json"}
+                    )
+                calls[id(step)] = files
+            walk(step.substeps)
+
+    walk(test.steps)
+    return calls, written
 
 
 def _attachments(

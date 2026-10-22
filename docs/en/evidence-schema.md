@@ -76,6 +76,7 @@ a deterministic source-derived fallback that does not promise stability across r
 | `pack` | `dir` (rel.), `sections_est_tokens` {aria, network, console, oracle}, `error` |
 | `network.mocked` | `pattern`, `outcome` (status or `abort`), `content_type`, `size` — `ex.route` answers matching requests from the test; their `NetRecord`s are `mocked` |
 | `native.used` | `intent` — an `ex.native` block ran; its interactions were not recorded one by one |
+| `api.request` | one call of `testence_api` or an actor's `api`: `method`, `url`, `duration_ms`, `request` {`body`}, then either `status` and `response` {`content_type`, `bytes`, `body`, `omitted`? (`binary`)} or `error` (no answer: refused, timed out); `role` for an actor. Headers are never recorded; a body is redacted, then clipped to 4 000 characters, and stays a JSON value when it fits |
 | `testplan.unresolved` | `count`, `policy` (`warn`/`fail`), `entries` [{`id`?, `selector`?}] — Allure test plan entries that matched no collected test |
 | `note` | `text` + free fields |
 | `attachment` | a file of the test's own (`ex.attach`, `allure.attach`): `name`, `path` (run-relative, under the test directory's `attachments/`), `media_type`, `size`, `redaction` (`redacted` for text, `none` for binary) |
@@ -169,8 +170,9 @@ marker — an agent must always be able to tell "small" from "clipped". Token co
 are estimates (~4 bytes/token); byte sizes are recoverable from the files themselves.
 
 `events.json` is a JSON projection, never a clipped JSON fragment. It retains up to
-64 recent step, assertion, oracle, native-use and network-mock records within the
-section budget, scanning at most the last 1 MiB of the writer's flushed ledger prefix.
+64 recent step, assertion, oracle, native-use, network-mock and API-call records within
+the section budget (an `api.request` body is cut to 300 characters there; the ledger
+keeps it whole), scanning at most the last 1 MiB of the writer's flushed ledger prefix.
 The source filename, prefix byte length/SHA-256 and each record's byte offset,
 length/SHA-256 identify the recorded source. The prefix digest is verified on read
 when the whole prefix fits; a tail read does not rehash the omitted prefix. Matching

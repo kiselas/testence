@@ -44,6 +44,7 @@ KINDS = frozenset(
         "testplan.unresolved",
         "native.used",
         "network.mocked",
+        "api.request",
         "worker.crash",
         "test.start",
         "test.phase",

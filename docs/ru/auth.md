@@ -61,8 +61,9 @@ def test_widget_matches_api(ex, testence_api):
 ```
 
 Fixtures: `testence_settings` — итоговая конфигурация, `testence_auth` —
-`AuthContext` теста, `testence_api` — `ApiClient` в этой сессии, `ex` — DSL, уже
-вошедший. Тест самой страницы входа или публичных страниц от входа отказывается:
+`AuthContext` теста, `testence_api` — `ApiClient` в этой сессии (каждый вызов
+записывается событием [`api.request`](evidence-schema.md) и шагом Allure), `ex` — DSL,
+уже вошедший. Тест самой страницы входа или публичных страниц от входа отказывается:
 
 ```python
 @pytest.mark.testence(anonymous=True)

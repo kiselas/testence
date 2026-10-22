@@ -201,9 +201,14 @@ def _message(test: Test) -> str:
 
 
 def _leaves(steps: list[Step]) -> list[Step]:
+    """Test-case steps a TMS can map: HTTP calls are evidence inside a step, not steps
+    of the case, so an action that only seeds through the API stays one step."""
     leaves: list[Step] = []
     for step in steps:
-        leaves.extend(_leaves(step.substeps) if step.substeps else [step])
+        if step.http is not None:
+            continue
+        actions = [child for child in step.substeps if child.http is None]
+        leaves.extend(_leaves(actions) if actions else [step])
     return leaves
 
 

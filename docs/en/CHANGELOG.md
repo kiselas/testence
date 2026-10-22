@@ -6,6 +6,16 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ## Unreleased
 
+### Added
+
+- Every call of `testence_api` and of an actor's `api` is recorded as an `api.request`
+  event: method, URL, status or transport error, timing and request/response bodies,
+  redacted and then clipped to 4 000 characters; headers are never recorded. The calls
+  are in the failure pack's `events.json` and in Allure as steps (`POST /api/v1/widgets
+  → 422`) with `request.json` and `response.json` attached, so a failed seed shows what
+  it sent and what came back. A failed test that used only `testence_api`, without
+  `ex`, now gets a failure pack too.
+
 ### Security
 
 - The default export (`--attachments full`) and the live Allure stream shipped the

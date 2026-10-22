@@ -190,7 +190,11 @@ package is installed without it, Testence makes the decorators create those mark
 `allure.dynamic.title`, `description`, `link` and the label calls (`feature`,
 `severity`, `tag`...) made while a test runs reach that attempt's result, as in
 allure-pytest; `allure.dynamic.parameter` does not, the parameters are pytest's. `allure.step` and `allure.attach` are not carried over: the Allure steps
-of a result are its Testence steps, and its attachments the evidence. A test bound
+of a result are its Testence steps, and its attachments the evidence. Each call of
+`testence_api` or of an actor's `api` is a step of its own, `POST /api/v1/widgets →
+201`, inside the step that was open, with `request.json` and `response.json` attached:
+what a failed seed sent and got back, redacted, without headers. A call that got no
+answer is a failed step; an HTTP error status is an answer and leaves the step passed. A test bound
 to a PlanSpec case keeps its Testence identity, because that id survives a rename.
 `export.allure.naming: nodeid` restores the identities Testence 0.1.0a1 exported.
 
@@ -337,7 +341,7 @@ what `--to allure` means in a pipeline that has been green for a year.
 | `events` | the raw ledger, as an escape hatch |
 | `Test` | identity/parameters, owner/risk/requirements/issues, source/plan/claims, status/assurance, fixtures, steps, oracles and pack |
 | `FixturePhase` | setup/teardown name, status, duration, error and `start`/`stop` |
-| `Step` | `intent`, `target`, `status`, `duration_ms`, `error`, `start`/`stop`, `substeps` |
+| `Step` | `intent`, `target`, `status`, `duration_ms`, `error`, `start`/`stop`, `substeps`, `http` (the recorded call of an `api.request` step, else `None`) |
 
 Two rules worth knowing before you format anything:
 

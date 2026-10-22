@@ -7,22 +7,40 @@ and nothing else.
 
 The point is the *sharing*: an oracle must read the API as the same user the UI is
 logged in as, or a divergence it reports is meaningless.
+
+Inside a test every call is also evidence: an ``api.request`` event with the method,
+URL, status, timing and bounded bodies, so a seed or an oracle read that went wrong
+is visible in the ledger, the failure pack and the Allure step tree. Headers are never
+recorded; bodies pass the run's redaction before they are clipped.
 """
 
 from __future__ import annotations
 
 import json
 import ssl
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from ipaddress import ip_address
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any, Callable, Iterable
 
 from testence.auth.base import AuthContext
 
+if TYPE_CHECKING:
+    from testence.evidence import EvidenceWriter
+
 _DEFAULT_TIMEOUT_S = 30.0
+
+#: Receives one call's fields (``method``, ``url``, ``status`` or ``error``, ...).
+Recorder = Callable[..., None]
+
+#: Characters of one recorded body, after redaction. Enough to read an error answer
+#: or a seeded entity; a full listing belongs in a file the test attaches itself.
+BODY_LIMIT = 4_000
+
+_TEXT_TYPES = ("json", "text/", "xml", "x-www-form-urlencoded", "javascript", "html")
 
 
 class UnsafeRequestTarget(ValueError):
@@ -170,8 +188,11 @@ class ApiClient:
         ca_bundle: str = "",
         timeout_s: float = _DEFAULT_TIMEOUT_S,
         allowed_origins: Iterable[str] = (),
+        recorder: Recorder | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        #: Called once per request with what to record; ``None`` outside a test.
+        self.recorder = recorder
         self._allowed_origins = {_origin(self.base_url)}
         if isinstance(allowed_origins, str):
             allowed_origins = [allowed_origins]
@@ -182,7 +203,9 @@ class ApiClient:
         self.timeout_s = timeout_s
 
     @classmethod
-    def from_settings(cls, settings: Any, auth: AuthContext | None = None) -> "ApiClient":
+    def from_settings(
+        cls, settings: Any, auth: AuthContext | None = None, *, recorder: Recorder | None = None
+    ) -> "ApiClient":
         allowed_origins = (getattr(settings, "extra", {}) or {}).get("api_allowed_origins") or []
         if isinstance(allowed_origins, str):
             allowed_origins = [allowed_origins]
@@ -192,6 +215,7 @@ class ApiClient:
             verify_tls=settings.verify_tls,
             ca_bundle=settings.ca_bundle,
             allowed_origins=allowed_origins,
+            recorder=recorder,
         )
 
     def request(
@@ -203,15 +227,64 @@ class ApiClient:
         if cookie_header:
             merged["Cookie"] = cookie_header
         merged.update(headers or {})
-        return http_json(
-            method,
-            url,
-            body=body,
-            headers=merged,
-            timeout_s=self.timeout_s,
-            verify_tls=self.verify_tls,
-            ca_bundle=self.ca_bundle,
-        )
+        started = time.perf_counter()
+        try:
+            response = http_json(
+                method,
+                url,
+                body=body,
+                headers=merged,
+                timeout_s=self.timeout_s,
+                verify_tls=self.verify_tls,
+                ca_bundle=self.ca_bundle,
+            )
+        except Exception as exc:
+            # A refused connection or a timeout is the call a failed seed most needs
+            # on record; the exception still reaches the test unchanged.
+            self._record(method, url, body, started, error=exc)
+            raise
+        self._record(method, url, body, started, response=response)
+        return response
+
+    def _record(
+        self,
+        method: str,
+        url: str,
+        body: Any,
+        started: float,
+        *,
+        response: Response | None = None,
+        error: BaseException | None = None,
+    ) -> None:
+        if self.recorder is None:
+            return
+        fields: dict[str, Any] = {
+            "method": method.upper(),
+            "url": url,
+            "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+            "request": {"body": body},
+        }
+        if response is not None:
+            content_type = response.header("Content-Type") or ""
+            answer: dict[str, Any] = {
+                "content_type": content_type,
+                "bytes": len(response.body.encode("utf-8")),
+            }
+            if not response.body:
+                answer["body"] = None
+            elif any(kind in content_type.lower() for kind in _TEXT_TYPES) or not content_type:
+                parsed = response.json if "json" in content_type.lower() else None
+                answer["body"] = parsed if parsed is not None else response.body
+            else:
+                # Decoded with replacement characters, a binary body is noise that
+                # only costs budget; its size and type say what came back.
+                answer["body"] = None
+                answer["omitted"] = "binary"
+            fields["status"] = response.status
+            fields["response"] = answer
+        else:
+            fields["error"] = f"{type(error).__name__}: {error}"
+        self.recorder(**fields)
 
     def _resolve_url(self, path: str) -> str:
         """Resolve a client path and enforce the credential-bearing origin."""
@@ -274,3 +347,32 @@ class ApiClient:
         response = self.get(path)
         if response.status != 404:
             raise AssertionError(f"expected 404 after delete at {path}, got {response.status}")
+
+
+def evidence_recorder(writer: EvidenceWriter, test_id: str, *, role: str | None = None) -> Recorder:
+    """Record each call of a test's client as an ``api.request`` event.
+
+    Bodies are redacted with the run's policy first and clipped second, so a secret
+    can never survive by sitting past the cut. A body that is still structured after
+    redaction stays a JSON value; one too long for ``BODY_LIMIT`` becomes clipped text.
+    """
+
+    def bounded(value: Any) -> Any:
+        if value is None:
+            return None
+        safe = writer.sanitized(value, limit=BODY_LIMIT)
+        text = safe if isinstance(safe, str) else json.dumps(safe, ensure_ascii=False)
+        if len(text) <= BODY_LIMIT:
+            return safe
+        return writer.sanitized(text, limit=BODY_LIMIT)
+
+    def record(**fields: Any) -> None:
+        for part in ("request", "response"):
+            section = fields.get(part)
+            if isinstance(section, dict) and "body" in section:
+                section["body"] = bounded(section["body"])
+        if role:
+            fields["role"] = role
+        writer.emit("api.request", test=test_id, **fields)
+
+    return record
