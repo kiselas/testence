@@ -75,6 +75,7 @@ events одной попытки также создают явную проек
 | `pack` | `dir` (relative), `sections_est_tokens` {aria, network, console, oracle}, `error` |
 | `network.mocked` | `pattern`, `outcome` (статус или `abort`), `content_type`, `size` — `ex.route` отвечает на подходящие запросы из теста; их `NetRecord` помечены `mocked` |
 | `native.used` | `intent` — выполнен блок `ex.native`; действия внутри не записывались по одному |
+| `api.request` | один вызов `testence_api` или `api` актора: `method`, `url`, `duration_ms`, `request` {`body`}, затем либо `status` и `response` {`content_type`, `bytes`, `body`, `omitted`? (`binary`)}, либо `error` (ответа нет: отказ соединения, таймаут); `role` у актора; `attempts` у последнего вызова опроса оракула — первый вызов тоже записан, промежуточные нет. Заголовки не записываются никогда; тело сначала проходит redaction, потом обрезается до 4 000 символов и остаётся JSON-значением, если помещается |
 | `testplan.unresolved` | `count`, `policy` (`warn`/`fail`), `entries` [{`id`?, `selector`?}] — записи test plan Allure без совпавшего теста |
 | `note` | `text` и произвольные поля |
 | `attachment` | собственный файл теста (`ex.attach`, `allure.attach`): `name`, `path` (относительно запуска, в `attachments/` каталога теста), `media_type`, `size`, `redaction` (`redacted` для текста, `none` для бинарных) |
@@ -153,7 +154,8 @@ Budgets применяются обрезкой с явным marker
 получить из файла.
 
 `events.json` всегда остаётся валидным JSON: до 64 последних записей step, assertion,
-oracle, native-use и network-mock в пределах budget. Чтение ограничено последним
+oracle, native-use, network-mock и вызовов API в пределах budget (тело `api.request`
+здесь обрезается до 300 символов, в ledger оно целиком). Чтение ограничено последним
 1 MiB flushed prefix своего writer shard. Source filename, bytes/SHA-256 prefix и
 offset/bytes/SHA-256 каждой записи связывают projection с ledger. Hash prefix проверяется
 при полном чтении; при чтении tail отброшенный prefix заново не хешируется. Фильтр

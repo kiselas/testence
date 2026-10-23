@@ -52,7 +52,7 @@ from testence.triage.heal import propose
 if TYPE_CHECKING:
     # urllib.request and http.client cost start-up that a run without the API
     # fixture never uses; the fixture imports the client when it is requested.
-    from testence.api import ApiClient
+    from testence.api import ApiClient, Recorder
 
 _WARM_ENGINE: Engine | None = None
 _WARM_ENGINE_KEY: tuple[Any, ...] | None = None
@@ -1259,13 +1259,15 @@ def _failure_pack(
     engine = item.stash.get(_ENGINE_KEY, None)
     actions = item.stash.get(_ACTIONS_KEY, None)
     fingerprints = item.stash.get(_FINGERPRINTS_KEY, None)
-    if engine is None or actions is None or fingerprints is None:
+    # A test that only used ``testence_api`` has a browser (its login) but no ``ex``:
+    # it still gets a pack, whose history holds the calls it made. Healing needs ``ex``.
+    if engine is None:
         return None
     engine._testence_state["any_failed"] = True  # type: ignore[attr-defined]
     try:
         heal = None
-        failure = actions.last_failure
-        if failure is not None and failure.target is not None:
+        failure = actions.last_failure if actions is not None else None
+        if failure is not None and failure.target is not None and fingerprints is not None:
             known = fingerprints.get(test_id, failure.intent)
             heal = propose(engine, failure.intent, failure.target, known)
         pack_dir = assemble_pack(
@@ -1754,11 +1756,22 @@ def testence_auth(
 
 
 @pytest.fixture
-def testence_api(testence_settings: Settings, testence_auth: AuthContext) -> ApiClient:
-    """API client sharing the browser's session — for oracles and seeding."""
-    from testence.api import ApiClient
+def testence_api(
+    request: pytest.FixtureRequest,
+    testence_settings: Settings,
+    testence_auth: AuthContext,
+    testence_writer: EvidenceWriter,
+) -> ApiClient:
+    """API client sharing the browser's session — for oracles and seeding.
 
-    return ApiClient.from_settings(testence_settings, testence_auth)
+    Every call is recorded as an ``api.request`` event of this test, and a failed test
+    that used only this client still gets a failure pack carrying those calls.
+    """
+    from testence.api import ApiClient, evidence_recorder
+
+    request.node.stash.setdefault(_ENGINE_KEY, request.getfixturevalue("testence_engine"))
+    recorder = evidence_recorder(testence_writer, _test_id(request.node))
+    return ApiClient.from_settings(testence_settings, testence_auth, recorder=recorder)
 
 
 @pytest.fixture
@@ -1795,12 +1808,18 @@ def testence_actor(
         engine._testence_state = {"any_failed": False, "mode": "isolated"}
         return engine  # type: ignore[no-any-return]
 
+    def api_recorder(role: str) -> Recorder:
+        from testence.api import evidence_recorder
+
+        return evidence_recorder(testence_writer, test_id, role=role)
+
     actors = Actors(
         testence_settings,
         spawn_browser=spawn_browser,
         make_actions=make_actions,
         remember=testence_writer.remember_secret,
         note=note,
+        api_recorder=api_recorder,
     )
     try:
         yield actors

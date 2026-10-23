@@ -28,7 +28,7 @@ from testence.auth.base import session_secrets
 from testence.auth.strategies import api_headers_from_storage
 
 if TYPE_CHECKING:
-    from testence.api import ApiClient
+    from testence.api import ApiClient, Recorder
     from testence.config import Settings
     from testence.dsl import Actions
     from testence.engine import Engine
@@ -111,13 +111,14 @@ class Actor:
         *,
         open_browser: Callable[[], Engine],
         make_actions: Callable[[Engine], Actions],
+        api_recorder: Recorder | None = None,
     ) -> None:
         from testence.api import ApiClient
 
         self.role = role
         self.settings = settings
         self.auth = auth
-        self.api: ApiClient = ApiClient.from_settings(settings, auth)
+        self.api: ApiClient = ApiClient.from_settings(settings, auth, recorder=api_recorder)
         self._engine = engine
         self._actions: Actions | None = None
         self._open_browser = open_browser
@@ -161,6 +162,7 @@ class Actors:
         make_actions: Callable[[Engine], Actions],
         remember: Callable[[str], None],
         note: Callable[..., None],
+        api_recorder: Callable[[str], Recorder] | None = None,
     ) -> None:
         self._settings = settings
         self._specs = actor_specs(settings)
@@ -168,6 +170,8 @@ class Actors:
         self._make_actions = make_actions
         self._remember = remember
         self._note = note
+        #: Gives each role's ``api`` the recorder of this test, tagged with the role.
+        self._api_recorder = api_recorder
         self._open: dict[str, Actor] = {}
 
     @property
@@ -234,6 +238,7 @@ class Actors:
             engine,
             open_browser=self._start_browser,
             make_actions=self._make_actions,
+            api_recorder=self._api_recorder(role) if self._api_recorder else None,
         )
 
     def _start_browser(self) -> Engine:

@@ -192,7 +192,13 @@ exit $?
 вызовы меток (`feature`, `severity`, `tag`...) во время теста попадают в результат этой
 попытки, как у allure-pytest; `allure.dynamic.parameter` не попадает, параметры берутся
 из pytest. `allure.step` и `allure.attach` не переносятся: шаги
-результата Allure — это шаги Testence, а вложения — evidence. Тест, привязанный к кейсу
+результата Allure — это шаги Testence, а вложения — evidence. Каждый вызов
+`testence_api` или `api` актора — отдельный шаг, `POST /api/v1/widgets → 201`, внутри
+открытого в этот момент шага, с вложениями `request.json` и `response.json`: что
+отправил и что получил упавший засев, после redaction и без заголовков. Вызов без
+ответа — упавший шаг; HTTP-статус ошибки — это ответ, и шаг остаётся passed.
+Оракул, который опрашивает API, показывает первое и последнее чтение:
+`GET /api/v1/widgets/42 → 200 (last of 18 reads)`. Тест, привязанный к кейсу
 PlanSpec, сохраняет идентичность
 Testence: она переживает переименование. `export.allure.naming: nodeid` возвращает
 идентичности, которые экспортировал Testence 0.1.0a1.
@@ -343,7 +349,7 @@ testops = "acme_testops.exporter"
 | `events` | raw ledger как escape hatch |
 | `Test` | identity/parameters, owner/risk/requirements/issues, source/plan/claims, status/assurance, fixtures, steps, oracles и pack |
 | `FixturePhase` | setup/teardown name, status, duration, error и `start`/`stop` |
-| `Step` | `intent`, `target`, `status`, `duration_ms`, `error`, `start`/`stop`, `substeps` |
+| `Step` | `intent`, `target`, `status`, `duration_ms`, `error`, `start`/`stop`, `substeps`, `http` (записанный вызов у шага `api.request`, иначе `None`) |
 
 Перед форматированием важно знать два правила:
 
