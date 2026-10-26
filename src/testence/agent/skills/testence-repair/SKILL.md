@@ -20,7 +20,10 @@ Repair only after the failure has a validated verdict. A locator guess is not a 
 ## Repair rules
 
 - Never silently rebind a locator at runtime.
-- Never weaken or remove a claim to make a run green.
+- Never weaken or remove a claim to make a run green. That includes making a claim
+  optional, removing a `claim_id` or `assertion_id`, adding `skip` or `xfail`,
+  rewriting an `expected` value to match current behaviour without a person's
+  decision, and lowering the project's quality mode.
 - Do not replace an independent oracle with only UI evidence.
 - Do not add arbitrary sleep, broad retries, or a less-specific selector as a generic fix.
 - An accepted behavior change updates the PlanSpec before or with test code; evidence of change alone is not acceptance.

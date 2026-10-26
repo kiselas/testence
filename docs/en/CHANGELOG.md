@@ -16,6 +16,12 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   it sent and what came back. A failed test that used only `testence_api`, without
   `ex`, now gets a failure pack too. An oracle's polling is recorded as its first and
   last read, the last with the number of attempts.
+- Skill pack 0.1.20: authoring takes every expected value from the PlanSpec or the
+  test's own seed, never from what discovery or a first run showed, and stops with an
+  open question instead of guessing an ambiguous outcome. Planning requires a concrete
+  `expected` per required assertion. AGENTS.md and CONTRIBUTING list what must never
+  be done to turn a check green, and the pull request template has a review section
+  that only a person ticks. Run `testence agent install` to update installed skills.
 
 ### Security
 

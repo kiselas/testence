@@ -84,6 +84,7 @@ For every bound claim, record:
 | What action triggers the outcome? | Intent-bearing Testence step |
 | What does the user observe? | Precise semantic UI assertion |
 | What independently proves truth? | API, database adapter, network contract, accessibility, visual, or custom oracle |
+| Where does the expected value come from? | The PlanSpec assertion's `expected` or the test's own seed, never what discovery or a first run observed |
 | How is state isolated? | Run/worker-scoped seed and verified cleanup |
 | How does the test fail? | Expected assertion and evidence signal on the negative control |
 
