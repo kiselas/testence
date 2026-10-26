@@ -51,6 +51,6 @@ working documents, partly in Russian, and they are not a support promise.
 - [Open-source readiness](open-source-readiness.md)
 - [Pilot protocol](pilot-protocol.md)
 - [Audits](../audits/2026-09-13/README.md) and release stages
-  ([3](../stages/03-r1-release/README.md), [4](../stages/04-public-launch/README.md))
+  ([3](../stages/03-r1-release/README.md), [4](../stages/04-public-launch/README.md), [5](../stages/05-proof-strength/README.md))
 
 [Русская документация](../ru/README.md)
