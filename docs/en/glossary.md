@@ -19,6 +19,7 @@ The words Testence's reports and commands use, in the order you meet them.
 | `inconclusive` | the evidence could not decide (login lost, API unreachable, an empty or non-JSON answer) |
 | `unverified` | the test ran but no assertion was bound to a claim; not a failure |
 | mocked | a request answered by `ex.route`; it never reached the server and proves nothing about it |
+| gated | a WebSocket routed through `ex.ws_gate`; while offline, server frames it holds back never reach the page |
 | control | a declared way to break the target and the claims it makes false (`testence run --control`) |
 | negative run | a run made with a control; it shows whether tests fail for their claims, never that the product works |
 | `proven` | a claim whose test failed on it in a negative run; required by `ci evaluate --quality-mode proven` |

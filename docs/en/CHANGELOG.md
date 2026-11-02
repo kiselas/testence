@@ -8,6 +8,14 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Added
 
+- `ex.ws_gate(pattern, protocol="socket.io" | "raw", drop=None)` makes the test's tab miss
+  server pushes while the socket stays open ([ADR-0034](adr/0034-websocket-gate.md)).
+  `gate.go_offline()` and `gate.go_online()` are recorded steps; offline, Socket.IO
+  event packets are held back while pings, pongs and acknowledgements flow. Each switch
+  first decides frames already queued under the state they arrived in. Held frames never
+  reach `wait_for_ws`. A new `websocket.gated` event records installation, each switch
+  and a summary with counts; capability `browser.websocket_mock`. Skill pack 0.1.22
+  points the author skill at it.
 - `testence init` declares a `drop-save` control in `testence.json`, and the onboarding
   test applies it. `testence demo run` adds a fourth run, `negative_control`: the green
   test with its save broken on purpose, accepted only when it fails on
@@ -70,6 +78,10 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- A raw `route_web_socket` inside `ex.native` that held back server frames left them in
+  the WebSocket buffer: `wait_for_ws` returned frames the page never received, and the
+  ledger did not say the socket was routed. The frames the handler sends are now the
+  buffer, and `websocket.gated` records the route with `source: native`.
 - `testence doctor` with video on could report a working browser as broken on Windows
   (`WinError 267`): the recorder still held the `.webm` when the probe removed its
   temporary folder. The folder now outlives the browser and its removal cannot fail

@@ -1,3 +1,3 @@
-from .steps import Actions, Clock, SoftAssertionsFailed, StepFailed
+from .steps import Actions, Clock, SoftAssertionsFailed, StepFailed, WebSocketGate
 
-__all__ = ["Actions", "Clock", "SoftAssertionsFailed", "StepFailed"]
+__all__ = ["Actions", "Clock", "SoftAssertionsFailed", "StepFailed", "WebSocketGate"]

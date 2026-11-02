@@ -28,6 +28,8 @@ class Capability(str, Enum):
     EMULATION = "browser.emulation"
     #: Answer requests from the test instead of the server (``ex.route``), recorded.
     NETWORK_MOCK = "browser.network_mock"
+    #: Hold back server WebSocket frames from the page (``ex.ws_gate``), recorded.
+    WEBSOCKET_MOCK = "browser.websocket_mock"
     #: The engine's own page object for what the DSL does not express (ADR-0027).
     NATIVE = "browser.native"
     EVIDENCE = "evidence"

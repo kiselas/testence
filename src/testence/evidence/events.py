@@ -44,6 +44,7 @@ KINDS = frozenset(
         "testplan.unresolved",
         "native.used",
         "network.mocked",
+        "websocket.gated",
         "api.request",
         "worker.crash",
         "test.start",

@@ -55,6 +55,10 @@ For automated screenshot regression or an isolated client simulation, also read
   `ex.route(pattern, status=..., json=...)` answers requests from the test; use it for how
   the UI handles an error or an empty list, never for persistence (mocked responses are
   refused as proof).
+  For a tab that must miss live updates from another client, install
+  `gate = ex.ws_gate("**/socket.io/**")` before `goto`, then `gate.go_offline()` /
+  `gate.go_online()`; do not hand-write `route_web_socket` in `ex.native`. The stale UI
+  is the claim under test; prove the server state with an independent oracle.
   When the `testence` MCP server is connected, explore with `testence_snapshot`
   (each element comes with a uniqueness-checked `Target`) and try steps with
   `testence_click`/`testence_fill` before writing them; run and read with

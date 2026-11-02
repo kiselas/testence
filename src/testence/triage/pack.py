@@ -43,7 +43,8 @@ events.json projects recorded execution for this proof before pack assembly. Che
 its status and omitted counts before relying on absence: partial/unavailable history
 cannot prove an action never ran. A successful generic intent-step is not proof of
 native dispatch, initial state or an exact handler mechanism. Use weakenings,
-native.used and network.mocked markers when assessing the strength of the evidence.
+native.used, network.mocked and websocket.gated markers when assessing the strength
+of the evidence. A UI read while websocket.gated is offline shows stale data on purpose.
 For annotated click/fill primitives, step.start operation is only a request. Match
 step.end to learn whether the engine method was not called, raised or returned.
 The producer and engine_type are recorded identities, not implementation attestation;

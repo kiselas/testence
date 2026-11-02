@@ -29,6 +29,7 @@ _KINDS = {
     "oracle",
     "native.used",
     "network.mocked",
+    "websocket.gated",
     "api.request",
 }
 _FIELDS = {
@@ -73,6 +74,14 @@ _FIELDS = {
     "response",
     "role",
     "attempts",
+    "action",
+    "protocol",
+    "custom_drop",
+    "offline",
+    "sockets",
+    "dropped",
+    "delivered",
+    "drain_ms",
 }
 
 

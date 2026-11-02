@@ -42,6 +42,7 @@ from .capabilities import Capability
 from .native_routes import NativeRoutes
 from .protocol import Engine, NetRecord, Target
 from .response_rewrites import ResponseRewrites
+from .ws_gates import DropRule, WsGate
 
 _DEFAULT_TIMEOUT_MS = 10_000
 _RENDER_TIMEOUT_MS = 2_000
@@ -301,6 +302,12 @@ class PlaywrightCdpEngine(Engine):
         self._mocked: set[Any] = set()
         self._native_routes: NativeRoutes | None = None
         self._native_mock_observer: Callable[..., None] | None = None
+        #: WebSocket gates of this context (ADR-0034) and the socket URLs whose
+        #: page-bound frames a gate or native handler records instead of the tap.
+        self._ws_gates: list[WsGate] = []
+        self._ws_owned: set[str] = set()
+        self._open_ws: list[Any] = []
+        self._ws_gate_observer: Callable[..., None] | None = None
 
     # -- lifecycle -------------------------------------------------------
 
@@ -481,6 +488,10 @@ class PlaywrightCdpEngine(Engine):
         other._mocked = set()
         other._native_routes = None
         other._native_mock_observer = None
+        other._ws_gates = []
+        other._ws_owned = set()
+        other._open_ws = []
+        other._ws_gate_observer = None
         other._headers_routed = None
         other._tracing = False
         other._video_dir = None
@@ -565,6 +576,7 @@ class PlaywrightCdpEngine(Engine):
         # the suite's leak guard must not close stale transports a second time.
         self._close_native_routes()
         self._native_mock_observer = None
+        self._ws_gate_observer = None
         if keep_browser:
             # Leave the crime scene intact; only detach our client if we attached.
             if self._pw and not self._launched_here and not self._shares_driver:
@@ -741,20 +753,16 @@ class PlaywrightCdpEngine(Engine):
                     self._console.append({"level": msg.type, "text": text})
 
         def on_websocket(ws: Any) -> None:
+            self._open_ws = [known for known in self._open_ws if not known.is_closed()]
+            self._open_ws.append(ws)
+
             def on_frame(payload: Any) -> None:
-                text = payload if isinstance(payload, str) else "<binary frame>"
-                text = bounded(text, _WS_FRAME_CAP_BYTES)
-                size = len(str(ws.url).encode("utf-8")) + len(text.encode("utf-8"))
-                if len(self._ws) >= _TAP_RECORD_CAP:
-                    omit("websocket_record_cap")
-                elif reserve(size, "websocket_byte_cap"):
-                    self._ws.append(
-                        {
-                            "url": ws.url,
-                            "at_ms": time.monotonic() * 1000,
-                            "payload": text,
-                        }
-                    )
+                # This is the driver's server connection. When a gate or a native
+                # handler decides what reaches the page, it records the delivered
+                # frames itself; a frame it held back must not look received.
+                if str(ws.url) in self._ws_owned:
+                    return
+                self._record_ws_frame(str(ws.url), payload)
 
             ws.on("framereceived", on_frame)
 
@@ -1672,7 +1680,12 @@ class PlaywrightCdpEngine(Engine):
         """
         page = self._require_page()
         if self._native_routes is None:
-            self._native_routes = NativeRoutes(self._record_native_mock, self._attach_taps)
+            self._native_routes = NativeRoutes(
+                self._record_native_mock,
+                self._attach_taps,
+                on_ws_register=self._native_ws_registered,
+                on_ws_route=self._native_ws_routed,
+            )
             self._native_routes.install(page.context)
         return page
 
@@ -1695,6 +1708,124 @@ class PlaywrightCdpEngine(Engine):
         if self._native_routes is not None:
             self._native_routes.close()
             self._native_routes = None
+        for gate in self._ws_gates:
+            gate.deactivate()
+        self._ws_gates = []
+        self._ws_owned = set()
+        self._open_ws = []
+
+    # -- WebSocket gates (ADR-0034) ------------------------------------------------
+
+    def set_ws_gate_observer(self, observer: Callable[..., None]) -> None:
+        self._ws_gate_observer = observer
+
+    def ws_gate(
+        self,
+        pattern: str | re.Pattern[str],
+        *,
+        protocol: str = "socket.io",
+        drop: DropRule | None = None,
+        offline: bool = False,
+    ) -> WsGate:
+        """Route matching sockets through a gate that can hold back server frames.
+
+        Context-wide, so every page of the session is gated. Refuses when a matching
+        socket is already open: a route only applies to sockets opened after it.
+        """
+        if self._context is None:
+            raise RuntimeError("engine is not started")
+        gate = WsGate(
+            pattern,
+            protocol=protocol,
+            drop=drop,
+            offline=offline,
+            record_frame=self._record_ws_frame,
+            claim_url=self._ws_owned.add,
+            settle=self._ws_settle,
+        )
+        if any(existing.label == gate.label for existing in self._ws_gates):
+            raise ValueError(f"a WebSocket gate already owns {gate.label}")
+        open_now = [
+            str(ws.url) for ws in self._open_ws if not ws.is_closed() and gate.matches(str(ws.url))
+        ]
+        if open_now:
+            raise RuntimeError(
+                f"a WebSocket matching {gate.label} is already open ({open_now[0]}): "
+                "a gate applies only to sockets opened after it, so install it before "
+                "the page connects (before goto) or reload the page after installing it"
+            )
+
+        def handler(route: Any) -> None:
+            gate.handle(route)
+
+        setattr(handler, "_testence_builtin_gate", True)
+        with self._timed("ws_gate", gate.label):
+            self._context.route_web_socket(gate.matches, handler)
+        self._ws_gates.append(gate)
+        return gate
+
+    def _ws_settle(self, drain_ms: int) -> None:
+        """One browser round trip, so frames already queued for the test thread are
+        dispatched (the sync API runs route callbacks only inside Playwright calls);
+        then ``drain_ms`` more for frames still on their way."""
+        page = self._page
+        if page is None or page.is_closed():
+            return
+        with self._timed("ws_gate.drain", f"{drain_ms} ms"):
+            page.evaluate("0")
+            if drain_ms:
+                page.wait_for_timeout(drain_ms)
+
+    def _record_ws_frame(self, url: str, payload: Any) -> None:
+        text = payload if isinstance(payload, str) else "<binary frame>"
+        raw = text.encode("utf-8")
+        if len(raw) > _WS_FRAME_CAP_BYTES:
+            text = raw[:_WS_FRAME_CAP_BYTES].decode("utf-8", errors="ignore")
+        size = len(url.encode("utf-8")) + len(text.encode("utf-8"))
+        if len(self._ws) >= _TAP_RECORD_CAP:
+            reason = "websocket_record_cap"
+        elif self._capture_bytes + size > _TAP_BYTE_CAP:
+            reason = "websocket_byte_cap"
+        else:
+            self._capture_bytes += size
+            self._ws.append({"url": url, "at_ms": time.monotonic() * 1000, "payload": text})
+            return
+        self._capture_omissions[reason] = self._capture_omissions.get(reason, 0) + 1
+
+    def _native_ws_registered(self, pattern: Any) -> None:
+        if self._ws_gate_observer is not None:
+            label = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
+            self._ws_gate_observer(
+                action="installed",
+                source="native",
+                pattern=label if isinstance(label, str) else "<predicate>",
+            )
+
+    def _native_ws_routed(self, route: Any) -> None:
+        """A raw handler took a socket: record what it sends to the page, and stop the
+        tap from recording server frames once the handler decides their delivery."""
+        url = str(route.url)
+        original_send, original_connect = route.send, route.connect_to_server
+
+        def send(message: Any) -> Any:
+            result = original_send(message)
+            self._record_ws_frame(url, message)
+            return result
+
+        def connect_to_server() -> Any:
+            server = original_connect()
+            original_on_message = server.on_message
+
+            def on_message(handler: Any) -> Any:
+                self._ws_owned.add(url)
+                return original_on_message(handler)
+
+            server.on_message = on_message
+            return server
+
+        route.send, route.connect_to_server = send, connect_to_server
+        if self._ws_gate_observer is not None:
+            self._ws_gate_observer(action="routed", source="native", url=url)
 
     def rewrite_response(
         self, pattern: str, transform: Callable[[Any], Any], method: str | None = None

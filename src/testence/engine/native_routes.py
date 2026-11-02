@@ -13,9 +13,22 @@ from weakref import WeakSet
 
 
 class NativeRoutes:
-    def __init__(self, record: Callable[[Any, str], None], tap: Callable[[Any], None]) -> None:
+    def __init__(
+        self,
+        record: Callable[[Any, str], None],
+        tap: Callable[[Any], None],
+        *,
+        on_ws_register: Callable[[Any], None] | None = None,
+        on_ws_route: Callable[[Any], None] | None = None,
+    ) -> None:
         self.record = record
         self.tap = tap
+        self.on_ws_register = on_ws_register
+        self.on_ws_route = on_ws_route
+        #: Playwright cannot unroute a WebSocket, so a closed observer's bridges stay
+        #: registered on a kept context and must turn into plain passthrough.
+        self._open = True
+        self._ws_owners: list[tuple[Any, Any, Any]] = []
         self._owners: list[tuple[Any, Any, Any, Any, Any]] = []
         self._handlers: list[tuple[Any, Any]] = []
         self._registrations: list[tuple[Any, Any, Any]] = []
@@ -56,6 +69,32 @@ class NativeRoutes:
 
         self._owners.append((owner, original_route, original_unroute, route, unroute))
         owner.route, owner.unroute = route, unroute
+        self._watch_ws_owner(owner)
+
+    def _watch_ws_owner(self, owner: Any) -> None:
+        original = getattr(owner, "route_web_socket", None)
+        if original is None or (self.on_ws_register is None and self.on_ws_route is None):
+            return
+
+        @wraps(original)
+        def route_web_socket(url: Any, handler: Any) -> Any:
+            if getattr(handler, "_testence_builtin_gate", False):
+                return original(url, handler)
+            if self.on_ws_register is not None:
+                self.on_ws_register(url)
+            return original(url, self._ws_handler(handler))
+
+        self._ws_owners.append((owner, original, route_web_socket))
+        owner.route_web_socket = route_web_socket
+
+    def _ws_handler(self, handler: Any) -> Any:
+        @wraps(handler)
+        def bridge(ws: Any) -> Any:
+            if self._open and self.on_ws_route is not None:
+                self.on_ws_route(ws)
+            return handler(ws)
+
+        return bridge
 
     def _handler(self, handler: Any) -> Any:
         for source, existing in self._handlers:
@@ -106,6 +145,11 @@ class NativeRoutes:
                 owner.route = original_route
             if owner.unroute is unroute:
                 owner.unroute = original_unroute
+        for owner, original, route_web_socket in self._ws_owners:
+            if owner.route_web_socket is route_web_socket:
+                owner.route_web_socket = original
+        self._ws_owners.clear()
+        self._open = False
         self._owners.clear()
         self._handlers.clear()
         self._registrations.clear()
