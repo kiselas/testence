@@ -393,6 +393,18 @@ def main(argv: list[str] | None = None) -> int:
     p_ci_evaluate.add_argument("-o", "--out", type=Path, required=True)
     p_ci_evaluate.add_argument("--json", dest="json_output", action="store_true")
 
+    p_ci_summary = ci_sub.add_parser(
+        "summary", help="print what a run proved as Markdown, for a job summary"
+    )
+    p_ci_summary.add_argument("run_dir", type=Path)
+    p_ci_summary.add_argument(
+        "--negative-run",
+        type=Path,
+        action="append",
+        default=[],
+        help="a run made with --control; adds claims with a negative proof (ADR-0033)",
+    )
+
     p_delivery = sub.add_parser("delivery", help="run an idempotent result delivery")
     delivery_sub = p_delivery.add_subparsers(dest="delivery_command", required=True)
     p_delivery_run = delivery_sub.add_parser("run", help="deliver one explicit run")
@@ -564,6 +576,11 @@ def main(argv: list[str] | None = None) -> int:
         p_run: [
             "testence run --project .",
             "testence run --project . --run-id r-local -- tests_e2e -q -k checkout",
+            "testence run --project . --run-id r-drop-save --control drop-save -- tests_e2e -q",
+        ],
+        p_ci_summary: [
+            "testence ci summary runs/r-local",
+            "testence ci summary runs/r-local --negative-run runs/r-drop-save",
         ],
         p_inspect: ["testence inspect runs/r-local", "testence inspect runs/r-local --json"],
         p_oracle_suggest: [
@@ -1150,6 +1167,18 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(json.dumps(delivery_result.receipt, ensure_ascii=False, separators=(",", ":")))
         return delivery_result.exit_code
+
+    if args.command == "ci" and args.ci_command == "summary":
+        from .controls import ControlError
+        from .summary import render_summary
+
+        try:
+            text = render_summary(args.run_dir, args.negative_run)
+        except (OSError, ValueError, ControlError) as exc:
+            print(f"ci summary failed: {exc}", file=sys.stderr)
+            return 2
+        sys.stdout.write(text)
+        return 0
 
     if args.command == "ci" and args.ci_command == "evaluate":
         from .ci import CIError, evaluate_ci, write_ci_receipt

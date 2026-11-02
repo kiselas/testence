@@ -40,6 +40,9 @@ jobs:
       - name: Export JUnit for the CI test view
         if: always()
         run: testence export "runs/ci-${{ github.run_id }}" --to junit -o test-results
+      - name: Summarize what the run proved
+        if: always()
+        run: testence ci summary "runs/ci-${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
       - name: Keep the evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -54,6 +57,10 @@ jobs:
   repository's secrets; `auth: none` ignores them ([auth](auth.md)).
 - `testence run` fails the job when a test fails; the export and the artifact still run
   (`if: always()`), so the failure pack of every failed attempt is in `runs/`.
+- `testence ci summary` writes what the run proved into the job summary: required
+  claims backed by verified assertions, tests whose proof is not verified, flaky tests,
+  and the pass count last, labelled as no argument. It reads the run only and always
+  exits 0 for a readable run, so it never decides the job.
 - For Allure TestOps, stream results with `--testence-allure-results`
   ([reporting](reporting.md#uploading-results-to-allure-testops)); for other systems,
   export `--to ctrf`.
@@ -87,6 +94,11 @@ The negative run is expected to fail, so its exit code is not the job's. The rec
 | `inconclusive` | the test did not run, was repeated, or failed outside an assertion |
 | `stale` | the test or its plan changed between the two runs |
 | `no_control` | no supplied control targets the claim |
+
+`testence ci summary RUN_DIR --negative-run DIR` adds the claims with a negative proof
+to the job summary. To post the summary as a pull request comment instead, give the
+job `pull-requests: write` and run
+`testence ci summary RUN_DIR > summary.md && gh pr comment "$PR" --body-file summary.md --edit-last --create-if-none`.
 
 Failures of claims a control does not target are listed as `collateral_claims`. Each
 control costs one more run, and some claims have no honest control, so `proven` is a

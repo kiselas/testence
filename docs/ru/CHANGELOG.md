@@ -9,6 +9,12 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
 
 ### Добавлено
 
+- `testence ci summary RUN_DIR [--negative-run DIR]` печатает в Markdown, что доказал
+  прогон: обязательные claim, подтверждённые verified assertion, тесты без
+  verified-доказательства, flaky-тесты, claim с негативным доказательством при
+  переданных негативных прогонах и последним число прошедших тестов с пометкой, что это
+  не аргумент. Шаблон CI дописывает её в summary джоба; [CI](ci.md) показывает, как
+  вместо этого публиковать её комментарием в pull request.
 - Негативное доказательство ([ADR-0033](../en/adr/0033-negative-proof.md)). Запись в
   `controls` файла `testence.json` описывает способ сломать target и claim, которые он
   опровергает. `testence run --control NAME` (в pytest `--testence-control`) выполняет
