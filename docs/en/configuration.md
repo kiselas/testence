@@ -382,3 +382,9 @@ process, per-worker seed namespaces, and per-worker offsets for anything
 machine-wide (the debug port is ephemeral by default; an explicit `debug_port` becomes
 `debug_port + N`). Measure serial and parallel runs on
 your own target before selecting a default worker count.
+
+Those invariants make workers safe for each other's files and ports, not for each
+other's data on a shared server. Which tests may share one target is decided per
+test from what its serial run read and wrote, and proven with repeated parallel runs
+and an adversarial neighbour ([ADR-0034](adr/0034-parallel-safety-on-a-shared-target.md)).
+Agents follow the procedure in the author skill's `references/parallel-safety.md`.

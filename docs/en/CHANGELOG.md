@@ -8,6 +8,13 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Added
 
+- Parallel safety on a shared target ([ADR-0034](adr/0034-parallel-safety-on-a-shared-target.md)).
+  Skill pack 0.1.22 adds `references/parallel-safety.md` to the author skill: inventory
+  the target's shared state, derive each case's footprint from the `net` and
+  `api.request` events of a serial run, classify it as parallel, grouped, serial or
+  excluded, and prove the class with repeated parallel runs, a neighbour process
+  writing foreign data and a cleanup audit. A failure seen only in parallel
+  reclassifies the case; it is never rerun.
 - `testence init` declares a `drop-save` control in `testence.json`, and the onboarding
   test applies it. `testence demo run` adds a fourth run, `negative_control`: the green
   test with its save broken on purpose, accepted only when it fails on
