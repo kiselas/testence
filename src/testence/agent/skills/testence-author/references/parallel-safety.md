@@ -160,8 +160,8 @@ Same target, same revision, same worker count N:
 
 Pick N by measurement: the largest N with no step timeout absent from the serial
 baseline, comparing `api.request` durations and test wall time. Then run the G and S
-cases serially: `pytest -m "not testence_parallel"`. The two phases are two runs; evaluate each with
-`ci evaluate`.
+cases serially: `pytest -m "not testence_parallel"`. The two phases are two runs;
+evaluate each with `ci evaluate`.
 
 A run that overlapped someone else's work on the same target is not evidence for
 gates 2–5. Say so and repeat it.
