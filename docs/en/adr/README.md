@@ -40,6 +40,7 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 | [0030](0030-native-network-provenance.md) | Observe native network route outcomes | implemented (engineering) |
 | [0031](0031-guarded-debug-response-adapters.md) | Guarded debug and response-stage adapters | implemented (engineering) |
 | [0032](0032-worker-browser-reuse.md) | Owned browser per worker, fresh context per test | implemented (engineering, opt-in) |
+| [0033](0033-negative-proof.md) | Negative proof: a recorded run in which the test failed for its claim | accepted (design) |
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.
