@@ -127,6 +127,9 @@ uninterrupted real-time recording is available alongside the cut.
 4. Show the generated repo-owned test and claim IDs.
 5. Run the baseline and Testence on the frozen defect.
 6. Open the local report from a link in structured CLI output.
+   Then rerun the accepted test with its negative control
+   (`testence run --control <name>`): it fails on its own claim, and `testence inspect`
+   lists that claim as `proven` ([ADR-0033](adr/0033-negative-proof.md)).
 7. Ask the agent to fix the cause and show the application diff.
 8. Run a targeted rerun, then execute the same test without the agent using the ordinary
    CI command.

@@ -129,6 +129,9 @@ toast-проверкой. Plan review делает эту потерю види�
 4. Показать сгенерированный repo-owned test и claim IDs.
 5. Запустить baseline и Testence на frozen defect.
 6. Открыть локальный report через ссылку из структурированного CLI output.
+   Затем повторить принятый тест с его негативным контролем
+   (`testence run --control <name>`): тест падает на своём claim, а `testence inspect`
+   показывает этот claim как `proven` ([ADR-0033](../en/adr/0033-negative-proof.md)).
 7. Попросить агента исправить причину; показать diff приложения.
 8. Выполнить targeted rerun, затем тот же тест без агента обычной CI-командой.
 

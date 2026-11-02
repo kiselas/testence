@@ -14,19 +14,34 @@
     "runs": {
       "type": "array",
       "minItems": 2,
-      "maxItems": 2,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["name", "run_id", "expected_exit", "test_exit", "accepted", "summary", "report"],
         "properties": {
-          "name": {"enum": ["healthy", "intentional_failure"]},
+          "name": {"enum": ["healthy", "intentional_failure", "harmless_change", "negative_control"]},
           "run_id": {"type": "string", "minLength": 1},
           "expected_exit": {"type": "integer"},
           "test_exit": {"type": "integer"},
           "accepted": {"type": "boolean"},
           "summary": {"type": "object"},
-          "report": {"type": "string", "minLength": 1}
+          "report": {"type": "string", "minLength": 1},
+          "pack": {"type": ["string", "null"]},
+          "pack_files": {"type": "array", "items": {"type": "string"}},
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "bytes", "sha256"],
+              "properties": {
+                "path": {"type": "string", "minLength": 1},
+                "bytes": {"type": "integer", "minimum": 0},
+                "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+              }
+            }
+          },
+          "cleanup": {"type": "object"}
         }
       }
     }

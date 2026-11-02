@@ -58,6 +58,15 @@ def _scaffold(project_id: str) -> dict[str, bytes]:
         "auth": "none",
         "headed": False,
         "runs_root": "runs",
+        # `testence run --control drop-save` runs the onboarding test against a save
+        # that is acknowledged but never stored: the test must fail on its claim,
+        # which shows that it can (ADR-0033).
+        "controls": {
+            "drop-save": {
+                "description": "The save is acknowledged but never stored",
+                "claims": ["onboarding.proof.recorded"],
+            }
+        },
         "extra": {
             "capture_policy": {
                 "network_bodies": False,
@@ -238,9 +247,13 @@ from testence.oracle import ExpectedState
     case_id="synthetic-proof",
     claims=["onboarding.proof.recorded"],
 )
-def test_testence_synthetic_proof(demo_server, ex):
+def test_testence_synthetic_proof(demo_server, ex, testence_control):
     saved = {"id": "item-42", "state": "saved", "revision": 2}
-    ex.goto(demo_server + "/?mode=healthy", intent="open the healthy save target")
+    # `testence run --control drop-save` (testence.json "controls") breaks the save on
+    # purpose. This test must then fail on its claim: proof that it can.
+    broken = testence_control is not None and testence_control.name == "drop-save"
+    mode = "buggy" if broken else "healthy"
+    ex.goto(demo_server + f"/?mode={mode}", intent=f"open the {mode} save target")
     ex.click(Target("role", "button", name="Save"), intent="save item-42 once")
     ex.expect_text(Target("css", "#status"), "saved", intent="visible save confirmation")
     ex.verify_state(
@@ -728,22 +741,64 @@ def run_demo(root: Path | str, *, run_prefix: str | None = None) -> dict[str, An
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}", prefix):
         raise ApplicationError("demo run prefix must contain only letters, digits, '.', '_' or '-'")
 
-    scenarios = (
-        ("healthy", ".testence/examples/test_onboarding.py", 0, "passed", "verified"),
-        ("intentional_failure", ".testence/examples/test_demo_failure.py", 1, "failed", "violated"),
-        ("harmless_change", ".testence/examples/test_demo_harmless.py", 0, "passed", "verified"),
+    onboarding = ".testence/examples/test_onboarding.py"
+    # name, test, extra pytest arguments, expected exit, run status, assurance
+    scenarios: tuple[tuple[str, str, tuple[str, ...], int, str, str], ...] = (
+        ("healthy", onboarding, (), 0, "passed", "verified"),
+        (
+            "intentional_failure",
+            ".testence/examples/test_demo_failure.py",
+            (),
+            1,
+            "failed",
+            "violated",
+        ),
+        (
+            "harmless_change",
+            ".testence/examples/test_demo_harmless.py",
+            (),
+            0,
+            "passed",
+            "verified",
+        ),
+        # The healthy test again, with its save broken on purpose: it must fail on its
+        # own claim, which proves it can detect the defect (ADR-0033).
+        (
+            "negative_control",
+            onboarding,
+            ("--testence-control", "drop-save"),
+            1,
+            "failed",
+            "violated",
+        ),
     )
-    run_ids = [f"r-{prefix}-{name.replace('_', '-')}" for name, *_rest in scenarios]
+    run_ids = [f"r-{prefix}-{scenario[0].replace('_', '-')}" for scenario in scenarios]
     conflicts = [run_id for run_id in run_ids if (project / "runs" / run_id).exists()]
     if conflicts:
         raise ApplicationError("demo run id already exists: " + ", ".join(conflicts))
     results: list[dict[str, Any]] = []
-    for name, test_path, expected_exit, expected_status, expected_assurance in scenarios:
+    for (
+        name,
+        test_path,
+        extra_args,
+        expected_exit,
+        expected_status,
+        expected_assurance,
+    ) in scenarios:
         run_id = f"r-{prefix}-{name.replace('_', '-')}"
         environment = dict(os.environ)
         environment[RUN_ID_ENV] = run_id
         completed = subprocess.run(
-            [sys.executable, "-m", "pytest", "--rootdir", str(project), test_path, "-q"],
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "--rootdir",
+                str(project),
+                *extra_args,
+                test_path,
+                "-q",
+            ],
             cwd=project,
             env=environment,
             text=True,
@@ -771,14 +826,20 @@ def run_demo(root: Path | str, *, run_prefix: str | None = None) -> dict[str, An
         }
         pack_accepted = (
             not pack_indexes
-            if name != "intentional_failure"
+            if expected_exit == 0
             else len(pack_indexes) == 1 and required_pack_files <= set(pack_files)
         )
+        # A red negative run is accepted only when it failed on the claim its control
+        # targets; failing for any other reason proves nothing about the test.
+        negative_accepted = name != "negative_control" or summary.get("negative_proof") == {
+            "onboarding.proof.recorded": "proven"
+        }
         accepted = (
             completed.returncode == expected_exit
             and summary["run_status"] == expected_status
             and summary["assurance"] == {expected_assurance: 1}
             and pack_accepted
+            and negative_accepted
         )
         artifact_paths = [report]
         if pack_dir is not None:

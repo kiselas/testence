@@ -5,8 +5,10 @@ import json
 import os
 import subprocess
 import sys
+from importlib.resources import files
 from pathlib import Path
 
+import jsonschema
 import pytest
 
 from testence.application import (
@@ -371,12 +373,23 @@ def test_demo_run_accepts_green_and_expected_failure_and_renders_reports(tmp_pat
         ("healthy", 0),
         ("intentional_failure", 1),
         ("harmless_change", 0),
+        ("negative_control", 1),
     ]
     assert [item["summary"]["assurance"] for item in result["runs"]] == [
         {"verified": 1},
         {"violated": 1},
         {"verified": 1},
+        {"violated": 1},
     ]
+    negative = result["runs"][3]["summary"]
+    assert negative["control"]["name"] == "drop-save"
+    assert negative["negative_proof"] == {"onboarding.proof.recorded": "proven"}
+    schema = json.loads(
+        files("testence.contracts")
+        .joinpath("schemas", "demo-run.schema.json")
+        .read_text(encoding="utf-8")
+    )
+    jsonschema.validate(result, schema)
     assert all(Path(item["report"]).is_file() for item in result["runs"])
     failure = result["runs"][1]
     assert failure["pack"] is not None and Path(failure["pack"]).is_dir()
