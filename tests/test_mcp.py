@@ -340,6 +340,144 @@ def test_click_and_fill_drive_one_browser_and_do_not_echo_values(explorer):
     assert len(engines) == 1 and [c[0] for c in engines[0].calls].count("start") == 1
 
 
+_NEAR_MISS = "no element matches; similar: button \"Save draft\" (Target('role', 'button', name='Save draft'))"
+_CALL_LOG = (
+    "Locator.click: Timeout 2000ms exceeded.\n"
+    "Call log:\n"
+    '  - waiting for get_by_role("button", name="Save")'
+)
+
+
+def test_a_failed_click_answers_like_the_step_it_tries(explorer):
+    """It used to return only the first line of the engine's exception: no match count,
+    no similar targets, no call log, which an ``ex.click`` failure prints."""
+    server, _ = explorer
+    _call(server, "testence_snapshot")
+
+    def time_out(_target: Any) -> None:
+        raise TimeoutError(_CALL_LOG)
+
+    server._engine.click = time_out
+    server._engine.describe_matches = lambda _target: _NEAR_MISS
+    result = _call(
+        server, "testence_click", {"target": {"kind": "role", "value": "button", "name": "Save"}}
+    )
+    assert result["isError"]
+    answer = json.loads(result["content"][0]["text"])
+    assert answer["target"] == "role='button' name='Save'"
+    assert answer["matches"] == _NEAR_MISS
+    assert answer["error"].startswith(f"step failed: click role='button' name='Save': {_NEAR_MISS}")
+    assert "waiting for get_by_role" in answer["error"]
+
+
+def test_a_failed_fill_never_echoes_the_value(explorer):
+    server, _ = explorer
+    _call(server, "testence_snapshot")
+    secret = "hunter2-secret"
+
+    def reject(_target: Any, value: str) -> None:
+        raise RuntimeError(f'Locator.fill: element is not editable\n  - fill("{value}") on {value}')
+
+    server._engine.fill = reject
+    result = _call(
+        server, "testence_fill", {"target": {"kind": "label", "value": "Name"}, "value": secret}
+    )
+    assert result["isError"]
+    text = result["content"][0]["text"]
+    assert secret not in text
+    assert "<value>" in text and "not editable" in text
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments", "message"),
+    [
+        (
+            "testence_click",
+            {"targett": {"kind": "text", "value": "Save"}},
+            "unknown argument 'targett'; expected: target",
+        ),
+        (
+            "testence_click",
+            {"target": {"kind": "text", "value": "Save", "colour": "red"}},
+            "target has no field 'colour'",
+        ),
+        (
+            "testence_click",
+            {
+                "target": {
+                    "kind": "text",
+                    "value": "Save",
+                    "within": {"kind": "css", "value": "form", "id": 1},
+                }
+            },
+            "target has no field 'id'",
+        ),
+        (
+            "testence_click",
+            {"target": {"kind": "text", "value": "Save", "nth": "1"}},
+            "target.nth must be an integer",
+        ),
+        (
+            "testence_click",
+            {"target": {"kind": "text", "value": "Save", "exact": 1}},
+            "target.exact must be a boolean",
+        ),
+        ("testence_snapshot", {"limit": "5"}, "limit must be an integer between 1 and 200"),
+        ("testence_snapshot", {"limit": 500}, "limit must be an integer between 1 and 200"),
+        ("testence_snapshot", {"url": 7}, "url must be a string"),
+        ("testence_doctor", {"target": "yes"}, "target must be a boolean"),
+        (
+            "testence_debug",
+            {"node": "t.py::x", "workers": True},
+            "workers must be an integer between 1 and 16",
+        ),
+        ("testence_debug", {}, "node is required"),
+        ("testence_run", {"pytest_args": ["-q", 3]}, "pytest_args[1] must be a string"),
+        ("testence_status", {"verbose": True}, "unknown argument 'verbose'; expected: none"),
+        (
+            "testence_inspect",
+            {"run_dir": "runs/r-1", "format": "json"},
+            "unknown argument 'format'",
+        ),
+    ],
+)
+def test_arguments_are_held_to_the_tool_schema(tmp_path, tool, arguments, message):
+    """A misspelt key was ignored and a wrong type failed deep inside the tool, or not at
+    all; both are named now, before anything starts."""
+
+    def no_browser(_settings: Any) -> Any:
+        pytest.fail("a rejected call must not start a browser")
+
+    result = _call(McpServer(tmp_path, engine_factory=no_browser), tool, arguments)
+    assert result["isError"], result
+    assert message in result["content"][0]["text"]
+
+
+def test_every_tool_schema_rejects_undeclared_keys():
+    for tool in TOOLS:
+        assert tool["inputSchema"]["additionalProperties"] is False, tool["name"]
+
+
+def test_a_failed_doctor_is_an_error_result(tmp_path, monkeypatch):
+    """``ok: false`` came back as a success, so a client that only looks at isError read
+    a broken runtime as a healthy one."""
+    checks = [
+        {"name": "python", "ok": True, "detail": "3.12"},
+        {"name": "browser", "ok": False, "detail": "cannot launch"},
+    ]
+    monkeypatch.setattr(
+        "testence.application.doctor", lambda *_a, **_k: {"ok": False, "checks": checks}
+    )
+    failed = _call(McpServer(tmp_path), "testence_doctor")
+    assert failed["isError"]
+    assert json.loads(failed["content"][0]["text"])["checks"] == checks
+
+    monkeypatch.setattr(
+        "testence.application.doctor", lambda *_a, **_k: {"ok": True, "checks": checks[:1]}
+    )
+    assert _payload(_call(McpServer(tmp_path), "testence_doctor"))["ok"] is True
+
+
 def test_closing_stops_the_browser(explorer):
     server, engines = explorer
     _call(server, "testence_snapshot")
@@ -404,6 +542,7 @@ def test_exploring_a_real_page(tmp_path, monkeypatch):
     """A real browser: the login page's controls come back as Targets that work."""
     (tmp_path / "testence.json").write_text('{"auth": "none"}', encoding="utf-8")
     monkeypatch.setenv("TESTENCE_DEBUG_PORT", "0")
+    monkeypatch.setenv("TESTENCE_TIMEOUT_MS", "3000")
     with MockApp() as app:
         monkeypatch.setenv("TESTENCE_BASE_URL", app.base_url)
         server = McpServer(tmp_path)
@@ -413,6 +552,18 @@ def test_exploring_a_real_page(tmp_path, monkeypatch):
             button = targets["Target('role', 'button', name='Sign in')"]
             assert button["unique"] is True
             assert "Sign in" in page["aria"]
+            # A near miss answers as a failed ex.click would: nothing matched, and the
+            # target that addresses the button with a similar name.
+            missed = _call(
+                server,
+                "testence_click",
+                {"target": {"kind": "role", "value": "button", "name": "Sign"}},
+            )
+            assert missed["isError"]
+            miss = json.loads(missed["content"][0]["text"])
+            assert miss["error"].startswith("step failed: click role='button' name='Sign'")
+            assert "Target('role', 'button', name='Sign in')" in miss["matches"]
+            assert "Call log" in miss["error"]
             _payload(
                 _call(
                     server,

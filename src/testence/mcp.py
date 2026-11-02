@@ -31,7 +31,7 @@ _TEXT_LIMIT = 20_000
 _MAX_ELEMENTS = 200
 _RUN_TIMEOUT_S = 900
 
-_TARGET_SCHEMA = {
+_TARGET_SCHEMA: dict[str, Any] = {
     "type": "object",
     "description": "Element address, as testence_snapshot returns it.",
     "properties": {
@@ -46,19 +46,21 @@ _TARGET_SCHEMA = {
         },
     },
     "required": ["kind", "value"],
+    "additionalProperties": False,
 }
 
 TOOLS: list[dict[str, Any]] = [
     {
         "name": "testence_status",
         "description": "Locate the installed package, project settings and declared parallel policy.",
-        "inputSchema": {"type": "object", "properties": {}},
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
         "name": "testence_debug",
         "description": "Preflight one exact pytest node, run it in a fresh process and return failure ARIA and phase timings. Multiple cases require explicit opt-in.",
         "inputSchema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
                 "node": {"type": "string"},
                 "workers": {"type": "integer", "minimum": 1, "maximum": 16, "default": 1},
@@ -75,6 +77,7 @@ TOOLS: list[dict[str, Any]] = [
         "base_url, check the credentials and try the login once.",
         "inputSchema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {"target": {"type": "boolean", "default": False}},
         },
     },
@@ -86,6 +89,7 @@ TOOLS: list[dict[str, Any]] = [
         "(unique=true means it can be used as is).",
         "inputSchema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
                 "url": {"type": "string"},
                 "limit": {"type": "integer", "default": 60, "minimum": 1, "maximum": _MAX_ELEMENTS},
@@ -98,6 +102,7 @@ TOOLS: list[dict[str, Any]] = [
         "before writing the step.",
         "inputSchema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {"target": _TARGET_SCHEMA},
             "required": ["target"],
         },
@@ -107,6 +112,7 @@ TOOLS: list[dict[str, Any]] = [
         "description": "Fill a field in the exploration browser. The value is not echoed back.",
         "inputSchema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {"target": _TARGET_SCHEMA, "value": {"type": "string"}},
             "required": ["target", "value"],
         },
@@ -117,6 +123,7 @@ TOOLS: list[dict[str, Any]] = [
         "exit code, run directory and its summary. Arguments go to pytest unchanged.",
         "inputSchema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
                 "pytest_args": {"type": "array", "items": {"type": "string"}, "default": []},
                 "timeout_s": {
@@ -134,6 +141,7 @@ TOOLS: list[dict[str, Any]] = [
         "integrity errors, evidence packs of failures, flaky tests.",
         "inputSchema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {"run_dir": {"type": "string"}},
             "required": ["run_dir"],
         },
@@ -144,11 +152,23 @@ TOOLS: list[dict[str, Any]] = [
         "read that proves it and a save_and_verify_state call to complete.",
         "inputSchema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {"run_dir": {"type": "string"}},
             "required": ["run_dir"],
         },
     },
 ]
+
+
+_SCHEMAS = {tool["name"]: tool["inputSchema"] for tool in TOOLS}
+_TARGET_FIELDS: tuple[str, ...] = tuple(_TARGET_SCHEMA["properties"])
+_TYPE_NAMES = {
+    "object": "an object",
+    "string": "a string",
+    "integer": "an integer",
+    "boolean": "a boolean",
+    "array": "a list",
+}
 
 
 class ToolError(Exception):
@@ -157,6 +177,57 @@ class ToolError(Exception):
     def __init__(self, message: str, *, payload: dict[str, Any] | None = None) -> None:
         super().__init__(message)
         self.payload = payload
+
+
+def _check(value: Any, schema: dict[str, Any], path: str) -> None:
+    """Hold arguments to the tool's ``inputSchema``, so a wrong type or a misspelt key
+    is named instead of silently ignored or failing deep inside the tool.
+
+    Only what the schemas above use: ``type``, ``enum``, ``minimum``/``maximum``,
+    ``items``, ``properties``, ``required`` and ``additionalProperties: false``.
+    """
+    kind = schema.get("type")
+    if kind is not None:
+        wanted = _TYPE_NAMES[kind]
+        if kind == "integer" and "minimum" in schema and "maximum" in schema:
+            wanted += f" between {schema['minimum']} and {schema['maximum']}"
+        if kind == "array" and schema.get("items", {}).get("type") == "string":
+            wanted += " of strings"
+        expected = {"object": dict, "string": str, "array": list}.get(kind)
+        matches = (
+            type(value) is int  # bool is an int to Python, never to JSON Schema
+            if kind == "integer"
+            else type(value) is bool
+            if kind == "boolean"
+            else isinstance(value, expected)  # type: ignore[arg-type]
+        )
+        if not matches:
+            raise ToolError(f"{path} must be {wanted}")
+        if kind == "integer" and not (
+            schema.get("minimum", value) <= value <= schema.get("maximum", value)
+        ):
+            raise ToolError(f"{path} must be {wanted}")
+    if "enum" in schema and value not in schema["enum"]:
+        raise ToolError(f"{path} must be one of: {', '.join(map(str, schema['enum']))}")
+    if kind == "array" and "items" in schema:
+        for index, item in enumerate(value):
+            _check(item, schema["items"], f"{path}[{index}]")
+    if kind != "object":
+        return
+    properties: dict[str, Any] = schema.get("properties", {})
+    prefix = f"{path}." if path else ""
+    if schema.get("additionalProperties") is False:
+        unknown = sorted(set(value) - set(properties))
+        if unknown:
+            where = f"{path} has no field" if path else "unknown argument"
+            known = ", ".join(properties) or "none"
+            raise ToolError(f"{where} {unknown[0]!r}; expected: {known}")
+    for key in schema.get("required", ()):
+        if key not in value:
+            raise ToolError(f"{prefix}{key} is required")
+    for key, nested in properties.items():
+        if key in value:
+            _check(value[key], nested, f"{prefix}{key}")
 
 
 class McpServer:
@@ -282,6 +353,7 @@ class McpServer:
             raise ToolError(f"unknown tool {name!r}; known: {', '.join(sorted(handlers))}")
         if not isinstance(arguments, dict):
             raise ToolError("tool arguments must be an object")
+        _check(arguments, _SCHEMAS[str(name)], "")
         try:
             payload = handler(arguments)
         except ToolError:
@@ -386,6 +458,11 @@ class McpServer:
 
         if not isinstance(raw, dict):
             raise ToolError("target must be an object with kind and value")
+        unknown = sorted(set(raw) - set(_TARGET_FIELDS))
+        if unknown:
+            raise ToolError(
+                f"target has no field {unknown[0]!r}; expected: {', '.join(_TARGET_FIELDS)}"
+            )
         if raw.get("kind") not in TARGET_KINDS:
             raise ToolError(f"target.kind must be one of: {', '.join(TARGET_KINDS)}")
         if not isinstance(raw.get("value"), str) or not raw["value"]:
@@ -408,7 +485,11 @@ class McpServer:
     def _doctor(self, arguments: dict[str, Any]) -> dict[str, Any]:
         from testence.application import doctor
 
-        return doctor(self.project, target=bool(arguments.get("target")))
+        result = doctor(self.project, target=bool(arguments.get("target")))
+        if not result.get("ok"):
+            failed = [item["name"] for item in result.get("checks", []) if not item["ok"]]
+            raise ToolError(f"doctor failed: {', '.join(failed) or 'see checks'}", payload=result)
+        return result
 
     def _snapshot(self, arguments: dict[str, Any]) -> dict[str, Any]:
         from testence.discovery import snapshot
@@ -422,7 +503,7 @@ class McpServer:
     def _click(self, arguments: dict[str, Any]) -> dict[str, Any]:
         target = self._target(arguments.get("target"))
         engine = self._session()
-        engine.click(target)
+        self._interact(engine, f"click {target.describe()}", target, engine.click)
         engine.settle(1_500)
         return {"clicked": target.describe(), "url": engine.current_url()}
 
@@ -432,8 +513,38 @@ class McpServer:
             raise ToolError("value must be a string")
         target = self._target(arguments.get("target"))
         engine = self._session()
-        engine.fill(target, value)
+        self._interact(
+            engine, f"fill {target.describe()}", target, engine.fill, value, hidden=value
+        )
         return {"filled": target.describe(), "characters": len(value)}
+
+    @staticmethod
+    def _interact(
+        engine: Any,
+        intent: str,
+        target: Any,
+        action: Callable[..., Any],
+        *args: Any,
+        hidden: str = "",
+    ) -> None:
+        """Run one interaction; on failure answer as the ``ex`` step would: what the
+        target matched and the targets that address similar elements, then the cause."""
+        from testence.dsl.steps import StepFailed, describe_matches
+
+        try:
+            action(target, *args)
+        except Exception as exc:  # noqa: BLE001 - the agent reads the reason
+            matches = describe_matches(engine, target)
+            message = str(StepFailed(intent, exc, target, matches))
+            if hidden:
+                # A filled value is never echoed, not even inside the engine's error.
+                message = message.replace(json.dumps(hidden), '"<value>"')
+                if len(hidden) >= 4:
+                    message = message.replace(hidden, "<value>")
+            raise ToolError(
+                message,
+                payload={"error": message, "target": target.describe(), "matches": matches},
+            ) from exc
 
     def _run_dir(self, raw: Any) -> Path:
         if not isinstance(raw, str) or not raw:

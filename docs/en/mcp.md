@@ -50,6 +50,18 @@ A session that fits in a few calls: snapshot the page, click and fill to learn w
 flow does, write an ordinary pytest file with `ex`, run it, inspect it, then ask for the
 oracle suggestions and add the API check.
 
+Arguments are held to each tool's `inputSchema`, which declares
+`additionalProperties: false`: a misspelt key (`targett`), a field a `Target` does not
+have, or a wrong type (`limit: "5"`, `workers: true`) is an error that names it, and
+nothing starts.
+
+A failed `testence_click` or `testence_fill` answers as the `ex` step would in a test:
+`isError: true` with a JSON document whose `error` is the step's message (what the
+target matched, targets that address similar elements, then the cause and
+Playwright's call log), plus `target` and `matches` on their own. A filled value is
+replaced by `<value>` even inside that message. `testence_doctor` with a failed check
+returns `isError: true` with the full report.
+
 `testence_run.timeout_s` is an integer from 1 to 900 (default 300). On deadline it
 returns `isError: true` with a JSON document containing `timed_out: true`,
 `exit_code: null`, the available `run_dir`, its summary and bounded, redacted output.
