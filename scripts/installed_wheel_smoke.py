@@ -97,7 +97,7 @@ def main() -> int:
                         "test_exit": item["test_exit"],
                         "assurance": item["summary"]["assurance"],
                         "report_exists": Path(item["report"]).is_file(),
-                        "pack_required": item["name"] == "intentional_failure",
+                        "pack_required": item["expected_exit"] != 0,
                         "pack_exists": item["pack"] is not None and Path(item["pack"]).is_dir(),
                     }
                     for item in demo["runs"]

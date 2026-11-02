@@ -93,8 +93,10 @@ the tests that prove the loop. The scaffold is deliberately kept out of your exi
 pytest paths, so initialization never opts your current suite into Testence. Conflicting
 files are left untouched.
 
-Render the run as a single self-contained HTML file, or run the complete green/failure
-demo and both reports with one command:
+Render the run as a single self-contained HTML file, or run the complete demo with one
+command: a green run, a caught false green, a harmless layout change, and the green
+test rerun with a [negative control](https://github.com/kiselas/testence/blob/main/docs/en/configuration.md#negative-controls)
+that it must fail on, each with its report:
 
 ```bash
 testence report runs/r-onboarding

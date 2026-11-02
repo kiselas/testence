@@ -8,6 +8,11 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Added
 
+- `testence init` declares a `drop-save` control in `testence.json`, and the onboarding
+  test applies it. `testence demo run` adds a fourth run, `negative_control`: the green
+  test with its save broken on purpose, accepted only when it fails on
+  `onboarding.proof.recorded`. The demo receipt schema now describes the receipt
+  `demo run` writes: four runs, `pack`, `pack_files`, `artifacts` and `cleanup`.
 - `testence ci summary RUN_DIR [--negative-run DIR]` prints what a run proved as
   Markdown: required claims backed by verified assertions, tests whose proof is not
   verified, flaky tests, claims with a negative proof when negative runs are given, and

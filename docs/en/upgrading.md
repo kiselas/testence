@@ -49,3 +49,4 @@ brings them up to the packaged pack.
 |---|---|
 | `--attachments full` (the default) and the live Allure stream no longer ship the trace, the video or binary attachments: they are stored unredacted | `testence export --attachments raw` where that data may leave the machine |
 | `ExpectedState.absent(..., entity_id=...)` passes on an empty or 404 read; the binding is checked only on a row that is still there | nothing |
+| `testence init` declares a `drop-save` control and the onboarding test applies it; `testence demo run` adds a fourth, negative run | `init` never overwrites existing files: to try it in an existing project, run `testence demo run --project testence-demo` in a new folder |

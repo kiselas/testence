@@ -9,6 +9,11 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
 
 ### Добавлено
 
+- `testence init` объявляет в `testence.json` контроль `drop-save`, и onboarding-тест
+  его применяет. `testence demo run` выполняет четвёртый прогон, `negative_control`:
+  зелёный тест с намеренно сломанным сохранением; прогон принимается, только если тест
+  упал на `onboarding.proof.recorded`. Схема receipt демо теперь описывает то, что
+  пишет `demo run`: четыре прогона, `pack`, `pack_files`, `artifacts` и `cleanup`.
 - `testence ci summary RUN_DIR [--negative-run DIR]` печатает в Markdown, что доказал
   прогон: обязательные claim, подтверждённые verified assertion, тесты без
   verified-доказательства, flaky-тесты, claim с негативным доказательством при
