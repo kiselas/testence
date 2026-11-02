@@ -50,6 +50,11 @@ Every run writes `runs/<id>/`. A failing test leaves an evidence pack (what the 
 looked like, the API traffic, the console, a proposed fix for a stale selector).
 `testence report runs/<id>` renders it as one HTML file.
 
+A failed step prints the line of your test first, with what the target matched and
+Playwright's call log in the message. The frames of Testence and Playwright below it
+are hidden and counted; `--testence-full-trace` (or `TESTENCE_FULL_TRACE=1`) shows
+them, which you need only to debug Testence itself.
+
 A passing run says `assurance: 1 unverified`. That is not a warning: the test ran and
 passed, and nothing states which claim it proves. Add one assertion that the API agrees
 with the screen and it becomes `verified`; see the glossary for the four states.
