@@ -8,6 +8,11 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Added
 
+- `testence ci summary RUN_DIR [--negative-run DIR]` prints what a run proved as
+  Markdown: required claims backed by verified assertions, tests whose proof is not
+  verified, flaky tests, claims with a negative proof when negative runs are given, and
+  the pass count last, labelled as no argument. The CI template appends it to the job
+  summary; [CI](ci.md) shows how to post it as a pull request comment instead.
 - Negative proof ([ADR-0033](adr/0033-negative-proof.md)). A `controls` entry in
   `testence.json` names a way to break the target and the claims it falsifies.
   `testence run --control NAME` (pytest `--testence-control`) runs with it, records it

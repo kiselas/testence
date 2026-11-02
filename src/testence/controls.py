@@ -110,8 +110,8 @@ def run_control(run: LoadedRun) -> Control | None:
 
 
 @dataclass(frozen=True)
-class _Attempt:
-    """What negative proof needs to know about one test's final attempt."""
+class ProofAttempt:
+    """What proof accounting needs to know about one test's final attempt."""
 
     nodeid: str
     assurance: str
@@ -139,7 +139,7 @@ def _test_key(test: Test) -> str:
     return "|".join(parts) if all(parts) else test.nodeid
 
 
-def _attempts(run: LoadedRun) -> dict[str, _Attempt]:
+def proof_attempts(run: LoadedRun) -> dict[str, ProofAttempt]:
     starts: dict[str, dict[str, Any]] = {}
     failed: dict[str, set[str]] = {}
     aliases: dict[str, str] = {}
@@ -153,7 +153,7 @@ def _attempts(run: LoadedRun) -> dict[str, _Attempt]:
         elif event.get("kind") == "assertion" and event.get("outcome") == "failed":
             key = _event_key(event, aliases)
             failed.setdefault(key, set()).add(str(event.get("claim_id") or ""))
-    attempts: dict[str, _Attempt] = {}
+    attempts: dict[str, ProofAttempt] = {}
     for test in run.tests:
         key = _test_key(test)
         start = starts.get(key, {})
@@ -162,7 +162,7 @@ def _attempts(run: LoadedRun) -> dict[str, _Attempt]:
             for item in start.get("assertions") or ()
             if isinstance(item, Mapping) and item.get("required", True) and item.get("claim_id")
         )
-        attempts[test.nodeid] = _Attempt(
+        attempts[test.nodeid] = ProofAttempt(
             nodeid=test.nodeid,
             assurance=test.assurance,
             test_digest=str(start.get("test_digest") or ""),
@@ -178,7 +178,9 @@ def _repeated(test: Test) -> bool:
     return bool(test.reruns or test.flaky or test.rerun)
 
 
-def _pair_outcome(claim: str, green: _Attempt, negative: _Attempt | None) -> tuple[str, str]:
+def _pair_outcome(
+    claim: str, green: ProofAttempt, negative: ProofAttempt | None
+) -> tuple[str, str]:
     """Outcome and a one-line reason for one test of ``G`` against one negative run."""
     if negative is None:
         return "inconclusive", "the test did not run with the control"
@@ -198,8 +200,8 @@ def _pair_outcome(claim: str, green: _Attempt, negative: _Attempt | None) -> tup
 
 def evaluate_negative_proof(green: LoadedRun, negatives: Iterable[LoadedRun]) -> dict[str, Any]:
     """Per required claim of ``green``: its negative-proof outcome and the evidence."""
-    green_attempts = _attempts(green)
-    runs = [(run, run_control(run), _attempts(run)) for run in negatives]
+    green_attempts = proof_attempts(green)
+    runs = [(run, run_control(run), proof_attempts(run)) for run in negatives]
     claims: dict[str, dict[str, Any]] = {}
     for attempt in green_attempts.values():
         for claim in sorted(attempt.required_claims):
@@ -244,8 +246,10 @@ __all__ = [
     "OUTCOMES",
     "Control",
     "ControlError",
+    "ProofAttempt",
     "declared_controls",
     "evaluate_negative_proof",
+    "proof_attempts",
     "resolve_control",
     "run_control",
 ]

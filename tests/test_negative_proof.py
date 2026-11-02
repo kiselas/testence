@@ -487,3 +487,55 @@ def test_proof_from_any_negative_run_wins():
         {"run_id": "neg-1", "control": "drop-save"},
         {"run_id": "neg-2", "control": "drop-save"},
     ]
+
+
+# ---------- ci summary: proof first, the pass count last ----------
+
+
+def test_summary_of_a_green_run_leads_with_proof(runs, capsys):
+    assert main(["ci", "summary", str(runs["green"])]) == 0
+    text = capsys.readouterr().out
+
+    assert text.isascii()
+    assert "| Required claims backed by verified assertions | 3 of 3 |" in text
+    assert "| Tests whose proof is not verified | 0 |" in text
+    assert "negative proof" not in text
+    assert text.rstrip().endswith("a test can pass without checking anything.</sub>")
+    assert "Tests passed: 3 of 3" in text
+
+
+def test_summary_with_a_negative_run_names_the_unproven_claims(runs):
+    from testence.summary import render_summary
+
+    text = render_summary(runs["green"], [runs["negative"]])
+
+    assert "| Claims with negative proof | 1 of 3 |" in text
+    assert "- `widgets.create.listed (stayed_green)`" in text
+    assert "- `widgets.create.audited (no_control)`" in text
+
+
+def test_summary_of_a_negative_run_is_not_a_product_verdict(runs):
+    from testence.summary import render_summary
+
+    text = render_summary(runs["negative"])
+
+    assert "**Negative run** with control `drop-save`" in text
+    assert "| `widgets.create.persisted` | proven |" in text
+    assert "| `widgets.create.listed` | stayed_green |" in text
+    assert "Required claims backed" not in text
+
+
+def test_summary_of_a_missing_run_is_an_error(tmp_path, capsys):
+    assert main(["ci", "summary", str(tmp_path / "nope")]) == 2
+    assert "ci summary failed" in capsys.readouterr().err
+
+
+def test_summary_counts_a_claim_only_when_its_test_is_verified():
+    from testence.summary import summarize
+
+    text = summarize(_ledger("red", control=None, failed=("shop.persisted",)), [])
+
+    assert "| Required claims backed by verified assertions | 0 of 2 |" in text
+    assert "| Tests whose proof is not verified | 1 |" in text
+    assert "- `tests/test_shop.py::test_shop (violated)`" in text
+    assert summarize(_ledger("green", control=None), []).count("2 of 2") == 1
