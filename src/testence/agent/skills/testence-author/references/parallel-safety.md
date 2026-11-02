@@ -52,6 +52,9 @@ nothing, so check the same conditions yourself before using it.
   in a per-case fixture.
 - Locate the case's objects by marker or by the ID the seed returned, through search or
   a direct read, never by row index, first row or page position.
+- Put `--dist loadgroup` in the project's pytest `addopts`. Neither `testence debug`
+  nor a bare `-n` passes it, and without it the cases of one `xdist_group` run at the
+  same time. It needs `testence[parallel]` installed wherever pytest runs.
 
 Changing the naming or cleanup of an existing suite is a change to its fixtures: show
 the diff and run the affected cases serially green before continuing.
@@ -113,15 +116,12 @@ misses writes the ledger cannot see, it is unknown.
 | Class | Condition | Marking |
 |---|---|---|
 | P | no shared writes; no dependent unscoped read of a resource another parallel case writes; no login, account or global state | `@pytest.mark.testence_parallel` |
-| G:`name` | shared writes or dependent unscoped reads on one resource that no P case touches | for now no parallel marker: record `G:name` in the project document and run the case in the serial phase |
+| G:`name` | shared writes or dependent unscoped reads on one resource that no P case touches | `testence_parallel` and `@pytest.mark.xdist_group("name")`, with `--dist loadgroup` |
 | S | login/logout/lockout, account or global settings, reference data, several shared resources, a `--control` that changes server state, unknown footprint | no parallel marker; runs in a separate serial run |
 | X | must not run on a shared target (real deployments, external delivery); decided from the inventory before any run | runs only on a dedicated target; the shared-target run leaves it out with the recorded reason |
 
-Do not use `@pytest.mark.xdist_group` yet. Under `--dist loadgroup`, pytest-xdist
-appends `@name` to the node ID, and Testence derives the case ID, the variant and the
-namespace marker from the node ID, so a grouped case gets a different identity than in
-the serial run. Without `--dist loadgroup` the marker does nothing and the group runs
-concurrently. G stays a recorded class until identity ignores the suffix.
+pytest-xdist shows a grouped test as `test_x[...]@name`; the ledger keeps the plain
+node ID, so a grouped case compares directly with its serial baseline.
 
 Without proof a case stays S. You may always move a case towards less parallelism;
 moving it towards P needs the gates again. Never move a case to X because it failed:
@@ -139,8 +139,9 @@ neither phase is a silent deselection.
 Same target, same revision, same worker count N:
 
 1. **Serial baseline** green; it is the footprint source from step 3.
-2. **Repetition**: run the P set at least three times, `pytest -m testence_parallel
-   -n N`, without `--testence-reruns`; verdicts equal the baseline.
+2. **Repetition**: run the P and G set at least three times,
+   `pytest -m testence_parallel -n N --dist loadgroup`, without `--testence-reruns`;
+   verdicts equal the baseline.
 3. **Neighbour**: during one parallel run, also without reruns, a separate process
    uses the project's seed adapter with a foreign marker to create, rename and delete
    objects in every resource the P set writes or reads unscoped. Any verdict change
@@ -159,8 +160,8 @@ Same target, same revision, same worker count N:
    to absorb it.
 
 Pick N by measurement: the largest N with no step timeout absent from the serial
-baseline, comparing `api.request` durations and test wall time. Then run the G and S
-cases serially: `pytest -m "not testence_parallel"`. The two phases are two runs;
+baseline, comparing `api.request` durations and test wall time. Then run the S set:
+`pytest -m "not testence_parallel"`. The two phases are two runs;
 evaluate each with `ci evaluate`.
 
 A run that overlapped someone else's work on the same target is not evidence for

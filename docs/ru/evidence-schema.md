@@ -53,7 +53,8 @@ events одной попытки также создают явную проек
 | `test` | string? | ID теста; отсутствует у run-level событий |
 
 Каждое test-событие также содержит `case_id`, `variant_id`, `attempt_id`, `proof_id`
-и digest-only `parameters`. Полный pytest `nodeid` остаётся source locator. ID scenario
+и digest-only `parameters`. Полный pytest `nodeid` без суффикса `@<group>`, который
+pytest-xdist добавляет при `--dist loadgroup`, остаётся source locator. ID scenario
 из PlanSpec служит явным логическим case ID; fallback по source не обещает пережить rename.
 
 ## Виды событий и payload
