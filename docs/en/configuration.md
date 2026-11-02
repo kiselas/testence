@@ -147,6 +147,7 @@ UI and the API see the same thing.
 | `TESTENCE_TESTPLAN_UNRESOLVED` | `warn` (default) or `fail` for plan entries that match no collected test |
 | `TESTENCE_RERUNS` | repeat a failed test up to N times, 0–5 (`--testence-reruns`); every attempt is recorded ([reporting](reporting.md#reruns-and-flaky-tests)) |
 | `TESTENCE_ALLURE_RESULTS` | stream Allure results into this directory as tests end (`--testence-allure-results`) |
+| `TESTENCE_FULL_TRACE` | `1` keeps the frames of Testence and Playwright below the test in failure tracebacks (`--testence-full-trace`; pytest's `--full-trace` does the same) |
 | `TESTENCE_EMPTY_TESTPLAN` | `fail` (default) or explicit `noop`; the CLI equivalent is `--testence-empty-testplan=noop` |
 
 ### When a pytest session records a run
