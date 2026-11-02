@@ -146,6 +146,7 @@ TESTENCE_VERIFY_TLS=false                        # только изолиров
 | `TESTENCE_TESTPLAN_UNRESOLVED` | `warn` (по умолчанию) или `fail` для записей плана без совпавшего теста |
 | `TESTENCE_RERUNS` | повторить упавший тест до N раз, 0–5 (`--testence-reruns`); записывается каждая попытка ([отчётность](reporting.md#повторы-и-нестабильные-тесты)) |
 | `TESTENCE_ALLURE_RESULTS` | потоковая запись результатов Allure в этот каталог по мере окончания тестов (`--testence-allure-results`) |
+| `TESTENCE_FULL_TRACE` | `1` оставляет в трассировке падения кадры Testence и Playwright ниже теста (`--testence-full-trace`; то же делает `--full-trace` pytest) |
 | `TESTENCE_EMPTY_TESTPLAN` | `fail` по умолчанию или явный `noop`; CLI-эквивалент — `--testence-empty-testplan=noop` |
 
 ### Когда сессия pytest записывает запуск

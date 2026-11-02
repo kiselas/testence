@@ -47,6 +47,7 @@ from testence.testplan import (
     load_testplan,
     resolve,
 )
+from testence.tracebacks import FULL_TRACE_ENV, FULL_TRACE_HINT, shorten
 from testence.triage import assemble_pack
 from testence.triage.heal import propose
 
@@ -163,6 +164,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "run with one negative control declared under controls in testence.json; "
             "the run proves that tests fail for their claims, never product behaviour "
             "(ADR-0033)"
+        ),
+    )
+    group.addoption(
+        "--testence-full-trace",
+        action="store_true",
+        default=_as_bool(os.environ.get(FULL_TRACE_ENV, "")),
+        help=(
+            "keep the frames of Testence and Playwright below the test in failure "
+            "tracebacks, for debugging Testence itself (env TESTENCE_FULL_TRACE=1)"
         ),
     )
     group.addoption(
@@ -721,8 +731,15 @@ def _code_hash(path: Any) -> str:
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
+    # Before the report renders the failure: it should start at the test, not under
+    # a screen of Testence and Playwright frames whose message the step repeats.
+    hidden = 0
+    if call.excinfo is not None and not _full_trace(item.config):
+        hidden = shorten(call.excinfo)
     outcome = yield
     report = outcome.get_result()
+    if hidden and report.failed and hasattr(report.longrepr, "addsection"):
+        report.longrepr.addsection("testence", f"{hidden} {FULL_TRACE_HINT}")
     item.stash.setdefault(_REPORTS_KEY, {})[report.when] = report  # type: ignore[misc]
     state = item.config.stash.get(_LIFECYCLE_KEY, None)
     if state is None or state.closed:
@@ -1049,6 +1066,14 @@ def pytest_collection_finish(session: pytest.Session) -> None:
     )
     if not state.writer.worker:
         state.selected = len(session.items)
+
+
+def _full_trace(config: pytest.Config) -> bool:
+    return bool(config.getoption("--testence-full-trace") or config.getoption("fulltrace", False))
+
+
+def _as_bool(value: str) -> bool:
+    return value.strip().lower() in ("1", "true", "yes", "on")
 
 
 def _test_id(item: pytest.Item) -> str:
