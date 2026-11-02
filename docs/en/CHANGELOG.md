@@ -15,6 +15,14 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   excluded, and prove the class with repeated parallel runs, a neighbour process
   writing foreign data and a cleanup audit. A failure seen only in parallel
   reclassifies the case; it is never rerun.
+- A failure traceback starts at the test. When Testence took part in a failure, the
+  frames of Testence and Playwright below the test's deepest own frame are hidden, a
+  failed step no longer prints its cause chain (its message already carries the cause
+  and the call log), and a `testence` section says how many frames were hidden. A
+  failed `ex.click` went from 191 lines with the test line 94th to 16 with it 6th; the
+  ledger's `error_trace` is shortened the same way. `--testence-full-trace`,
+  `TESTENCE_FULL_TRACE=1` or pytest's `--full-trace` keep every frame. A failure
+  inside a Testence fixture, or in Playwright called directly, keeps its full trace.
 - `testence init` declares a `drop-save` control in `testence.json`, and the onboarding
   test applies it. `testence demo run` adds a fourth run, `negative_control`: the green
   test with its save broken on purpose, accepted only when it fails on
