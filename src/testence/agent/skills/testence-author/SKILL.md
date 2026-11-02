@@ -17,7 +17,7 @@ For automated screenshot regression or an isolated client simulation, also read
 
 1. Locate the PlanSpec and run `testence plan validate <path> --json`. Do not author against an invalid plan.
 2. Run `testence plan prepare <path> --project <root> --json` before opening a browser; add `--profile <name>` only for a profile the project's `testence.json` declares under `profiles`. Work only on scenarios reported `ready`; report each `blocked` reason instead of inventing a fixture, oracle, or skip. When the project defines a fix recipe and the approved scope permits it, use `--apply-fixes`, inspect the second report, and continue only for scenarios that became ready.
-3. Build a small claim-to-proof map: action, UI observation, independent oracle, seed, cleanup, and expected failure signal.
+3. Build a small claim-to-proof map: action, UI observation, independent oracle, expected value and where it comes from, seed, cleanup, and expected failure signal. Stop on a scenario whose expected outcome needs a guess (see the authoring rules).
 4. Confirm the target, account/profile, mutation boundary, seed isolation, and allowed browser actions. Do not touch production or shared data without explicit authority.
 5. Inspect source, API schemas, and project adapters. Use controlled browser discovery only against the approved target.
 6. Prefer role plus accessible name, then label/placeholder, stable test ID, and only then CSS. Keep application-specific targets in project code.
@@ -28,6 +28,17 @@ For automated screenshot regression or an isolated client simulation, also read
 ## Authoring rules
 
 - Generated code is a hypothesis until it has run live.
+- Take every expected value from the PlanSpec assertion's `expected` or from data the
+  test itself created through its seed. What discovery shows (`testence_snapshot`,
+  `explore`, a first run, `testence oracle suggest`) chooses targets, endpoints and
+  field names; it never supplies the value an assertion compares against. An
+  expectation copied from the current UI or API restates today's behaviour, defects
+  included, and cannot fail for the claim.
+- Do not author a scenario whose expected outcome you would have to guess: no number,
+  unit, boundary, order or exact text, or words such as "some", "usually", "a while",
+  "quickly" or "correctly". Report it as an open question with the readings you see
+  and continue only after a person updates the PlanSpec. Do not encode your guess in
+  the test or in the plan.
 - Never replace an independent oracle with only rendered UI or an HTTP acknowledgement.
 - Avoid arbitrary sleeps, broad text matches, unbounded retries, and silent locator fallback.
 - Do not modify product code merely to make the generated test pass.

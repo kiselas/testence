@@ -22,6 +22,10 @@ Create the semantic contract before creating test code or exploring the live UI.
 
 - Plan observable outcomes, not browser gestures or selectors.
 - Do not invent product behavior. Mark an unknown as an open question or exclusion.
+- Give every required assertion a concrete `expected`: a value, or a rule that computes
+  it from the seed. When the source has no number, unit, boundary, order or exact text,
+  or uses words such as "some", "usually", "a while", "quickly" or "correctly", write
+  an open question with the readings you see instead of picking one.
 - A toast, request status, or visible card does not by itself prove persistence.
 - Keep IDs stable through wording changes; change an ID when the meaning changes.
 - Do not browse the live UI or write test code unless the user also asks to continue into authoring.

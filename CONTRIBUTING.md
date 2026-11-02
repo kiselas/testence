@@ -57,6 +57,11 @@ Run the narrowest relevant benchmark when changing waits, engine behaviour, evid
 capture or runner lifecycle. Do not improve a number by weakening the scenario or its
 oracle. Update the checked-in result, command and environment together.
 
+A change that turns a red check green by weakening it is rejected, whoever wrote it.
+[AGENTS.md](AGENTS.md) lists what counts: an optional claim, a removed binding, a
+skip, an `expected` rewritten to match current behaviour, a UI check in place of an
+independent oracle, or a lowered quality mode.
+
 External application authoring/replay checks are described in
 [bench/oss/README.md](bench/oss/README.md). On Windows, an inaccessible system pytest
 temp directory can be bypassed with a fresh `--basetemp=.tmp-pytest-<unique-run>`.

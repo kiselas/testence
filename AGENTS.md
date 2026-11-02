@@ -34,6 +34,19 @@ explicit known port instead.
 
 Never retry an interaction to hide a defect, weaken a claim to obtain green,
 silently heal a locator, or call a screenshot alone proof of backend correctness.
+To obtain green, also never:
+
+- mark a required claim or assertion optional, or drop it from a scenario;
+- remove a `claim_id` or `assertion_id` from an assertion;
+- add `skip`, `xfail` or a deselection to a bound test;
+- rewrite an `expected` value, in the plan or the test, to match current behaviour
+  without a person's decision;
+- replace an independent oracle with a UI check, or a fresh read with a cached one;
+- lower `ci evaluate` from `--quality assurance` to `execution`.
+
+Expected values come from the PlanSpec or the test's own seed, not from what the
+running product showed. When an outcome is ambiguous, stop and ask; do not guess.
+
 Record exact commands, target revisions, environment, observed failures, timings
 and artifact paths. Distinguish execution status from verified assurance.
 
