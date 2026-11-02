@@ -30,6 +30,7 @@ from testence.auth.strategies import api_headers_from_storage
 from testence.config import Settings
 from testence.contracts import PlanSpec, load_plan
 from testence.contracts._validation import ContractError
+from testence.controls import Control, ControlError, resolve_control
 from testence.dsl import Actions
 from testence.engine import Engine, create_engine, engine_capabilities
 from testence.evidence import RUN_ID_ENV, EvidenceWriter, new_run_id
@@ -155,6 +156,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--testence-control",
+        default=None,
+        metavar="NAME",
+        help=(
+            "run with one negative control declared under controls in testence.json; "
+            "the run proves that tests fail for their claims, never product behaviour "
+            "(ADR-0033)"
+        ),
+    )
+    group.addoption(
         "--testence-testplan-unresolved",
         choices=UNRESOLVED_POLICIES,
         default=os.environ.get("TESTENCE_TESTPLAN_UNRESOLVED", "warn"),
@@ -184,6 +195,9 @@ def pytest_configure(config: pytest.Config) -> None:
         "reports; anonymous=True runs ex without logging in",
     )
     reruns = rerun_count(config)
+    if reruns and config.getoption("--testence-control"):
+        # A repeated attempt can erase the defect signature the control exists to show.
+        raise pytest.UsageError("--testence-control cannot be combined with --testence-reruns")
     if reruns and not config.pluginmanager.has_plugin("testence-reruns"):
         config.pluginmanager.register(Reruns(reruns), "testence-reruns")
     config.stash[_RECORD_KEY] = _asked_to_record(config)
@@ -879,6 +893,10 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         raise pytest.UsageError(f"invalid Testence settings: {exc}") from exc
     _browser_reuse(config, settings)
     try:
+        control = resolve_control(settings.extra, config.getoption("--testence-control"))
+    except ControlError as exc:
+        raise pytest.UsageError(f"invalid Testence control: {exc}") from exc
+    try:
         redaction_policy = settings.redaction_policy()
         redact_values = settings.redaction_values()
     except ValueError as exc:
@@ -896,6 +914,8 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         from testence.export.stream import AllureStream
 
         writer.add_listener(AllureStream(Path(stream_dir), writer.run_dir))
+    # Only a run with a control carries the field; an ordinary ledger is unchanged.
+    control_field: dict[str, Any] = {"control": control.to_json()} if control else {}
     writer.emit(
         "run.start",
         testence=__version__,
@@ -904,6 +924,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         redaction=redaction_policy.to_json(),
         allure_naming=_allure_naming(settings),
         allure_parameters=_allure_parameters(settings),
+        **control_field,
         fingerprint={
             "os": host.os_name(),
             "python": platform.python_version(),
@@ -1852,6 +1873,21 @@ def testence_namespace(
 @pytest.fixture
 def testence_seed_marker(testence_namespace: TestNamespace) -> str:
     return testence_namespace.marker
+
+
+@pytest.fixture(scope="session")
+def testence_control(request: pytest.FixtureRequest, testence_settings: Settings) -> Control | None:
+    """The negative control this run was started with (``--control``), or ``None``.
+
+    The test applies it: a response adapter, a seed variant or a flag on a synthetic
+    target. Testence only records which control was active (ADR-0033).
+    """
+    try:
+        return resolve_control(
+            testence_settings.extra, request.config.getoption("--testence-control")
+        )
+    except ControlError as exc:
+        raise pytest.UsageError(f"invalid Testence control: {exc}") from exc
 
 
 @pytest.fixture(scope="session")

@@ -289,6 +289,26 @@ workers, внешние перехватчики и маршруты, устан
 3. проверьте, что ожидаемый assertion падает по ожидаемой причине;
 4. восстановите target и снова получите зелёный тест.
 
+Шаг 2 стоит записать как [негативный контроль](configuration.md#негативные-контроли):
+тогда падение — это evidence, а не фраза в отчёте. Объявите контроль в
+`testence.json`, примените его в тесте и выполните один прогон с ним:
+
+```python
+def test_created_widget_is_persisted(ex, testence_api, testence_control):
+    if testence_control is not None and testence_control.name == "drop-save":
+        ex.rewrite_response("*/api/widgets", lambda body: {**body, "id": None}, method="POST")
+    ...
+```
+
+```bash
+testence run --control drop-save -- tests_e2e/test_widgets.py -q
+testence inspect runs/<run>
+```
+
+`inspect` показывает каждый claim, на который нацелен контроль, как `proven`,
+`stayed_green` или `wrong_reason`. `ci evaluate --quality-mode proven` проверяет то же
+самое против зелёного прогона ([CI](ci.md#требовать-доказательство-что-тесты-умеют-падать)).
+
 Marker проверяется во время pytest collection. Во время выполнения его plan и claims
 попадают в каждое событие теста, failure pack и HTML report. При ожидаемом падении
 заполните созданный в pack `verdict.template.json`, сохраните как `verdict.json` и

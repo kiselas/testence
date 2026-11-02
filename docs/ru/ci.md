@@ -59,3 +59,36 @@ jobs:
   экспортируйте `--to ctrf`.
 - GitLab CI и другим системам нужны те же четыре команды: `pip install testence`,
   `python -m playwright install --with-deps chromium`, `testence run`, `testence export`.
+
+## Требовать доказательство, что тесты умеют падать
+
+`ci evaluate --quality-mode assurance` (по умолчанию) требует, чтобы каждый тест был
+`verified`. Тест, ожидаемое значение которого списано с продукта, тоже `verified`.
+Необязательный режим `proven` дополнительно требует для каждого обязательного claim
+прогон с [негативным контролем](configuration.md#негативные-контроли), в котором тот же
+тест упал на assertion этого claim ([ADR-0033](../en/adr/0033-negative-proof.md)):
+
+```bash
+testence run --project . --run-id "ci-${GITHUB_RUN_ID}"
+testence run --project . --run-id "ci-${GITHUB_RUN_ID}-drop-save" --control drop-save || true
+testence ci evaluate "runs/ci-${GITHUB_RUN_ID}" --run-id "ci-${GITHUB_RUN_ID}" \
+  --test-exit 0 --quality-mode proven \
+  --negative-run "runs/ci-${GITHUB_RUN_ID}-drop-save" -o ci-receipt.json
+```
+
+Негативный прогон должен падать, поэтому его код выхода не определяет результат джоба.
+В receipt поле `quality.negative_proof` даёт по каждому claim один исход:
+
+| исход | значение |
+|---|---|
+| `proven` | при активном контроле тест упал на этом claim |
+| `stayed_green` | при активном контроле тест прошёл: этот дефект он не заметит |
+| `wrong_reason` | тест упал, но на других claim |
+| `inconclusive` | тест не запускался, повторялся или упал не на assertion |
+| `stale` | тест или его план изменились между двумя прогонами |
+| `no_control` | ни один переданный контроль не нацелен на этот claim |
+
+Падения claim, на которые контроль не нацелен, перечислены в `collateral_claims`.
+Каждый контроль стоит ещё одного прогона, а у части claim честного контроля нет,
+поэтому `proven` — более строгий уровень для самых важных claim, а не режим по
+умолчанию.

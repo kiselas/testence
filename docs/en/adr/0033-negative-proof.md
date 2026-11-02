@@ -1,6 +1,7 @@
 # ADR-0033: Negative proof — a recorded run in which the test failed for its claim
 
-Status: accepted (design); implementation tracked as S06–S09 of
+Status: implemented (engineering): `testence.controls`, `--control`,
+`ci evaluate --quality-mode proven`; tracked as S06–S09 of
 [stage 5](../../stages/05-proof-strength/README.md).
 
 ## Context

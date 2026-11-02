@@ -39,6 +39,8 @@ h1 { font-size:20px; margin:0 0 4px; }
 .sub { color:var(--muted); margin-bottom:20px; }
 .integrity { color:var(--fail); background:var(--fail-bg); border:1px solid var(--fail);
              border-radius:10px; padding:10px 14px; margin-bottom:18px; }
+.negative { border:1px dashed var(--muted); border-radius:10px; padding:10px 14px;
+            margin-bottom:18px; }
 .summary { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px; }
 .stat { background:var(--card); border:1px solid var(--line); border-radius:10px;
         padding:10px 16px; min-width:110px; }
@@ -89,6 +91,7 @@ footer { color:var(--muted); font-size:12px; margin-top:32px; }
   <h1>Testence run <code>__RUN_ID__</code></h1>
   <div class="sub" id="fingerprint"></div>
   <div class="integrity" id="integrity" hidden></div>
+  <div class="negative" id="negative" hidden></div>
   <div class="summary" id="summary"></div>
   <div id="tests"></div>
   <footer>schema testence/2 · report is a view over run.jsonl — agents read the ledger,
@@ -121,6 +124,14 @@ if (runEnd?.run_status === "incomplete") {
   const warning = document.getElementById("integrity");
   warning.hidden = false;
   warning.textContent = `INCOMPLETE RUN${issues.length ? " · " + issues.join(" · ") : ""}`;
+}
+if (runStart?.control) {
+  const control = runStart.control;
+  const banner = document.getElementById("negative");
+  banner.hidden = false;
+  banner.textContent = `NEGATIVE RUN · control ${control.name}: ${control.description}` +
+    ` · targets ${(control.claims || []).join(", ")}` +
+    " · a failure here shows a test can fail for its claim; it is not a product verdict";
 }
 const stats = [
   ["tests", byTest.size],

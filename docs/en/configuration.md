@@ -343,6 +343,31 @@ may be kept, and note each file is marked `redaction: none`. Only
 stream do not. They need a context Testence owns, so
 an attached browser or a persistent profile refuses them.
 
+## Negative controls
+
+A control names one way to break the target and the claims it makes false. A test
+that stays green with the control active cannot detect the defect its claim is about
+([ADR-0033](adr/0033-negative-proof.md)).
+
+```json
+{
+  "controls": {
+    "drop-save": {
+      "description": "The API answers the save but stores nothing",
+      "claims": ["widgets.create.persisted"]
+    }
+  }
+}
+```
+
+`testence run --control drop-save` (pytest `--testence-control drop-save`) activates
+one control for the whole run and records it in `run.start`. Testence does not break
+anything itself: the test reads the `testence_control` fixture and applies the
+control, for example with `ex.rewrite_response`, a seed variant or a flag on a
+synthetic target. An undeclared name and `--testence-reruns` with a control are
+usage errors. A run made with a control never proves product behaviour, and
+`ci evaluate` refuses it as the run under evaluation.
+
 ## Running in parallel
 
 ```bash
