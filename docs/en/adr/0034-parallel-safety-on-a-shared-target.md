@@ -1,6 +1,7 @@
 # ADR-0034: Parallel safety on a shared target, classified from the ledger and proven
 
-Status: accepted (methodology); a ledger footprint command and a neighbour helper are pending.
+Status: accepted (methodology), 2026-11-02; a ledger footprint command and a neighbour
+helper are pending.
 
 ## Context
 
@@ -42,9 +43,10 @@ Option 3. A test runs in parallel on a shared target only after it is classified
 its footprint and the class survives the proof gates below.
 
 **Footprint.** For each case, the serial baseline run gives two sources: the `net`
-event (browser mutations and reads, identifiers templated as `{id}`) and `api.request`
-events (fixture, seed and oracle calls, with full URL and body). From them, per
-resource (templated path), the case has:
+event (browser mutations and reads under `api_prefix`, identifiers templated as `{id}`)
+and `api.request` events (fixture, seed and oracle calls, with full URL and a redacted
+body clipped to 4 000 characters). From them, per resource (templated path), the case
+has:
 
 - own writes: create, update, delete of objects the case created in the same attempt
   or that carry its namespace marker;
@@ -56,20 +58,34 @@ resource (templated path), the case has:
 An unscoped read matters only when an assertion or a locator depends on it: a count, an
 emptiness check, an order, a row index, a page position. Opening a list page and then
 searching for the case's own object is a scoped read even though the page first loaded
-the unfiltered list. Anything the ledger cannot see (direct database seeding, a second
-HTTP client, a message bus) makes the footprint unknown.
+the unfiltered list. Anything the ledger cannot see (browser requests outside
+`api_prefix`, websockets, direct database seeding, a second HTTP client, a message bus)
+makes the footprint unknown.
 
 **Classes.**
 
 | class | condition | how it runs |
 |---|---|---|
 | P | no shared writes; no assertion depends on an unscoped read of a resource another parallel case writes; no auth, account or global state | `@pytest.mark.testence_parallel`, any worker |
-| G:`name` | shared writes or dependent unscoped reads on one resource `name` that no P case touches | `testence_parallel` plus `@pytest.mark.xdist_group("name")` under `--dist loadgroup`: serial within the group, parallel with the rest |
+| G:`name` | shared writes or dependent unscoped reads on one resource `name` that no P case touches | target: `testence_parallel` plus `@pytest.mark.xdist_group("name")` under `--dist loadgroup`, serial within the group and parallel with the rest. Until the identity defect below is fixed, the class is recorded and the case runs in the serial phase |
 | S | login, logout, lockout and session tests; account or global settings; reference data; several shared resources; a control that changes server state; unknown footprint | a separate serial run, never concurrent with workers |
-| X | not run on a shared target at all, for example real deployments or external delivery | deselected with a recorded reason |
+| X | must not run on a shared target, for example real deployments or external delivery; decided from the inventory before any run | runs only on a dedicated target; the shared-target run leaves it out with the recorded reason |
 
 A case with no proof stays S. Classification moves a case only towards less
-parallelism without proof; moving it towards P needs the gates again.
+parallelism without proof; moving it towards P needs the gates again. A failure never
+moves a case to X: AGENTS.md forbids deselecting a bound test to obtain green, and
+interference moves a case to G or S, where it still runs.
+
+**Completeness.** The parallel phase, the serial phase and the recorded X cases
+together select exactly the collected set. A case selected by neither phase is a
+silent deselection and blocks the run.
+
+**Enforcement.** `testence debug --workers` refuses a parallel run unless
+`extra.parallel` has `enabled: true`, `accounts` of `isolated` or `non-revoking` and
+`cleanup: "asserted-absence"`, and every selected case carries `testence_parallel` and
+`testence_namespace`. A plain `pytest -n` checks none of it. `testence debug` passes
+only `-n`; an `xdist_group` marker has no effect without `--dist loadgroup`, and the
+cases of one group then run at the same time.
 
 **Project prerequisites.** Data created by a case carries the `testence_namespace`
 marker of that case, not a ticket or feature prefix. Cleanup deletes only that marker
@@ -78,23 +94,29 @@ interrupted runs are swept in one serial step before workers start, never by a
 per-case fixture. The account policy is recorded as `extra.parallel.accounts`:
 `isolated` when a project auth strategy gives each worker its own account,
 `non-revoking` when a probe showed that a second login keeps the first session valid
-and no test asserts per-user server state. Lockout is never probed by failing logins
-on a shared account; it is taken from the product's documentation or owner.
+and no test asserts per-user server state. A cached session (`session_probe_path`)
+lets workers share one login but takes no lock: on a cold cache every worker logs in
+at once, so it does not make a revoking target safe. Lockout is never probed by
+failing logins on a shared account; it is taken from the product's documentation or
+owner.
 
 **Proof gates.** All on the same target, revision and worker count N:
 
 1. Serial baseline: the selected set is green and its footprints are derived.
-2. Repetition: the P and G set runs in parallel K times (K ≥ 3) with the same verdicts
-   as the baseline.
-3. Neighbour: during one parallel run, a separate process creates, renames and deletes
-   objects with a foreign marker in every resource the P set writes or reads
-   unscoped. A verdict change marks the case as reading shared state. This is the
-   negative control of isolation: a P class is proven only after it survived the
-   neighbour.
+2. Repetition: the parallel set (P, and G once groups work) runs K times (K ≥ 3) with
+   the same verdicts as the baseline, without `--testence-reruns`.
+3. Neighbour: during one parallel run, also without reruns, a separate process
+   creates, renames and deletes objects with a foreign marker in every resource the P
+   set writes or reads unscoped. A verdict change marks the case as reading shared
+   state. This is the negative control of isolation: a P class is proven only after
+   it survived the neighbour. The neighbour writes to the shared target, so it needs
+   the same authority as the tests and cleans its own marker with asserted absence.
 4. Cleanup audit: every update or delete a case sent through the API client targets an
    ID it created in the same attempt or a name carrying its marker; after the run, a
    search for each case's marker finds nothing. Browser-side mutations are templated in
-   `net`; for them, the step's target must be located by the case's marker.
+   `net`; for them, the step's target must be located by the case's marker. When a
+   created ID is not visible in the recorded, redacted and clipped response body, the
+   audit of that case is inconclusive and the case stays S.
 5. False red: a failure that appears only in parallel is interference. It reclassifies
    the case or fixes its scoping. It is never rerun, retried, or absorbed by a longer
    timeout.
@@ -107,9 +129,15 @@ project document beside the tests, so another agent can recheck them.
 
 ## Consequences
 
+- Groups are blocked by an identity defect. Under `--dist loadgroup`, pytest-xdist
+  appends `@name` to the node ID of a grouped test. Testence derives the ledger's
+  `test`, the fallback `case_id`, the variant of a parametrized test and the
+  namespace marker from the node ID: in a probe on 2026-11-02 the two variants of one
+  grouped test received two case IDs and markers that differed from the serial run.
+  Until identity ignores that suffix, G cases run in the serial phase.
 - The first parallel run of a suite costs a serial baseline, K parallel runs and a
-  neighbour run. Afterwards only changed cases and cases whose footprint changed need
-  the gates again.
+  neighbour run. Every later run's ledger yields footprints again; only changed cases
+  and cases whose footprint differs from the recorded one need the gates again.
 - The serial S phase and the parallel phase are two runs with two run IDs;
   `ci evaluate` takes one run, so CI evaluates each phase on its own.
 - An account per worker needs a project auth strategy; the framework has no per-worker
