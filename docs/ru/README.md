@@ -51,6 +51,6 @@
 - [Готовность к open source](open-source-readiness.md)
 - [Протокол пилота](pilot-protocol.md)
 - [Аудиты](../audits/2026-09-13/README.md) и этапы релиза
-  ([3](../stages/03-r1-release/README.md), [4](../stages/04-public-launch/README.md))
+  ([3](../stages/03-r1-release/README.md), [4](../stages/04-public-launch/README.md), [5](../stages/05-proof-strength/README.md))
 
 [English documentation](../en/README.md)
