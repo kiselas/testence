@@ -15,7 +15,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["mode", "exit_code", "errors"],
       "properties": {
-        "mode": {"enum": ["execution", "assurance"]},
+        "mode": {"enum": ["execution", "assurance", "proven"]},
         "exit_code": {"type": "integer"},
         "errors": {"type": "array", "items": {"type": "string"}},
         "testplan_unresolved": {
@@ -24,7 +24,9 @@
             "type": "object", "additionalProperties": false,
             "properties": {"id": {"type": "string"}, "selector": {"type": "string"}}
           }
-        }
+        },
+        "flaky": {"type": "array", "items": {"type": "string"}},
+        "negative_proof": {"$ref": "#/$defs/negative_proof"}
       }
     },
     "delivery": {
@@ -39,6 +41,55 @@
     "final_exit": {"type": "integer"}
   },
   "$defs": {
+    "proof_outcome": {
+      "enum": ["proven", "stayed_green", "wrong_reason", "inconclusive", "stale", "no_control"]
+    },
+    "negative_proof": {
+      "type": "object", "additionalProperties": false,
+      "required": ["runs", "claims", "counts"],
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["run_id", "control"],
+            "properties": {
+              "run_id": {"type": "string"},
+              "control": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "claims": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object", "additionalProperties": false,
+            "required": ["outcome", "evidence"],
+            "properties": {
+              "outcome": {"$ref": "#/$defs/proof_outcome"},
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["outcome", "reason", "test", "run_id", "control"],
+                  "properties": {
+                    "outcome": {"$ref": "#/$defs/proof_outcome"},
+                    "reason": {"type": "string"},
+                    "test": {"type": "string"},
+                    "run_id": {"type": "string"},
+                    "control": {"type": "string"},
+                    "collateral_claims": {"type": "array", "items": {"type": "string"}}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
     "outcome": {
       "type": "object", "additionalProperties": false,
       "required": ["exit_code"],

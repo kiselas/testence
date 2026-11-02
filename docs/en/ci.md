@@ -59,3 +59,35 @@ jobs:
   export `--to ctrf`.
 - GitLab CI and other runners need the same four commands: `pip install testence`,
   `python -m playwright install --with-deps chromium`, `testence run`, `testence export`.
+
+## Requiring proof that tests can fail
+
+`ci evaluate --quality-mode assurance` (the default) requires every test to be
+`verified`. A test whose expected value was copied from the product is `verified` too.
+The opt-in `proven` mode also requires, for every required claim, a run with a
+[negative control](configuration.md#negative-controls) in which the same test failed
+an assertion bound to that claim ([ADR-0033](adr/0033-negative-proof.md)):
+
+```bash
+testence run --project . --run-id "ci-${GITHUB_RUN_ID}"
+testence run --project . --run-id "ci-${GITHUB_RUN_ID}-drop-save" --control drop-save || true
+testence ci evaluate "runs/ci-${GITHUB_RUN_ID}" --run-id "ci-${GITHUB_RUN_ID}" \
+  --test-exit 0 --quality-mode proven \
+  --negative-run "runs/ci-${GITHUB_RUN_ID}-drop-save" -o ci-receipt.json
+```
+
+The negative run is expected to fail, so its exit code is not the job's. The receipt's
+`quality.negative_proof` lists each claim with one outcome:
+
+| outcome | meaning |
+|---|---|
+| `proven` | the test failed on this claim with the control active |
+| `stayed_green` | the test passed with the control active: it cannot detect this defect |
+| `wrong_reason` | the test failed, but on other claims |
+| `inconclusive` | the test did not run, was repeated, or failed outside an assertion |
+| `stale` | the test or its plan changed between the two runs |
+| `no_control` | no supplied control targets the claim |
+
+Failures of claims a control does not target are listed as `collateral_claims`. Each
+control costs one more run, and some claims have no honest control, so `proven` is a
+stricter level for the claims that matter most, not the default.

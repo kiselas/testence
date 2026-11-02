@@ -92,8 +92,13 @@ For every bound claim, record:
 
 1. Validate the PlanSpec.
 2. Run the exact test against the healthy target.
-3. Activate a declared defect or safe negative control.
-4. Run the same code and confirm the expected claim fails for the expected reason.
+3. Activate a declared defect or safe negative control: a `controls` entry in
+   `testence.json` naming the claims it falsifies, applied by the test when the
+   `testence_control` fixture names it.
+4. Run the same code with `testence run --control <name>` and confirm the expected
+   claim fails for the expected reason: `testence inspect <run-dir>` lists each
+   targeted claim as `proven`, `stayed_green` or `wrong_reason`. `stayed_green` means
+   the test cannot detect the defect; fix the test, never the control.
 5. Inspect `run.jsonl` and the bounded pack for plan and claim bindings. Run
    `testence inspect <run-dir> --json`: healthy/restored cases must have verified
    assurance, and intended defect cases violated assurance, with no integrity errors.

@@ -292,6 +292,26 @@ A green test is not evidence that the assertion is useful. Before accepting a ca
 3. verify the expected assertion fails for the expected reason;
 4. restore the target and verify the test is green again.
 
+Record step 2 as a [negative control](configuration.md#negative-controls) so the
+failure is evidence rather than a sentence in a report. Declare it in
+`testence.json`, apply it in the test, and run once with it:
+
+```python
+def test_created_widget_is_persisted(ex, testence_api, testence_control):
+    if testence_control is not None and testence_control.name == "drop-save":
+        ex.rewrite_response("*/api/widgets", lambda body: {**body, "id": None}, method="POST")
+    ...
+```
+
+```bash
+testence run --control drop-save -- tests_e2e/test_widgets.py -q
+testence inspect runs/<run>
+```
+
+`inspect` lists each claim the control targets as `proven`, `stayed_green` or
+`wrong_reason`. `ci evaluate --quality-mode proven` checks the same thing against the
+green run ([CI](ci.md#requiring-proof-that-tests-can-fail)).
+
 The marker is validated during pytest collection. At runtime its plan and claims reach
 every test event, the failure pack and the HTML report. On the expected failure, complete
 the pack's `verdict.template.json`, save it as `verdict.json`, and validate its binding to

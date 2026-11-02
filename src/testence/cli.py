@@ -361,7 +361,17 @@ def main(argv: list[str] | None = None) -> int:
     p_ci_evaluate.add_argument("--run-id", required=True)
     p_ci_evaluate.add_argument("--test-exit", type=int, required=True)
     p_ci_evaluate.add_argument(
-        "--quality-mode", choices=("execution", "assurance"), default="assurance"
+        "--quality-mode",
+        choices=("execution", "assurance", "proven"),
+        default="assurance",
+        help="proven also requires negative proof of every required claim (ADR-0033)",
+    )
+    p_ci_evaluate.add_argument(
+        "--negative-run",
+        type=Path,
+        action="append",
+        default=[],
+        help="a run made with --control; repeat for each control (needed by proven)",
     )
     p_ci_evaluate.add_argument("--delivery-receipt", type=Path, default=None)
     p_ci_evaluate.add_argument("--ctrf", type=Path, default=None)
@@ -417,6 +427,12 @@ def main(argv: list[str] | None = None) -> int:
         "--project", type=Path, default=Path("."), help="project whose scaffold to run"
     )
     p_run.add_argument("--run-id", default=None, help="explicit run id; generated when omitted")
+    p_run.add_argument(
+        "--control",
+        default=None,
+        metavar="NAME",
+        help="run with a negative control declared in testence.json (ADR-0033)",
+    )
     p_run.add_argument(
         "pytest_args",
         nargs=argparse.REMAINDER,
@@ -633,8 +649,17 @@ def main(argv: list[str] | None = None) -> int:
         environment = dict(os.environ)
         environment[RUN_ID_ENV] = run_id
         print(f"testence run: {run_id}")
+        control_args = ["--testence-control", args.control] if args.control else []
         completed = subprocess.run(
-            [sys.executable, "-m", "pytest", "--rootdir", str(project), *pytest_args],
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "--rootdir",
+                str(project),
+                *control_args,
+                *pytest_args,
+            ],
             cwd=project,
             env=environment,
             check=False,
@@ -733,6 +758,13 @@ def main(argv: list[str] | None = None) -> int:
             )
             for nodeid in result["flaky"]:
                 print(f"  flaky: {nodeid} passed only after a rerun")
+            if result.get("control"):
+                print(
+                    f"  negative run, control {result['control']['name']}: proves that tests "
+                    "fail, not that the product works"
+                )
+                for claim, outcome in result["negative_proof"].items():
+                    print(f"    {claim}: {outcome}")
             for pack in result["packs"]:
                 print(f"  pack: {Path(args.run_dir) / pack}")
         return 0
@@ -1134,6 +1166,7 @@ def main(argv: list[str] | None = None) -> int:
                 allow_empty=args.allow_empty,
                 testplan_unresolved=args.testplan_unresolved,
                 flaky=args.flaky,
+                negative_runs=args.negative_run,
             )
             write_ci_receipt(args.out, receipt)
         except CIError as exc:

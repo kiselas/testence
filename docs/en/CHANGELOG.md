@@ -8,6 +8,16 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Added
 
+- Negative proof ([ADR-0033](adr/0033-negative-proof.md)). A `controls` entry in
+  `testence.json` names a way to break the target and the claims it falsifies.
+  `testence run --control NAME` (pytest `--testence-control`) runs with it, records it
+  in `run.start`, and exposes it to tests as the `testence_control` fixture.
+  `testence inspect` and the HTML report mark such a run and list each targeted claim
+  as `proven`, `stayed_green` or `wrong_reason`. `ci evaluate --quality-mode proven
+  --negative-run DIR` requires a negative proof of every required claim and writes
+  `quality.negative_proof` into the receipt. `ci evaluate` refuses a run made with a
+  control in every mode. Skill pack 0.1.21 records the control in the proof sequence.
+  The CI receipt schema now also lists `flaky`, which receipts already carried.
 - Every call of `testence_api` and of an actor's `api` is recorded as an `api.request`
   event: method, URL, status or transport error, timing and request/response bodies,
   redacted and then clipped to 4 000 characters; headers are never recorded. The calls

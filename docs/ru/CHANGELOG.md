@@ -9,6 +9,17 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
 
 ### Добавлено
 
+- Негативное доказательство ([ADR-0033](../en/adr/0033-negative-proof.md)). Запись в
+  `controls` файла `testence.json` описывает способ сломать target и claim, которые он
+  опровергает. `testence run --control NAME` (в pytest `--testence-control`) выполняет
+  прогон с ним, записывает его в `run.start` и отдаёт тестам фикстурой
+  `testence_control`. `testence inspect` и HTML-отчёт помечают такой прогон и дают
+  для каждого целевого claim `proven`, `stayed_green` или `wrong_reason`.
+  `ci evaluate --quality-mode proven --negative-run DIR` требует негативного
+  доказательства каждого обязательного claim и пишет `quality.negative_proof` в
+  receipt. Прогон с контролем `ci evaluate` не принимает ни в одном режиме. Skill pack
+  0.1.21 записывает контроль в последовательность доказательства. Схема CI receipt
+  теперь описывает и поле `flaky`, которое receipt уже содержал.
 - Каждый вызов `testence_api` и `api` актора записывается событием `api.request`:
   метод, URL, статус или ошибка соединения, время, тела запроса и ответа после
   redaction, обрезанные до 4 000 символов; заголовки не записываются никогда. Вызовы

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from testence.contracts.versions import CI_RECEIPT_SCHEMA, DELIVERY_RECEIPT_SCHEMA
+from testence.controls import evaluate_negative_proof, run_control
 from testence.export import LoadedRun
 from testence.managed_paths import is_shell_metadata
 from testence.metrics import load_run
@@ -39,6 +40,24 @@ def _load_run(run_dir: Path | str, *, run_id: str) -> LoadedRun:
         raise CIError(f"cannot read run {root}: {exc}") from exc
     if run.run_id != run_id:
         raise CIError(f"run identity mismatch: expected {run_id!r}, observed {run.run_id!r}")
+    return run
+
+
+def _load_negative_run(run_dir: Path | str, *, project_id: str) -> LoadedRun:
+    root = Path(run_dir)
+    try:
+        run = LoadedRun.from_events(load_run(root), root)
+        control = run_control(run)
+    except (OSError, ValueError) as exc:
+        raise CIError(f"cannot read negative run {root}: {exc}") from exc
+    if control is None:
+        raise CIError(f"negative run {root} was not made with --control")
+    if run.project_id != project_id:
+        raise CIError(
+            f"negative run {root} belongs to project {run.project_id!r}, not {project_id!r}"
+        )
+    if run.integrity_errors:
+        raise CIError(f"negative run {root} has integrity errors")
     return run
 
 
@@ -234,15 +253,28 @@ def evaluate_ci(
     allow_empty: bool = False,
     testplan_unresolved: str = "warn",
     flaky: str = "warn",
+    negative_runs: list[Path | str] | tuple[Path | str, ...] = (),
 ) -> dict[str, Any]:
     run = _load_run(run_dir, run_id=run_id)
     if flaky not in {"warn", "fail"}:
         raise CIError("flaky must be warn or fail")
-    if quality_mode not in {"execution", "assurance"}:
-        raise CIError("quality mode must be execution or assurance")
+    if quality_mode not in {"execution", "assurance", "proven"}:
+        raise CIError("quality mode must be execution, assurance or proven")
+    if negative_runs and quality_mode != "proven":
+        raise CIError("--negative-run is only read in quality mode proven")
+    if quality_mode == "proven" and not negative_runs:
+        raise CIError("quality mode proven needs at least one --negative-run")
+    negatives = [_load_negative_run(path, project_id=run.project_id) for path in negative_runs]
     if testplan_unresolved not in {"warn", "fail"}:
         raise CIError("testplan_unresolved must be warn or fail")
     quality_errors: list[str] = []
+    control = run_control(run)
+    if control is not None:
+        # A run with a control broke the target on purpose: it shows that tests can
+        # fail, never that the product works (ADR-0033).
+        quality_errors.append(
+            f"run was made with control {control.name!r} and cannot prove product behaviour"
+        )
     if run.run_status != "passed":
         quality_errors.append(f"run status is {run.run_status!r}")
     if run.integrity_errors:
@@ -261,10 +293,20 @@ def evaluate_ci(
     disallowed = [test.nodeid for test in run.tests if test.status not in {"passed", "skipped"}]
     if disallowed:
         quality_errors.append("non-passing execution: " + ", ".join(disallowed))
-    if quality_mode == "assurance":
+    if quality_mode in {"assurance", "proven"}:
         unverified = [test.nodeid for test in run.tests if test.assurance != "verified"]
         if unverified:
             quality_errors.append("unverified proof: " + ", ".join(unverified))
+    negative_proof: dict[str, Any] | None = None
+    if quality_mode == "proven":
+        negative_proof = evaluate_negative_proof(run, negatives)
+        unproven = [
+            f"{claim} ({entry['outcome']})"
+            for claim, entry in negative_proof["claims"].items()
+            if entry["outcome"] != "proven"
+        ]
+        if unproven:
+            quality_errors.append("no negative proof: " + ", ".join(unproven))
     quality_errors.extend(
         _artifact_checks(
             run,
@@ -311,6 +353,7 @@ def evaluate_ci(
             "errors": quality_errors,
             **({"testplan_unresolved": run.testplan_unresolved} if run.testplan_unresolved else {}),
             **({"flaky": flaky_tests} if flaky_tests else {}),
+            **({"negative_proof": negative_proof} if negative_proof is not None else {}),
         },
         "delivery": delivery,
         "final_exit": final_exit,

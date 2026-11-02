@@ -22,7 +22,7 @@ For automated screenshot regression or an isolated client simulation, also read
 5. Inspect source, API schemas, and project adapters. Use controlled browser discovery only against the approved target.
 6. Prefer role plus accessible name, then label/placeholder, stable test ID, and only then CSS. Keep application-specific targets in project code.
 7. Write ordinary pytest plus Testence actions. Bind the exact plan path and claim IDs with `@pytest.mark.testence` as shown in [references/proof-gates.md](references/proof-gates.md).
-8. Prove every claim on the healthy target, exercise a seeded defect or negative control, verify failure for the intended reason, restore the target, and rerun green from a clean seed.
+8. Prove every claim on the healthy target, exercise a seeded defect or negative control, verify failure for the intended reason, restore the target, and rerun green from a clean seed. Record the control: declare it under `controls` in `testence.json`, apply it in the test when `testence_control` names it, run `testence run --control <name>`, and read each targeted claim's outcome in `testence inspect`.
 9. Report changed files, exact commands, claim coverage, evidence/run paths, readiness and run timings, remaining ambiguity, and any proof gate that could not be completed.
 
 ## Authoring rules

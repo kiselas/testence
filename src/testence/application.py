@@ -18,6 +18,7 @@ from testence import __version__
 from testence.config import Settings, default_browser_channel
 from testence.contracts import SCHEMA_INVENTORY, load_plan, load_verdict
 from testence.contracts.versions import DEMO_RUN_SCHEMA, SCAFFOLD_SCHEMA, SUBMISSION_SCHEMA
+from testence.controls import ControlError, evaluate_negative_proof, run_control
 from testence.export import LoadedRun
 from testence.managed_paths import ManagedPathError, atomic_write_bytes, checked_member
 from testence.metrics import load_run
@@ -681,6 +682,19 @@ def inspect_run(run_dir: Path | str) -> dict[str, Any]:
     for test in run.tests:
         assurance[test.assurance] = assurance.get(test.assurance, 0) + 1
         execution[test.status] = execution.get(test.status, 0) + 1
+    try:
+        control = run_control(run)
+    except ControlError as exc:
+        raise ApplicationError(f"cannot inspect run {root}: {exc}") from exc
+    negative: dict[str, str] = {}
+    if control is not None:
+        # Within one run the digests match by construction, so this answers only
+        # whether each targeted claim failed for its own reason (ADR-0033).
+        claims = evaluate_negative_proof(run, [run])["claims"]
+        negative = {
+            claim: claims[claim]["outcome"] if claim in claims else "not_run"
+            for claim in control.claims
+        }
     return {
         "run_id": run.run_id,
         "project_id": run.project_id,
@@ -698,6 +712,8 @@ def inspect_run(run_dir: Path | str) -> dict[str, Any]:
         ],
         "reruns": sum(len(test.reruns) for test in run.tests),
         "flaky": [test.nodeid for test in run.tests if test.flaky],
+        "control": control.to_json() if control else None,
+        **({"negative_proof": negative} if control else {}),
     }
 
 
