@@ -9,15 +9,24 @@ Testence run writes, so it works for any Testence project and changes nothing in
 ## What it shows
 
 ```
-r-20261102-115736-e3fe5a · dev3 · running
-3/5 · ✓ 2 ✗ 1
-✓ 12 drag leaves own group and joins another  test_drag.py 20.2 s
-✗ 13 drag stays in group …                    test_drag.py 15.0 s
-   AssertionError: assert {'green'} == {'red'}
-● 14 drag single rule of group                test_drag.py
-   step 7: drag П07 by its handle onto the row of П01
-○ 15 reorder warning says nothing about groups test_drag.py
+Running                                                   3/5
+[██████████████████████░░░░░░░░░░░░░░░░░░]   progress bar
+✓ 2   ✗ 1   ○ 1                                  dev3 · 78.2 s
+r-20261102-115736-e3fe5a
+
+test_drag.py                                              3/4
+✓ 12  drag leaves own group and joins another         20.2 s
+✗ 13  drag stays in group stays without joins between 15.0 s
+      AssertionError: assert {'green'} == {'red'}
+● 14  drag single rule of group
+      step 7 · drag П07 by its handle onto the row of П01
+○ 15  reorder warning says nothing about groups
 ```
+
+Cases are grouped by file, the case number stands apart from its title, long titles are cut at the
+end, the running case is highlighted with the step it is on, a failed one shows the first line of
+its error. The header carries the run state, a progress bar of passed, failed and running cases, the
+counts, the profile and the run's duration once it ended.
 
 A run that wrote nothing for two minutes without `run.end` (a Ctrl+C, a killed worker) reads as
 `interrupted?`.

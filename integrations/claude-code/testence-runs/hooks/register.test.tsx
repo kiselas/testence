@@ -32,6 +32,7 @@ test('the pane shows the newest run with its cases, on every surface', async ($,
   mock.clock(on)
   on('command.register', () => ({ value: { command: 'testence-runs' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.status', () => ({ value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('store.get', () => ({ value: 'C:/project/runs' }))
   on('fs.exists', () => ({ value: true }))
@@ -48,14 +49,16 @@ test('the pane shows the newest run with its cases, on every surface', async ($,
   on('command.run', () => ({ text: '' }))
 
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
-  await $.command.run({ command: 'testence-runs', args: '' })
+  await $.command.run({ command: 'testence-runs', args: '', origin: 'typed', presentation: 'shown' } as never)
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /r-2 · dev3 · running/ }))?.text).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /12 drag/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /green/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /step 7: open the Rule group list/ })).toBeDefined()
+    expect((await ui.find({ type: 'Text', text: /^Running$/ }))?.text).toBe('Running')
+    expect((await ui.find({ type: 'Text', text: /^2\/3$/ }))?.text).toBe('2/3')
+    expect((await ui.find({ type: 'Text', text: /^r-2$/ }))?.text).toBe('r-2')
+    expect((await ui.find({ type: 'Text', text: /^drag$/ }))?.text).toBe('drag')
+    expect((await ui.find({ type: 'Text', text: /green/ }))?.text).toContain("{'red'}")
+    expect((await ui.find({ type: 'Text', text: /step 7/ }))?.text).toBe('step 7 · open the Rule group list')
     await ui.unmount()
   }
 })
@@ -63,6 +66,7 @@ test('the pane shows the newest run with its cases, on every surface', async ($,
 test('with no run yet the pane says where it looks', async ($, on) => {
   on('store.get', () => ({ value: 'C:/project/runs' }))
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect(await ui.find({ type: 'Text', text: /No Testence run yet in C:\/project\/runs/ })).toBeDefined()
+  expect((await ui.find({ type: 'Text', text: /No Testence run yet/ }))?.text).toBe('No Testence run yet')
+  expect((await ui.find({ type: 'Text', text: /Looking in/ }))?.text).toBe('Looking in C:/project/runs')
   await ui.unmount()
 })

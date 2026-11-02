@@ -69,7 +69,12 @@ const COLOR: Partial<Record<CaseRow['status'], 'success' | 'error' | 'warning' |
 
 const seconds = (ms: number | null) => (ms === null ? '' : `${(ms / 1000).toFixed(1)} s`)
 
-const readable = (name: string) => name.replace(/^test_/, '').replace(/_/g, ' ')
+// test_12_drag_leaves_own_group → «12», «drag leaves own group»: the case number of the case file stands apart.
+const caseTitle = (name: string) => {
+  const words = name.replace(/^test_/, '').split('_')
+  const number = /^\d+$/.test(words[0] ?? '') ? (words.shift() as string) : ''
+  return { number, title: words.join(' ') }
+}
 
 const join = (dir: string, name: string) => `${dir.replace(/[\\/]+$/, '')}/${name}`
 
@@ -157,46 +162,129 @@ export const register: Register = (on, options) => {
     const value = await read($, summary)
     if (!value) {
       return (
-        <Box flexDirection="column">
-          <Text dimColor>No Testence run yet in {await runsDir($)}.</Text>
-          <Text dimColor>/testence-runs &lt;runs folder&gt; follows another project.</Text>
+        <Box flexDirection="column" gap="sm" paddingY="sm">
+          <Text weight="semibold">No Testence run yet</Text>
+          <Text size="footnote" dimColor>
+            Looking in {await runsDir($)}
+          </Text>
+          <Text size="footnote" dimColor>
+            /testence-runs &lt;runs folder&gt; follows another project
+          </Text>
         </Box>
       )
     }
-    const count = (status: CaseRow['status']) => value.cases.filter(row => row.status === status).length
-    const doneCount = value.cases.filter(row => row.status !== 'queued' && row.status !== 'running').length
-    const failed = count('failed') + count('broken')
-    const room = Math.max(3, (e.viewport?.rows ?? 30) - 3)
-    const rows = value.cases.length > room ? value.cases.slice(-room) : value.cases
+
+    const count = (...statuses: CaseRow['status'][]) => value.cases.filter(row => statuses.includes(row.status)).length
+    const passed = count('passed')
+    const failed = count('failed', 'broken')
+    const running = count('running')
+    const skipped = count('skipped')
+    const done = passed + failed + skipped
+    const total = Math.max(value.total, 1)
+    const state = value.status === 'running' ? 'running' : failed > 0 ? 'failed' : value.status
+    const stateColor = state === 'running' ? 'suggestion' : state === 'passed' ? 'success' : state === 'failed' ? 'error' : 'warning'
+    const percent = (part: number) => `${Math.round((part / total) * 100)}%`
+
+    const files = [...new Set(value.cases.map(row => row.file))]
+
     return (
-      <Box flexDirection="column">
-        <Text bold>
-          {value.run} · {value.profile ?? '—'} · {value.status}
-        </Text>
-        <Text>
-          {doneCount}/{value.total} · <Text color="success">✓ {count('passed')}</Text>
-          {failed > 0 && <Text color="error"> ✗ {failed}</Text>}
-          {value.durationMs !== null && <Text dimColor> · {seconds(value.durationMs)}</Text>}
-        </Text>
-        {rows.map(row => (
-          <Box flexDirection="column">
-            <Text>
-              <Text color={COLOR[row.status]}>{SYMBOL[row.status]}</Text> {readable(row.name)}
-              <Text dimColor> {row.file} {seconds(row.durationMs)}</Text>
+      <Box flexDirection="column" gap="md" paddingY="sm">
+        <Box flexDirection="column" gap="xs">
+          <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+            <Text color={stateColor} weight="semibold" size="heading">
+              {state === 'running' ? 'Running' : state === 'passed' ? 'Passed' : state === 'failed' ? 'Failed' : state}
             </Text>
-            {row.status === 'running' && row.step && (
-              <Text dimColor>
-                {'   '}step {row.steps}: {row.step}
-              </Text>
-            )}
-            {row.error && (
-              <Text color="error" dimColor>
-                {'   '}
-                {row.error}
-              </Text>
-            )}
+            <Text tabular size="heading">
+              {done}/{value.total}
+            </Text>
           </Box>
-        ))}
+          <Box flexDirection="row" height={1} width="100%" backgroundColor="inactive">
+            <Box width={percent(passed)} backgroundColor="success" />
+            <Box width={percent(failed)} backgroundColor="error" />
+            <Box width={percent(running)} backgroundColor="suggestion" />
+          </Box>
+          <Box flexDirection="row" justifyContent="space-between">
+            <Text size="footnote" tabular>
+              <Text color="success">✓ {passed}</Text>
+              {'   '}
+              <Text color={failed ? 'error' : undefined} dimColor={!failed}>
+                ✗ {failed}
+              </Text>
+              {'   '}
+              <Text dimColor>○ {value.total - done - running}</Text>
+            </Text>
+            <Text size="footnote" dimColor tabular>
+              {value.profile ?? '—'}
+              {value.durationMs !== null ? ` · ${seconds(value.durationMs)}` : ''}
+            </Text>
+          </Box>
+          <Text size="caption" dimColor mono wrap="truncate-middle">
+            {value.run}
+          </Text>
+        </Box>
+
+        {files.map(file => {
+          const rows = value.cases.filter(row => row.file === file)
+          const fileDone = rows.filter(row => row.status !== 'queued' && row.status !== 'running').length
+          return (
+            <Box flexDirection="column" gap="xs">
+              <Box flexDirection="row" justifyContent="space-between">
+                <Text size="caption" weight="semibold" dimColor mono>
+                  {file}
+                </Text>
+                <Text size="caption" dimColor tabular>
+                  {fileDone}/{rows.length}
+                </Text>
+              </Box>
+              {rows.map(row => {
+                const { number, title } = caseTitle(row.name)
+                const isRunning = row.status === 'running'
+                return (
+                  <Box
+                    flexDirection="column"
+                    paddingX="xs"
+                    backgroundColor={isRunning ? 'subtle' : undefined}
+                  >
+                    <Box flexDirection="row" gap="sm" alignItems="center">
+                      <Box width={2}>
+                        <Text color={COLOR[row.status]} dimColor={row.status === 'queued'}>
+                          {SYMBOL[row.status]}
+                        </Text>
+                      </Box>
+                      {number && (
+                        <Text tabular dimColor>
+                          {number}
+                        </Text>
+                      )}
+                      <Box flexGrow={1} flexShrink={1} minWidth={0}>
+                        <Text wrap="truncate-end" dimColor={row.status === 'queued'} weight={isRunning ? 'medium' : undefined}>
+                          {title}
+                        </Text>
+                      </Box>
+                      <Text size="footnote" tabular dimColor>
+                        {seconds(row.durationMs)}
+                      </Text>
+                    </Box>
+                    {isRunning && row.step && (
+                      <Box paddingLeft={4}>
+                        <Text size="footnote" color="suggestion" wrap="truncate-end">
+                          step {row.steps} · {row.step}
+                        </Text>
+                      </Box>
+                    )}
+                    {row.error && (
+                      <Box paddingLeft={4}>
+                        <Text size="footnote" color="error" mono wrap="wrap">
+                          {row.error}
+                        </Text>
+                      </Box>
+                    )}
+                  </Box>
+                )
+              })}
+            </Box>
+          )
+        })}
       </Box>
     )
   })
