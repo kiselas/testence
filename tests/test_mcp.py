@@ -542,7 +542,6 @@ def test_exploring_a_real_page(tmp_path, monkeypatch):
     """A real browser: the login page's controls come back as Targets that work."""
     (tmp_path / "testence.json").write_text('{"auth": "none"}', encoding="utf-8")
     monkeypatch.setenv("TESTENCE_DEBUG_PORT", "0")
-    monkeypatch.setenv("TESTENCE_TIMEOUT_MS", "3000")
     with MockApp() as app:
         monkeypatch.setenv("TESTENCE_BASE_URL", app.base_url)
         server = McpServer(tmp_path)
