@@ -29,7 +29,7 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   event packets are held back while pings, pongs and acknowledgements flow. Each switch
   first decides frames already queued under the state they arrived in. Held frames never
   reach `wait_for_ws`. A new `websocket.gated` event records installation, each switch
-  and a summary with counts; capability `browser.websocket_mock`. Skill pack 0.1.22
+  and a summary with counts; capability `browser.websocket_mock`. Skill pack 0.1.24
   points the author skill at it.
 - `testence init` declares a `drop-save` control in `testence.json`, and the onboarding
   test applies it. `testence demo run` adds a fourth run, `negative_control`: the green
