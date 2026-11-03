@@ -12,13 +12,15 @@ For visible UI exploration or external applications, read
 state checks, timing and a portable handoff.
 For automated screenshot regression or an isolated client simulation, also read
 [references/visual-regression.md](references/visual-regression.md).
+Before running cases in parallel against one shared target, or marking one
+`testence_parallel`, read [references/parallel-safety.md](references/parallel-safety.md).
 
 ## Workflow
 
 1. Locate the PlanSpec and run `testence plan validate <path> --json`. Do not author against an invalid plan.
 2. Run `testence plan prepare <path> --project <root> --json` before opening a browser; add `--profile <name>` only for a profile the project's `testence.json` declares under `profiles`. Work only on scenarios reported `ready`; report each `blocked` reason instead of inventing a fixture, oracle, or skip. When the project defines a fix recipe and the approved scope permits it, use `--apply-fixes`, inspect the second report, and continue only for scenarios that became ready.
 3. Build a small claim-to-proof map: action, UI observation, independent oracle, expected value and where it comes from, seed, cleanup, and expected failure signal. Stop on a scenario whose expected outcome needs a guess (see the authoring rules).
-4. Confirm the target, account/profile, mutation boundary, seed isolation, and allowed browser actions. Do not touch production or shared data without explicit authority.
+4. Confirm the target, account/profile, mutation boundary, seed isolation, and allowed browser actions. Do not touch production or shared data without explicit authority. A test runs in parallel on a shared target only after its class is proven (references/parallel-safety.md); until then it runs serially.
 5. Inspect source, API schemas, and project adapters. Use controlled browser discovery only against the approved target.
 6. Prefer role plus accessible name, then label/placeholder, stable test ID, and only then CSS. Keep application-specific targets in project code.
 7. Write ordinary pytest plus Testence actions. Bind the exact plan path and claim IDs with `@pytest.mark.testence` as shown in [references/proof-gates.md](references/proof-gates.md).
