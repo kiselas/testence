@@ -53,7 +53,8 @@ remain readable with unverified assurance.
 | `test` | string? | test id; absent on run-level events |
 
 Every test event also carries `case_id`, `variant_id`, `attempt_id`, `proof_id` and
-digest-only `parameters`. The full pytest `nodeid` remains the source locator. A
+digest-only `parameters`. The full pytest `nodeid`, without the `@<group>` suffix that
+pytest-xdist adds under `--dist loadgroup`, remains the source locator. A
 PlanSpec scenario ID is the explicit logical case ID; without a PlanSpec, Testence uses
 a deterministic source-derived fallback that does not promise stability across rename.
 

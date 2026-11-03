@@ -231,9 +231,13 @@ def with_dynamic(document: dict[str, Any], heard: dict[str, Any]) -> dict[str, A
     return merged
 
 
-def record(item: Any) -> dict[str, Any]:
-    """The ``allure`` object of a ``test.start`` event (evidence-schema.md)."""
-    nodeid = str(item.nodeid).replace("\\", "/")
+def record(item: Any, nodeid: str | None = None) -> dict[str, Any]:
+    """The ``allure`` object of a ``test.start`` event (evidence-schema.md).
+
+    ``nodeid`` overrides the item's own: the plugin passes it without pytest-xdist's
+    ``@<group>`` suffix, so a grouped test keeps its Allure history across runs.
+    """
+    nodeid = str(nodeid if nodeid is not None else item.nodeid).replace("\\", "/")
     parsed = ParsedNodeId.parse(nodeid)
     parameters = dict(getattr(getattr(item, "callspec", None), "params", {}) or {})
     name = full_name(nodeid, getattr(item, "originalname", None))
