@@ -17,7 +17,7 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   `TESTENCE_FULL_TRACE=1` or pytest's `--full-trace` keep every frame. A failure
   inside a Testence fixture, or in Playwright called directly, keeps its full trace.
 - `ex.ws_gate(pattern, protocol="socket.io" | "raw", drop=None)` makes the test's tab miss
-  server pushes while the socket stays open ([ADR-0034](adr/0034-websocket-gate.md)).
+  server pushes while the socket stays open ([ADR-0035](adr/0035-websocket-gate.md)).
   `gate.go_offline()` and `gate.go_online()` are recorded steps; offline, Socket.IO
   event packets are held back while pings, pongs and acknowledgements flow. Each switch
   first decides frames already queued under the state they arrived in. Held frames never

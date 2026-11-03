@@ -1,4 +1,4 @@
-"""WebSocket gates: hold back server frames from the page, keep the socket open (ADR-0034).
+"""WebSocket gates: hold back server frames from the page, keep the socket open (ADR-0035).
 
 A gate routes matching sockets through the driver with ``route_web_socket``. Client
 frames pass untouched. Server frames pass while the gate is online; while it is

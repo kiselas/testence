@@ -302,7 +302,7 @@ class PlaywrightCdpEngine(Engine):
         self._mocked: set[Any] = set()
         self._native_routes: NativeRoutes | None = None
         self._native_mock_observer: Callable[..., None] | None = None
-        #: WebSocket gates of this context (ADR-0034) and the socket URLs whose
+        #: WebSocket gates of this context (ADR-0035) and the socket URLs whose
         #: page-bound frames a gate or native handler records instead of the tap.
         self._ws_gates: list[WsGate] = []
         self._ws_owned: set[str] = set()
@@ -1714,7 +1714,7 @@ class PlaywrightCdpEngine(Engine):
         self._ws_owned = set()
         self._open_ws = []
 
-    # -- WebSocket gates (ADR-0034) ------------------------------------------------
+    # -- WebSocket gates (ADR-0035) ------------------------------------------------
 
     def set_ws_gate_observer(self, observer: Callable[..., None]) -> None:
         self._ws_gate_observer = observer

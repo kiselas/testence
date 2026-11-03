@@ -319,7 +319,7 @@ UI показывает в режиме offline, — его поведение �
 `route_web_socket` внутри `ex.native` тоже наблюдается и записывается с
 `source: native`. Socket.IO через long polling, service workers и сокеты, открытые до
 шлюза, не входят в этот контракт. Нужна capability `browser.websocket_mock`
-([ADR-0034](../en/adr/0034-websocket-gate.md)).
+([ADR-0035](../en/adr/0035-websocket-gate.md)).
 
 ## 5. Докажите, что тест правильно падает
 

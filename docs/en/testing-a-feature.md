@@ -320,7 +320,7 @@ UI shows while offline is its behaviour on stale data, never proof of the server
 state: read that with an independent oracle. A raw `route_web_socket` inside
 `ex.native` is observed too and recorded with `source: native`. Socket.IO over long
 polling, service workers and sockets opened before the gate are outside this contract.
-Needs the `browser.websocket_mock` capability ([ADR-0034](adr/0034-websocket-gate.md)).
+Needs the `browser.websocket_mock` capability ([ADR-0035](adr/0035-websocket-gate.md)).
 
 ## 5. Prove the test can fail correctly
 

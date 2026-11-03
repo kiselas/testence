@@ -1,4 +1,4 @@
-# ADR-0034: A recorded WebSocket gate for stale-tab scenarios
+# ADR-0035: A recorded WebSocket gate for stale-tab scenarios
 
 Status: implemented (engineering). Extends ADR-0027 and ADR-0030.
 

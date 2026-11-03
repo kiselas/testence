@@ -1,4 +1,4 @@
-"""``ex.ws_gate``: a tab that misses server pushes on purpose, with provenance (ADR-0034)."""
+"""``ex.ws_gate``: a tab that misses server pushes on purpose, with provenance (ADR-0035)."""
 
 from __future__ import annotations
 

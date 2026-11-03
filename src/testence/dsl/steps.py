@@ -972,7 +972,7 @@ class Actions:
 
         A held frame never reaches ``wait_for_ws``. Each change of state is a step and a
         ``websocket.gated`` event. What the UI shows while offline is its behaviour on
-        stale data; the server's state still needs an independent read (ADR-0034).
+        stale data; the server's state still needs an independent read (ADR-0035).
         """
         gate_factory = getattr(self.engine, "ws_gate", None)
         if not callable(gate_factory):
