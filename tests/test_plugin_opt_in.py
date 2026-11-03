@@ -247,3 +247,59 @@ def test_a_worker_crash_does_not_make_an_unrelated_suite_write_a_run(tmp_path: P
 
     assert result.returncode != 0, result.stdout + result.stderr
     assert not (project / "runs").exists()
+
+
+GROUPED = """
+import pytest
+
+@pytest.mark.xdist_group("stand")
+@pytest.mark.parametrize("value", ["x@stand", "y"])
+def test_grouped(value, testence_namespace, testence_writer):
+    testence_writer.emit("note", text=f"grouped-{value}", case=testence_namespace.case_id)
+
+def test_free(testence_namespace, testence_writer):
+    testence_writer.emit("note", text="free", case=testence_namespace.case_id)
+"""
+
+
+def _identities(run_dir: Path) -> tuple[dict[str, tuple[str, ...]], dict[str, str]]:
+    events = load_run(run_dir)
+    ledger = {
+        event["test"]: (
+            event["case_id"],
+            event["variant_id"],
+            event["allure"]["full_name"],
+            event["allure"]["history_id"],
+        )
+        for event in events
+        if event["kind"] == "test.start"
+    }
+    namespaces = {event["text"]: event["case"] for event in events if event["kind"] == "note"}
+    return ledger, namespaces
+
+
+def test_an_xdist_group_does_not_change_test_identity(tmp_path: Path) -> None:
+    """Under ``--dist loadgroup`` pytest-xdist appends ``@<group>`` to the node ID of a
+    grouped test. The ledger's test, the case and variant IDs, the Allure history and
+    the namespace used to take that suffix in: two variants of one test got two case IDs, both different
+    from the serial run, so a parallel run could not be compared with its baseline."""
+    (tmp_path / "serial").mkdir()
+    serial_project = _project(tmp_path / "serial", GROUPED)
+    serial = _pytest(serial_project)
+    assert serial.returncode == 0, serial.stdout + serial.stderr
+
+    (tmp_path / "grouped").mkdir()
+    grouped_project = _project(tmp_path / "grouped", GROUPED)
+    grouped = _pytest(grouped_project, "-p", "xdist.plugin", "-n", "2", "--dist", "loadgroup")
+    assert grouped.returncode == 0, grouped.stdout + grouped.stderr
+
+    (serial_run,) = (serial_project / "runs").iterdir()
+    (grouped_run,) = (grouped_project / "runs").iterdir()
+    ledger, namespaces = _identities(serial_run)
+    assert sorted(ledger) == [
+        "test_suite.py::test_free",
+        "test_suite.py::test_grouped[x@stand]",
+        "test_suite.py::test_grouped[y]",
+    ]
+    assert namespaces["grouped-x@stand"] == namespaces["grouped-y"]
+    assert _identities(grouped_run) == (ledger, namespaces)
