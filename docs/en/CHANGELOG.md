@@ -97,6 +97,13 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   the WebSocket buffer: `wait_for_ws` returned frames the page never received, and the
   ledger did not say the socket was routed. The frames the handler sends are now the
   buffer, and `websocket.gated` records the route with `source: native`.
+- A test marked `xdist_group` and run with `--dist loadgroup` kept pytest-xdist's
+  `@<group>` node ID suffix in its identity: the ledger's `test`, the case and variant
+  IDs, the Allure full name and history ID and the `testence_namespace` marker all
+  differed from a serial run, and two variants of one test got two case IDs. Testence
+  now removes the suffix, rebuilt from the test's own markers, so a parameter value
+  containing `@` is kept. Skill pack 0.1.23 restores grouped cases in the parallel
+  safety procedure ([ADR-0034](adr/0034-parallel-safety-on-a-shared-target.md)).
 - `testence doctor` with video on could report a working browser as broken on Windows
   (`WinError 267`): the recorder still held the `.webm` when the probe removed its
   temporary folder. The folder now outlives the browser and its removal cannot fail

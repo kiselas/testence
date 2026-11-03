@@ -564,17 +564,17 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
                 else (state.settings.project_id if state is not None else "unconfigured")
             )
             raw_parameters = dict(getattr(getattr(item, "callspec", None), "params", {}) or {})
-            item_variant_id, parameters = variant_id(raw_parameters, nodeid=item.nodeid)
+            item_variant_id, parameters = variant_id(raw_parameters, nodeid=_test_id(item))
             item.stash[_IDENTITY_KEY] = {
                 "project_id": project_id,
                 "case_id": contract.case_id
                 if contract is not None
-                else source_case_id(item.nodeid),
+                else source_case_id(_test_id(item)),
                 "variant_id": item_variant_id,
                 "parameters": parameters,
             }
         except ContractError as exc:
-            raise pytest.UsageError(f"{item.nodeid}: invalid Testence contract: {exc}") from exc
+            raise pytest.UsageError(f"{_test_id(item)}: invalid Testence contract: {exc}") from exc
     _warn_about_allure_identity(config, items)
     _apply_testplan(config, items)
 
@@ -587,7 +587,7 @@ def _warn_about_allure_identity(config: pytest.Config, items: list[pytest.Item])
         if metadata is None or not metadata.allure_id:
             continue
         owners.setdefault(metadata.allure_id, set()).add(
-            allure_compat.full_name(item.nodeid, getattr(item, "originalname", None))
+            allure_compat.full_name(_test_id(item), getattr(item, "originalname", None))
         )
     for allure_id, names in sorted(owners.items()):
         if len(names) > 1:
@@ -608,7 +608,7 @@ def _warn_about_allure_identity(config: pytest.Config, items: list[pytest.Item])
                 and isinstance(value, (str, int))
                 and str(value)
                 and any(
-                    candidate in item.nodeid
+                    candidate in _test_id(item)
                     for candidate in (
                         str(value),
                         str(value).encode("unicode_escape").decode("ascii"),
@@ -617,7 +617,7 @@ def _warn_about_allure_identity(config: pytest.Config, items: list[pytest.Item])
             ):
                 warnings.warn(
                     pytest.PytestWarning(
-                        f"{item.nodeid.partition('[')[0]}: parameter {name!r} "
+                        f"{_test_id(item).partition('[')[0]}: parameter {name!r} "
                         "puts its value into the test id, "
                         "which every report and upload shows; give parametrize ids=..."
                     ),
@@ -661,13 +661,13 @@ def _apply_testplan(config: pytest.Config, items: list[pytest.Item]) -> None:
             metadata = item.stash.get(_METADATA_KEY, None)
             candidates.append(
                 SelectionCandidate(
-                    nodeid=item.nodeid,
+                    nodeid=_test_id(item),
                     project_id=str(identity["project_id"]),
                     case_id=str(identity["case_id"]),
                     variant_id=str(identity["variant_id"]),
                     allure_id=metadata.allure_id if metadata is not None else None,
                     full_name=allure_compat.full_name(
-                        item.nodeid, getattr(item, "originalname", None)
+                        _test_id(item), getattr(item, "originalname", None)
                     ),
                 )
             )
@@ -745,7 +745,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
     if state is None or state.closed:
         return
     payload: dict[str, Any] = {
-        "nodeid": item.nodeid,
+        "nodeid": _test_id(item),
         "display_name": item.name,
         "phase": report.when,
         "status": report.outcome,
@@ -1013,7 +1013,7 @@ def pytest_deselected(items: list[pytest.Item]) -> None:
     state.writer.emit(
         "collection.deselected",
         count=len(items),
-        nodeids=[item.nodeid for item in items],
+        nodeids=[_test_id(item) for item in items],
     )
 
 
@@ -1042,13 +1042,13 @@ def pytest_collection_finish(session: pytest.Session) -> None:
                 _IDENTITY_KEY,
                 {
                     "project_id": state.settings.project_id,
-                    "case_id": source_case_id(item.nodeid),
-                    "variant_id": variant_id({}, nodeid=item.nodeid)[0],
+                    "case_id": source_case_id(_test_id(item)),
+                    "variant_id": variant_id({}, nodeid=_test_id(item))[0],
                     "parameters": {},
                 },
             )
         )
-        identity.update(nodeid=item.nodeid, display_name=item.name)
+        identity.update(nodeid=_test_id(item), display_name=item.name)
         contract = item.stash.get(_CONTRACT_KEY, None)
         if contract is not None:
             identity.update(contract.ledger_context())
@@ -1061,7 +1061,7 @@ def pytest_collection_finish(session: pytest.Session) -> None:
         selected=len(session.items),
         deselected=state.deselected,
         errors=state.collection_errors,
-        nodeids=[item.nodeid for item in session.items],
+        nodeids=[_test_id(item) for item in session.items],
         cases=cases,
     )
     if not state.writer.worker:
@@ -1077,9 +1077,30 @@ def _as_bool(value: str) -> bool:
 
 
 def _test_id(item: pytest.Item) -> str:
-    # Full nodeid is the collision-free source identity until schema /2 introduces
-    # an explicit logical case_id.  Display names stay separate for reports.
-    return item.nodeid
+    """The item's node ID without pytest-xdist's ``@<group>`` suffix.
+
+    The full node ID is the collision-free source identity until schema /2 introduces
+    an explicit logical case_id; display names stay separate for reports. Under
+    ``--dist loadgroup`` xdist appends ``@`` and the sorted, ``_``-joined names of the
+    item's ``xdist_group`` markers to the node ID so its scheduler can keep a group on
+    one worker. That suffix names a scheduling choice, not the test: taken into the
+    ledger it gave two variants of one test two case IDs, both different from the
+    serial run. The suffix is rebuilt from the item's own markers and removed only
+    when the node ID ends with it, so a parameter value containing ``@`` stays.
+    Lifecycle bookkeeping keeps ``item.nodeid``: pytest reports that one to hooks.
+    """
+    nodeid = item.nodeid
+    names = sorted(
+        {
+            str(mark.args[0] if mark.args else mark.kwargs.get("name", "default"))
+            for mark in item.iter_markers()
+            if mark.name == "xdist_group"
+        }
+    )
+    suffix = "@" + "_".join(names)
+    if names and nodeid.endswith(suffix):
+        return nodeid[: -len(suffix)]
+    return nodeid
 
 
 def _report_error(report: pytest.TestReport | pytest.CollectReport) -> str:
@@ -1176,8 +1197,8 @@ def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
         _IDENTITY_KEY,
         {
             "project_id": state.settings.project_id,
-            "case_id": source_case_id(item.nodeid),
-            "variant_id": variant_id({}, nodeid=item.nodeid)[0],
+            "case_id": source_case_id(_test_id(item)),
+            "variant_id": variant_id({}, nodeid=_test_id(item))[0],
             "parameters": {},
         },
     )
@@ -1242,7 +1263,7 @@ def _start_test(item: pytest.Item, state: _LifecycleState) -> None:
         display_name=item.name,
         file=str(node_path),
         code=test_digest_value[:12],
-        nodeid=item.nodeid,
+        nodeid=_test_id(item),
         markers=sorted({mark.name for mark in item.iter_markers()}),
         allure=_allure_record(item, metadata),
         **({"tms": {system: list(ids) for system, ids in metadata.tms}} if metadata.tms else {}),
@@ -1255,7 +1276,7 @@ def _allure_record(item: pytest.Item, metadata: _TestMetadata) -> dict[str, Any]
     Best effort: a report field must never cost the test its lifecycle record.
     """
     try:
-        document = allure_compat.record(item)
+        document = allure_compat.record(item, _test_id(item))
     except Exception:  # noqa: BLE001 - foreign item types and unusual marks
         return {}
     overrides = metadata.allure_overrides()
@@ -1366,7 +1387,7 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
         marker_reason = xfail_marker.kwargs.get("reason")
         xfail_reason = str(marker_reason) if marker_reason else "xfail"
     payload: dict[str, Any] = {
-        "nodeid": item.nodeid,
+        "nodeid": _test_id(item),
         "display_name": item.name,
         "status": status,
         "phase": phase,
@@ -1692,7 +1713,7 @@ def testence_engine(
     reuse = _browser_reuse(request.config, testence_settings)
     if reuse:
         owner = request.getfixturevalue("_testence_browser_owner")
-        with _lifecycle_phase(testence_writer, request.node.nodeid, "context.fresh"):
+        with _lifecycle_phase(testence_writer, _test_id(request.node), "context.fresh"):
             engine = owner.sibling()
         mode = "reused"
     else:
@@ -1706,7 +1727,7 @@ def testence_engine(
             engine.reset_taps()
     elif not reuse:
         try:
-            with _lifecycle_phase(testence_writer, request.node.nodeid, "browser.start"):
+            with _lifecycle_phase(testence_writer, _test_id(request.node), "browser.start"):
                 engine.start()
         except Exception as exc:
             from testence.engine import browser_launch_hint
@@ -1719,9 +1740,9 @@ def testence_engine(
                 "run `testence doctor` for a full check"
             ) from exc
         finally:
-            _engine_phase_notes(testence_writer, request.node.nodeid, engine, "browser.start")
+            _engine_phase_notes(testence_writer, _test_id(request.node), engine, "browser.start")
     if reuse:
-        _engine_phase_notes(testence_writer, request.node.nodeid, engine, "context.fresh")
+        _engine_phase_notes(testence_writer, _test_id(request.node), engine, "context.fresh")
     state: dict[str, Any] = {"any_failed": False, "mode": mode}
     engine._testence_state = state  # type: ignore[attr-defined]
     try:
@@ -1730,7 +1751,7 @@ def testence_engine(
         finish = getattr(engine, "finish_recording", None)
         if callable(finish):
             try:
-                with _lifecycle_phase(testence_writer, request.node.nodeid, "recording"):
+                with _lifecycle_phase(testence_writer, _test_id(request.node), "recording"):
                     state["recordings"] = [
                         {
                             **entry,
@@ -1741,13 +1762,13 @@ def testence_engine(
                         }
                         for entry in finish(
                             failed=bool(state["any_failed"]),
-                            directory=testence_writer.test_dir(request.node.nodeid),
+                            directory=testence_writer.test_dir(_test_id(request.node)),
                         )
                     ]
             except Exception as exc:  # noqa: BLE001 - a recording never changes the result
                 testence_writer.emit(
                     "note",
-                    test=request.node.nodeid,
+                    test=_test_id(request.node),
                     text="trace/video could not be saved",
                     error=f"{type(exc).__name__}: {exc}",
                 )
@@ -1758,10 +1779,10 @@ def testence_engine(
             # Attached mode only detaches; the launcher's browser is never ours.
             mark = len(getattr(engine, "wait_ledger", lambda: [])())
             close_phase = "context.release" if reuse else "browser.close"
-            with _lifecycle_phase(testence_writer, request.node.nodeid, close_phase):
+            with _lifecycle_phase(testence_writer, _test_id(request.node), close_phase):
                 engine.stop(keep_browser=mode == "attached" and state["any_failed"])
             _engine_phase_notes(
-                testence_writer, request.node.nodeid, engine, close_phase, start=mark
+                testence_writer, _test_id(request.node), engine, close_phase, start=mark
             )
 
 
@@ -1778,7 +1799,7 @@ def testence_auth(
     shows whether it was authenticated — a surprisingly common root cause.
     """
     started = time.perf_counter()
-    with _lifecycle_phase(testence_writer, request.node.nodeid, "auth"):
+    with _lifecycle_phase(testence_writer, _test_id(request.node), "auth"):
         adapter = from_settings(testence_settings)
         context = adapter.authenticate(testence_engine)
         spec = testence_settings.extra.get("api_auth_from_storage")
@@ -1889,7 +1910,7 @@ def testence_namespace(
         project_id=testence_settings.project_id,
         run_id=testence_writer.run_id,
         worker_id=worker,
-        case_id=source_case_id(request.node.nodeid),
+        case_id=source_case_id(_test_id(request.node)),
         role=role,
         attempt_id=str(attempt or "attempt-1"),
     )

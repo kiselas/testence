@@ -67,7 +67,7 @@ makes the footprint unknown.
 | class | condition | how it runs |
 |---|---|---|
 | P | no shared writes; no assertion depends on an unscoped read of a resource another parallel case writes; no auth, account or global state | `@pytest.mark.testence_parallel`, any worker |
-| G:`name` | shared writes or dependent unscoped reads on one resource `name` that no P case touches | target: `testence_parallel` plus `@pytest.mark.xdist_group("name")` under `--dist loadgroup`, serial within the group and parallel with the rest. Until the identity defect below is fixed, the class is recorded and the case runs in the serial phase |
+| G:`name` | shared writes or dependent unscoped reads on one resource `name` that no P case touches | `testence_parallel` plus `@pytest.mark.xdist_group("name")` under `--dist loadgroup`: serial within the group, parallel with the rest |
 | S | login, logout, lockout and session tests; account or global settings; reference data; several shared resources; a control that changes server state; unknown footprint | a separate serial run, never concurrent with workers |
 | X | must not run on a shared target, for example real deployments or external delivery; decided from the inventory before any run | runs only on a dedicated target; the shared-target run leaves it out with the recorded reason |
 
@@ -85,7 +85,8 @@ silent deselection and blocks the run.
 `cleanup: "asserted-absence"`, and every selected case carries `testence_parallel` and
 `testence_namespace`. A plain `pytest -n` checks none of it. `testence debug` passes
 only `-n`; an `xdist_group` marker has no effect without `--dist loadgroup`, and the
-cases of one group then run at the same time.
+cases of one group then run at the same time. The project therefore puts
+`--dist loadgroup` in its pytest `addopts`.
 
 **Project prerequisites.** Data created by a case carries the `testence_namespace`
 marker of that case, not a ticket or feature prefix. Cleanup deletes only that marker
@@ -103,8 +104,8 @@ owner.
 **Proof gates.** All on the same target, revision and worker count N:
 
 1. Serial baseline: the selected set is green and its footprints are derived.
-2. Repetition: the parallel set (P, and G once groups work) runs K times (K ≥ 3) with
-   the same verdicts as the baseline, without `--testence-reruns`.
+2. Repetition: the P and G set runs in parallel K times (K ≥ 3) with the same verdicts
+   as the baseline, without `--testence-reruns`.
 3. Neighbour: during one parallel run, also without reruns, a separate process
    creates, renames and deletes objects with a foreign marker in every resource the P
    set writes or reads unscoped. A verdict change marks the case as reading shared
@@ -129,12 +130,12 @@ project document beside the tests, so another agent can recheck them.
 
 ## Consequences
 
-- Groups are blocked by an identity defect. Under `--dist loadgroup`, pytest-xdist
-  appends `@name` to the node ID of a grouped test. Testence derives the ledger's
-  `test`, the fallback `case_id`, the variant of a parametrized test and the
-  namespace marker from the node ID: in a probe on 2026-11-02 the two variants of one
-  grouped test received two case IDs and markers that differed from the serial run.
-  Until identity ignores that suffix, G cases run in the serial phase.
+- Under `--dist loadgroup`, pytest-xdist appends `@name` to the node ID of a grouped
+  test. Testence removes that suffix before deriving the ledger's `test`, the case
+  and variant IDs, the Allure identity and the namespace marker, so a grouped case
+  keeps the identity of its serial baseline. Before that fix, a probe on 2026-11-02
+  gave the two variants of one grouped test two case IDs, both different from the
+  serial run.
 - The first parallel run of a suite costs a serial baseline, K parallel runs and a
   neighbour run. Every later run's ledger yields footprints again; only changed cases
   and cases whose footprint differs from the recorded one need the gates again.
