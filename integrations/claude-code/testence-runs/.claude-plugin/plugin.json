@@ -1,0 +1,22 @@
+{
+  "name": "testence-runs",
+  "version": "0.1.0",
+  "author": { "name": "Testence contributors" },
+  "license": "Apache-2.0",
+  "description": "A pane beside the chat that follows the newest Testence run: each case queued, running with its current step, passed or failed with the reason",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "runsDir": {
+      "type": "string",
+      "title": "Testence runs folder",
+      "description": "The runs/ folder of a Testence project; empty means runs/ under the session's working directory. /testence-runs <folder> sets it too.",
+      "default": ""
+    },
+    "python": {
+      "type": "string",
+      "title": "Python",
+      "description": "The Python that summarizes run.jsonl (a run outgrows what one file read takes)",
+      "default": "python"
+    }
+  }
+}
