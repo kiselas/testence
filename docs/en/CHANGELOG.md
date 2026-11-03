@@ -8,6 +8,13 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Added
 
+- Parallel safety on a shared target ([ADR-0034](adr/0034-parallel-safety-on-a-shared-target.md)).
+  Skill pack 0.1.22 adds `references/parallel-safety.md` to the author skill: inventory
+  the target's shared state, derive each case's footprint from the `net` and
+  `api.request` events of a serial run, classify it as parallel, grouped, serial or
+  excluded, and prove the class with repeated parallel runs, a neighbour process
+  writing foreign data and a cleanup audit. A failure seen only in parallel
+  reclassifies the case; it is never rerun.
 - A failure traceback starts at the test. When Testence took part in a failure, the
   frames of Testence and Playwright below the test's deepest own frame are hidden, a
   failed step no longer prints its cause chain (its message already carries the cause
