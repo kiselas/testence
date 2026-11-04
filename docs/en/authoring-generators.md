@@ -8,6 +8,7 @@ invents an expected value.
 |---|---|---|
 | `testence plan skeleton` | a Markdown case file | a PlanSpec and pytest stubs |
 | `testence seed scaffold` | an OpenAPI 3.x document | fixtures for temporary objects with ordered cleanup |
+| `testence inventory` | a finished run's ledger | a Markdown reference per screen |
 
 ## `testence plan skeleton`: cases to a plan and test stubs
 
@@ -126,3 +127,46 @@ With `--json` the command prints a `testence/seed-scaffold/1` document: `out`, `
 (`created`, `updated`, `unchanged`, `kept`), `marker`, `collections` (paths, name field,
 search parameter, `items_key`, `parent`, `depends_on`), `delete_order` and `skipped`.
 Exit code 2 means the document cannot be read or yields no safe cleanup.
+
+## `testence inventory`: a screen reference from a run
+
+```bash
+testence inventory runs/r-local
+testence inventory runs/r-local --out docs/inventory --json
+```
+
+The command reads one run's ledger (`run.jsonl`, and `pack.json` of failed tests) and
+writes one Markdown file per page under `--out` (default `docs/inventory`), named after
+the page path with identifiers templated: `/projects/42/settings` becomes
+`projects-id-settings.md`. Each file has four generated sections:
+
+- **Targets**: every Target a step addressed on the page, with its role or kind, name,
+  actions (`click` and `fill` from the recorded operation; another step on a Target is
+  `check` unless its intent starts with an action verb) and the text the element showed;
+- **API calls**: the browser's requests from the run's `net` record (method, path with
+  `{id}`, statuses) in tests that visited the page, and the test's own `testence_api`
+  calls, marked `test`;
+- **Texts**: what green `expect_*` steps saw, such as toasts and headings;
+- **Traps**: steps that failed at least once, with the error and whether the test then
+  went green (a rerun, a soft check, or a later run).
+
+The page of a step is the last navigation its test made. The ledger names it when the
+`goto`/`navigate` intent contains the URL (the default `open <url>` does), or when a
+failure pack recorded `page_url`; steps before such a navigation are filed in
+`unknown-page.md`. A custom intent such as `"open the project list"` hides the URL, so
+write `"open /projects"` where the page matters.
+
+Rerunning on another run merges into the existing file: earlier targets, calls, texts
+and traps stay, trap counts add up, and a run already merged is not counted twice. A
+section whose heading carries `<!-- manual -->` is yours and is kept verbatim:
+
+```markdown
+## Notes <!-- manual -->
+
+The Save button stays disabled until the name changes.
+```
+
+The merge state lives in a `<!-- testence:inventory … -->` comment at the end of each
+file; leave it in place. With `--json` the command prints a `testence/inventory/1`
+document: `run_dir`, `out` and `pages` (page, path, status, counts of targets, API calls,
+texts, traps and manual sections). Exit code 2 means the run directory cannot be read.

@@ -227,8 +227,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Agent-first browser testing with evidence-backed verdicts.",
         epilog=(
             "Start here: doctor, init, run, inspect, report.\n"
-            "Authoring: status, debug, explore, plan, seed, capabilities, watch, bench, demo, "
-            "agent.\n"
+            "Authoring: status, debug, explore, plan, seed, inventory, capabilities, watch, "
+            "bench, demo, agent.\n"
             "Results: export, metrics, verdict, repair, quality, ci, delivery.\n"
             "Testence maintainers only: corpus, release.\n"
             "\n"
@@ -364,6 +364,13 @@ def main(argv: list[str] | None = None) -> int:
         "--collections", default=None, help="comma-separated collection names (default: all)"
     )
     p_seed_scaffold.add_argument("--json", dest="json_output", action="store_true")
+
+    p_inventory = sub.add_parser(
+        "inventory", help="build a per-screen reference from a run's ledger"
+    )
+    p_inventory.add_argument("run_dir", type=Path, help="run directory, e.g. runs/r-123")
+    p_inventory.add_argument("--out", type=Path, default=Path("docs/inventory"))
+    p_inventory.add_argument("--json", dest="json_output", action="store_true")
 
     p_verdict = sub.add_parser("verdict", help="validate an evidence-backed verdict")
     verdict_sub = p_verdict.add_subparsers(dest="verdict_command", required=True)
@@ -624,6 +631,10 @@ def main(argv: list[str] | None = None) -> int:
             "testence ci summary runs/r-local --negative-run runs/r-drop-save",
         ],
         p_inspect: ["testence inspect runs/r-local", "testence inspect runs/r-local --json"],
+        p_inventory: [
+            "testence inventory runs/r-local",
+            "testence inventory runs/r-local --out docs/inventory --json",
+        ],
         p_oracle_suggest: [
             "testence oracle suggest runs/r-local",
             "testence oracle suggest runs/r-local --json",
@@ -1067,6 +1078,24 @@ def main(argv: list[str] | None = None) -> int:
             except ValueError as exc:
                 parser.error(str(exc))
         return _watch(roots, args.pattern or ["*.py"], cmd, warm=args.warm)
+
+    if args.command == "inventory":
+        from .inventory import InventoryError, inventory
+
+        try:
+            inventory_result = inventory(args.run_dir, args.out)
+        except (InventoryError, OSError) as exc:
+            print(f"inventory failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(inventory_result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            for page in inventory_result["pages"]:
+                print(
+                    f"{page['status']:9} {page['path']}: {page['targets']} targets, "
+                    f"{page['api_calls']} API calls, {page['traps']} traps"
+                )
+        return 0
 
     if args.command == "seed" and args.seed_command == "scaffold":
         from .seed import SeedError, scaffold
