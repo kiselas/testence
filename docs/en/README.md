@@ -4,6 +4,7 @@
 
 - [Your first test](first-test.md) — ten minutes, no plan file, start here
 - [Testing a UI feature](testing-a-feature.md) — the full workflow
+- [Authoring generators](authoring-generators.md) — plan and test skeletons from a case file
 - [Glossary](glossary.md)
 - [Configuration](configuration.md)
 - [Authentication](auth.md)

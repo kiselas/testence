@@ -310,6 +310,25 @@ def main(argv: list[str] | None = None) -> int:
     p_plan_validate = plan_sub.add_parser("validate", help="validate a PlanSpec")
     p_plan_validate.add_argument("path", type=Path, help="PlanSpec markdown or JSON file")
     p_plan_validate.add_argument("--json", dest="json_output", action="store_true")
+    p_plan_skeleton = plan_sub.add_parser(
+        "skeleton", help="build a PlanSpec and pytest stubs from a Markdown case file"
+    )
+    p_plan_skeleton.add_argument("cases", type=Path, help="Markdown file with the cases")
+    p_plan_skeleton.add_argument(
+        "--plan", type=Path, required=True, help="PlanSpec to write (.json or .md)"
+    )
+    p_plan_skeleton.add_argument(
+        "--tests", type=Path, required=True, help="directory for the test skeleton"
+    )
+    p_plan_skeleton.add_argument(
+        "--module", default=None, help="one module with every case instead of a file per case"
+    )
+    p_plan_skeleton.add_argument(
+        "--root", type=Path, default=Path("."), help="pytest root the plan= path is relative to"
+    )
+    p_plan_skeleton.add_argument("--project-id", default=None)
+    p_plan_skeleton.add_argument("--id", dest="plan_id", default=None, help="plan id")
+    p_plan_skeleton.add_argument("--json", dest="json_output", action="store_true")
     p_plan_prepare = plan_sub.add_parser(
         "prepare", help="check scenario readiness before browser authoring"
     )
@@ -596,6 +615,11 @@ def main(argv: list[str] | None = None) -> int:
             "testence export runs/r-local --to ctrf -o build/ctrf --attachments minimal",
         ],
         p_plan_prepare: ["testence plan prepare specs/checkout.md --project ."],
+        p_plan_skeleton: [
+            "testence plan skeleton cases/login.md --plan specs/login.json --tests tests_e2e",
+            "testence plan skeleton cases/login.md --plan specs/login.md --tests tests_e2e "
+            "--module test_login",
+        ],
         p_demo_run: ["testence demo run --project testence-demo --json"],
         p_capabilities: ["testence capabilities --project . --json"],
     }
@@ -1018,6 +1042,36 @@ def main(argv: list[str] | None = None) -> int:
         return _watch(roots, args.pattern or ["*.py"], cmd, warm=args.warm)
 
     if args.command == "plan":
+        if args.plan_command == "skeleton":
+            from .skeleton import SkeletonError, skeleton
+
+            try:
+                result = skeleton(
+                    args.cases,
+                    args.plan,
+                    args.tests,
+                    module=args.module,
+                    root=args.root,
+                    project_id=args.project_id,
+                    plan_id=args.plan_id,
+                )
+            except (SkeletonError, OSError) as exc:
+                print(f"plan skeleton failed: {exc}", file=sys.stderr)
+                return 2
+            if args.json_output:
+                print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+            else:
+                print(
+                    f"{result['format']}: {len(result['cases'])} case(s) -> plan "
+                    f"{result['plan']['id']} ({'valid' if result['plan']['valid'] else 'INVALID'})"
+                )
+                for entry in result["files"]:
+                    print(f"  {entry['status']:9} {entry['path']}")
+                for question in result["open_questions"]:
+                    print(f"  open question, case {question['case']}: {question['question']}")
+                print(f"next: testence plan validate {args.plan}")
+            return 0 if result["plan"]["valid"] else 3
+
         if args.plan_command == "validate":
             from .contracts import load_plan
             from .contracts._validation import ContractError
