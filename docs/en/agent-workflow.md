@@ -64,28 +64,60 @@ truth for whether a browser step ran or an oracle passed. The ledger is.
 
 ## 1. Bootstrap
 
-Install the portable workflow assets for either or both supported clients, then verify
-the exact packaged bytes:
+Install the bundled skills for one or more clients, then verify the exact packaged bytes:
 
 ```bash
 testence agent install --project . --client codex --client claude --json
 testence agent verify --project . --json
 ```
 
-The installer never copies secrets into agent configuration. It records a repo-owned
-`.testence/agents.json` receipt, updates files it previously installed only when they
-are still unmodified, and reports local edits as conflicts.
+The installer never copies secrets into agent configuration. It updates files it
+previously installed only when they are still unmodified, and reports local edits as
+conflicts.
 
-The installed contract consists of:
+`testence agent install` writes the four skills under one root per client:
 
-- a short repository instruction that tells an agent when to invoke Testence;
-- portable Agent Skills for `plan`, `author`, `triage` and `repair`;
-- optional client adapters where discovery conventions differ;
-- an Testence project config and a synthetic seed test;
-- `testence doctor`, which validates Python, browser/CDP access, writable artifact paths,
-  profile selection and sensitive-data settings.
+| Client | Skill root |
+|---|---|
+| `codex` | `.agents/skills/` |
+| `opencode` | `.agents/skills/` |
+| `claude` | `.claude/skills/` |
 
-The bootstrap report must list every file it created or changed.
+Codex and OpenCode share the directory, so asking for both writes each file once. Under
+the root:
+
+```text
+testence-author/SKILL.md
+testence-author/agents/openai.yaml
+testence-author/references/parallel-safety.md
+testence-author/references/proof-gates.md
+testence-author/references/visual-discovery.md
+testence-author/references/visual-regression.md
+testence-plan/SKILL.md
+testence-plan/agents/openai.yaml
+testence-plan/references/planspec-v2.md
+testence-repair/SKILL.md
+testence-repair/agents/openai.yaml
+testence-repair/references/repair-gates.md
+testence-triage/SKILL.md
+testence-triage/agents/openai.yaml
+testence-triage/references/verdict-v2.md
+```
+
+`agents/openai.yaml` is Codex UI metadata; other clients ignore it. Besides the skills,
+the command writes `.testence/agents.json`, the receipt with the pack digest and the
+digest of every accepted file, and leaves `.testence/quality-operation.lock`, the lock
+that Testence's project writers share. The `--json` receipt lists, per client, the files
+it wrote, the ones already identical and the conflicts.
+
+It writes nothing else. The rest of the bootstrap comes from other commands or from you:
+
+- `testence init` writes `testence.json`, an onboarding plan and example tests;
+- `testence doctor` checks Python, browser access, writable artifact paths, profile
+  selection and sensitive-data settings;
+- the MCP server is registered in the client's own configuration ([MCP](mcp.md));
+- no `AGENTS.md` or `CLAUDE.md` line is written. The skill descriptions tell a client
+  when to load them; add a repository instruction yourself if you want one.
 
 ## 2. Plan before browsing
 
@@ -301,7 +333,7 @@ the CLI. Client-specific packaging is intentionally thin:
 | Client | Discovery and instruction surface | Testence integration |
 |---|---|---|
 | Codex / ChatGPT | project `AGENTS.md`, skills and an optional plugin/MCP server | universal skills plus typed Testence tools |
-| Claude Code | `CLAUDE.md`, Agent Skills, plugins and MCP | the same skills, a thin instruction shim and the same MCP contract |
+| Claude Code | `CLAUDE.md`, Agent Skills, plugins and MCP | the same skills and the same MCP contract |
 | OpenCode | `AGENTS.md`, `.agents/skills` and MCP | the same skills and MCP contract |
 | other agents | Agent Skills when supported, otherwise repository docs and CLI | no runner or artifact-format fork |
 

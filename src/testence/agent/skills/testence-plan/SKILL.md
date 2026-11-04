@@ -16,7 +16,8 @@ Create the semantic contract before creating test code or exploring the live UI.
 5. Define positive, negative, permission, and failure scenarios only where the stated risk requires them. Every required claim must appear in a scenario.
 6. Write `specs/<feature>.md` with human context and exactly one `testence-planspec` JSON block. Follow [references/planspec-v2.md](references/planspec-v2.md).
 7. Validate the file with `testence plan validate <path> --json`. Fix every error before handing the plan to authoring.
-8. Report the claim-to-scenario map, assumptions, exclusions, uncertain product facts, and validation result.
+8. Check readiness with `testence plan prepare <path> --project . --json`; it opens no browser. A required assertion with oracle `api`, `a11y`, `visual`, or `custom` blocks its scenarios until `testence.json` has a `readiness` block that lists that oracle under `oracle_adapters`, and every scenario needs an entry under `readiness.scenarios`. Propose the block from [references/planspec-v2.md](references/planspec-v2.md#readiness-for-plan-prepare); do not drop the oracle to make the plan pass.
+9. Report the claim-to-scenario map, assumptions, exclusions, uncertain product facts, validation and readiness results.
 
 ## Planning rules
 

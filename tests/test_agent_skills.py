@@ -6,10 +6,13 @@ import json
 import re
 from pathlib import Path, PurePosixPath
 
+import pytest
+
 from testence import SCHEMA_VERSION
 from testence.agent import (
     AGENT_INSTALL_RECEIPT_SCHEMA,
     AGENT_INSTALL_SCHEMA,
+    CLIENT_ROOTS,
     SKILL_PACK_SCHEMA,
     bundled_files,
     bundled_skills,
@@ -19,6 +22,9 @@ from testence.agent import (
 )
 from testence.cli import main
 from testence.contracts import PLAN_SCHEMA, VERDICT_KINDS, VERDICT_SCHEMA
+from testence.readiness import prepare_plan
+
+DOCS = Path(__file__).parents[1] / "docs"
 
 
 def _read(root, relative: str) -> str:
@@ -36,7 +42,7 @@ def test_skill_pack_declares_the_public_workflow_contracts():
     pack = load_skill_pack()
 
     assert pack["schema"] == SKILL_PACK_SCHEMA
-    assert pack["version"] == "0.1.24"
+    assert pack["version"] == "0.1.25"
     assert pack["contracts"] == {
         "plan": PLAN_SCHEMA,
         "evidence": SCHEMA_VERSION,
@@ -166,3 +172,73 @@ def test_skill_walker_excludes_file_manager_metadata(tmp_path: Path):
     walked = [item.relative.as_posix() for item in _walk(skill, PurePosixPath("testence-author"))]
 
     assert walked == ["testence-author/SKILL.md", "testence-author/references/guide.md"]
+
+
+def _bootstrap(language: str) -> str:
+    text = (DOCS / language / "agent-workflow.md").read_text(encoding="utf-8")
+    start = text.index("## 1. Bootstrap")
+    return text[start : text.index("\n## ", start + 1)]
+
+
+def _fenced(text: str, info: str) -> str:
+    match = re.search(rf"^```{info}\n(.*?)^```$", text, re.MULTILINE | re.DOTALL)
+    assert match, f"no {info!r} block"
+    return match.group(1)
+
+
+@pytest.mark.parametrize("client", sorted(CLIENT_ROOTS))
+@pytest.mark.parametrize("language", ["en", "ru"])
+def test_agent_workflow_lists_exactly_what_install_writes(
+    tmp_path: Path, language: str, client: str
+):
+    """The bootstrap section once promised a repository instruction, a project config
+    and a seed test that ``agent install`` never wrote (stage 6, T03)."""
+    section = _bootstrap(language)
+    roots = dict(re.findall(r"^\| `(\w+)` \| `([^`]+)/` \|$", section, re.MULTILINE))
+    listed = _fenced(section, "text").split()
+    assert roots == {name: root.as_posix() for name, root in CLIENT_ROOTS.items()}
+
+    receipt = install_skills(tmp_path, [client])
+
+    assert sorted(receipt["clients"][0]["installed"]) == listed
+    written = sorted(
+        path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*") if path.is_file()
+    )
+    state = [".testence/agents.json", ".testence/quality-operation.lock"]
+    assert written == sorted([f"{roots[client]}/{item}" for item in listed] + state)
+    for item in state:
+        assert f"`{item}`" in section
+
+
+def test_plan_skill_names_the_readiness_block_prepare_requires(tmp_path: Path, monkeypatch):
+    """A plan with an ``api`` oracle validates and is then blocked by ``plan prepare``
+    without a readiness block; the skill's example makes the reference plan ready."""
+    plan_skill = bundled_skills()["testence-plan"]
+    assert "testence plan prepare" in _read(plan_skill, "SKILL.md")
+    reference = _read(plan_skill, "references/planspec-v2.md")
+    plan = tmp_path / "specs" / "checkout.md"
+    plan.parent.mkdir()
+    planspec = _fenced(reference, "testence-planspec")
+    plan.write_text(f"# Checkout\n\n```testence-planspec\n{planspec}```\n", encoding="utf-8")
+    settings = {"project_id": "checkout", "base_url": "https://qa.example.test", "headed": False}
+    settings_path = tmp_path / "testence.json"
+    settings_path.write_text(json.dumps(settings), encoding="utf-8")
+
+    blocked = prepare_plan(plan, tmp_path)
+
+    assert blocked["status"] == "blocked"
+    assert [item["kind"] for item in blocked["scenarios"][0]["blockers"]] == [
+        "oracle",
+        "configuration",
+    ]
+
+    example = json.loads(_fenced(reference.split("## Readiness for `plan prepare`")[1], "json"))
+    settings_path.write_text(json.dumps({**settings, **example}), encoding="utf-8")
+    seed = tmp_path / "seed" / "discount-codes.json"
+    seed.parent.mkdir()
+    seed.write_text("[]", encoding="utf-8")
+    monkeypatch.setenv("SHOP_TEST_USER", "synthetic-user")
+
+    ready = prepare_plan(plan, tmp_path)
+
+    assert ready["status"] == "ready", json.dumps(ready, indent=2)
