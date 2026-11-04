@@ -174,10 +174,14 @@ def _watch(
         while True:
             runs += 1
             print(f"[watch] run {runs}")
+            started = time.perf_counter()
             if warm_runner is not None:
-                warm_runner.run()
+                code = warm_runner.run()
             else:
-                subprocess.run(cmd, check=False)
+                code = subprocess.run(cmd, check=False).returncode
+            # The loop's whole point is iteration time: show it, so a slow fixture
+            # or a lost warm engine is visible at a glance instead of felt.
+            print(f"[watch] run {runs} exit {code} in {time.perf_counter() - started:.1f}s")
             print("[watch] waiting for a change...")
             while True:
                 time.sleep(_WATCH_POLL_S)
