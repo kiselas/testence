@@ -161,7 +161,8 @@ def test_every_check_and_action_is_an_intent_step_in_the_ledger(ex):
     assert starts["the name field keeps the saved name"]["target"] == NAME.describe()
     ends = [event for event in events if event["kind"] == "step.end"]
     assert [event["status"] for event in ends] == ["ok", "ok"]
-    assert all(event.get("fingerprint") for event in ends)
+    # Both targets are CSS selectors: no heal baseline to keep, and the step says so.
+    assert [event.get("fingerprint_kept") for event in ends] == ["css", "css"]
 
 
 class _EngineWithoutVocabulary:
