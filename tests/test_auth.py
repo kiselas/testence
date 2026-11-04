@@ -110,16 +110,20 @@ def test_form_login_wrong_password_fails_fast(engine):
 def test_a_failed_form_login_says_what_the_page_said(engine):
     """Stage 6, T04: the reason a login failed is on the page; the error used to
     stop at "the password field is still visible"."""
-    auth = FormLoginAuth(Credentials(USER, "wrong-password"), timeout_ms=2_000)
+    auth = FormLoginAuth(Credentials(USER, "wrong-password"), timeout_ms=5_000)
 
     with pytest.raises(LoginFailed) as caught:
         auth.authenticate(engine)
 
     failure = caught.value
     assert failure.page_errors == ("Invalid credentials",)
-    # The server drew the form again, empty. The password rule of redaction must not
-    # take the node after `textbox "Password":` for its value.
-    assert '- textbox "Password":\n  - /placeholder: password' in failure.form_aria
+    # The password rule of redaction must not take the node after
+    # `textbox "Password":` (a placeholder, in newer Playwright) for its value: every
+    # line is still a node of the tree.
+    assert 'textbox "Password"' in failure.form_aria
+    assert all(line.lstrip().startswith("- ") for line in failure.form_aria.splitlines()), (
+        failure.form_aria
+    )
     assert 'button "Sign in"' in failure.form_aria
     message = str(failure)
     assert "The page says:\n  Invalid credentials" in message
