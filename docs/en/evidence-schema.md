@@ -1,15 +1,21 @@
 # Evidence schema `testence/2` (normative)
 
 One JSON object per line in `runs/<run-id>/run.jsonl`. Append-only; UTF-8; `\n` line
-endings on all platforms; fsync per event (crash-safety is the point, and it costs
-0.5 ms per event). Fields are append-only within a major version; breaking changes
+endings on all platforms. Every event is flushed to the operating system when it is
+written, so a crashed or killed process loses nothing. `fsync`, which keeps the line
+through a machine crash, follows `evidence.durability`: `test` (default) syncs at each
+`test.end`, on every event recording a failure or an error (a `fail`/`failed`/`broken`
+status, `ok: false`, `outcome: failed`, an `error` field), at the run manifest
+checkpoints, when a failure pack binds the ledger, and at close, so a failed test's
+evidence is on disk before its pack; `step` syncs every event (milliseconds each on
+Windows, about two per step). Fields are append-only within a major version; breaking changes
 bump the version and parsers must refuse foreign versions loudly.
 
 The fsync guarantee is the operating system's. On macOS `fsync` hands the data to the
 drive but does not flush the drive's own write cache, which needs `F_FULLFSYNC` and
 costs orders of magnitude more. A crashed or killed process loses nothing there either;
 a power loss can drop the last events. Testence keeps plain `fsync` on every platform
-rather than trade the per-event budget for that case.
+rather than trade the budget for that case.
 
 **One file per process, never per run.** Under `pytest -n` each worker writes
 `run-<worker>.jsonl` beside the controller's `run.jsonl`, all inside one run

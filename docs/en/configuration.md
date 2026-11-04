@@ -358,6 +358,19 @@ may be kept, and note each file is marked `redaction: none`. Only
 stream do not. They need a context Testence owns, so
 an attached browser or a persistent profile refuses them.
 
+### Ledger durability
+
+```json
+{"evidence": {"durability": "test"}}
+```
+
+Every event is flushed when it is written, so a killed process keeps the ledger.
+`durability` decides when it is also synced to disk (`fsync`), which only a machine
+crash needs: `test` (default) at the end of each test, on any failure or error event,
+when a failure pack binds the ledger and at close; `step` after every event, the
+earlier behaviour, at a few milliseconds per event on Windows. See
+[evidence schema](evidence-schema.md).
+
 ## Negative controls
 
 A control names one way to break the target and the claims it makes false. A test

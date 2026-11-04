@@ -918,6 +918,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
     try:
         redaction_policy = settings.redaction_policy()
         redact_values = settings.redaction_values()
+        durability = str(settings.evidence_config().get("durability", "test"))
     except ValueError as exc:
         raise pytest.UsageError(f"invalid Testence evidence settings: {exc}") from exc
     writer = EvidenceWriter(
@@ -927,6 +928,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         redact_values=redact_values,
         redaction_policy=redaction_policy,
         deferred=not config.stash.get(_RECORD_KEY, True),
+        durability=durability,
     )
     stream_dir = config.getoption("--testence-allure-results")
     if stream_dir:
