@@ -2224,7 +2224,7 @@ def ex(
     try:
         yield actions
     finally:
-        actions._finish_ws_gates()
+        actions.finish()
         # Wait budget remains evidence supplied by the browser fixture; the terminal
         # execution outcome is owned by pytest_runtest_protocol.
         ledger = testence_engine.wait_ledger() if hasattr(testence_engine, "wait_ledger") else []

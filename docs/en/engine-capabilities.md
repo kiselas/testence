@@ -37,6 +37,14 @@ in-app link would; otherwise (the first navigation, another origin, a route outs
 `goto`, and the step's `step.end` records it as `navigation`. Client-side navigation
 keeps mounted component state: a case about a first load uses `ex.goto`.
 
+After a document load the engine probes whether the application has painted
+anything (`wait_until_rendered`). Under the DSL the probe waits for the next step: a
+step with a target skips it, because waiting for its own element is the stronger
+readiness signal (`wait_until_rendered(skipped)` in the wait ledger); a step without
+a target (a URL check, a screenshot, an oracle, `ex.native`) runs it first; a probe
+still due when the test ends runs then. An engine used directly, without the DSL,
+probes right after `goto` as before.
+
 `ex.reset_storage(keys, intent=None, *, session=False)` (`session`) removes the named
 `localStorage` (or `sessionStorage`) keys and returns how many were set; under
 `page_reuse: module` it clears what a previous test left on the shared page.

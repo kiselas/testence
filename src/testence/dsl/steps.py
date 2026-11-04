@@ -166,6 +166,10 @@ class Actions:
         observer = getattr(engine, "set_native_mock_observer", None)
         if callable(observer):
             observer(lambda **data: self.writer.emit("network.mocked", test=self.test_id, **data))
+        # A goto's render probe waits for the first step that has no element to
+        # wait for; a step with a target waits for its own element (B3).
+        if hasattr(engine, "defer_render_probe"):
+            engine.defer_render_probe = True
         #: Gates opened by ``ws_gate``; each is summarized when the test ends.
         self._ws_gates: list[WebSocketGate] = []
         gate_observer = getattr(engine, "set_ws_gate_observer", None)
@@ -197,6 +201,7 @@ class Actions:
             self._children[-1] += 1
         self._children.append(0)
         self._annotations.append({})
+        self._render_probe(target)
         self.writer.emit(
             "step.start",
             test=self.test_id,
@@ -269,6 +274,28 @@ class Actions:
             **self._annotations.pop(),
             **({"operation": _operation.to_json()} if _operation else {}),
         )
+
+    def _render_probe(self, target: Target | None) -> None:
+        """Settle a goto's deferred render probe before this step starts.
+
+        A step with a target waits for its element, which is a stronger readiness
+        signal than "the app painted something"; a step without one (a URL check, a
+        screenshot, raw access, an oracle) gets the probe it was owed.
+        """
+        due = getattr(self.engine, "render_probe_due", None)
+        if not callable(due) or not due():
+            return
+        if target is not None:
+            self.engine.skip_render_probe()  # type: ignore[attr-defined]
+        else:
+            self.engine.flush_render_probe()  # type: ignore[attr-defined]
+
+    def finish(self) -> None:
+        """End of the test: a deferred render probe still due runs now."""
+        flush = getattr(self.engine, "flush_render_probe", None)
+        if callable(flush):
+            flush()
+        self._finish_ws_gates()
 
     def _describe_matches(self, target: Target) -> str:
         return describe_matches(self.engine, target)

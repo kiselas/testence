@@ -339,6 +339,10 @@ class PlaywrightCdpEngine(Engine):
         #: What a test changed in this context that a next test sharing the page
         #: (page_reuse: module) would inherit: routes, a fake clock, raw access.
         self._sticky: set[str] = set()
+        #: Defer the render probe of goto to the next step that has no target
+        #: (set by the DSL); a step with a target waits for its element instead.
+        self.defer_render_probe = False
+        self._render_due = False
         self._capture_omissions: dict[str, int] = {}
         self._capture_bytes = 0
         #: Wait ledger: every wait/action records {op, detail, ms, ok}. This is the
@@ -919,7 +923,10 @@ class PlaywrightCdpEngine(Engine):
         # has the app painted anything.
         with self._timed("goto", url):
             self._require_page().goto(full, wait_until="domcontentloaded")
-        self.wait_until_rendered()
+        if self.defer_render_probe:
+            self._render_due = True
+        else:
+            self.wait_until_rendered()
 
     def navigate(self, url: str, *, hard: bool = False) -> bool:
         """Go to an in-app route, preferring client-side routing.
@@ -975,6 +982,25 @@ class PlaywrightCdpEngine(Engine):
             except Exception:  # noqa: BLE001 - readiness probes fail closed
                 return False
 
+    def render_probe_due(self) -> bool:
+        """Whether a goto's render probe was deferred and has not run yet."""
+        return self._render_due
+
+    def flush_render_probe(self) -> bool | None:
+        """Run a deferred render probe now; None when none was due."""
+        if not self._render_due:
+            return None
+        self._render_due = False
+        return self.wait_until_rendered()
+
+    def skip_render_probe(self) -> None:
+        """Drop a deferred render probe: the next step waits for its own element."""
+        if self._render_due:
+            self._render_due = False
+            self._waits.append(
+                {"op": "wait_until_rendered(skipped)", "detail": "", "ms": 0.0, "ok": True}
+            )
+
     def open(self, url: str) -> str:
         """Open a route the fastest correct way; returns ``"navigate"`` or ``"goto"``.
 
@@ -1010,6 +1036,9 @@ class PlaywrightCdpEngine(Engine):
 
     def _app_mounted(self) -> bool:
         """Whether the page shows a rendered application right now (no waiting)."""
+        if self._render_due:
+            # The previous goto has not been probed: the document may still be booting.
+            return False
         try:
             return bool(self._require_page().evaluate(_RENDERED_JS))
         except Exception:  # noqa: BLE001 - a page that cannot answer is not mounted
