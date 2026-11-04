@@ -20,6 +20,10 @@ frames, popups и вкладки, upload/download, dialogs, поддельные
 явное ослабление actionability. Оно записывается в `step.start` и переводит иначе
 verified attempt в `unverified` для review.
 
+`ex.reset_storage(keys, intent=None, *, session=False)` (`session`) удаляет названные
+ключи `localStorage` (или `sessionStorage`) и возвращает, сколько из них было задано;
+при `page_reuse: module` очищает то, что предыдущий тест оставил на общей вкладке.
+
 `ex.expect_settled(target, intent=None, *, timeout_ms=None)` (`browser.dom`) ждёт,
 пока `getBoundingClientRect` цели не совпадёт в двух кадрах `requestAnimationFrame`
 подряд и прямоугольник не окажется целиком внутри viewport. Применяйте перед замером

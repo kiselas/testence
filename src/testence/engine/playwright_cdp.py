@@ -318,6 +318,9 @@ class PlaywrightCdpEngine(Engine):
         #: Pages whose events already reach the buffers. Kept as objects, not ids: a
         #: closed page's id can be reused by the next one.
         self._tapped_pages: list[Any] = []
+        #: What a test changed in this context that a next test sharing the page
+        #: (page_reuse: module) would inherit: routes, a fake clock, raw access.
+        self._sticky: set[str] = set()
         self._capture_omissions: dict[str, int] = {}
         self._capture_bytes = 0
         #: Wait ledger: every wait/action records {op, detail, ms, ok}. This is the
@@ -518,6 +521,7 @@ class PlaywrightCdpEngine(Engine):
         other._console = []
         other._ws = []
         other._tapped_pages = []
+        other._sticky = set()
         other._capture_omissions = {}
         other._capture_bytes = 0
         other._waits = []
@@ -561,6 +565,7 @@ class PlaywrightCdpEngine(Engine):
             self._context.close()
         # A fresh session: the previous test's credentials do not carry over.
         self._extra_headers = {}
+        self._sticky = set()
         self._context = self._browser.new_context(
             ignore_https_errors=self.ignore_https_errors, **self._context_options()
         )
@@ -1111,6 +1116,75 @@ class PlaywrightCdpEngine(Engine):
                 # on the current page lets them be dispatched.
                 self._require_page().wait_for_timeout(50)
 
+    def reuse_blockers(self) -> list[str]:
+        """What this test left in its context that the next test would inherit.
+
+        Empty means the page can be handed to the next test of the module
+        (``page_reuse: module``): a route, a fake clock, a WebSocket gate, a response
+        rewrite, raw Playwright access or a recording belong to one test only.
+        """
+        blockers = set(self._sticky)
+        if self._ws_gates:
+            blockers.add("ws_gate")
+        if self._response_rewrites is not None:
+            blockers.add("response-rewrite")
+        if self._native_routes is not None:
+            blockers.add("native-route")
+        if self._tracing or self.video != "off":
+            blockers.add("recording")
+        if self._context is None or self._page is None or self._page.is_closed():
+            blockers.add("no page")
+        elif self._scope is not self._page:
+            blockers.add("frame scope")
+        return sorted(blockers)
+
+    def prepare_reuse(self) -> int:
+        """Hand this page to the next test: close the other tabs, clear the buffers.
+
+        Returns how many tabs were closed. Cookies, storage and the page itself stay:
+        that is the point of sharing it.
+        """
+        if self._context is None:
+            raise RuntimeError("engine not started")
+        if self._page is not None and not self._page.is_closed():
+            # Page events reach Python on the next call into the driver: without a
+            # round trip a tab the previous test opened last is not listed yet.
+            with suppress(Exception):
+                self._page.evaluate("1")
+        pages = [page for page in self._context.pages if not page.is_closed()]
+        if not pages:
+            raise RuntimeError("no open page to reuse")
+        keep = self._page if self._page in pages else pages[0]
+        closed = 0
+        with self._timed("page.prepare_reuse"):
+            for page in pages:
+                if page is not keep:
+                    with suppress(Exception):
+                        page.close()
+                    closed += 1
+        self._page = self._scope = self._js_scope = keep
+        self._tapped_pages = [keep]
+        self.reset_taps()
+        return closed
+
+    def remove_storage_items(self, keys: list[str], *, session: bool = False) -> int:
+        """Remove the named keys from the page's storage; returns how many were set."""
+        page = self._require_page()
+        if page.url in ("about:blank", ""):
+            return 0
+        area = "sessionStorage" if session else "localStorage"
+        with self._timed("reset_storage", ", ".join(keys)):
+            return int(
+                page.evaluate(
+                    f"""(keys) => keys.filter((key) => {{
+                        const present = {area}.getItem(key) !== null;
+                        {area}.removeItem(key);
+                        return present;
+                    }}).length""",
+                    list(keys),
+                )
+            )
+
     def close_page(self) -> None:
         """Close the current page and continue on the most recently opened one left."""
         if self._context is None or self._page is None:
@@ -1152,10 +1226,12 @@ class PlaywrightCdpEngine(Engine):
             route.fulfill(status=status, body=body, headers=headers, content_type=content_type)
 
         setattr(answer, "_testence_builtin_mock", True)
+        self._sticky.add("route")
         with self._timed("route", f"{'abort' if abort else status} {pattern}"):
             self._context.route(pattern, answer)
 
     def clock_install(self, moment: Any = None) -> None:
+        self._sticky.add("clock")
         with self._timed("clock_install", repr(moment)):
             if moment is None:
                 self._clock().install()
@@ -1745,6 +1821,8 @@ class PlaywrightCdpEngine(Engine):
             page.screenshot(path=path, full_page=False)
 
     def native_page(self) -> Page:
+        # Raw access can change anything about the context; it is not handed on.
+        self._sticky.add("native")
         """The Playwright page behind this engine, for ``Actions.native`` only.
 
         The one sanctioned place where a Playwright type leaves the engine

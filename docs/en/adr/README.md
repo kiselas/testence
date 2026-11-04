@@ -45,6 +45,7 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 | [0035](0035-websocket-gate.md) | A recorded WebSocket gate for stale-tab scenarios | implemented (engineering) |
 | [0036](0036-browserless-api-tests.md) | An API-only test runs without a browser | implemented (engineering) |
 | [0037](0037-ledger-durability-per-test.md) | Ledger durability per test, flush per event | implemented (engineering) |
+| [0038](0038-page-reuse-within-a-module.md) | Opt-in page reuse within a module | implemented (engineering, opt-in) |
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.

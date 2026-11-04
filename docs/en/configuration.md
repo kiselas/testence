@@ -396,6 +396,26 @@ synthetic target. An undeclared name and `--testence-reruns` with a control are
 usage errors. A run made with a control never proves product behaviour, and
 `ci evaluate` refuses it as the run under evaluation.
 
+## Sharing a page within a module
+
+```json
+{"page_reuse": "module"}
+```
+
+`test` (default): every test gets a fresh context and logs in. `module`: a test hands its
+tab and context to the next test pytest runs when that test is in the same module,
+logs in the same way (the configured scheme, or anonymous) and is not marked
+`@pytest.mark.testence(fresh_page=True)`. The next test takes the page over with its
+other tabs closed and its network, console and wait buffers cleared; its `auth` phase
+reuses the login (`reused: true`). Each test's evidence and `test.waits` stay its own.
+
+A page is not handed on after a failure, after `ex.route`, a fake clock, a WebSocket
+gate, a response rewrite or `ex.native`, with trace or video on, in warm or attached
+mode, or when the next test does not share module and login; a `page not kept` note
+says why. Cookies, storage and the current document are shared: a test that reads
+state another test may leave clears it with `ex.reset_storage(["key", ...])`, or opts
+out with `fresh_page=True`. See [ADR-0038](adr/0038-page-reuse-within-a-module.md).
+
 ## Running in parallel
 
 ```bash

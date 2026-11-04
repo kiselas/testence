@@ -14,7 +14,7 @@ import re
 import time
 import warnings
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -203,8 +203,9 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "testence(plan, claims, case_id, allure_id, title, description, severity, labels, "
-        "links, tms, anonymous): bind a test to a PlanSpec case and/or describe it for "
-        "reports; anonymous=True runs ex without logging in",
+        "links, tms, anonymous, fresh_page): bind a test to a PlanSpec case and/or "
+        "describe it for reports; anonymous=True runs ex without logging in; "
+        "fresh_page=True opts out of page_reuse: module",
     )
     reruns = rerun_count(config)
     if reruns and config.getoption("--testence-control"):
@@ -350,8 +351,9 @@ _TMS_PATTERNS = {
     "xray": re.compile(r"^[A-Z][A-Z0-9_]*-[1-9][0-9]*$"),
 }
 _CONTRACT_FIELDS = frozenset({"plan", "claims", "case_id"})
-#: How the test runs: ``anonymous=True`` keeps ``ex`` from logging in.
-_SESSION_FIELDS = frozenset({"anonymous"})
+#: How the test runs: ``anonymous=True`` keeps ``ex`` from logging in;
+#: ``fresh_page=True`` gives it a page of its own under ``page_reuse: module``.
+_SESSION_FIELDS = frozenset({"anonymous", "fresh_page"})
 
 
 @dataclass(frozen=True)
@@ -835,6 +837,10 @@ _OWN_RUN_ID_KEY = pytest.StashKey[str]()
 _SETTINGS_ERROR_KEY = pytest.StashKey[str]()
 _ACTIONS_KEY = pytest.StashKey[Actions]()
 _ENGINE_KEY = pytest.StashKey[Engine]()
+#: The test pytest runs after this one in this process (None for the last).
+_NEXT_ITEM_KEY = pytest.StashKey[Any]()
+#: page_reuse: module — the page kept for the next test: {"key", "engine", "auth"}.
+_KEPT_PAGE_KEY = pytest.StashKey[dict[str, Any]]()
 _FINGERPRINTS_KEY = pytest.StashKey[FingerprintStore]()
 _PACK_KEY = pytest.StashKey[str]()
 _PACK_ATTEMPTED_KEY = pytest.StashKey[bool]()
@@ -915,6 +921,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         control = resolve_control(settings.extra, config.getoption("--testence-control"))
     except ControlError as exc:
         raise pytest.UsageError(f"invalid Testence control: {exc}") from exc
+    _page_reuse(settings)  # a typo stops the session before any test runs
     try:
         redaction_policy = settings.redaction_policy()
         redact_values = settings.redaction_values()
@@ -1456,6 +1463,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
         yield
         return
     item.stash[_RETRIES_KEY] = 0
+    item.stash[_NEXT_ITEM_KEY] = nextitem
     _start_test(item, state)
     try:
         yield
@@ -1548,6 +1556,12 @@ def _close_lifecycle(state: _LifecycleState, exitstatus: int | pytest.ExitCode) 
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:
+    kept = session.config.stash.get(_KEPT_PAGE_KEY, None)
+    if kept is not None:
+        # An interrupted run (-x, Ctrl+C) can end with a page kept for a next test.
+        del session.config.stash[_KEPT_PAGE_KEY]
+        with suppress(Exception):
+            kept["engine"].stop()
     global _ACTIVE_STATE
     if session.config.stash.get(_TESTPLAN_NOOP_KEY, False) and int(exitstatus) == int(
         pytest.ExitCode.NO_TESTS_COLLECTED
@@ -1715,6 +1729,20 @@ def testence_engine(
     )
     warm = mode == "warm"
     reuse = _browser_reuse(request.config, testence_settings)
+    test_id = _test_id(request.node)
+    page_key = _page_key(request.node, testence_settings) if mode == "isolated" else None
+    kept = _take_kept_page(request.config, testence_writer, page_key, test_id)
+    if kept is not None:
+        engine = kept["engine"]
+        state_kept: dict[str, Any] = {"any_failed": False, "mode": "page-reuse"}
+        if kept.get("auth") is not None:
+            state_kept["auth"] = kept["auth"]
+        engine._testence_state = state_kept  # type: ignore[attr-defined]
+        try:
+            yield engine
+        finally:
+            _release_page(request, testence_settings, testence_writer, engine, page_key)
+        return
     if reuse:
         owner = request.getfixturevalue("_testence_browser_owner")
         with _lifecycle_phase(testence_writer, _test_id(request.node), "context.fresh"):
@@ -1783,16 +1811,130 @@ def testence_engine(
                 )
         if warm:
             _WARM_ENGINE_ANY_FAILED = _WARM_ENGINE_ANY_FAILED or state["any_failed"]
+        elif page_key is not None and not state.get("recordings"):
+            _release_page(request, testence_settings, testence_writer, engine, page_key)
         else:
             # CI/default isolation owns and closes its browser even after failure.
             # Attached mode only detaches; the launcher's browser is never ours.
-            mark = len(getattr(engine, "wait_ledger", lambda: [])())
-            close_phase = "context.release" if reuse else "browser.close"
-            with _lifecycle_phase(testence_writer, _test_id(request.node), close_phase):
-                engine.stop(keep_browser=mode == "attached" and state["any_failed"])
-            _engine_phase_notes(
-                testence_writer, _test_id(request.node), engine, close_phase, start=mark
+            _close_engine(
+                testence_writer,
+                _test_id(request.node),
+                engine,
+                "context.release" if reuse else "browser.close",
+                keep_browser=mode == "attached" and state["any_failed"],
             )
+
+
+def _close_engine(
+    writer: EvidenceWriter, test_id: str, engine: Engine, phase: str, *, keep_browser: bool
+) -> None:
+    mark = len(getattr(engine, "wait_ledger", lambda: [])())
+    with _lifecycle_phase(writer, test_id, phase):
+        engine.stop(keep_browser=keep_browser)
+    _engine_phase_notes(writer, test_id, engine, phase, start=mark)
+
+
+def _page_reuse(settings: Settings) -> str:
+    value = settings.extra.get("page_reuse", "test")
+    if value not in ("test", "module"):
+        raise pytest.UsageError('page_reuse must be "test" or "module"')
+    return str(value)
+
+
+def _page_key(item: pytest.Item, settings: Settings) -> tuple[str, str] | None:
+    """The module and login a test shares its page under; None for a page of its own.
+
+    ``page_reuse: module`` hands one tab and context from test to test of a module
+    while they log in the same way; ``fresh_page=True`` on the testence marker opts a
+    test out. Trace and video belong to one test's context, so they turn it off.
+    """
+    if _page_reuse(settings) != "module" or os.environ.get("TESTENCE_WARM_ENGINE") == "1":
+        return None
+    if settings.cdp_url:
+        return None
+    evidence = settings.evidence_config()
+    if evidence.get("trace", "off") != "off" or evidence.get("video", "off") != "off":
+        return None
+    marker = item.get_closest_marker("testence")
+    if marker is not None and marker.kwargs.get("fresh_page"):
+        return None
+    login = "anonymous" if _anonymous(item) else (settings.auth or "none").lower()
+    return (item.nodeid.split("::", 1)[0], login)
+
+
+def _take_kept_page(
+    config: pytest.Config, writer: EvidenceWriter, key: tuple[str, str] | None, test_id: str
+) -> dict[str, Any] | None:
+    """The page the previous test kept for this one, ready to use; else close it."""
+    kept = config.stash.get(_KEPT_PAGE_KEY, None)
+    if kept is None:
+        return None
+    del config.stash[_KEPT_PAGE_KEY]
+    engine = kept["engine"]
+    if key is None or kept["key"] != key:
+        _close_engine(writer, kept["test"], engine, "page.release", keep_browser=False)
+        return None
+    try:
+        with _lifecycle_phase(writer, test_id, "page.reuse"):
+            closed = engine.prepare_reuse()
+    except Exception as exc:  # noqa: BLE001 - a page that cannot be handed on is closed
+        writer.emit(
+            "note",
+            test=test_id,
+            text="kept page could not be reused",
+            error=f"{type(exc).__name__}: {exc}",
+        )
+        _close_engine(writer, test_id, engine, "page.release", keep_browser=False)
+        return None
+    writer.emit(
+        "note",
+        test=test_id,
+        text="page reused",
+        reused_from=kept["test"],
+        closed_tabs=closed,
+    )
+    return dict(kept)
+
+
+def _release_page(
+    request: pytest.FixtureRequest,
+    settings: Settings,
+    writer: EvidenceWriter,
+    engine: Engine,
+    key: tuple[str, str] | None,
+) -> None:
+    """Keep this test's page for the next test of the module, or close it."""
+    test_id = _test_id(request.node)
+    state = getattr(engine, "_testence_state", {})
+    following = request.node.stash.get(_NEXT_ITEM_KEY, None)
+    reason = ""
+    if key is None:
+        reason = "own page"
+    elif state.get("any_failed"):
+        reason = "the test failed"
+    elif following is None or _page_key(following, settings) != key:
+        reason = "the next test does not share it"
+    else:
+        blockers = getattr(engine, "reuse_blockers", lambda: ["engine cannot hand on a page"])()
+        if blockers:
+            reason = "the test left " + ", ".join(blockers)
+    if reason:
+        if key is not None:
+            writer.emit("note", test=test_id, text="page not kept", reason=reason)
+        _close_engine(
+            writer,
+            test_id,
+            engine,
+            "context.release" if _browser_reuse(request.config, settings) else "browser.close",
+            keep_browser=False,
+        )
+        return
+    request.config.stash[_KEPT_PAGE_KEY] = {
+        "key": key,
+        "engine": engine,
+        "auth": state.get("auth"),
+        "test": test_id,
+    }
 
 
 #: Fixtures whose test drives a browser; any of them in a test's closure means the
@@ -1844,6 +1986,21 @@ def testence_auth(
     """
     # Resolved before the phase starts, so a browser launch is not timed as login.
     engine = _session_engine(request, testence_settings)
+    state = getattr(engine, "_testence_state", None)
+    shared = state.get("auth") if isinstance(state, dict) else None
+    if isinstance(shared, AuthContext):
+        # page_reuse: module — the page this test took over is logged in already.
+        testence_writer.emit(
+            "note",
+            test=_test_id(request.node),
+            text="lifecycle timing",
+            lifecycle_phase="auth",
+            duration_ms=0,
+            ok=True,
+            reused=True,
+        )
+        testence_writer.emit("note", text="authenticated", auth=shared.describe(), reused=True)
+        return shared
     started = time.perf_counter()
     with _lifecycle_phase(testence_writer, _test_id(request.node), "auth"):
         adapter = from_settings(testence_settings)
@@ -1859,6 +2016,8 @@ def testence_auth(
     # configured secret.
     for value in session_secrets(context):
         testence_writer.remember_secret(value)
+    if isinstance(state, dict) and state.get("mode") != "browserless":
+        state["auth"] = context  # handed on with the page under page_reuse: module
     testence_writer.emit(
         "note",
         text="authenticated",

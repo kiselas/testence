@@ -29,6 +29,10 @@ counted in the page in one round trip; the wait is an `expect_settled` entry of 
 wait ledger. An element that never stops, or stays outside the viewport, fails as an
 assertion naming its last box.
 
+`ex.reset_storage(keys, intent=None, *, session=False)` (`session`) removes the named
+`localStorage` (or `sessionStorage`) keys and returns how many were set; under
+`page_reuse: module` it clears what a previous test left on the shared page.
+
 Inside `with ex.frame(...)`, locator actions, `eval_js`, and `wait_for_predicate_js`
 share the same active iframe. Leaving the context restores the previous page or nested
 frame scope. Page-level session and network operations remain page-level.

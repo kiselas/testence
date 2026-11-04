@@ -473,6 +473,21 @@ class Actions:
             else:  # engines written before expect_hidden: a wait, reported as before
                 self.engine.wait_while_visible(target)
 
+    def reset_storage(
+        self, keys: list[str] | tuple[str, ...], intent: str | None = None, *, session: bool = False
+    ) -> int:
+        """Remove the named keys from the page's ``localStorage`` (``sessionStorage``
+        with ``session=True``); returns how many were set. For a page shared with the
+        previous test (``page_reuse: module``): clear what that test left behind and
+        this test must not read, such as a saved filter or a draft."""
+        names = [str(key) for key in keys]
+        if not names:
+            raise ValueError("reset_storage needs at least one key")
+        area = "sessionStorage" if session else "localStorage"
+        with self.step(intent or f"reset {area} {', '.join(names)}"):
+            require_capabilities(self.engine, "reset_storage", Capability.SESSION)
+            return int(self._engine_method("remove_storage_items")(names, session=session))
+
     def expect_settled(
         self, target: Target, intent: str | None = None, *, timeout_ms: int | None = None
     ) -> None:
