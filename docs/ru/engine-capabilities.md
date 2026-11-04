@@ -35,7 +35,8 @@ verified attempt в `unverified` для review.
 (`wait_until_rendered(skipped)` в журнале ожиданий); шаг без target (проверка URL,
 скриншот, oracle, `ex.native`) сначала выполняет её; проверка, которая осталась к концу
 теста, выполняется тогда. Движок, вызванный напрямую без DSL, проверяет сразу после
-`goto`, как раньше.
+`goto`, как раньше, а прямой вызов движка после отложенной проверки (вне шага DSL)
+сначала выполняет её.
 
 `ex.reset_storage(keys, intent=None, *, session=False)` (`session`) удаляет названные
 ключи `localStorage` (или `sessionStorage`) и возвращает, сколько из них было задано;

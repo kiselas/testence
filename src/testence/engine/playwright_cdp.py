@@ -875,6 +875,8 @@ class PlaywrightCdpEngine(Engine):
     # -- targets -----------------------------------------------------------
 
     def _locate(self, target: Target) -> Locator:
+        if self._render_due:
+            self.flush_render_probe()  # see _require_page
         page = (
             self._locate(target.within) if target.within else (self._scope or self._require_page())
         )
@@ -901,6 +903,10 @@ class PlaywrightCdpEngine(Engine):
     def _require_page(self) -> Page:
         if self._page is None:
             raise RuntimeError("engine not started")
+        if self._render_due:
+            # A direct engine call after a deferred goto (not a DSL step, which
+            # settles the probe itself) gets the probe goto used to run.
+            self.flush_render_probe()
         return self._page
 
     # -- actions -------------------------------------------------------------
@@ -1036,10 +1042,8 @@ class PlaywrightCdpEngine(Engine):
 
     def _app_mounted(self) -> bool:
         """Whether the page shows a rendered application right now (no waiting)."""
-        if self._render_due:
-            # The previous goto has not been probed: the document may still be booting.
-            return False
         try:
+            # A probe still due runs first (_require_page): the document may be booting.
             return bool(self._require_page().evaluate(_RENDERED_JS))
         except Exception:  # noqa: BLE001 - a page that cannot answer is not mounted
             return False

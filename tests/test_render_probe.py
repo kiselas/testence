@@ -110,3 +110,10 @@ def test_the_probe_still_due_at_the_end_of_the_test_runs(ex, browser):
     ex.goto("/r/a")
     ex.finish()
     assert "wait_until_rendered" in _ops(browser)
+
+
+def test_a_direct_engine_call_after_goto_gets_the_probe(ex, browser):
+    """A test may mix DSL steps with direct engine calls; those keep the old rule."""
+    ex.goto("/r/a")
+    browser.wait_while_visible(Target("css", "#absent"), timeout_ms=1_000)
+    assert "wait_until_rendered" in _ops(browser)

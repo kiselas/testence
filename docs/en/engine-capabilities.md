@@ -43,7 +43,8 @@ step with a target skips it, because waiting for its own element is the stronger
 readiness signal (`wait_until_rendered(skipped)` in the wait ledger); a step without
 a target (a URL check, a screenshot, an oracle, `ex.native`) runs it first; a probe
 still due when the test ends runs then. An engine used directly, without the DSL,
-probes right after `goto` as before.
+probes right after `goto` as before, and a direct engine call that follows a deferred
+probe (outside a DSL step) runs it first.
 
 `ex.reset_storage(keys, intent=None, *, session=False)` (`session`) removes the named
 `localStorage` (or `sessionStorage`) keys and returns how many were set; under
