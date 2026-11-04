@@ -132,6 +132,43 @@ def _free_tcp_port() -> int:
 #: ``evidence.trace`` / ``evidence.video``: never, always, or kept only for a failure.
 RECORDING_POLICIES = ("off", "on", "retain-on-failure")
 
+#: expect_settled, in the page: resolve once the element's box is the same in two
+#: consecutive animation frames and lies wholly inside the viewport. A timer guards
+#: the deadline, since a page that paints no frames never runs the callback.
+_SETTLED_JS = """(element, timeout) => new Promise((resolve) => {
+  const viewport = () => ({width: window.innerWidth, height: window.innerHeight});
+  const box = () => {
+    const r = element.getBoundingClientRect();
+    return {x: r.x, y: r.y, width: r.width, height: r.height};
+  };
+  const inside = (b) => b.width > 0 && b.height > 0 && b.x >= -0.5 && b.y >= -0.5
+    && b.x + b.width <= window.innerWidth + 0.5 && b.y + b.height <= window.innerHeight + 0.5;
+  const same = (a, b) => a !== null && ["x", "y", "width", "height"].every(
+    (key) => Math.abs(a[key] - b[key]) < 0.01);
+  let previous = null;
+  let frames = 0;
+  let done = false;
+  const finish = (result) => { if (!done) { done = true; resolve(result); } };
+  const deadline = performance.now() + timeout;
+  setTimeout(() => {
+    const last = box();
+    finish({ok: false, rect: last, viewport: viewport(),
+      reason: !inside(last) ? "outside" : (frames < 2 ? "frames" : "moving")});
+  }, timeout);
+  const frame = () => {
+    if (done) return;
+    frames += 1;
+    const current = box();
+    if (same(previous, current) && inside(current)) {
+      finish({ok: true, rect: current, viewport: viewport(), frames});
+      return;
+    }
+    previous = current;
+    if (performance.now() < deadline) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+})"""
+
 _EMULATION_KEYS = frozenset(
     {"device", "locale", "timezone_id", "geolocation", "permissions", "color_scheme", "user_agent"}
 )
@@ -1215,6 +1252,42 @@ class PlaywrightCdpEngine(Engine):
                 )
             except PlaywrightTimeoutError as exc:
                 raise AssertionError(f"target did not become visible: {target.describe()}") from exc
+
+    def expect_settled(self, target: Target, timeout_ms: int | None = None) -> None:
+        """Wait until the target stops moving and lies wholly inside the viewport.
+
+        Settled means the same ``getBoundingClientRect`` in two consecutive animation
+        frames, inside the viewport: a drawer still sliding in, or a panel mid-way
+        through its transition, measures a size it never keeps. The frames are
+        counted in the page, in one round trip; a page that paints no frames (a
+        hidden tab) fails at the deadline instead of hanging.
+        """
+        timeout = timeout_ms or self.timeout_ms
+        with self._timed("expect_settled", target.describe()):
+            started = time.monotonic()
+            locator = self._locate(target)
+            try:
+                locator.wait_for(state="visible", timeout=timeout)
+            except PlaywrightTimeoutError as exc:
+                raise AssertionError(f"target did not become visible: {target.describe()}") from exc
+            remaining = max(int(timeout - (time.monotonic() - started) * 1000), 1)
+            result = locator.evaluate(_SETTLED_JS, remaining, timeout=timeout)
+            if not result.get("ok"):
+                rect = result.get("rect") or {}
+                viewport = result.get("viewport") or {}
+                where = (
+                    f"last box x={rect.get('x')} y={rect.get('y')} "
+                    f"w={rect.get('width')} h={rect.get('height')} in a "
+                    f"{viewport.get('width')}x{viewport.get('height')} viewport"
+                )
+                reason = {
+                    "moving": "it was still moving",
+                    "outside": "it was not wholly inside the viewport; scroll it into view",
+                    "frames": "the page painted no animation frames",
+                }.get(str(result.get("reason")), str(result.get("reason")))
+                raise AssertionError(
+                    f"{target.describe()} did not settle within {timeout} ms: {reason} ({where})"
+                )
 
     # -- state assertions ---------------------------------------------------
     #
