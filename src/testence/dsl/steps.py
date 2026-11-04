@@ -69,6 +69,21 @@ class SoftAssertionsFailed(AssertionError):
         )
 
 
+def describe_matches(engine: Any, target: Target) -> str:
+    """The engine's account of what ``target`` matches now; "" if it has none.
+
+    A failed step puts it in its message; the MCP click and fill tools answer with it
+    too, so an agent exploring a page reads the same hint as one running a test.
+    """
+    describe = getattr(engine, "describe_matches", None)
+    if not callable(describe):
+        return ""
+    try:
+        return str(describe(target))
+    except Exception:  # noqa: BLE001 - a diagnostic never replaces the failure
+        return ""
+
+
 _UNSET: Any = object()
 
 
@@ -243,14 +258,7 @@ class Actions:
         )
 
     def _describe_matches(self, target: Target) -> str:
-        """The engine's account of what ``target`` matches now; "" if it has none."""
-        describe = getattr(self.engine, "describe_matches", None)
-        if not callable(describe):
-            return ""
-        try:
-            return str(describe(target))
-        except Exception:  # noqa: BLE001 - a diagnostic never replaces the failure
-            return ""
+        return describe_matches(self.engine, target)
 
     def _engine_method(self, name: str) -> Callable[..., Any]:
         """An engine operation added after the first Engine protocol.
