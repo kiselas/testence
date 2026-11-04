@@ -42,6 +42,7 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 | [0032](0032-worker-browser-reuse.md) | Owned browser per worker, fresh context per test | implemented (engineering, opt-in) |
 | [0033](0033-negative-proof.md) | Negative proof: a recorded run in which the test failed for its claim | implemented (engineering, opt-in) |
 | [0034](0034-parallel-safety-on-a-shared-target.md) | Parallel safety on a shared target: classified from the ledger, proven with a neighbour | accepted (methodology) |
+| [0035](0035-websocket-gate.md) | A recorded WebSocket gate for stale-tab scenarios | implemented (engineering) |
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.

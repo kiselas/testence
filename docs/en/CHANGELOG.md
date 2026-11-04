@@ -31,6 +31,14 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   ledger's `error_trace` is shortened the same way. `--testence-full-trace`,
   `TESTENCE_FULL_TRACE=1` or pytest's `--full-trace` keep every frame. A failure
   inside a Testence fixture, or in Playwright called directly, keeps its full trace.
+- `ex.ws_gate(pattern, protocol="socket.io" | "raw", drop=None)` makes the test's tab miss
+  server pushes while the socket stays open ([ADR-0035](adr/0035-websocket-gate.md)).
+  `gate.go_offline()` and `gate.go_online()` are recorded steps; offline, Socket.IO
+  event packets are held back while pings, pongs and acknowledgements flow. Each switch
+  first decides frames already queued under the state they arrived in. Held frames never
+  reach `wait_for_ws`. A new `websocket.gated` event records installation, each switch
+  and a summary with counts; capability `browser.websocket_mock`. Skill pack 0.1.24
+  points the author skill at it.
 - `testence init` declares a `drop-save` control in `testence.json`, and the onboarding
   test applies it. `testence demo run` adds a fourth run, `negative_control`: the green
   test with its save broken on purpose, accepted only when it fails on
@@ -93,6 +101,10 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- A raw `route_web_socket` inside `ex.native` that held back server frames left them in
+  the WebSocket buffer: `wait_for_ws` returned frames the page never received, and the
+  ledger did not say the socket was routed. The frames the handler sends are now the
+  buffer, and `websocket.gated` records the route with `source: native`.
 - A test marked `xdist_group` and run with `--dist loadgroup` kept pytest-xdist's
   `@<group>` node ID suffix in its identity: the ledger's `test`, the case and variant
   IDs, the Allure full name and history ID and the `testence_namespace` marker all

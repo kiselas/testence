@@ -283,6 +283,45 @@ service workers, external interception and routes installed before this seam are
 outside this observation contract. Needs the `browser.network_mock`
 capability ([engine capabilities](engine-capabilities.md)).
 
+### A tab that misses live updates
+
+A live-update application pushes other clients' changes over a WebSocket. To see what
+the UI does with stale data (an edit of a row another client deleted, a move into a
+folder that no longer exists), the test's own tab has to miss those pushes while the
+server keeps changing. `ex.ws_gate` holds back server frames and keeps the socket open:
+
+```python
+gate = ex.ws_gate("**/socket.io/**")        # before the page connects
+ex.goto("/widgets")
+gate.go_offline()                             # the tab stops receiving events
+other.api.delete(f"/api/folders/{folder_id}") # another client changes the data
+ex.click(MOVE_TO_FOLDER)                      # the tab acts on what it still shows
+ex.expect_text(TOAST, "The folder no longer exists")
+held = gate.go_online()                     # how many events the tab missed
+```
+
+Install the gate before the page opens the socket: a gate applies only to sockets
+opened after it, and one installed over an open socket fails. It covers every page
+of the session. Client frames always pass. Offline, `protocol="socket.io"` (the
+default) holds back event packets and lets pings, pongs, acknowledgements and connect
+packets through, so the client never reconnects; `protocol="raw"` holds back every
+server frame; `drop=` takes a predicate over one frame instead. Held frames are gone,
+as for a real tab that missed them.
+
+The gate runs only while the test is inside a browser call. A frame the server pushed
+while the test waited on its own HTTP client is still queued, so `go_offline` and
+`go_online` first make one round trip to the browser and decide queued frames under
+the state they arrived in. For frames still on the network, pass `drain_ms` chosen
+from the product's push latency.
+
+A held frame never reaches `wait_for_ws`. Each change of state is a step and a
+`websocket.gated` event, and the test's end records a summary with the counts. What the
+UI shows while offline is its behaviour on stale data, never proof of the server's
+state: read that with an independent oracle. A raw `route_web_socket` inside
+`ex.native` is observed too and recorded with `source: native`. Socket.IO over long
+polling, service workers and sockets opened before the gate are outside this contract.
+Needs the `browser.websocket_mock` capability ([ADR-0035](adr/0035-websocket-gate.md)).
+
 ## 5. Prove the test can fail correctly
 
 A green test is not evidence that the assertion is useful. Before accepting a case:

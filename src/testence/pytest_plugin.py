@@ -1995,6 +1995,7 @@ def ex(
     try:
         yield actions
     finally:
+        actions._finish_ws_gates()
         duration_ms = round((time.perf_counter() - started) * 1000, 1)
         # Wait budget remains evidence supplied by the browser fixture; the terminal
         # execution outcome is owned by pytest_runtest_protocol.

@@ -31,6 +31,15 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
   ledger сокращается так же. `--testence-full-trace`, `TESTENCE_FULL_TRACE=1` или
   `--full-trace` pytest оставляют все кадры. Падение внутри фикстуры Testence или в
   Playwright, вызванном напрямую, сохраняет полную трассировку.
+- `ex.ws_gate(pattern, protocol="socket.io" | "raw", drop=None)`: вкладка теста пропускает
+  сообщения сервера, а сокет остаётся открытым ([ADR-0035](../en/adr/0035-websocket-gate.md)).
+  `gate.go_offline()` и `gate.go_online()` — записываемые шаги; в режиме offline пакеты
+  событий Socket.IO задерживаются, а ping, pong и подтверждения проходят. Каждое
+  переключение сначала решает судьбу уже стоящих в очереди кадров в том состоянии, в
+  котором они пришли. Задержанные кадры не попадают в `wait_for_ws`. Новое событие
+  `websocket.gated` записывает установку, каждое переключение и итог со счётчиками;
+  capability `browser.websocket_mock`. Набор навыков 0.1.24 направляет к нему навык
+  автора.
 - `testence init` объявляет в `testence.json` контроль `drop-save`, и onboarding-тест
   его применяет. `testence demo run` выполняет четвёртый прогон, `negative_control`:
   зелёный тест с намеренно сломанным сохранением; прогон принимается, только если тест
@@ -96,6 +105,10 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
 
 ### Исправлено
 
+- Сырой `route_web_socket` внутри `ex.native`, задерживавший кадры сервера, оставлял их в
+  буфере WebSocket: `wait_for_ws` возвращал кадры, которых страница не получала, а журнал
+  не говорил, что сокет перехвачен. Теперь буфер — это кадры, которые отправил
+  обработчик, а `websocket.gated` записывает перехват с `source: native`.
 - Тест с маркером `xdist_group` при `--dist loadgroup` сохранял в идентичности
   суффикс `@<group>`, который pytest-xdist дописывает к node ID: `test` в ledger, ID
   case и variant, полное имя и history ID Allure и маркер `testence_namespace`

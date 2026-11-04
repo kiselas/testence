@@ -9,6 +9,7 @@ these primitives; test cases should read as 5–15 intent-bearing lines.
 
 from __future__ import annotations
 
+import re
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -163,6 +164,13 @@ class Actions:
         observer = getattr(engine, "set_native_mock_observer", None)
         if callable(observer):
             observer(lambda **data: self.writer.emit("network.mocked", test=self.test_id, **data))
+        #: Gates opened by ``ws_gate``; each is summarized when the test ends.
+        self._ws_gates: list[WebSocketGate] = []
+        gate_observer = getattr(engine, "set_ws_gate_observer", None)
+        if callable(gate_observer):
+            gate_observer(
+                lambda **data: self.writer.emit("websocket.gated", test=self.test_id, **data)
+            )
 
     # -- core wrapper ------------------------------------------------------
 
@@ -950,8 +958,134 @@ class Actions:
                 abort=abort,
             )
 
+    def ws_gate(
+        self,
+        pattern: str | re.Pattern[str],
+        *,
+        protocol: str = "socket.io",
+        drop: Callable[[Any], bool] | None = None,
+        offline: bool = False,
+        intent: str | None = None,
+    ) -> WebSocketGate:
+        """Gate the WebSockets matching ``pattern`` so this tab can miss server pushes.
+
+        ``pattern`` is a URL glob (``**/socket.io/**``) or a compiled regex. Install it
+        before the page connects: a gate applies only to sockets opened after it, and
+        one installed over an open socket fails. The gate covers every page of the
+        session. Client frames always pass; server frames pass until
+        ``gate.go_offline()``. Offline, ``protocol="socket.io"`` holds back event
+        packets and keeps pings, pongs and acknowledgements flowing, so the socket
+        stays open and the tab goes stale; ``"raw"`` holds back every server frame;
+        ``drop`` replaces the rule with a predicate over one frame.
+
+        A held frame never reaches ``wait_for_ws``. Each change of state is a step and a
+        ``websocket.gated`` event. What the UI shows while offline is its behaviour on
+        stale data; the server's state still needs an independent read (ADR-0035).
+        """
+        gate_factory = getattr(self.engine, "ws_gate", None)
+        if not callable(gate_factory):
+            raise UnsupportedCapability(
+                "ws_gate",
+                {Capability.WEBSOCKET_MOCK.value},
+                set(engine_capabilities(self.engine)) - {Capability.WEBSOCKET_MOCK.value},
+            )
+        label = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
+        state = "offline" if offline else "online"
+        with self.step(intent or f"gate the WebSockets at {label} ({protocol}, {state})"):
+            require_capabilities(self.engine, "ws_gate", Capability.WEBSOCKET_MOCK)
+            engine_gate = gate_factory(pattern, protocol=protocol, drop=drop, offline=offline)
+            self.writer.emit(
+                "websocket.gated",
+                test=self.test_id,
+                action="installed",
+                pattern=engine_gate.label,
+                protocol=protocol,
+                custom_drop=drop is not None,
+                offline=offline,
+            )
+        gate = WebSocketGate(self, engine_gate)
+        self._ws_gates.append(gate)
+        return gate
+
+    def _finish_ws_gates(self) -> None:
+        """Summarize every gate of this test in the ledger, once, at its end."""
+        gates, self._ws_gates = self._ws_gates, []
+        for gate in gates:
+            self.writer.emit(
+                "websocket.gated",
+                test=self.test_id,
+                action="summary",
+                **gate.engine_gate.summary(),
+            )
+
     def note(self, text: str, **data: Any) -> None:
         self.writer.emit("note", test=self.test_id, text=text, **data)
+
+
+class WebSocketGate:
+    """The handle ``ex.ws_gate`` returns: switch the gate, read its counters.
+
+    ``go_offline()`` and ``go_online()`` are recorded steps. Before switching, each
+    makes one round trip to the browser, so frames already waiting are decided under
+    the state they arrived in: the sync driver runs the gate only while the test is
+    inside a browser call, and a frame the server pushed while the test was busy
+    with its own HTTP client is still queued. ``drain_ms`` waits longer for frames
+    still on the network; choose it from the product's push latency.
+    """
+
+    def __init__(self, actions: Actions, engine_gate: Any) -> None:
+        self._actions = actions
+        self.engine_gate = engine_gate
+
+    @property
+    def pattern(self) -> str:
+        return str(self.engine_gate.label)
+
+    @property
+    def is_offline(self) -> bool:
+        return bool(self.engine_gate.offline)
+
+    @property
+    def dropped(self) -> int:
+        """Server frames held back so far."""
+        return int(self.engine_gate.dropped)
+
+    @property
+    def delivered(self) -> int:
+        """Server frames that reached the page so far."""
+        return int(self.engine_gate.delivered)
+
+    def go_offline(self, intent: str | None = None, *, drain_ms: int = 0) -> None:
+        """Start holding back server frames; the socket stays open."""
+        actions = self._actions
+        with actions.step(intent or f"hold back server frames of {self.pattern}"):
+            self.engine_gate.set_offline(True, drain_ms)
+            actions.writer.emit(
+                "websocket.gated",
+                test=actions.test_id,
+                action="offline",
+                pattern=self.pattern,
+                drain_ms=drain_ms,
+            )
+
+    def go_online(self, intent: str | None = None, *, drain_ms: int = 0) -> int:
+        """Deliver server frames again; return how many were held back while offline.
+
+        Held frames are gone, as for a tab that missed them: the page only gets what
+        the server sends from now on.
+        """
+        actions = self._actions
+        with actions.step(intent or f"deliver server frames of {self.pattern} again"):
+            held = int(self.engine_gate.set_offline(False, drain_ms))
+            actions.writer.emit(
+                "websocket.gated",
+                test=actions.test_id,
+                action="online",
+                pattern=self.pattern,
+                dropped=held,
+                drain_ms=drain_ms,
+            )
+        return held
 
 
 class Clock:
