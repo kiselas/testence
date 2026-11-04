@@ -37,6 +37,42 @@ from .base import AuthContext, Credentials, LoginFailed
 
 _RECHECK_MS = 300
 _DEFAULT_SUCCESS_TIMEOUT_MS = 15_000
+#: What a failed login is told about the page, at most.
+_PAGE_ERRORS = 5
+_PAGE_ERROR_CHARS = 300
+_FORM_ARIA_LINES = 40
+
+#: What the page says went wrong, in the order a person reads it: alerts, the
+#: message of each field marked invalid, then error text by the form. Visible text
+#: only; an element that contains the password field is the form, not a message.
+_PAGE_ERRORS_JS = """() => {
+  const visible = el => !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length)
+    && getComputedStyle(el).visibility !== 'hidden';
+  const text = el => (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
+  const found = [];
+  const add = value => { if (value && !found.includes(value)) found.push(value); };
+  const password = document.querySelector('input[type=password]');
+  for (const el of document.querySelectorAll('[role=alert], [aria-live=assertive]')) {
+    if (visible(el)) add(text(el));
+  }
+  for (const field of document.querySelectorAll('[aria-invalid=true]')) {
+    const ids = [field.getAttribute('aria-errormessage'), field.getAttribute('aria-describedby')]
+      .filter(Boolean).join(' ').split(/\\s+/).filter(Boolean);
+    const messages = ids.map(id => document.getElementById(id))
+      .filter(el => el && visible(el)).map(text).filter(Boolean);
+    const name = field.getAttribute('aria-label')
+      || (field.labels && field.labels[0] && text(field.labels[0]))
+      || field.getAttribute('name') || field.id || field.tagName.toLowerCase();
+    add(messages.length ? messages.join(' ') : `the "${name}" field is marked invalid`);
+  }
+  const form = password && password.closest('form');
+  const near = (form && form.parentElement) || document.body;
+  const selector = '[id*=error i], [class*=error i], [class*=invalid i], [class*=alert i]';
+  for (const el of near.querySelectorAll(selector)) {
+    if (visible(el) && !(password && el.contains(password))) add(text(el));
+  }
+  return found;
+}"""
 
 #: Scheme names accepted in configuration (aliases included).
 _KNOWN_SCHEMES = frozenset(
@@ -176,9 +212,13 @@ class FormLoginAuth:
         success_url_contains: str | None = None,
         success_target: Target | None = None,
         timeout_ms: int = _DEFAULT_SUCCESS_TIMEOUT_MS,
+        redact: Callable[[str], str] | None = None,
     ) -> None:
         self.credentials = credentials
         self.login_path = login_path
+        # What a failed login reads from the page goes into an exception that pytest
+        # prints and the ledger keeps: the project's redaction applies to it.
+        self.redact = redact or _redact_credentials(credentials)
         # Defaults follow the accessibility of a conventional login form; projects
         # override with their own addressing when the app is less conventional.
         self.username_target = username_target or Target(
@@ -223,17 +263,67 @@ class FormLoginAuth:
                 engine.settle(self.timeout_ms)
                 engine.wait_while_visible(self.password_target, timeout_ms=_RECHECK_MS)
         except Exception as exc:  # noqa: BLE001 - each engine names its timeout differently
-            raise LoginFailed(
+            page_errors, form_aria = self._what_the_page_says(engine)
+            message = (
                 f"login at {self.login_path} did not complete within {self.timeout_ms} ms: "
                 f"{signal}. Check the credentials ({self.credentials.source}), or set "
                 "success_url_contains or a success target for this app"
-            ) from exc
+            )
+            if page_errors:
+                message += "\nThe page says:" + "".join(f"\n  {item}" for item in page_errors)
+            if form_aria:
+                message += "\nThe login form (ARIA):" + "".join(
+                    f"\n  {line}" for line in form_aria.splitlines()
+                )
+            raise LoginFailed(message, page_errors=page_errors, form_aria=form_aria) from exc
 
         return AuthContext(
             cookies=engine.cookies(),
             storage=engine.storage_snapshot(),
             scheme=self.scheme,
         )
+
+    def _what_the_page_says(self, engine: Engine) -> tuple[tuple[str, ...], str]:
+        """The page's own error text and the login form's ARIA tree, redacted and
+        bounded. Best-effort: a page that is gone still fails the login, with less said."""
+        errors: list[str] = []
+        try:
+            for item in engine.eval_js(_PAGE_ERRORS_JS)[:_PAGE_ERRORS]:
+                text = self.redact(str(item))
+                clipped = len(text) > _PAGE_ERROR_CHARS
+                errors.append(text[:_PAGE_ERROR_CHARS] + ("..." if clipped else ""))
+        except Exception:  # noqa: BLE001 - diagnostics must not replace the failure
+            pass
+        form = Target(
+            "css",
+            f"form:has({self.password_target.value})"
+            if self.password_target.kind == "css" and not self.password_target.within
+            else "form:has(input[type=password])",
+        )
+        aria = ""
+        try:
+            snapshot = engine.aria_snapshot(form) if engine.count(form) else engine.aria_snapshot()
+            if not snapshot.startswith("<"):
+                # Line by line: the `password: value` rule must not reach across a
+                # line break and swallow the next node of the tree.
+                lines = [self.redact(line) for line in snapshot.splitlines()]
+                aria = "\n".join(lines[:_FORM_ARIA_LINES])
+                if len(lines) > _FORM_ARIA_LINES:
+                    aria += f"\n... {len(lines) - _FORM_ARIA_LINES} more lines"
+        except Exception:  # noqa: BLE001 - diagnostics must not replace the failure
+            pass
+        return tuple(errors), aria
+
+
+def _redact_credentials(credentials: Credentials) -> Callable[[str], str]:
+    def redact(text: str) -> str:
+        from testence.evidence.sanitize import sanitize_text
+
+        return sanitize_text(
+            text, secrets=(credentials.username, credentials.password), limit=1_000_000
+        )
+
+    return redact
 
 
 class ApiSessionAuth:
@@ -660,6 +750,23 @@ def _json_field(document: dict[str, Any], pointer: str) -> Any:
     return current
 
 
+def _redact_for(settings: Any, credentials: Credentials) -> Callable[[str], str]:
+    """Redaction as the run applies it to evidence: the login pair, the values of
+    ``evidence.redact.env`` and the project's redaction policy."""
+    from testence.evidence.sanitize import DEFAULT_POLICY, sanitize_text
+
+    secrets: tuple[str, ...] = (credentials.username, credentials.password)
+    policy = DEFAULT_POLICY
+    if hasattr(settings, "redaction_values"):
+        secrets += settings.redaction_values()
+        policy = settings.redaction_policy()
+
+    def redact(text: str) -> str:
+        return sanitize_text(text, secrets=secrets, limit=1_000_000, policy=policy)
+
+    return redact
+
+
 def from_settings(settings: Any, engine_base_url: str = "") -> Any:
     """Build the adapter named by ``settings.auth``.
 
@@ -696,6 +803,7 @@ def from_settings(settings: Any, engine_base_url: str = "") -> Any:
             login_path=settings.login_path,
             success_url_contains=settings.extra.get("success_url_contains"),
             timeout_ms=settings.timeout_ms,
+            redact=_redact_for(settings, credentials),
         )
     elif scheme in ("api-session", "session"):
         adapter = ApiSessionAuth(

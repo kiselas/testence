@@ -155,6 +155,27 @@ FormLoginAuth(
 пароль приводит к понятной ошибке *на шаге login*, а не к загадочному timeout через
 три шага.
 
+Ошибка `LoginFailed` к тому же говорит, что сказала страница, и показывает форму:
+
+```text
+LoginFailed: login at /login did not complete within 15000 ms: the password field is
+still visible. Check the credentials (env), or set success_url_contains or a success
+target for this app
+The page says:
+  Invalid credentials
+The login form (ARIA):
+  - textbox "Email": <redacted>
+  - textbox "Password"
+  - button "Sign in"
+```
+
+Слова страницы берутся из видимых элементов `role="alert"` и `aria-live="assertive"`,
+из сообщения каждого поля с `aria-invalid` (его `aria-errormessage` или
+`aria-describedby`) и из текста ошибки рядом с формой. Обе части маскируются как
+evidence: пара для входа, значения `evidence.redact.env` и политика маскирования
+проекта. На исключении они есть как `page_errors` и `form_aria`. `testence doctor
+--target` и `testence auth export` добавляют слова страницы в свою строку отчёта.
+
 ## Собственный вход
 
 Стратегия — объект с `scheme: str` и `authenticate(engine) -> AuthContext` (протокол

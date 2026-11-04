@@ -137,7 +137,7 @@ Envelope key `test` в новых lifecycle events содержит полный
 |---|---|---|
 | `pack.json` | машинный индекс: test, PlanSpec, claims, error, page_url, размеры секций, taxonomy и путь к verdict template | — |
 | `manifest.json` | `testence/pack-manifest/2`: identity, relative path, bytes и SHA-256 каждого artifact | — |
-| `TRIAGE.md` | контракт судьи: таксономия и инструкции | — |
+| `TRIAGE.md` | сначала для человека: ошибка, страница, какой раздел открыть; затем контракт судьи: таксономия и инструкции | — |
 | `verdict.template.json` | заготовка `testence/verdict/2` с точными project/case/variant/attempt/run/proof и plan/test/claim ID | — |
 | `verdict.json` | типизированный verdict агента после успешной валидации; создаётся агентом, а не runner | — |
 | `aria.txt` | ARIA snapshot страницы в момент падения | 8 000 |

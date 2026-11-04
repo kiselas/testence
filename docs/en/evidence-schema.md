@@ -154,7 +154,7 @@ Directory `runs/<run>/<test>/pack/`, plain files so any agent can read them:
 |---|---|---|
 | `pack.json` | machine index: test, PlanSpec, claims, error, page_url, section sizes, taxonomy and verdict-template path | — |
 | `manifest.json` | `testence/pack-manifest/2`: identity plus relative path, byte size and SHA-256 for every captured artifact | — |
-| `TRIAGE.md` | the judge contract: taxonomy + instructions | — |
+| `TRIAGE.md` | for a person first: the error, the page, which section to open; then the judge contract: taxonomy + instructions | — |
 | `verdict.template.json` | `testence/verdict/2` starter with exact project/case/variant/attempt/run/proof and plan/test/claim IDs | — |
 | `verdict.json` | typed agent verdict after successful validation; created by the agent, not the runner | — |
 | `aria.txt` | ARIA snapshot of the page at failure | 8 000 |

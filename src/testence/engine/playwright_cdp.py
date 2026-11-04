@@ -1632,11 +1632,19 @@ class PlaywrightCdpEngine(Engine):
     def read_all_texts(self, target: Target) -> list[str]:
         return [text.strip() for text in self._locate(target).all_inner_texts()]
 
-    def aria_snapshot(self) -> str:
-        """ARIA tree of the page. Retries once after giving a still-rendering app a
-        moment: a blank snapshot must mean "the page was blank", never "we looked
-        too early" — a triage agent cannot tell those apart from the artifact."""
+    def aria_snapshot(self, target: Target | None = None) -> str:
+        """ARIA tree of the page, or of the first element ``target`` matches. Retries
+        the page once after giving a still-rendering app a moment: a blank snapshot
+        must mean "the page was blank", never "we looked too early" — a triage agent
+        cannot tell those apart from the artifact."""
         page = self._require_page()
+        if target is not None:
+            try:
+                return self._mask_secret_fields(
+                    self._locate(target).first.aria_snapshot(timeout=2_000)
+                )
+            except Exception as exc:  # noqa: BLE001 - browser evidence is best-effort
+                return f"<aria snapshot failed: {type(exc).__name__}>"
         snapshot = ""
         for attempt in (0, 1):
             try:

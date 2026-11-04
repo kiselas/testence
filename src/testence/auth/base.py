@@ -31,7 +31,19 @@ class MissingCredentials(RuntimeError):
 
 class LoginFailed(RuntimeError):
     """The login ran but never reached its success signal: a wrong password, a changed
-    form or a slow identity provider — named, instead of a bare timeout."""
+    form or a slow identity provider — named, instead of a bare timeout.
+
+    ``page_errors`` holds what the page said (an alert, a field marked invalid, an
+    error message by the form) and ``form_aria`` the form's accessibility tree, both
+    redacted; the message carries them too, so the reason is read without a browser.
+    """
+
+    def __init__(
+        self, message: str, *, page_errors: tuple[str, ...] = (), form_aria: str = ""
+    ) -> None:
+        super().__init__(message)
+        self.page_errors = page_errors
+        self.form_aria = form_aria
 
 
 @dataclass(frozen=True)
