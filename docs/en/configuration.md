@@ -98,6 +98,14 @@ are added only to requests for those origins, never to a CDN, analytics or font 
 the page loads from. Browser cookies additionally keep their domain, path, secure and
 expiry scope.
 
+`ApiClient` keeps its connections alive: one per origin, so the calls of a test share
+one TCP and TLS connection, closed when the test ends. A connection the server closed
+while it sat idle is retried once on a new connection, since the request never
+reached the application; a connection that fails on first use is an error. Redirects
+follow urllib's rules (GET and HEAD follow, a POST answered 301-303 continues as a GET
+without its body, anything else is returned) and stay on the origin. Proxies come from
+the environment or the system settings, as with urllib.
+
 ## Optional session cache
 
 Session reuse is disabled until a profile declares an identity probe. The smallest

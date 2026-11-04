@@ -146,6 +146,7 @@ class Actor:
         return self._actions
 
     def close(self) -> None:
+        self.api.close()
         engine, self._engine = self._engine, None
         if engine is not None:
             engine.stop()

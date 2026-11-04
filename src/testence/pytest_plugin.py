@@ -1899,6 +1899,7 @@ def testence_api(
     try:
         yield client
     finally:
+        client.close()
         if session is not None and request.node.stash.get(_ENGINE_KEY, None) is session:
             _emit_waits(testence_writer, test_id, session.wait_ledger(), started)
 
