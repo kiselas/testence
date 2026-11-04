@@ -99,21 +99,27 @@ expiry.
 
 ## Необязательный session cache
 
-Переиспользование session выключено, пока profile не задаёт identity probe. Безопасная
-конфигурация cache указывает ожидаемую role и конечный TTL:
+Переиспользование session выключено, пока profile не задаёт identity probe.
+Минимальная конфигурация cache называет probe и конечный TTL:
 
 ```json
 {
   "session_probe_path": "/api/v1/auth/me",
   "session_cache_ttl_s": 900,
-  "session_identity_field": "email",
-  "session_role_field": "role",
-  "session_expected_role": "qa-admin"
+  "session_identity_field": "user.email",
+  "session_id_field": "user.id"
 }
 ```
 
-Probe должен вернуть JSON object с настроенными identity и role. Перед каждым reuse
-Testence требует HTTP 2xx, совпадение account и role и непросроченную запись cache.
+Probe должен вернуть JSON object с настроенной identity (`session_identity_field`,
+по умолчанию `email`; путь через точку читает вложенное поле). Identity — это значение
+плюс, если названы, `session_id_field` и `session_role_field`: другой id или role за тем
+же account — другая identity. Role не обязательна. Чтобы закрепить её, добавьте
+`"session_expected_role": "qa-admin"`: проверка действует, только если задана, читает
+`role`, если `session_role_field` не называет другое поле, и probe без этого поля тогда
+никогда не переиспользуется. Названный id field, которого нет в ответе probe, — тоже
+промах. Перед каждым reuse Testence требует HTTP 2xx, совпадение account (и role, если
+она ожидается), ту же identity, что при записи в cache, и непросроченную запись cache.
 Logout, повреждённый или старый формат cache, смена project, origin, account, profile,
 role или auth strategy приводят к настоящему login. Имя cache file зависит от scope,
 account хранится как hash, а файл получает доступ только владельцу там, где ОС

@@ -100,22 +100,28 @@ expiry scope.
 
 ## Optional session cache
 
-Session reuse is disabled until a profile declares an identity probe. A safe cache
-profile names the expected role and a finite TTL:
+Session reuse is disabled until a profile declares an identity probe. The smallest
+cache profile names the probe and a finite TTL:
 
 ```json
 {
   "session_probe_path": "/api/v1/auth/me",
   "session_cache_ttl_s": 900,
-  "session_identity_field": "email",
-  "session_role_field": "role",
-  "session_expected_role": "qa-admin"
+  "session_identity_field": "user.email",
+  "session_id_field": "user.id"
 }
 ```
 
-The probe must return a JSON object containing the configured identity and role.
-Before every reuse Testence requires HTTP 2xx, the configured account and role, and
-an unexpired cache record. A logout, corrupt or legacy cache, changed project,
+The probe must return a JSON object containing the configured identity
+(`session_identity_field`, default `email`; a dot path reads a nested field). The
+identity is that value plus, when named, `session_id_field` and `session_role_field`:
+a different id or role behind the same account is another identity. A role is not
+required. Add `"session_expected_role": "qa-admin"` to pin one; it is enforced only
+when set, reads `role` unless `session_role_field` names another field, and a probe
+without that field is then never reused. A named id field that is missing from the
+probe is a miss too. Before every reuse Testence requires HTTP 2xx, the configured
+account (and role, when expected), the same identity as when the session was cached,
+and an unexpired cache record. A logout, corrupt or legacy cache, changed project,
 origin, account, profile, role or auth strategy causes a real login. Cache filenames
 are scope-derived, account values are hashed, and files use owner-only mode where
 the operating system supports it. Keep the cache under the ignored `runs_root`.
