@@ -41,6 +41,7 @@ from testence.identity import TestIdentity, proof_id, source_case_id, variant_id
 from testence.isolation import TestNamespace
 from testence.oracle_suggest import net_digest
 from testence.reruns import RERUNS_ENV, Reruns, rerun_count
+from testence.schedule import SCHEDULES, durations_from_history, longest_first
 from testence.testplan import (
     ALLURE_TESTPLAN_ENV,
     UNRESOLVED_POLICIES,
@@ -169,6 +170,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--testence-schedule",
+        choices=SCHEDULES,
+        default=os.environ.get("TESTENCE_SCHEDULE") or "default",
+        help=(
+            "order of tests under pytest-xdist: longest-first starts the slowest tests "
+            "(by test.end durations of earlier runs) first; --dist load or loadgroup; "
+            "without history the order is unchanged (env TESTENCE_SCHEDULE)"
+        ),
+    )
+    group.addoption(
         "--testence-full-trace",
         action="store_true",
         default=_as_bool(os.environ.get(FULL_TRACE_ENV, "")),
@@ -224,6 +235,42 @@ def pytest_configure(config: pytest.Config) -> None:
         run_id = new_run_id()
         os.environ[RUN_ID_ENV] = run_id
         config.stash[_OWN_RUN_ID_KEY] = run_id
+    _plan_schedule(config)
+
+
+#: Durations (ms by node id) the controller hands to its workers for longest-first.
+_DURATIONS_KEY = pytest.StashKey[dict[str, float]]()
+
+
+def _plan_schedule(config: pytest.Config) -> None:
+    """Read the history for ``--testence-schedule longest-first`` on the controller."""
+    if config.getoption("--testence-schedule", default="default") != "longest-first":
+        return
+    workerinput = getattr(config, "workerinput", None)
+    if isinstance(workerinput, dict):
+        durations = workerinput.get("testence_durations")
+        if durations and not config.pluginmanager.has_plugin("testence-schedule"):
+            config.pluginmanager.register(_LongestFirst(durations), "testence-schedule")
+        return  # the controller read the history (pytest_configure_node)
+    dist = str(getattr(config.option, "dist", "no") or "no")
+    if dist not in ("load", "loadgroup"):
+        if dist != "no":
+            raise pytest.UsageError(
+                "--testence-schedule longest-first works with --dist load or loadgroup"
+            )
+        return  # a serial run has no workers to balance
+    try:
+        runs_root = _settings_from_config(config).runs_root
+    except (OSError, ValueError):
+        return  # the session reports invalid settings itself
+    durations = durations_from_history(runs_root, exclude_run=os.environ.get(RUN_ID_ENV, ""))
+    if not durations:
+        return
+    config.stash[_DURATIONS_KEY] = durations
+    if dist == "loadgroup":
+        # xdist sorts groups by their number of tests unless told to keep the
+        # collection order, which is the longest-first order the workers build.
+        config.option.loadscopereorder = False
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
@@ -277,6 +324,9 @@ _RECORDING_OPTIONS = (
 def pytest_configure_node(node: Any) -> None:
     """Hand the controller's recording decision to an xdist worker."""
     node.workerinput["testence_record"] = node.config.stash.get(_RECORD_KEY, False)
+    durations = node.config.stash.get(_DURATIONS_KEY, None)
+    if durations:
+        node.workerinput["testence_durations"] = durations
 
 
 def _uses_testence(item: pytest.Item) -> bool:
@@ -550,6 +600,26 @@ def _resolve_contract(
 
 
 @pytest.hookimpl(trylast=True)
+def _xdist_group(item: pytest.Item) -> str | None:
+    marker = item.get_closest_marker("xdist_group")
+    if marker is None:
+        return None
+    return str(marker.args[0] if marker.args else marker.kwargs.get("name", "default"))
+
+
+class _LongestFirst:
+    """Orders a worker's collection by the controller's durations, after every other
+    plugin has filtered it. Every worker gets the same durations and sorts stably, so
+    the collections xdist compares stay identical."""
+
+    def __init__(self, durations: dict[str, float]) -> None:
+        self.durations = durations
+
+    @pytest.hookimpl(trylast=True)
+    def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> None:
+        items[:] = longest_first(items, self.durations, nodeid=_test_id, group=_xdist_group)
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     state = config.stash.get(_LIFECYCLE_KEY, None)
     available_capabilities = (

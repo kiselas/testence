@@ -158,6 +158,7 @@ TESTENCE_VERIFY_TLS=false                        # только изолиров
 | `TESTENCE_RUN_ID` | имя каталога запуска; plugin задаёт его общим для всех xdist workers ([ADR-0012](adr/0012-parallel-execution.md)) |
 | `ALLURE_TESTPLAN_PATH` | стандартный selective plan Allure версии `1.0`; неверный план отклоняется, несовпавшие записи попадают в отчёт ([отчётность](reporting.md#выбор-тестов-по-плану-testops)) |
 | `TESTENCE_TESTPLAN_UNRESOLVED` | `warn` (по умолчанию) или `fail` для записей плана без совпавшего теста |
+| `TESTENCE_SCHEDULE` | `default` или `longest-first`: порядок тестов под pytest-xdist по прошлым длительностям (`--testence-schedule`, [параллельный запуск](#сначала-самые-долгие-тесты)) |
 | `TESTENCE_RERUNS` | повторить упавший тест до N раз, 0–5 (`--testence-reruns`); записывается каждая попытка ([отчётность](reporting.md#повторы-и-нестабильные-тесты)) |
 | `TESTENCE_ALLURE_RESULTS` | потоковая запись результатов Allure в этот каталог по мере окончания тестов (`--testence-allure-results`) |
 | `TESTENCE_FULL_TRACE` | `1` оставляет в трассировке падения кадры Testence и Playwright ниже теста (`--testence-full-trace`; то же делает `--full-trace` pytest) |
@@ -438,3 +439,19 @@ pytest tests_e2e/ -q -n 4
 повторными parallel-прогонами и враждебным соседом
 ([ADR-0034](../en/adr/0034-parallel-safety-on-a-shared-target.md)). Агент следует
 процедуре из `references/parallel-safety.md` скилла author.
+
+### Сначала самые долгие тесты
+
+```bash
+pytest tests_e2e/ -q -n 4 --testence-schedule longest-first
+```
+
+xdist раздаёт тесты в порядке сбора, поэтому долгий тест, собранный последним,
+становится хвостом прогона. `longest-first` (или `TESTENCE_SCHEDULE=longest-first`)
+заставляет controller прочитать длительности `test.end` из 20 последних прогонов в
+`runs_root` (медиана последних пяти наблюдений каждого теста, повторные попытки не
+учитываются), а каждый worker — упорядочить свой сбор по ним, от долгих к коротким;
+тест без истории считается медианным. При `--dist loadgroup` тесты одного
+`xdist_group` остаются вместе, а группы упорядочиваются по суммарной длительности. Без
+истории ничего не меняется; другие режимы `--dist` отклоняются. Перестановка между
+модулями означает, что фикстуры уровня модуля и `page_reuse: module` срабатывают реже.

@@ -159,6 +159,7 @@ UI and the API see the same thing.
 | `TESTENCE_RUN_ID` | names the run directory; set by the plugin so every xdist worker shares one ([ADR-0012](adr/0012-parallel-execution.md)) |
 | `ALLURE_TESTPLAN_PATH` | standard Allure `version: 1.0` selective plan; invalid plans fail, unresolved entries are reported ([reporting](reporting.md#selecting-tests-from-a-testops-plan)) |
 | `TESTENCE_TESTPLAN_UNRESOLVED` | `warn` (default) or `fail` for plan entries that match no collected test |
+| `TESTENCE_SCHEDULE` | `default` or `longest-first`: order tests under pytest-xdist by earlier durations (`--testence-schedule`, [running in parallel](#slowest-tests-first)) |
 | `TESTENCE_RERUNS` | repeat a failed test up to N times, 0–5 (`--testence-reruns`); every attempt is recorded ([reporting](reporting.md#reruns-and-flaky-tests)) |
 | `TESTENCE_ALLURE_RESULTS` | stream Allure results into this directory as tests end (`--testence-allure-results`) |
 | `TESTENCE_FULL_TRACE` | `1` keeps the frames of Testence and Playwright below the test in failure tracebacks (`--testence-full-trace`; pytest's `--full-trace` does the same) |
@@ -436,3 +437,19 @@ other's data on a shared server. Which tests may share one target is decided per
 test from what its serial run read and wrote, and proven with repeated parallel runs
 and an adversarial neighbour ([ADR-0034](adr/0034-parallel-safety-on-a-shared-target.md)).
 Agents follow the procedure in the author skill's `references/parallel-safety.md`.
+
+### Slowest tests first
+
+```bash
+pytest tests_e2e/ -q -n 4 --testence-schedule longest-first
+```
+
+xdist hands tests out in collection order, so a slow test collected last becomes the
+tail of the run. `longest-first` (or `TESTENCE_SCHEDULE=longest-first`) has the
+controller read the `test.end` durations of the 20 most recent runs under `runs_root`
+(the median of each test's last five, repeated attempts excluded) and every worker
+order its collection by them, longest first; a test without history counts as the
+median test. Under `--dist loadgroup` the tests of one `xdist_group` stay together and
+groups are ordered by their total. Without history nothing changes; other `--dist`
+modes are refused. Ordering across modules means module-scoped fixtures, and
+`page_reuse: module`, apply less often.
