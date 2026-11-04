@@ -57,7 +57,7 @@ class SharedBrowserThread:
             base_url=self.base_url,
             headed=False,
             debug_port=self.port,
-            browser_channel="chromium",
+            browser_channel=os.environ.get("TESTENCE_BROWSER_CHANNEL", "chromium"),
             api_prefix="/api/",
             user_data_dir=str(self.profile_dir),
             reduce_motion=True,
