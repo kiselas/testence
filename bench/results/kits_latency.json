@@ -1,0 +1,253 @@
+{
+  "schema": "testence/kits-latency/1",
+  "scenario": "kit methods on the Koobiq conformance stand, one page load per repeat",
+  "generated_at": "2026-11-04T14:41:13.864831+00:00",
+  "environment": {
+    "os": "Windows-11-10.0.26100-SP0",
+    "python": "3.12.4",
+    "playwright": "1.62.0",
+    "browser_channel": "msedge",
+    "stand": {
+      "@koobiq/react-components": "0.37.0",
+      "react-select": "5.10.2",
+      "@xyflow/react": "12.12.1",
+      "react": "19.3.1",
+      "react-dom": "19.3.1"
+    }
+  },
+  "repeats": 5,
+  "launch_ms": 4071.24,
+  "methods": {
+    "recognize_components": {
+      "p50": 5.38,
+      "p95": 9.53,
+      "min": 4.29,
+      "max": 9.53,
+      "n": 5
+    },
+    "koobiq_select_choose": {
+      "p50": 518.54,
+      "p95": 560.48,
+      "min": 456.74,
+      "max": 560.48,
+      "n": 5
+    },
+    "koobiq_checkbox_check": {
+      "p50": 74.18,
+      "p95": 114.1,
+      "min": 66.11,
+      "max": 114.1,
+      "n": 5
+    },
+    "koobiq_tabs_select": {
+      "p50": 82.21,
+      "p95": 121.58,
+      "min": 74.92,
+      "max": 121.58,
+      "n": 5
+    },
+    "react_aria_tooltip_open": {
+      "p50": 260.19,
+      "p95": 282.78,
+      "min": 194.93,
+      "max": 282.78,
+      "n": 5
+    },
+    "koobiq_table_select_row": {
+      "p50": 103.65,
+      "p95": 131.94,
+      "min": 86.77,
+      "max": 131.94,
+      "n": 5
+    },
+    "koobiq_table_row_menu_choose": {
+      "p50": 370.34,
+      "p95": 392.82,
+      "min": 344.4,
+      "max": 392.82,
+      "n": 5
+    },
+    "react_select_multi_state": {
+      "p50": 12.79,
+      "p95": 38.89,
+      "min": 8.73,
+      "max": 38.89,
+      "n": 5
+    },
+    "react_select_multi_pick": {
+      "p50": 245.35,
+      "p95": 333.78,
+      "min": 178.18,
+      "max": 333.78,
+      "n": 5
+    },
+    "react_select_multi_remove": {
+      "p50": 87.1,
+      "p95": 134.47,
+      "min": 56.51,
+      "max": 134.47,
+      "n": 5
+    },
+    "koobiq_toast_new_and_dismiss": {
+      "p50": 810.54,
+      "p95": 832.68,
+      "min": 708.75,
+      "max": 832.68,
+      "n": 5
+    },
+    "koobiq_side_panel_open_and_wait": {
+      "p50": 359.18,
+      "p95": 396.07,
+      "min": 357.11,
+      "max": 396.07,
+      "n": 5
+    },
+    "koobiq_number_field_set": {
+      "p50": 157.1,
+      "p95": 194.23,
+      "min": 94.96,
+      "max": 194.23,
+      "n": 5
+    },
+    "koobiq_side_panel_close": {
+      "p50": 410.94,
+      "p95": 486.88,
+      "min": 376.95,
+      "max": 486.88,
+      "n": 5
+    },
+    "xyflow_node_open": {
+      "p50": 63.34,
+      "p95": 95.61,
+      "min": 48.93,
+      "max": 95.61,
+      "n": 5
+    },
+    "xyflow_node_action": {
+      "p50": 358.4,
+      "p95": 411.04,
+      "min": 340.5,
+      "max": 411.04,
+      "n": 5
+    }
+  },
+  "samples_ms": {
+    "recognize_components": [
+      9.5,
+      5.5,
+      4.8,
+      5.4,
+      4.3
+    ],
+    "koobiq_select_choose": [
+      518.5,
+      456.7,
+      560.5,
+      471.6,
+      526.7
+    ],
+    "koobiq_checkbox_check": [
+      114.1,
+      104.0,
+      74.2,
+      66.1,
+      69.5
+    ],
+    "koobiq_tabs_select": [
+      121.6,
+      77.0,
+      87.0,
+      74.9,
+      82.2
+    ],
+    "react_aria_tooltip_open": [
+      229.2,
+      282.8,
+      194.9,
+      267.8,
+      260.2
+    ],
+    "koobiq_table_select_row": [
+      131.9,
+      105.6,
+      103.7,
+      97.5,
+      86.8
+    ],
+    "koobiq_table_row_menu_choose": [
+      370.3,
+      358.2,
+      392.8,
+      372.4,
+      344.4
+    ],
+    "react_select_multi_state": [
+      38.9,
+      12.6,
+      17.0,
+      8.7,
+      12.8
+    ],
+    "react_select_multi_pick": [
+      333.8,
+      240.8,
+      245.4,
+      178.2,
+      251.6
+    ],
+    "react_select_multi_remove": [
+      93.2,
+      84.1,
+      134.5,
+      56.5,
+      87.1
+    ],
+    "koobiq_toast_new_and_dismiss": [
+      832.7,
+      810.5,
+      773.7,
+      708.7,
+      817.0
+    ],
+    "koobiq_side_panel_open_and_wait": [
+      396.1,
+      357.1,
+      359.2,
+      392.3,
+      359.1
+    ],
+    "koobiq_number_field_set": [
+      194.2,
+      157.1,
+      107.9,
+      95.0,
+      175.8
+    ],
+    "koobiq_side_panel_close": [
+      472.9,
+      486.9,
+      397.7,
+      376.9,
+      410.9
+    ],
+    "xyflow_node_open": [
+      95.6,
+      62.4,
+      63.3,
+      48.9,
+      67.9
+    ],
+    "xyflow_node_action": [
+      340.5,
+      386.0,
+      411.0,
+      347.5,
+      358.4
+    ]
+  },
+  "note": "In-process wall time of each kit method, including its own checks. Broad budgets detect hidden waits, not cross-machine microbenchmarks.",
+  "budget": {
+    "path": "bench\\budgets\\kits_latency.json",
+    "violations": []
+  }
+}

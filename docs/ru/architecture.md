@@ -45,7 +45,8 @@ provenance. Вывод агента становится доверенным т
 | Слой | Модуль | Ответственность | Что может импортировать |
 |---|---|---|---|
 | тестовые сценарии | репозиторий проекта | по 5–15 строк DSL с намерением | проектный ActionMap |
-| ActionMap | репозиторий проекта | шаги приложения, селекторы, обход продуктовых ловушек, oracles | `testence.dsl`, `testence.oracle`, адаптеры |
+| ActionMap | репозиторий проекта | шаги приложения, селекторы, обход продуктовых ловушек, oracles | `testence.dsl`, `testence.oracle`, `testence.kits`, адаптеры |
+| киты | `testence.kits` | адреса и ловушки библиотек компонентов ([киты](kits.md)), собранные из шагов `ex` | `testence.engine` (`Target`, capabilities) |
 | DSL | `testence.dsl` | обёртка шага: намерение, время, fingerprint и события | `testence.engine`, `testence.evidence` |
 | адаптеры | `testence.adapters` | контракты Auth/Seed, реализуемые в проекте | `testence.engine` |
 | триаж | `testence.triage` | сборка pack и контракт таксономии вердиктов | engine, evidence |

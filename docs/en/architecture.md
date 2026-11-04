@@ -40,7 +40,8 @@ See [agent-workflow.md](agent-workflow.md) for the target public lifecycle and
 | layer | module | responsibility | may import |
 |---|---|---|---|
 | test cases | project repo | 5–15 intent-bearing DSL lines each | project ActionMap |
-| ActionMap | project repo | app steps, selectors, product-trap workarounds, oracles | `testence.dsl`, `testence.oracle`, adapters |
+| ActionMap | project repo | app steps, selectors, product-trap workarounds, oracles | `testence.dsl`, `testence.oracle`, `testence.kits`, adapters |
+| kits | `testence.kits` | component-library addresses and traps ([kits](kits.md)), composed from `ex` steps | `testence.engine` (`Target`, capabilities) |
 | DSL | `testence.dsl` | step wrapper: intent + timing + fingerprint + events | `testence.engine`, `testence.evidence` |
 | adapters | `testence.adapters` | Auth/Seed contracts (implemented per project) | `testence.engine` |
 | triage | `testence.triage` | pack assembly, verdict taxonomy contract | engine, evidence |
