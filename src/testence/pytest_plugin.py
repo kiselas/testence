@@ -1747,6 +1747,11 @@ def testence_engine(
             _engine_phase_notes(testence_writer, _test_id(request.node), engine, "browser.start")
     if reuse:
         _engine_phase_notes(testence_writer, _test_id(request.node), engine, "context.fresh")
+    session = request.node.stash.get(_BROWSERLESS_KEY, None)
+    if session is not None:
+        # The browser was asked for after a browserless login (request.getfixturevalue
+        # of `ex` or `testence_engine` in the test body): it gets that session.
+        _carry_session(session, engine)
     state: dict[str, Any] = {"any_failed": False, "mode": mode}
     engine._testence_state = state  # type: ignore[attr-defined]
     try:
@@ -2037,11 +2042,6 @@ def ex(
     """
     if (testence_settings.auth or "none").lower() != "none" and not _anonymous(request.node):
         request.getfixturevalue("testence_auth")
-        session = request.node.stash.get(_BROWSERLESS_KEY, None)
-        if session is not None:
-            # `ex` asked for after a browserless login (request.getfixturevalue in
-            # the test body): the browser gets the session the login produced.
-            _carry_session(session, testence_engine)
     else:
         testence_writer.emit(
             "note",

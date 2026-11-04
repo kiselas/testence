@@ -47,6 +47,13 @@ def test_browser_and_api(ex, testence_api):
     assert testence_api.get("/api/v1/auth/me").json["email"] == "{user}"
 
 
+def test_engine_asked_for_later(request, testence_api):
+    assert testence_api.get("/api/v1/auth/me").status == 200
+    engine = request.getfixturevalue("testence_engine")
+    engine.goto("/app")
+    assert "{user}" in engine.read_text(WHOAMI)
+
+
 def test_browser_asked_for_later(request, testence_api):
     assert testence_api.get("/api/v1/auth/me").status == 200
     ex = request.getfixturevalue("ex")
@@ -102,7 +109,7 @@ def _of(events: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
 def test_api_only_tests_start_no_browser(tmp_path):
     result, events = _run(tmp_path / "api", {"auth": "api-session"}, SUITE)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert "1 failed, 3 passed" in result.stdout
+    assert "1 failed, 4 passed" in result.stdout
 
     browser_phases = {"browser.start", "context.fresh", "browser.worker_start"}
     for name in ("test_reads_widget", "test_fails_after_a_seed"):
@@ -131,7 +138,11 @@ def test_api_only_tests_start_no_browser(tmp_path):
     )
 
     # A test that also drives the browser logs in through it, as before.
-    for name in ("test_browser_and_api", "test_browser_asked_for_later"):
+    for name in (
+        "test_browser_and_api",
+        "test_browser_asked_for_later",
+        "test_engine_asked_for_later",
+    ):
         own = _of(events, name)
         assert [e for e in own if e.get("lifecycle_phase") == "browser.start"], name
 
