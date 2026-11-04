@@ -8,6 +8,14 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Added
 
+- MCP answers like the `ex` steps. A failed `testence_click` or `testence_fill`
+  returns the step's message, with what the target matched, targets that address
+  similar elements and Playwright's call log, instead of the first line of the
+  engine's exception; `target` and `matches` come as fields. Arguments are checked
+  against each tool's `inputSchema`, now with `additionalProperties: false`: an
+  unknown key or a wrong type is named. `testence_doctor` with a failed check returns
+  `isError: true`. A client that sent extra keys gets an error where they used to be
+  ignored.
 - Parallel safety on a shared target ([ADR-0034](adr/0034-parallel-safety-on-a-shared-target.md)).
   Skill pack 0.1.22 adds `references/parallel-safety.md` to the author skill: inventory
   the target's shared state, derive each case's footprint from the `net` and
