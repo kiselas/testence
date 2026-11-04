@@ -4,6 +4,8 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+# The kit conformance stand is committed built, so tests need no Node.
+!bench/sut/koobiq/dist/
 release-artifacts/
 node_modules/
 runs/

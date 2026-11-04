@@ -1,0 +1,16 @@
+{
+  "sources": {
+    "index.html": "dd88b3278421dff455962e0677a4f3dd99dd7a94d3376e77343f6e06d82533c7",
+    "package.json": "4740d68f90ba1d07805ef86d451a9c3618ad31b064f2e9fb8a2c8b332523e1cb",
+    "package-lock.json": "876e730a31b0eef894883b4bf83a2decae29e3c97cc1e794052980f2b03190c0",
+    "src/main.tsx": "c10138570c86e33a41ee03320bde31cf49147b7b1a9c6c01ce391068f468b465",
+    "vite.config.ts": "9546b184276f1c78e272fdf0add15d05070c378a73fa9c2c84b4e25e61b6977c"
+  },
+  "packages": {
+    "@koobiq/react-components": "0.37.0",
+    "react-select": "5.10.2",
+    "@xyflow/react": "12.12.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}
