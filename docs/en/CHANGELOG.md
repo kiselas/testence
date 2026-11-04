@@ -101,6 +101,14 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- `agent-workflow.md` lists what `testence agent install` writes: the skill root per
+  client, every skill file, `.testence/agents.json` and the lock. It used to promise a
+  repository instruction, a project config and a seed test, which the installer never
+  wrote; those come from `testence init` or from you. A test compares the list with the
+  installer for each client. Skill pack 0.1.25: the plan skill runs `testence plan
+  prepare` and says that an `api`, `a11y`, `visual` or `custom` oracle needs a
+  `readiness` block in `testence.json`, with an example; without it `prepare` blocks
+  the plan.
 - A raw `route_web_socket` inside `ex.native` that held back server frames left them in
   the WebSocket buffer: `wait_for_ws` returned frames the page never received, and the
   ledger did not say the socket was routed. The frames the handler sends are now the

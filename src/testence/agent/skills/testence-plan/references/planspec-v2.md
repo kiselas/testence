@@ -75,3 +75,42 @@ testence plan validate specs/<feature>.md --json
 ```
 
 The command must return exit code zero and `"valid": true`.
+
+## Readiness for `plan prepare`
+
+`testence plan prepare` blocks a valid plan in two cases:
+
+- a required assertion uses an oracle the project has not declared. `ui` and `network`
+  come with the browser; `api`, `a11y`, `visual`, and `custom` must be listed under
+  `readiness.oracle_adapters`, which says the project has that adapter;
+- a scenario has no entry under `readiness.scenarios`. The entry names the checks the
+  scenario needs; an empty list says it needs none.
+
+The `readiness` block lives in `testence.json`, next to the other project settings. For
+the plan above:
+
+```json
+{
+  "readiness": {
+    "schema": "testence/readiness/1",
+    "oracle_adapters": ["api"],
+    "checks": [
+      {"id": "shop-user", "type": "env", "variables": ["SHOP_TEST_USER"]},
+      {"id": "discount-seed", "type": "file", "path": "seed/discount-codes.json"}
+    ],
+    "scenarios": {"eligible-code": ["shop-user", "discount-seed"]}
+  }
+}
+```
+
+A check is `env` (the variables are set), `file` (a project-relative file exists), or
+`http` (a read-only request to `url`, or to `path` under `base_url`, answers with
+`status`). Scenario IDs share one map across all plans of the project, so merge new
+entries into an existing block. Then:
+
+```bash
+testence plan prepare specs/<feature>.md --project . --json
+```
+
+Exit 0 means every scenario is ready, exit 3 lists each blocked scenario with its
+blockers, and exit 2 means the plan or the `readiness` block is invalid.

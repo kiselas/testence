@@ -66,28 +66,60 @@ pytest, их перенос в ledger/evidence pack, валидация verdict 
 
 ## 1. Bootstrap
 
-Переносимые workflow-артефакты можно установить для одного или обоих поддерживаемых
-клиентов и затем проверить побайтово:
+Встроенные skills ставятся для одного или нескольких клиентов и затем проверяются
+побайтово:
 
 ```bash
 testence agent install --project . --client codex --client claude --json
 testence agent verify --project . --json
 ```
 
-Installer не копирует секреты в конфигурацию агента. Он записывает repo-owned receipt
-`.testence/agents.json`, обновляет только неизменённые ранее установленные файлы и
-сообщает о локальных правках как о конфликтах.
+Installer не копирует секреты в конфигурацию агента. Ранее установленный файл он
+обновляет, только если тот не изменён, а о локальных правках сообщает как о конфликтах.
 
-Устанавливаемый контракт включает:
+`testence agent install` пишет четыре skill в один корень на клиента:
 
-- короткую инструкцию репозитория о том, когда агент должен вызывать Testence;
-- переносимые Agent Skills для `plan`, `author`, `triage` и `repair`;
-- необязательные клиентские адаптеры там, где отличаются правила обнаружения;
-- конфигурацию проекта Testence и синтетический seed-тест;
-- `testence doctor`, проверяющий Python, доступ к browser/CDP, возможность записи
-  артефактов, выбор профиля и настройки чувствительных данных.
+| Клиент | Корень skills |
+|---|---|
+| `codex` | `.agents/skills/` |
+| `opencode` | `.agents/skills/` |
+| `claude` | `.claude/skills/` |
 
-Bootstrap-отчёт должен перечислять каждый созданный или изменённый файл.
+Codex и OpenCode делят каталог, поэтому при установке для обоих каждый файл пишется
+один раз. Внутри корня:
+
+```text
+testence-author/SKILL.md
+testence-author/agents/openai.yaml
+testence-author/references/parallel-safety.md
+testence-author/references/proof-gates.md
+testence-author/references/visual-discovery.md
+testence-author/references/visual-regression.md
+testence-plan/SKILL.md
+testence-plan/agents/openai.yaml
+testence-plan/references/planspec-v2.md
+testence-repair/SKILL.md
+testence-repair/agents/openai.yaml
+testence-repair/references/repair-gates.md
+testence-triage/SKILL.md
+testence-triage/agents/openai.yaml
+testence-triage/references/verdict-v2.md
+```
+
+`agents/openai.yaml` — метаданные интерфейса Codex, другие клиенты его не читают. Кроме
+skills, команда пишет `.testence/agents.json` — receipt с digest набора и каждого
+принятого файла — и оставляет `.testence/quality-operation.lock`, общую блокировку
+записей Testence в проект. Receipt `--json` перечисляет по каждому клиенту записанные
+файлы, уже совпадающие и конфликты.
+
+Больше она ничего не пишет. Остальное в bootstrap дают другие команды или вы сами:
+
+- `testence init` пишет `testence.json`, онбординг-план и примеры тестов;
+- `testence doctor` проверяет Python, доступ к браузеру, запись артефактов, выбор
+  профиля и настройки чувствительных данных;
+- MCP-сервер регистрируется в конфигурации самого клиента ([MCP](mcp.md));
+- строка в `AGENTS.md` или `CLAUDE.md` не пишется. Когда загрузить skill, клиенту
+  говорит его описание; инструкцию репозитория при желании добавьте сами.
 
 ## 2. Планирование до открытия браузера
 
@@ -303,7 +335,7 @@ testence repair validate repair.json --verdict <pack>/verdict.json \
 | Клиент | Поверхность обнаружения и инструкций | Интеграция Testence |
 |---|---|---|
 | Codex / ChatGPT | проектный `AGENTS.md`, skills и необязательный plugin/MCP server | универсальные skills и типизированные инструменты Testence |
-| Claude Code | `CLAUDE.md`, Agent Skills, plugins и MCP | те же skills, тонкий instruction shim и тот же MCP-контракт |
+| Claude Code | `CLAUDE.md`, Agent Skills, plugins и MCP | те же skills и тот же MCP-контракт |
 | OpenCode | `AGENTS.md`, `.agents/skills` и MCP | те же skills и MCP-контракт |
 | другие агенты | Agent Skills при поддержке, иначе документация репозитория и CLI | без fork runner или формата артефактов |
 
