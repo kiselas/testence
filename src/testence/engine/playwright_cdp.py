@@ -132,6 +132,24 @@ def _free_tcp_port() -> int:
 #: ``evidence.trace`` / ``evidence.video``: never, always, or kept only for a failure.
 RECORDING_POLICIES = ("off", "on", "retain-on-failure")
 
+#: The page shows a rendered application: a known SPA root (or the body) holds text
+#: or a meaningful control. wait_until_rendered waits for it; open() asks it once.
+_RENDERED_JS = """() => {
+    const body = document.body;
+    if (!body) return false;
+    const roots = [...document.querySelectorAll(
+        '#root, #app, [data-reactroot], [data-react-app]'
+    )];
+    const scopes = roots.length ? roots : [body];
+    return scopes.some(scope => {
+        if ((scope.innerText || '').trim().length) return true;
+        return !!scope.querySelector(
+            'input, textarea, select, button, a[href], img, svg,'
+            + ' canvas, video, [role], [aria-label], [contenteditable]'
+        );
+    });
+}"""
+
 #: expect_settled, in the page: resolve once the element's box is the same in two
 #: consecutive animation frames and lies wholly inside the viewport. A timer guards
 #: the deadline, since a page that paints no frames never runs the callback.
@@ -952,27 +970,50 @@ class PlaywrightCdpEngine(Engine):
         """
         with self._timed("wait_until_rendered"):
             try:
-                self._require_page().wait_for_function(
-                    """() => {
-                        const body = document.body;
-                        if (!body) return false;
-                        const roots = [...document.querySelectorAll(
-                            '#root, #app, [data-reactroot], [data-react-app]'
-                        )];
-                        const scopes = roots.length ? roots : [body];
-                        return scopes.some(scope => {
-                            if ((scope.innerText || '').trim().length) return true;
-                            return !!scope.querySelector(
-                                'input, textarea, select, button, a[href], img, svg,'
-                                + ' canvas, video, [role], [aria-label], [contenteditable]'
-                            );
-                        });
-                    }""",
-                    timeout=timeout_ms,
-                )
+                self._require_page().wait_for_function(_RENDERED_JS, timeout=timeout_ms)
                 return True
             except Exception:  # noqa: BLE001 - readiness probes fail closed
                 return False
+
+    def open(self, url: str) -> str:
+        """Open a route the fastest correct way; returns ``"navigate"`` or ``"goto"``.
+
+        When the page already shows the application (same origin as ``base_url`` and
+        its root has rendered something), the route is pushed to the app's own router,
+        as a click on an in-app link would. Otherwise (no page yet, another origin, a
+        route outside ``base_url``, an application that is not mounted) it is a
+        document load. Client-side navigation keeps the state of mounted components:
+        a case about a first load opens with ``goto``.
+        """
+        absolute = bool(_URL_SCHEME.match(url))
+        full = url if absolute else f"{self.base_url}{url}"
+        page = self._page
+        if (
+            page is not None
+            and self.base_url
+            and _under(page.url, self.base_url)
+            and _under(full, self.base_url)
+            and self._app_mounted()
+        ):
+            path = full[len(self.base_url) :] or "/"
+            with self._timed("open(navigate)", path):
+                page.evaluate(
+                    """(target) => {
+                        history.pushState({}, '', target);
+                        window.dispatchEvent(new PopStateEvent('popstate'));
+                    }""",
+                    path,
+                )
+            return "navigate"
+        self.goto(url)
+        return "goto"
+
+    def _app_mounted(self) -> bool:
+        """Whether the page shows a rendered application right now (no waiting)."""
+        try:
+            return bool(self._require_page().evaluate(_RENDERED_JS))
+        except Exception:  # noqa: BLE001 - a page that cannot answer is not mounted
+            return False
 
     def settle(self, timeout_ms: int = 1_500) -> bool:
         """Wait for network quiet. Short and optional by design: apps that poll or

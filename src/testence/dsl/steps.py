@@ -159,6 +159,8 @@ class Actions:
         #: half of them (48 of 95 step starts in a recent run were nested, and the
         #: step total came out larger than the test total, which cannot be true).
         self._children: list[int] = []
+        #: Fields the open steps add to their ``step.end`` (innermost last).
+        self._annotations: list[dict[str, Any]] = []
         #: Failed checks collected by the open ``ex.soft`` block, if any.
         self._soft: list[StepFailure] | None = None
         observer = getattr(engine, "set_native_mock_observer", None)
@@ -194,6 +196,7 @@ class Actions:
         if self._children:
             self._children[-1] += 1
         self._children.append(0)
+        self._annotations.append({})
         self.writer.emit(
             "step.start",
             test=self.test_id,
@@ -229,6 +232,7 @@ class Actions:
                 and isinstance(exc, AssertionError)
                 and not isinstance(exc, UnsupportedCapability)
             )
+            self._annotations.pop()
             self.writer.emit(
                 "step.end",
                 test=self.test_id,
@@ -262,6 +266,7 @@ class Actions:
             fingerprint=fingerprint or None,
             depth=depth,
             children=self._children.pop(),
+            **self._annotations.pop(),
             **({"operation": _operation.to_json()} if _operation else {}),
         )
 
@@ -309,6 +314,26 @@ class Actions:
         with self.step(intent or f"go to {url}"):
             require_capabilities(self.engine, "navigate", Capability.NAVIGATION)
             return self.engine.navigate(url, hard=hard)
+
+    def open(self, route: str, intent: str | None = None) -> str:
+        """Open a route the fastest correct way: the app's own router when the
+        application is mounted on this origin, a document load otherwise (the first
+        navigation, another origin, a route outside ``base_url``).
+
+        Returns ``"navigate"`` or ``"goto"``, and the step's ``step.end`` records it as
+        ``navigation``. Client-side navigation keeps mounted state: a case about a
+        first load uses ``goto``.
+        """
+        with self.step(intent or f"open {route}"):
+            require_capabilities(self.engine, "open", Capability.NAVIGATION)
+            opener = getattr(self.engine, "open", None)
+            if callable(opener):
+                path = str(opener(route))
+            else:  # engines written before open(): a document load, said so
+                self.engine.goto(route)
+                path = "goto"
+            self._annotations[-1]["navigation"] = path
+            return path
 
     def click(self, target: Target, intent: str | None = None, *, fast: bool = False) -> None:
         """Click. ``fast=True`` drops the actionability checks — see Engine.click.

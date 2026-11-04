@@ -75,7 +75,7 @@ pytest-xdist добавляет при `--dist loadgroup`, остаётся sour
 | `test.end` | `nodeid`, `display_name`, canonical `status` (`passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run`), `phase`, `duration_ms`, optional `pack`/error/xfail/xpass metadata, `error_kind` (`assertion`/`oracle`/`infrastructure`/`test_code`), `error_trace` (ограниченный, замаскированный), `screenshot` (относительно прогона, `evidence.screenshots: always`), `recordings` (`[{kind: trace\|video, path, redaction: none}]`, `evidence.trace`/`video`), `rerun: true` у повторённой попытки, `retries` и `flaky` у итоговой, `allure_dynamic` {`title`, `description`, `description_html`, `labels`, `links`} из вызовов `allure.dynamic.*` этой попытки |
 | `test.waits` | `waited_ms`, `ops` (count), `by_op` {op: {ms, n}}, `top` (5 самых медленных); API-тест без браузера записывает свои вызовы как op `api.request` |
 | `step.start` | `step` (id), `intent` (фраза человека), `target`? (описание), `depth` |
-| `step.end` | `step`, `status`, `duration_ms`, `depth`, `children`, `fingerprint`? (green runs), `error`? |
+| `step.end` | `step`, `status`, `duration_ms`, `depth`, `children`, `fingerprint`? (green runs), `error`?, `navigation`? (`navigate`/`goto`, `ex.open`) |
 | `net` | одно на тест с браузером, в конце фазы call: `mutations` [{`method`, `origin`, `path` (идентификаторы как `{id}`), `status`, `failure`?, `request_keys`, `response_keys`, `id_path`?, `reads_after`}], `reads` [{`method`, `path`, `n`, `status`}], `bodies` (был ли включён захват тел). Только имена и формы; читает `testence oracle suggest` |
 | `console` | зарезервировано по той же причине |
 | `oracle` | `name`, `ok`, `diff`? либо typed `expected`/`actual`, `observation` и связанная `operation` |

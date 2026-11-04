@@ -29,6 +29,14 @@ counted in the page in one round trip; the wait is an `expect_settled` entry of 
 wait ledger. An element that never stops, or stays outside the viewport, fails as an
 assertion naming its last box.
 
+`ex.open(route, intent=None)` (`browser.navigation`) opens a route the fastest correct
+way: when the page already shows the application on `base_url`'s origin (its root has
+rendered something), the route is pushed to the app's own router, as a click on an
+in-app link would; otherwise (the first navigation, another origin, a route outside
+`base_url`, an application not mounted) it is a document load. It returns `navigate` or
+`goto`, and the step's `step.end` records it as `navigation`. Client-side navigation
+keeps mounted component state: a case about a first load uses `ex.goto`.
+
 `ex.reset_storage(keys, intent=None, *, session=False)` (`session`) removes the named
 `localStorage` (or `sessionStorage`) keys and returns how many were set; under
 `page_reuse: module` it clears what a previous test left on the shared page.
