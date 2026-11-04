@@ -223,7 +223,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Agent-first browser testing with evidence-backed verdicts.",
         epilog=(
             "Start here: doctor, init, run, inspect, report.\n"
-            "Authoring: status, debug, explore, plan, capabilities, watch, bench, demo, agent.\n"
+            "Authoring: status, debug, explore, plan, seed, capabilities, watch, bench, demo, "
+            "agent.\n"
             "Results: export, metrics, verdict, repair, quality, ci, delivery.\n"
             "Testence maintainers only: corpus, release.\n"
             "\n"
@@ -342,6 +343,23 @@ def main(argv: list[str] | None = None) -> int:
         help="run explicitly configured argv fix recipes, then recheck",
     )
     p_plan_prepare.add_argument("--json", dest="json_output", action="store_true")
+
+    p_seed = sub.add_parser("seed", help="generate seed and cleanup code for test data")
+    seed_sub = p_seed.add_subparsers(dest="seed_command", required=True)
+    p_seed_scaffold = seed_sub.add_parser(
+        "scaffold", help="temporary-object fixtures with ordered cleanup from an OpenAPI document"
+    )
+    p_seed_scaffold.add_argument(
+        "--openapi", required=True, help="OpenAPI 3.x document: a file or an http(s) URL"
+    )
+    p_seed_scaffold.add_argument("--out", type=Path, default=Path("conftest_seed.py"))
+    p_seed_scaffold.add_argument(
+        "--marker", default="(temp)", help="text every temporary object's name carries"
+    )
+    p_seed_scaffold.add_argument(
+        "--collections", default=None, help="comma-separated collection names (default: all)"
+    )
+    p_seed_scaffold.add_argument("--json", dest="json_output", action="store_true")
 
     p_verdict = sub.add_parser("verdict", help="validate an evidence-backed verdict")
     verdict_sub = p_verdict.add_subparsers(dest="verdict_command", required=True)
@@ -621,6 +639,11 @@ def main(argv: list[str] | None = None) -> int:
             "--module test_login",
         ],
         p_demo_run: ["testence demo run --project testence-demo --json"],
+        p_seed_scaffold: [
+            'testence seed scaffold --openapi openapi.json --out conftest_seed.py --marker "(temp)"',
+            "testence seed scaffold --openapi https://app.example/openapi.json "
+            "--collections projects,posts",
+        ],
         p_capabilities: ["testence capabilities --project . --json"],
     }
     for _subparser, _lines in _examples.items():
@@ -1040,6 +1063,28 @@ def main(argv: list[str] | None = None) -> int:
             except ValueError as exc:
                 parser.error(str(exc))
         return _watch(roots, args.pattern or ["*.py"], cmd, warm=args.warm)
+
+    if args.command == "seed" and args.seed_command == "scaffold":
+        from .seed import SeedError, scaffold
+
+        names = [name.strip() for name in (args.collections or "").split(",") if name.strip()]
+        try:
+            seed_result = scaffold(
+                args.openapi, args.out, marker=args.marker, collections=names or None
+            )
+        except (SeedError, OSError) as exc:
+            print(f"seed scaffold failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(seed_result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(f"{seed_result['status']}: {seed_result['out']}")
+            print(f"  delete order: {' -> '.join(seed_result['delete_order'])}")
+            for entry in seed_result["skipped"]:
+                print(f"  skipped {entry['name']}: {entry['reason']}")
+            if seed_result["status"] == "kept":
+                print("  the file was edited; delete it to regenerate")
+        return 0
 
     if args.command == "plan":
         if args.plan_command == "skeleton":

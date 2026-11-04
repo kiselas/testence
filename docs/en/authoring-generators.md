@@ -1,12 +1,13 @@
 # Authoring generators
 
-Three commands do the typing that every new suite repeats, so an author spends the
+The commands below do the typing that every new suite repeats, so an author spends the
 time on addresses and oracles instead. None of them runs a browser, and none of them
 invents an expected value.
 
 | Command | Reads | Writes |
 |---|---|---|
 | `testence plan skeleton` | a Markdown case file | a PlanSpec and pytest stubs |
+| `testence seed scaffold` | an OpenAPI 3.x document | fixtures for temporary objects with ordered cleanup |
 
 ## `testence plan skeleton`: cases to a plan and test stubs
 
@@ -76,3 +77,52 @@ With `--json` the command prints a `testence/plan-skeleton/1` document: `format`
 be turned into a plan without guessing (no cases, duplicate numbers, no expected result
 anywhere, an expected text over 1000 characters), 3 the plan on disk is an edited one
 that no longer validates.
+
+## `testence seed scaffold`: temporary objects and their cleanup
+
+```bash
+testence seed scaffold --openapi openapi.json --out conftest_seed.py --marker "(temp)"
+testence seed scaffold --openapi https://app.example/openapi.json --collections projects,posts
+```
+
+The command reads an OpenAPI 3.x document (a file or an http(s) URL; JSON, or YAML when
+PyYAML is installed) and writes a fixture module for its collections. A collection is a
+path with a list `GET` and an item path below it with `DELETE`, whose schema has a
+`name`, `title`, `label` or `display_name` field to carry the marker; other paths are
+listed under `skipped` with the reason. `--collections` limits the module to the named
+ones (a nested collection needs its parent selected too).
+
+The module, built only on `testence_api` (`ApiClient`), never on the browser, holds:
+
+- `temp_name(ticket, label)`, which returns `"<ticket> <label> <marker>"`;
+- `Sweeper`, which finds marked objects by name (with the list's search parameter when
+  the document declares one, always filtered by the marker), deletes them in
+  `DELETE_ORDER`, repeats a `DELETE` answered with 409 for up to five seconds, and then
+  requires `GET` on the object to answer 404; `assert_clean()` fails while anything marked
+  is left;
+- `temp_sweeper`, a fixture whose teardown sweeps and asserts clean, and a
+  `make_temp_<name>(ticket, label, **fields)` factory per collection.
+
+`DELETE_ORDER` puts dependents first. A collection depends on another when its create
+or item schema has a `$ref` to the other's schema (also inside `allOf` or `items`), a
+field named after it (`project_id`, `projectId`, `post_ids`), or when its path is nested
+under the other's item path. A cycle is an error: no order is safe, so choose
+collections without it.
+
+Load the module from a `conftest.py` with `pytest_plugins = ["conftest_seed"]`, then:
+
+```python
+def test_rename_project(ex, make_temp_project):
+    project = make_temp_project("T-12", "rename", description="seeded")
+    ...
+```
+
+Under parallel workers, give each worker its own marker: sweepers that share one delete
+each other's objects. Lists are read as one page; a collection with more marked objects
+than one page returns needs the sweeper's `find` adapted. Regeneration follows the same
+rule as the skeleton: an edited module is `kept`.
+
+With `--json` the command prints a `testence/seed-scaffold/1` document: `out`, `status`
+(`created`, `updated`, `unchanged`, `kept`), `marker`, `collections` (paths, name field,
+search parameter, `items_key`, `parent`, `depends_on`), `delete_order` and `skipped`.
+Exit code 2 means the document cannot be read or yields no safe cleanup.
