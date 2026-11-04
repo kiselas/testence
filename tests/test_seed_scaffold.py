@@ -50,9 +50,7 @@ def test_references_two_levels_deep_order_the_cleanup_dependents_first() -> None
     ]
 
 
-def test_generated_module_imports_and_passes_ruff(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_generated_module_imports(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     out = tmp_path / "conftest_seed.py"
     code = main(
         ["seed", "scaffold", "--openapi", str(OPENAPI), "--out", str(out), "--marker", "(temp)"]
@@ -63,6 +61,18 @@ def test_generated_module_imports_and_passes_ruff(
     assert result["delete_order"] == ["comments", "posts", "projects"]
     assert result["status"] == "created"
 
+    module = _import(out)
+    assert module.DELETE_ORDER == ("comments", "posts", "projects")
+    assert module.temp_name("T-1", "first") == "T-1 first (temp)"
+    assert "playwright" not in out.read_text(encoding="utf-8").lower()
+    assert callable(module.make_temp_post)
+
+
+def test_generated_module_passes_ruff(tmp_path: Path) -> None:
+    # The dependency-floor environment installs no dev tools; the lint check needs ruff.
+    pytest.importorskip("ruff", reason="ruff is a dev dependency, absent from the floor venv")
+    out = tmp_path / "conftest_seed.py"
+    scaffold(str(OPENAPI), out, collections=["projects", "posts", "comments"])
     for args in (["check"], ["format", "--check"]):
         completed = subprocess.run(
             [
@@ -79,12 +89,6 @@ def test_generated_module_imports_and_passes_ruff(
             check=False,
         )
         assert completed.returncode == 0, completed.stdout + completed.stderr
-
-    module = _import(out)
-    assert module.DELETE_ORDER == ("comments", "posts", "projects")
-    assert module.temp_name("T-1", "first") == "T-1 first (temp)"
-    assert "playwright" not in out.read_text(encoding="utf-8").lower()
-    assert callable(module.make_temp_post)
 
 
 class _FakeApi:

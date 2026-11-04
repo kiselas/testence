@@ -111,9 +111,7 @@ def test_sections_format_attaches_expectations_and_writes_one_module(
     assert "Precondition: the catalogue is empty." in text
 
 
-def test_generated_code_passes_ruff_and_fails_fast_on_a_missing_address(
-    project: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def _generate_sections(project: Path, capsys: pytest.CaptureFixture[str]) -> Path:
     _run(
         project,
         str(project / "cases_sections.md"),
@@ -123,7 +121,24 @@ def test_generated_code_passes_ruff_and_fails_fast_on_a_missing_address(
         str(project / "tests_e2e"),
         capsys=capsys,
     )
-    tests = project / "tests_e2e"
+    return project / "tests_e2e"
+
+
+def test_generated_code_fails_fast_on_a_missing_address(
+    project: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    tests = _generate_sections(project, capsys)
+    namespace: dict[str, object] = {}
+    module = next(tests.glob("test_01_*.py"))
+    exec(compile(module.read_text(encoding="utf-8"), str(module), "exec"), namespace)  # noqa: S102
+    with pytest.raises(NotImplementedError, match="no Target yet"):
+        namespace["TODO"]("button")  # type: ignore[operator]
+
+
+def test_generated_code_passes_ruff(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # The dependency-floor environment installs no dev tools; the lint check needs ruff.
+    pytest.importorskip("ruff", reason="ruff is a dev dependency, absent from the floor venv")
+    tests = _generate_sections(project, capsys)
     for args in (["check", "--no-cache"], ["format", "--check", "--no-cache"]):
         completed = subprocess.run(
             [sys.executable, "-m", "ruff", *args, "--isolated", "--line-length", "100", str(tests)],
@@ -132,12 +147,6 @@ def test_generated_code_passes_ruff_and_fails_fast_on_a_missing_address(
             check=False,
         )
         assert completed.returncode == 0, completed.stdout + completed.stderr
-
-    namespace: dict[str, object] = {}
-    module = next(tests.glob("test_01_*.py"))
-    exec(compile(module.read_text(encoding="utf-8"), str(module), "exec"), namespace)  # noqa: S102
-    with pytest.raises(NotImplementedError, match="no Target yet"):
-        namespace["TODO"]("button")  # type: ignore[operator]
 
 
 def test_rerun_is_idempotent_and_keeps_edited_files(
