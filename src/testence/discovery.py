@@ -9,6 +9,7 @@ from typing import Any
 from testence.config import Settings
 from testence.engine import Engine, Target, create_engine
 from testence.evidence.sanitize import sanitize, sanitize_text
+from testence.kits import recognize
 
 
 def python_target(target: dict[str, Any]) -> str:
@@ -45,6 +46,7 @@ def snapshot(
         "aria": engine.aria_snapshot(),
         "elements": elements,
     }
+    result["components"] = _components(engine)
     if rows:
         result["rows"] = engine.eval_js(
             """() => Array.from(document.querySelectorAll('[data-key]'))
@@ -61,7 +63,23 @@ def snapshot(
     for element in cleaned["elements"]:
         # Build snippets only from already redacted fields.
         element["python"] = python_target(element["target"])
+    recognize.describe(cleaned["components"])
     return cleaned
+
+
+def _components(engine: Engine) -> list[dict[str, Any]]:
+    """Kit components on the page (``koobiq.select(ex, "Mode")`` …), next to the Targets.
+
+    A hint for authoring: an engine without JavaScript, or a page the recognizer
+    cannot read, yields none rather than failing the snapshot.
+    """
+    evaluate = getattr(engine, "eval_js", None)
+    if not callable(evaluate):
+        return []
+    try:
+        return recognize.clean(evaluate(recognize.script()))
+    except Exception:  # noqa: BLE001 - recognition is best-effort, the map is not
+        return []
 
 
 def _check_explore_url(url: str) -> None:
