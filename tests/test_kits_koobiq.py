@@ -106,6 +106,7 @@ def test_table_rows_selection_and_row_menu_in_any_locale(ex_any_locale):
     ex = ex_any_locale
     routers = koobiq.table(ex, "Routers")
     routers.expect_rows(3)
+    ex.expect_visible(routers.row_checkbox("router-two"), intent="the row's selection box")
     routers.select_row("router-two")
     logged(ex, "selected: r2")
     routers.select_row("router-one")

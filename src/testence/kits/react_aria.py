@@ -24,6 +24,11 @@ steps with an intent. Traps carried here so a test does not have to:
 - **A table is a ``grid``.** Rows are ``role=row`` named by their row header; the
   selection checkboxes carry translated names ("Select …"), so a row's checkbox is
   addressed by structure.
+- **A mouse click on a row's selection checkbox is browser-dependent.** The row
+  selects on ``pointerdown``; on Chromium 131 the check icon that appears under the
+  pointer takes the ``pointerup``, and the label's native click then toggles the box
+  back, so the row ends unselected. :meth:`Table.select_row` uses react-aria's keyboard
+  selection instead (Space on the focused row header), which holds on every engine.
 """
 
 from __future__ import annotations
@@ -263,14 +268,22 @@ class Table:
         return Target("css", _ROW_CHECKBOX, nth=0, within=header)
 
     def select_row(self, name: str) -> None:
-        self.expect_selected(name, False)
-        self.ex.click(self.row_checkbox(name), intent=f"select the row {name!r}")
-        self.expect_selected(name, True)
+        """Select the row with the keyboard: Space on its focused row header.
+
+        Space toggles selection in a react-aria grid whatever a row click does (a
+        table with row actions opens the row on click). A mouse click on the selection
+        checkbox (``row_checkbox``) toggles twice on Chromium 131; see the module notes.
+        """
+        self._toggle(name, True)
 
     def unselect_row(self, name: str) -> None:
-        self.expect_selected(name, True)
-        self.ex.click(self.row_checkbox(name), intent=f"unselect the row {name!r}")
-        self.expect_selected(name, False)
+        self._toggle(name, False)
+
+    def _toggle(self, name: str, selected: bool) -> None:
+        verb = "select" if selected else "unselect"
+        self.expect_selected(name, not selected)
+        self.ex.press("Space", self.rowheader(name), intent=f"{verb} the row {name!r}")
+        self.expect_selected(name, selected)
 
     def expect_selected(self, name: str, selected: bool = True) -> None:
         self.ex.expect_attribute(

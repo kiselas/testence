@@ -23,6 +23,9 @@ from testence.evidence import EvidenceWriter
 
 STAND = Path(__file__).resolve().parent.parent / "bench" / "sut" / "koobiq"
 LOG = Target("css", "#log")
+#: Step budget of every test. A test that shortens it for a negative case changes the
+#: shared engine; each test starts from this again, so no budget leaks into the next.
+TIMEOUT_MS = 5_000
 
 
 def _server_module() -> Any:
@@ -42,7 +45,7 @@ def stand() -> Iterator[str]:
 
 @pytest.fixture(scope="module")
 def stand_engine(stand: str) -> Iterator[PlaywrightCdpEngine]:
-    engine = PlaywrightCdpEngine(stand, headed=False, timeout_ms=5_000)
+    engine = PlaywrightCdpEngine(stand, headed=False, timeout_ms=TIMEOUT_MS)
     engine.start()
     try:
         yield engine
@@ -51,6 +54,7 @@ def stand_engine(stand: str) -> Iterator[PlaywrightCdpEngine]:
 
 
 def open_stand(engine: PlaywrightCdpEngine, tmp_path: Path, locale: str = "en-US") -> Actions:
+    engine.timeout_ms = TIMEOUT_MS
     engine.reset_taps()
     engine.goto(f"/index.html?locale={locale}")
     engine.wait_for_count(Target("role", "heading", name="Koobiq conformance stand"))
