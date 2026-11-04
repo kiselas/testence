@@ -78,7 +78,11 @@ provenance. Вывод агента становится доверенным т
 1. Pytest lifecycle hook публикует `test.start` для каждого selected test, включая
    тесты без `ex`; fixture при использовании сбрасывает browser capture.
 2. Каждый вызов `Actions`: `step.start` с намерением и целью → действие engine с
-   auto-wait → `step.end` с длительностью и fingerprint на зелёном пути.
+   auto-wait → `step.end` с длительностью и fingerprint на зелёном пути. Fingerprint —
+   основа heal proposal — снимается один раз на шаг и target: если
+   `.testence/fingerprints.json` уже хранит его для того же target или target — CSS
+   selector без доступного имени, шаг не обращается к браузеру и отмечает это в
+   `fingerprint_kept` (`stored`/`css`).
 3. Точки oracle: проверки вида `save_and_verify` публикуют события `oracle`;
    расхождение выбрасывает исключение и завершает шаг ошибкой.
 4. При падении `assemble_pack` захватывает ARIA, network, console, oracle и

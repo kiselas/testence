@@ -257,11 +257,9 @@ class Actions:
             if isinstance(exc, UnsupportedCapability):
                 raise
             raise StepFailed(intent, exc, target, matches) from exc
-        fingerprint = self.engine.element_fingerprint(target) if target else None
-        if fingerprint and target is not None and self.store is not None:
-            # Remember what "working" looked like: the only baseline a heal
-            # proposal can honestly be measured against.
-            self.store.record(self.test_id, intent, target.describe(), fingerprint)
+        fingerprint, kept = self._fingerprint(intent, target)
+        if kept:
+            self._annotations[-1]["fingerprint_kept"] = kept
         self.writer.emit(
             "step.end",
             test=self.test_id,
@@ -274,6 +272,28 @@ class Actions:
             **self._annotations.pop(),
             **({"operation": _operation.to_json()} if _operation else {}),
         )
+
+    def _fingerprint(self, intent: str, target: Target | None) -> tuple[dict[str, Any] | None, str]:
+        """The element's fingerprint after a green step, and why none was taken.
+
+        It is the baseline a heal proposal is measured against, so it is remembered
+        once per step and target: a store that already holds it for the same target
+        is not asked again (``"stored"``). A CSS selector has no accessible name to
+        heal towards, so it gets none (``"css"``). Each skipped capture is one browser
+        round trip saved on every green replay.
+        """
+        if target is None:
+            return None, ""
+        if target.kind == "css" and not target.name:
+            return None, "css"
+        if self.store is not None and self.store.holds(self.test_id, intent, target.describe()):
+            return None, "stored"
+        fingerprint = self.engine.element_fingerprint(target)
+        if fingerprint and self.store is not None:
+            # Remember what "working" looked like: the only baseline a heal
+            # proposal can honestly be measured against.
+            self.store.record(self.test_id, intent, target.describe(), fingerprint)
+        return fingerprint or None, ""
 
     def _render_probe(self, target: Target | None) -> None:
         """Settle a goto's deferred render probe before this step starts.

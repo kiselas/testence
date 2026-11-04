@@ -71,7 +71,11 @@ path only, and only when `bench/kernels.py` says a threshold was crossed.
 1. Pytest lifecycle hook emits `test.start` for every selected test, including tests
    that do not request `ex`; the fixture resets browser capture when used.
 2. Each `Actions` call: `step.start` (intent, target) → engine action (auto-wait) →
-   `step.end` (duration, fingerprint on green).
+   `step.end` (duration, fingerprint on green). The fingerprint, a heal proposal's
+   baseline, is taken once per step and target: when `.testence/fingerprints.json`
+   already holds it for the same target, or the target is a CSS selector without an
+   accessible name, the step skips the browser call and says so in
+   `fingerprint_kept` (`stored`/`css`).
 3. Oracle points: `save_and_verify`-style checks emit `oracle` events; divergence
    raises and fails the step.
 4. On failure: `assemble_pack` captures aria/network/console/oracle + `browser.json`
