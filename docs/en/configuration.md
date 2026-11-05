@@ -466,8 +466,10 @@ xdist hands tests out in collection order, so a slow test collected last becomes
 tail of the run. `longest-first` (or `TESTENCE_SCHEDULE=longest-first`) has the
 controller read the `test.end` durations of the 20 most recent runs under `runs_root`
 (the median of each test's last five, repeated attempts excluded) and every worker
-order its collection by them, longest first; a test without history counts as the
-median test. Under `--dist loadgroup` the tests of one `xdist_group` stay together and
-groups are ordered by their total. Without history nothing changes; other `--dist`
-modes are refused. Ordering across modules means module-scoped fixtures, and
-`page_reuse: module`, apply less often.
+order its collection by them. The unit is a module: modules go longest first by their
+total, and the tests of a module keep their order and stay together, so module
+fixtures and `page_reuse: module` keep working. The tests of one `xdist_group` are a
+unit of their own (under `--dist loadgroup` xdist keeps that order). A test without
+history counts as the median test. Without history nothing changes; other `--dist`
+modes are refused. Under `--dist load` xdist still hands a module's tests out in
+chunks, so a long module can be split between workers as before.

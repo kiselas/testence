@@ -45,12 +45,21 @@ def test_durations_are_the_median_of_recent_runs(tmp_path):
     assert durations == {"t.py::a": 200.0, "t.py::b": 10.0}
 
 
-def test_longest_first_keeps_groups_together_and_equals_in_order():
-    items = ["a", "b", "g1", "c", "g2"]
-    durations = {"a": 10, "b": 50, "c": 50, "g1": 30, "g2": 30}
-    groups = {"g1": "grp", "g2": "grp"}
+def test_longest_first_orders_modules_and_groups_keeping_their_tests_together():
+    items = ["fast::a", "fast::b", "pair::e", "slow::d", "slow::x", "pair::f", "mid::m"]
+    durations = {
+        "fast::a": 10,
+        "fast::b": 10,
+        "slow::d": 300,
+        "slow::x": 10,
+        "pair::e": 100,
+        "pair::f": 100,
+        "mid::m": 20,
+    }
+    groups = {"pair::e": "pair", "pair::f": "pair"}
     ordered = longest_first(items, durations, nodeid=str, group=groups.get)
-    assert ordered == ["g1", "g2", "b", "c", "a"]
+    # Units by total: slow 310, the pair 200, fast 20 = mid 20 (collection order).
+    assert ordered == ["slow::d", "slow::x", "pair::e", "pair::f", "fast::a", "fast::b", "mid::m"]
     assert longest_first(items, {}, nodeid=str) == items
 
 
@@ -70,10 +79,6 @@ def test_b_quick(testence_settings):
 
 def test_c_quick(testence_settings):
     time.sleep(0.05)
-
-
-def test_d_slow(testence_settings):
-    time.sleep(0.3)
 
 
 @pytest.mark.xdist_group("pair")
@@ -131,10 +136,25 @@ def _first_started(events: list[dict[str, Any]]) -> dict[str, str]:
     return {worker: name for worker, (_seq, name) in first.items()}
 
 
+SLOW = """
+import time
+
+
+def test_w_quick(testence_settings):
+    time.sleep(0.05)
+
+
+def test_d_slow(testence_settings):
+    time.sleep(0.3)
+"""
+
+
 def _project(tmp_path: Path) -> Path:
+    """Two modules: the slow one is collected last."""
     project = tmp_path / "suite"
     project.mkdir()
     (project / "test_sched.py").write_text(SUITE.lstrip(), encoding="utf-8")
+    (project / "test_zslow.py").write_text(SLOW.lstrip(), encoding="utf-8")
     return project
 
 
@@ -147,14 +167,22 @@ def test_longest_first_starts_the_slowest_test_first(tmp_path):
             "test_sched.py::test_a_quick": 50,
             "test_sched.py::test_b_quick": 50,
             "test_sched.py::test_c_quick": 50,
-            "test_sched.py::test_d_slow": 3_000,
             "test_sched.py::test_e_pair": 50,
             "test_sched.py::test_f_pair": 50,
+            "test_zslow.py::test_w_quick": 50,
+            "test_zslow.py::test_d_slow": 3_000,
         },
     )
     result, events = _run(project, "-n", "2", "--testence-schedule", "longest-first")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "test_d_slow" in _first_started(events).values()
+    # The slow module, collected last, starts first, in its own order, on one worker.
+    assert "test_w_quick" in _first_started(events).values()
+    workers = {
+        event["test"].rsplit("::", 1)[-1]: event["worker"]
+        for event in events
+        if event["kind"] == "test.start"
+    }
+    assert workers["test_w_quick"] == workers["test_d_slow"]
 
 
 def test_longest_first_keeps_an_xdist_group_on_one_worker(tmp_path):
@@ -164,7 +192,7 @@ def test_longest_first_keeps_an_xdist_group_on_one_worker(tmp_path):
         "earlier",
         {
             "test_sched.py::test_a_quick": 50,
-            "test_sched.py::test_d_slow": 300,
+            "test_zslow.py::test_d_slow": 300,
             "test_sched.py::test_e_pair": 2_000,
             "test_sched.py::test_f_pair": 2_000,
         },

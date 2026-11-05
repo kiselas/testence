@@ -6,9 +6,11 @@ Longest-processing-time-first ordering removes most of it, and the durations are
 already on disk: every ``test.end`` of earlier runs records ``duration_ms``.
 
 The controller reads the history once and hands it to every worker, so all workers
-reorder their collection identically (xdist refuses differing collections). Under
-``--dist loadgroup`` the tests of one ``xdist_group`` stay together and the groups are
-ordered by their total duration. Without history nothing is reordered.
+reorder their collection identically (xdist refuses differing collections). The unit
+of order is a module: modules go longest first by their total, and the tests of a
+module keep their order and stay together, so module fixtures and ``page_reuse:
+module`` keep working. Tests of one ``xdist_group`` are a unit of their own. Without
+history nothing is reordered.
 """
 
 from __future__ import annotations
@@ -67,9 +69,10 @@ def longest_first(
 ) -> list[Item]:
     """``items`` with the longest work first; the order of equals is kept.
 
-    A unit is one test, or every test of one ``group`` (``xdist_group``), whose
-    duration is the sum of its tests. A test without history counts as the median
-    known test: neither first nor last by accident.
+    A unit is every test of one ``group`` (``xdist_group``), or else every test of one
+    module (the node id before ``::``), in collection order; its duration is the sum
+    of its tests. A test without history counts as the median known test: neither
+    first nor last by accident.
     """
     if not durations:
         return list(items)
@@ -77,7 +80,8 @@ def longest_first(
     units: dict[str, list[Item]] = {}
     for item in items:
         name = group(item)
-        units.setdefault(f"group:{name}" if name else f"test:{nodeid(item)}", []).append(item)
+        module = nodeid(item).split("::", 1)[0]
+        units.setdefault(f"group:{name}" if name else f"module:{module}", []).append(item)
 
     def cost(members: Iterable[Item]) -> float:
         return sum(durations.get(nodeid(member), fallback) for member in members)
