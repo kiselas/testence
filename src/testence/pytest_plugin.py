@@ -1808,6 +1808,10 @@ def testence_engine(
         if kept.get("auth") is not None:
             state_kept["auth"] = kept["auth"]
         engine._testence_state = state_kept  # type: ignore[attr-defined]
+        if request.node.stash.get(_BROWSERLESS_KEY, None) is not None:
+            # Asked for after a browserless login: the kept page, already signed in
+            # the same way, is the test's engine from now on (see below).
+            request.node.stash[_ENGINE_KEY] = engine
         try:
             yield engine
         finally:
