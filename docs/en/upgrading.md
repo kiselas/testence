@@ -59,3 +59,6 @@ brings them up to the packaged pack.
 | `session_role_field` is read only when named or when `session_expected_role` is set; cache records are version 2 | nothing; the first run after upgrading logs in once ([configuration](configuration.md#optional-session-cache)) |
 | A test that asks for `testence_api` without `ex` or `testence_engine` starts no browser when the scheme logs in over HTTP | ask for `ex` or `testence_engine` where the test needs a page |
 | The ledger is flushed per event and synced to disk per test | `evidence.durability: "step"` for the previous fsync per event |
+| Values of environment variables with secret-looking names (`*TOKEN*`, `*SECRET*`, `*PASSWORD*` and others) are masked in all evidence, and `doctor` lists their names | if a value must stay visible, set `evidence.redact.auto_env: false` |
+| Fingerprint entries of tests whose parameter id contained a masked secret are keyed with a digest | nothing; the next green run records them again |
+| HTML, XML and CSV attachments have secret fields, elements and columns replaced by `<redacted>` (`&lt;redacted&gt;` in markup) | nothing; ship the file with `--attachments raw` only where the data may leave the machine |

@@ -1,13 +1,72 @@
 # Changelog
 
-Testence is in alpha: `0.1.0a2` is the latest release on PyPI. Changes since the last
+Testence is in alpha: `0.1.0a3` is the latest release on PyPI. Changes since the last
 published release are grouped under `Unreleased`; compatibility between alphas is not
 guaranteed, and a breaking change comes with migration notes ([upgrading](upgrading.md)).
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.1.0a3 — 2026-11-05
+
+Breaking first: `--attachments full` (the default) and the live Allure stream no longer ship
+the trace, the video or binary attachments, which are stored unredacted; `--attachments raw`
+ships them where that data may leave the machine ([upgrading](upgrading.md#after-010a2)).
+
+The release for suites that run every day. A test that only calls the API runs without a
+browser and the API client keeps its connections; a module's tests can share one tab;
+navigation goes through the app's router; `testence prove` runs strict mode in one command.
+Component kits address react-aria, Koobiq, react-select and React Flow, and discovery prints
+the kit line for what it sees. Authoring generators turn a case file into a plan with test
+stubs and an OpenAPI document into cleanup fixtures. Secrets are masked by variable name,
+outside values and inside HTML, XML and CSV attachments.
+
 ### Added
 
+- `testence prove`: strict mode in one command. Runs the project, then once per declared
+  negative control, evaluates them as `ci evaluate --quality-mode proven` and writes one
+  receipt. Same exit code as `ci evaluate`. A green run that is not green stops the command;
+  control runs never repeat. A control whose failures are mostly on claims it does not target
+  is flagged in `prove`, `ci summary` and the receipt (`quality.negative_proof.controls`); the
+  gate is unchanged.
+- API-only tests run without a browser ([ADR-0036](adr/0036-browserless-api-tests.md)). A test
+  that asks for `testence_api` without `ex` or `testence_engine`, with a login over HTTP,
+  starts no browser; its calls, waits and failure pack are recorded as before. A browser asked
+  for later in the same test gets the session and owns the test's evidence.
+- `ApiClient` keeps one connection per origin alive. A POST or PATCH is never repeated on a
+  broken connection; a GET, PUT or DELETE is repeated once on a new connection when a
+  kept-alive one closed while idle.
+- The session cache works without a role: identity is `session_identity_field` (dot paths)
+  plus an optional `session_id_field`, and the role is checked only when
+  `session_expected_role` is set.
+- Ledger durability per test ([ADR-0037](adr/0037-ledger-durability-per-test.md)): events are
+  flushed one by one and synced to disk at the end of each test, on a failure and on close.
+  `evidence.durability: "step"` keeps the fsync per event.
+- `ex.expect_settled(target)` waits until an element stops moving and is inside the viewport,
+  so a measurement does not catch an opening animation.
+- `page_reuse: module` ([ADR-0038](adr/0038-page-reuse-within-a-module.md)): tests of one
+  module with the same login share one tab. Between tests the network taps and the storage
+  keys named by `ex.reset_storage(keys)` are reset; a failure, a lost login, a crashed page or
+  anything a test cannot hand on ends the sharing. Opt-in.
+- `ex.open(route)` pushes the route to the app's router when the app is mounted and loads the
+  document when the router does not react within 500 ms.
+- The render probe after `goto` waits for the next step: a step with a target skips it, while a
+  step without a target and a check of absence (`expect_hidden`, a count of zero) run it first.
+- `evidence.fingerprints`: `every-green` (default) takes an element fingerprint after every
+  green step with a target; `once` skips that browser call when the store already holds it.
+- `--testence-schedule longest-first` starts the slowest modules first under xdist, from the
+  durations of earlier runs; the tests of a module stay together.
+- Component kits, `testence.kits`: react-aria, Koobiq (`@koobiq/react-components`
+  `>=0.37,<0.39`, checked on 0.37.0 and 0.38.0), react-select and React Flow, composed from
+  `ex` steps and checked against a conformance stand built from the real packages.
+  `testence explore` and the MCP snapshot list the components they recognize with a runnable
+  kit line for each.
+- Authoring generators. `testence plan skeleton` turns a Markdown case file into a PlanSpec and
+  pytest stubs bound to it. `testence seed scaffold --openapi` writes temporary-object fixtures
+  whose cleanup deletes dependents first and reads every page of a list.
+  `testence inventory <run>` builds a per-screen Markdown reference from a run's ledger.
+  `testence watch` prints each iteration's exit code and time. Skill pack 0.1.27.
 - The first hour. A failed form login says what the page said: visible alerts, the
   message of each field marked `aria-invalid` and error text by the form, plus the
   form's ARIA tree, redacted like evidence; `LoginFailed` carries them as
@@ -85,6 +144,17 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Security
 
+- Values of environment variables with secret-looking names (`*TOKEN*`, `*SECRET*`,
+  `*PASSWORD*`, `*PASSWD*`, `*API_KEY*`, `*PRIVATE_KEY*`, `*CREDENTIAL*`) are masked in evidence
+  without being listed in `evidence.redact.env`. Values shorter than 8 characters, booleans and
+  numbers are skipped. `testence doctor` lists the names; `evidence.redact.auto_env: false`
+  turns it off.
+- A known secret is also masked in the spelling pytest gives a parameter id, in a traceback cut
+  at its tail and in stored element fingerprints, including credentials learned at login.
+  Fingerprint entries of tests whose id was masked are keyed with a digest.
+- Attachments in HTML, XML and CSV/TSV are masked by structure: secret form fields and meta
+  tokens in HTML, secret-named elements and attributes in XML, columns with secret headers in
+  CSV. The file keeps its structure, and the text rules still run afterwards.
 - The default export (`--attachments full`) and the live Allure stream shipped the
   Playwright trace and video, which hold the typed password, auth headers, cookies and
   bodies unredacted, and binary attachments. They now ship only with the new
@@ -110,6 +180,10 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Fixed
 
+- `PlaywrightCdpEngine.stop()` no longer waits forever: closing the context, the browser and the
+  driver each have a deadline (20 s, `TESTENCE_CLOSE_DEADLINE_S`). On a timeout the engine ends
+  the browser and driver it started, never an attached browser, and records the step in the
+  evidence as `close.deadline_exceeded`.
 - `agent-workflow.md` lists what `testence agent install` writes: the skill root per
   client, every skill file, `.testence/agents.json` and the lock. It used to promise a
   repository instruction, a project config and a seed test, which the installer never
