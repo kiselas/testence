@@ -9,7 +9,10 @@ import os
 import re
 import subprocess
 import sys
-from collections.abc import Callable
+import threading
+import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -399,6 +402,46 @@ def _browser_failure(stderr: str) -> str:
     return "browser did not start"
 
 
+#: How often a long doctor probe says it is still running.
+_STILL_WAITING_S = 15.0
+#: The browser probe's limit; a launch that hangs longer is reported, not waited for.
+_BROWSER_PROBE_S = 90
+
+
+@contextmanager
+def _still_waiting(say: Callable[[str], None], what: str) -> Iterator[None]:
+    """Say every ``_STILL_WAITING_S`` seconds that ``what`` is still running.
+
+    One line before a probe that may hang for 90 seconds left the terminal silent long
+    enough to read as a hung command.
+    """
+    done = threading.Event()
+    started = time.monotonic()
+
+    def beat() -> None:
+        while not done.wait(_STILL_WAITING_S):
+            say(f"still {what} ({round(time.monotonic() - started)} s)...")
+
+    thread = threading.Thread(target=beat, name="doctor-progress", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        done.set()
+        thread.join()
+
+
+def _login_failure(exc: BaseException) -> str:
+    """One line for a failed login: the error's first line and what the page said."""
+    from testence.auth import LoginFailed
+
+    text = str(exc).strip()
+    line = f"{type(exc).__name__}: {text.splitlines()[0] if text else ''}".rstrip(": ")
+    if isinstance(exc, LoginFailed) and exc.page_errors:
+        line += "; the page says: " + " | ".join(exc.page_errors)
+    return line
+
+
 def _browser_fix(channel: str, failure: str = "Executable doesn't exist") -> str:
     from testence.engine import browser_launch_hint
 
@@ -453,29 +496,30 @@ def doctor(
         # as broken while its runs worked. The video folder outlives the browser: on
         # Windows the recorder can still hold the .webm after context.close(), and a
         # failed removal of a temporary folder is not a browser that failed to start.
-        browser_probe = subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                "import sys, tempfile\n"
-                "from playwright.sync_api import sync_playwright\n"
-                "with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:\n"
-                "    with sync_playwright() as p:\n"
-                "        browser = p.chromium.launch(channel=sys.argv[1], headless=True)\n"
-                "        print(browser.version)\n"
-                "        if sys.argv[2] != 'off':\n"
-                "            context = browser.new_context(record_video_dir=directory)\n"
-                "            context.new_page()\n"
-                "            context.close()\n"
-                "        browser.close()\n",
-                browser_channel,
-                str(settings.evidence_config().get("video", "off")) if settings else "off",
-            ],
-            text=True,
-            capture_output=True,
-            check=False,
-            timeout=90,
-        )
+        with _still_waiting(say, f"starting {browser_channel}"):
+            browser_probe = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "import sys, tempfile\n"
+                    "from playwright.sync_api import sync_playwright\n"
+                    "with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:\n"
+                    "    with sync_playwright() as p:\n"
+                    "        browser = p.chromium.launch(channel=sys.argv[1], headless=True)\n"
+                    "        print(browser.version)\n"
+                    "        if sys.argv[2] != 'off':\n"
+                    "            context = browser.new_context(record_video_dir=directory)\n"
+                    "            context.new_page()\n"
+                    "            context.close()\n"
+                    "        browser.close()\n",
+                    browser_channel,
+                    str(settings.evidence_config().get("video", "off")) if settings else "off",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=_BROWSER_PROBE_S,
+            )
         started = browser_probe.returncode == 0
         detail = f"playwright={version}; channel={browser_channel}"
         if settings and settings.evidence_config().get("video", "off") != "off":
@@ -486,6 +530,14 @@ def doctor(
             failure = _browser_failure(browser_probe.stderr)
             detail += f"; {failure}; fix: {_browser_fix(browser_channel, failure)}"
         check("browser", started, detail)
+    except subprocess.TimeoutExpired:
+        # The exception's text is the probe's whole command line, script included.
+        failure = f"did not start within {_BROWSER_PROBE_S} s"
+        check(
+            "browser",
+            False,
+            f"channel={browser_channel}; {failure}; fix: {_browser_fix(browser_channel, failure)}",
+        )
     except Exception as exc:
         check("browser", False, f"{type(exc).__name__}: {exc}")
     try:
@@ -557,8 +609,7 @@ def export_auth(
             cookies=engine.cookies(), storage=engine.storage_snapshot(), scheme=context.scheme
         )
     except Exception as exc:
-        first = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
-        raise ApplicationError(f"login failed: {type(exc).__name__}: {first}") from exc
+        raise ApplicationError(f"login failed: {_login_failure(exc)}") from exc
     finally:
         engine.stop()
     document = json.dumps(saved.storage_state(origin_text), indent=2, ensure_ascii=False) + "\n"
@@ -665,8 +716,9 @@ def _target_checks(settings: Settings, say: Callable[[str], None]) -> list[dict[
     if hasattr(engine, "headed"):
         engine.headed = False
     try:
-        engine.start()
-        context = from_settings(settings).authenticate(engine)
+        with _still_waiting(say, f"logging in with auth={scheme}"):
+            engine.start()
+            context = from_settings(settings).authenticate(engine)
         spec = settings.extra.get("api_auth_from_storage")
         if spec:
             context.headers.update(
@@ -679,8 +731,7 @@ def _target_checks(settings: Settings, say: Callable[[str], None]) -> list[dict[
             f"auth={scheme}; cookies={described['cookies']}; headers={described['headers']}",
         )
     except Exception as exc:  # noqa: BLE001 - reported, never raised
-        first = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
-        check("login", False, f"{type(exc).__name__}: {first}")
+        check("login", False, _login_failure(exc))
     finally:
         engine.stop()
     return checks
