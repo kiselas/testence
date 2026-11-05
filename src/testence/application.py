@@ -477,7 +477,13 @@ def doctor(
     try:
         settings = Settings.load(project)
         browser_channel = settings.browser_channel
-        check("settings", True, f"project_id={settings.project_id or 'unconfigured'}")
+        detail = f"project_id={settings.project_id or 'unconfigured'}"
+        masked = settings.auto_masked_env()
+        if masked:
+            # Names only. A person reads what evidence hides before a test shows a
+            # surprising `<redacted>`; `evidence.redact.auto_env: false` turns it off.
+            detail += "; masked variables (by name): " + ", ".join(masked)
+        check("settings", True, detail)
     except Exception as exc:
         check("settings", False, f"{type(exc).__name__}: {exc}")
     try:

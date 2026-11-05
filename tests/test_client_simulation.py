@@ -27,3 +27,15 @@ def test_simulation_cannot_grade_unproven_failures_as_detection(tmp_path, fault)
     if fault == "integrity":
         inspection["integrity_errors"] = ["wrong binding"]
     assert module.grade(junit, inspection, 1, True) is (fault is None)
+
+
+def test_every_step_logs_playwright_calls_and_the_browser_process():
+    """A failed screenshot must explain itself: the harness turns on Playwright's call and
+    browser logging for each child process, and only that (no retry, no changed timeout)."""
+    path = Path(__file__).parents[1] / "bench/client_simulation/run.py"
+    spec = importlib.util.spec_from_file_location("client_simulation_diag", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.DIAGNOSTIC_ENV == {"DEBUG": "pw:api,pw:browser"}
+    source = path.read_text(encoding="utf-8")
+    assert "env.update(DIAGNOSTIC_ENV)" in source

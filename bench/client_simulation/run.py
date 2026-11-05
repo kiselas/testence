@@ -27,6 +27,12 @@ from testence.loopback import LoopbackHTTPServer
 
 HERE = Path(__file__).resolve().parent
 PHASES = ("healthy", "shift", "invisible", "mobile-clip", "dom-only", "restored")
+#: Playwright's own trace of every API call and of the browser process, written to each step's
+#: log (setup-*.log, sample-*.log, warmup.log) and kept as an artifact whether the job passes or
+#: fails. The failed runs of this job were all a `Page.screenshot` that timed out, hit a closed
+#: target or came out partly painted, and the log did not say which call was pending or what the
+#: browser had printed. This only observes: no behaviour, timeout or retry changes.
+DIAGNOSTIC_ENV = {"DEBUG": "pw:api,pw:browser"}
 STYLES = {
     "shift": "main{transform:translateX(28px)}",
     "invisible": ".value{color:transparent}",
@@ -115,6 +121,7 @@ def main() -> int:
         if not key.startswith(("TESTENCE_", "PYTHONPATH", "PYTEST_"))
     }
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    env.update(DIAGNOSTIC_ENV)
     receipt = {
         "schema": "testence/client-visual-simulation/1",
         "scope": "Installed wheel, two adapter layouts, one scripted actor; no independent Claude/Codex execution claimed",

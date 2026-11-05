@@ -52,6 +52,40 @@ def default_browser_channel() -> str:
     return os.environ.get(f"{ENV_PREFIX}BROWSER_CHANNEL", "").strip() or "chromium"
 
 
+#: Environment variable names that hold a secret by their spelling, matched without
+#: regard to case: ``API_TOKEN``, ``db_password``, ``AWS_SECRET_ACCESS_KEY``. The two
+#: ``*_KEY`` spellings keep their underscore, so ``SORT_KEY`` and ``KEYBOARD`` stay out.
+_SECRET_ENV_NAME = re.compile(
+    r"TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|PRIVATE_KEY|CREDENTIAL", re.IGNORECASE
+)
+#: A value this short is not worth masking: it would also hide ordinary words, digits
+#: and ids from every piece of evidence.
+AUTO_ENV_MIN_LENGTH = 8
+_NOT_A_SECRET_WORDS = frozenset(
+    {"true", "false", "yes", "no", "on", "off", "null", "none", "nil", "undefined"}
+)
+
+
+def is_secret_env_name(name: str) -> bool:
+    """Whether an environment variable's name matches the automatic masking pattern."""
+    return bool(_SECRET_ENV_NAME.search(name))
+
+
+def is_maskable_env_value(value: str) -> bool:
+    """Whether the automatic rule masks ``value``: at least ``AUTO_ENV_MIN_LENGTH``
+    characters, and neither a boolean word nor a number (``TOKENIZERS_PARALLELISM=false``
+    and ``PASSWORD_MAX_AGE=31536000`` are settings, and masking them would blank them
+    out of every message)."""
+    text = value.strip()
+    if len(text) < AUTO_ENV_MIN_LENGTH or text.casefold() in _NOT_A_SECRET_WORDS:
+        return False
+    try:
+        float(text.replace("_", "x"))
+    except ValueError:
+        return True
+    return False
+
+
 class SettingsError(RuntimeError):
     """A settings file exists but cannot be read.
 
@@ -314,8 +348,14 @@ class Settings:
         return RedactionPolicy.from_config(self.evidence_config().get("redact"))
 
     def redaction_values(self) -> tuple[str, ...]:
-        """Secret values redacted wherever they appear: the login pair plus
-        ``evidence.redact.env``. Never written anywhere; only used to replace."""
+        """Secret values redacted wherever they appear: the login pair, the variables
+        named in ``evidence.redact.env`` and, unless ``evidence.redact.auto_env`` is
+        ``false``, the values of environment variables whose names look like secrets
+        (:func:`auto_masked_env`). Never written anywhere; only used to replace.
+
+        The automatic rule only adds values. A declared variable is masked whatever its
+        value is, exactly as before the rule existed.
+        """
         redact = self.evidence_config().get("redact") or {}
         names = redact.get("env", []) if isinstance(redact, dict) else []
         if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
@@ -328,7 +368,37 @@ class Settings:
             value = os.environ.get(variable) or self.env_values.get(variable)
             if value:
                 values.append(value)
+        for variable in self.auto_masked_env():
+            value = os.environ.get(variable) or self.env_values.get(variable) or ""
+            if value not in values:
+                values.append(value)
         return tuple(values)
+
+    def auto_env_enabled(self) -> bool:
+        """Whether ``evidence.redact.auto_env`` leaves the automatic rule on."""
+        redact = self.evidence_config().get("redact") or {}
+        flag = redact.get("auto_env", True) if isinstance(redact, dict) else True
+        if not isinstance(flag, bool):
+            raise ValueError("evidence.redact.auto_env must be true or false")
+        return flag
+
+    def auto_masked_env(self) -> tuple[str, ...]:
+        """Names of the variables whose values the automatic rule masks, sorted.
+
+        Names only: ``testence doctor`` prints them so a person sees what is hidden from
+        evidence, and the values stay out of every message.
+        """
+        if not self.auto_env_enabled():
+            return ()
+        names = set(self.env_values) | set(os.environ)
+        return tuple(
+            sorted(
+                name
+                for name in names
+                if is_secret_env_name(name)
+                and is_maskable_env_value(os.environ.get(name) or self.env_values.get(name) or "")
+            )
+        )
 
     def screenshot_masks(self) -> tuple[Target, ...]:
         """Elements painted over in every screenshot (``evidence.mask``)."""

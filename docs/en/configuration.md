@@ -317,6 +317,7 @@ Projects extend these rules in `testence.json`:
       "allow_keys": ["session_status"],
       "url_params": ["ticket"],
       "env": ["SHOP_API_TOKEN"],
+      "auto_env": true,
       "pii": ["email", "phone"]
     },
     "screenshots": "on-failure",
@@ -333,6 +334,13 @@ Projects extend these rules in `testence.json`:
 - `url_params` adds query parameter names.
 - `env` names environment variables whose values are replaced wherever they appear, in
   addition to the login and password variables. The values are never written.
+- `auto_env` (default `true`) also masks, without listing them, the values of
+  environment variables (the process environment and `.env` files) whose names contain
+  `TOKEN`, `SECRET`, `PASSWORD`, `PASSWD`, `API_KEY`, `PRIVATE_KEY` or `CREDENTIAL`, in any
+  case. A value shorter than 8 characters, a boolean word (`true`, `off`, `none`…) and a
+  number are skipped, so `TOKENIZERS_PARALLELISM=false` stays readable. The rule only adds
+  values: a variable named in `env` is masked whatever it holds. `testence doctor` lists the
+  names it matched (never the values). `"auto_env": false` switches the rule off.
 - `pii` opts into email and phone redaction. They are off by default because tests often
   assert the signed-in user's email.
 - `screenshots`: `on-failure` (default) keeps a screenshot in the failure pack;
@@ -341,6 +349,24 @@ Projects extend these rules in `testence.json`:
 - `mask` paints the listed elements black in every screenshot, including visual
   baselines. A baseline records its masks, so changing them makes the baseline an
   incompatible profile rather than a pixel verdict.
+
+A secret that Testence knows is masked in every spelling a test id or a traceback can
+carry it in: as is, URL-encoded, JSON- and `repr`-escaped, and as pytest escapes a
+parameter id (`é`, `к`). A parameter id such as `test_login[<redacted>]` is only
+what is shown. The case, the variant, the Allure `historyId` and the last-green
+fingerprints are computed from the original value, so history does not split when a
+value is masked. Give credentials `ids=` anyway: Testence cannot mask a secret it does
+not know.
+
+Attachments of a test (`ex.attach`, `allure.attach`) in three formats are also masked by
+structure, before the text rules run on the result. In **HTML**, the `value` of
+`password` and `hidden` inputs, of one-time-code and password-autocomplete inputs and of
+inputs and textareas named like a secret, and the `content` of a `csrf-token` meta tag. In
+**XML**, the text and attributes of an element whose name is a secret name (and of
+everything inside it), an attribute with a secret name, and the `value` of an element
+that names a secret in `name`/`key`. In **CSV** and **TSV**, the cells of a column whose
+header is a secret name. Everything else in the file is kept, so it still parses and
+diffs; a document that is not well-formed, or declares entities, gets the text rules only.
 
 The ledger records the policy (names only) in `run.start`. `testence export` and
 `testence report` apply it again, so a run written before a rule existed does not leave
