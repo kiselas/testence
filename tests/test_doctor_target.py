@@ -62,6 +62,8 @@ def test_a_wrong_password_is_a_named_login_failure(tmp_path, monkeypatch):
     detail = checks["login"]["detail"]
     assert detail.startswith("LoginFailed: login at /login did not complete")
     assert "password field is still visible" in detail
+    # The reason is on the page; the one-line report carries it (stage 6, T04).
+    assert detail.endswith("; the page says: Invalid credentials"), detail
     assert "wrong-password" not in detail
 
 

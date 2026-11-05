@@ -8,6 +8,15 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ### Added
 
+- The first hour. A failed form login says what the page said: visible alerts, the
+  message of each field marked `aria-invalid` and error text by the form, plus the
+  form's ARIA tree, redacted like evidence; `LoginFailed` carries them as
+  `page_errors` and `form_aria`, and `doctor --target` and `auth export` add the
+  page's words to their one-line report. `testence doctor` says every 15 seconds that
+  a browser start or a login is still running, where it used to fall silent for up
+  to 90 seconds, and names a browser start that hangs instead of printing the probe's
+  script; with `--json` it prints only the JSON. `TRIAGE.md` opens with the error,
+  the page and which section to open, and the judge's instructions follow.
 - MCP answers like the `ex` steps. A failed `testence_click` or `testence_fill`
   returns the step's message, with what the target matched, targets that address
   similar elements and Playwright's call log, instead of the first line of the

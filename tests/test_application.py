@@ -325,6 +325,64 @@ def test_doctor_probes_configured_video_and_reports_a_missing_encoder(tmp_path, 
         assert "python -m playwright install ffmpeg" in browser["detail"]
 
 
+def _slow_probe(seconds: float, *, hang: bool = False):
+    def probe(command, **kwargs):
+        import time
+
+        time.sleep(seconds)
+        if hang:
+            raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+        return subprocess.CompletedProcess(command, 0, "1.0", "")
+
+    return probe
+
+
+def test_doctor_keeps_saying_a_slow_browser_start_is_running(tmp_path, monkeypatch):
+    """Stage 6, T04: one line before a probe that may hang 90 s read as a hung command."""
+    import testence.application as application
+
+    monkeypatch.setattr(application, "_STILL_WAITING_S", 0.05)
+    monkeypatch.setattr(subprocess, "run", _slow_probe(0.3))
+    said: list[str] = []
+
+    result = doctor(tmp_path, progress=said.append)
+
+    browser = next(check for check in result["checks"] if check["name"] == "browser")
+    assert browser["ok"], browser["detail"]
+    assert said[0].startswith("starting ") and said[0].endswith(" to check that it launches...")
+    still = [line for line in said[1:] if line.startswith("still starting ")]
+    assert len(still) >= 2, said
+    assert len(still) == len(said) - 1, said
+
+
+def test_doctor_names_a_browser_start_that_hangs_without_its_script(tmp_path, monkeypatch):
+    monkeypatch.setattr(subprocess, "run", _slow_probe(0, hang=True))
+
+    result = doctor(tmp_path)
+
+    browser = next(check for check in result["checks"] if check["name"] == "browser")
+    assert not browser["ok"]
+    assert "did not start within 90 s; fix: " in browser["detail"]
+    assert "sync_playwright" not in browser["detail"]
+
+
+def test_doctor_json_prints_no_progress(tmp_path, monkeypatch, capsys):
+    import testence.application as application
+
+    monkeypatch.setattr(application, "_STILL_WAITING_S", 0.05)
+    monkeypatch.setattr(subprocess, "run", _slow_probe(0.2))
+
+    main(["doctor", "--root", str(tmp_path), "--json"])
+    quiet = capsys.readouterr()
+    main(["doctor", "--root", str(tmp_path)])
+    spoken = capsys.readouterr()
+
+    assert quiet.err == ""
+    assert json.loads(quiet.out)["checks"]
+    assert "to check that it launches..." in spoken.err
+    assert "still starting " in spoken.err
+
+
 def test_doctor_starts_a_real_video_context_when_video_is_enabled(tmp_path):
     (tmp_path / "testence.json").write_text('{"evidence": {"video": "on"}}', encoding="utf-8")
     result = doctor(tmp_path)

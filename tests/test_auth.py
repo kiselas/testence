@@ -22,6 +22,7 @@ from testence.auth import (
     CachedSessionAuth,
     Credentials,
     FormLoginAuth,
+    LoginFailed,
     MissingCredentials,
     NoAuth,
 )
@@ -104,6 +105,125 @@ def test_form_login_wrong_password_fails_fast(engine):
     )
     with pytest.raises(Exception):
         auth.authenticate(engine)
+
+
+def test_a_failed_form_login_says_what_the_page_said(engine):
+    """Stage 6, T04: the reason a login failed is on the page; the error used to
+    stop at "the password field is still visible"."""
+    auth = FormLoginAuth(Credentials(USER, "wrong-password"), timeout_ms=5_000)
+
+    with pytest.raises(LoginFailed) as caught:
+        auth.authenticate(engine)
+
+    failure = caught.value
+    assert failure.page_errors == ("Invalid credentials",)
+    # The password rule of redaction must not take the node after
+    # `textbox "Password":` (a placeholder, in newer Playwright) for its value: every
+    # line is still a node of the tree.
+    assert 'textbox "Password"' in failure.form_aria
+    assert all(line.lstrip().startswith("- ") for line in failure.form_aria.splitlines()), (
+        failure.form_aria
+    )
+    assert 'button "Sign in"' in failure.form_aria
+    message = str(failure)
+    assert "The page says:\n  Invalid credentials" in message
+    assert 'button "Sign in"' in message
+    assert USER not in message and "wrong-password" not in message
+
+
+ACCESSIBLE_ERRORS_PAGE = """<!doctype html><html><body>
+<div role="alert" id="banner"></div>
+<form id="login">
+  <label for="email">Email</label>
+  <input id="email" type="email" aria-errormessage="email-error">
+  <span id="email-error"></span>
+  <label for="password">Password</label>
+  <input id="password" type="password">
+  <button>Sign in</button>
+</form>
+<p class="error" hidden>Never shown</p>
+<script>
+document.getElementById('login').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const email = document.getElementById('email');
+  document.getElementById('banner').textContent = 'No account for ' + email.value;
+  email.setAttribute('aria-invalid', 'true');
+  document.getElementById('email-error').textContent = 'Use your work address';
+  document.getElementById('password').setAttribute('aria-invalid', 'true');
+});
+</script>
+</body></html>"""
+
+
+def test_a_failed_form_login_reads_alerts_and_invalid_fields_redacted(engine):
+    from urllib.parse import quote
+
+    auth = FormLoginAuth(
+        CREDS, login_path="data:text/html," + quote(ACCESSIBLE_ERRORS_PAGE), timeout_ms=1_000
+    )
+
+    with pytest.raises(LoginFailed) as caught:
+        auth.authenticate(engine)
+
+    # The alert echoes the typed login: it is redacted like everywhere else.
+    assert caught.value.page_errors == (
+        "No account for <redacted>",
+        "Use your work address",
+        'the "Password" field is marked invalid',
+    )
+    assert USER not in str(caught.value) and PASSWORD not in str(caught.value)
+
+
+def test_login_diagnostics_use_the_project_redaction(tmp_path, monkeypatch):
+    """``auth: form`` from settings redacts ``evidence.redact.env`` values too."""
+    from testence.auth import from_settings
+    from testence.config import Settings
+
+    secret = "tenant-7c1f-secret"
+    monkeypatch.setenv("TESTENCE_USER", USER)
+    monkeypatch.setenv("TESTENCE_PASSWORD", PASSWORD)
+    monkeypatch.setenv("SHOP_TENANT", secret)
+    (tmp_path / "testence.json").write_text(
+        json.dumps(
+            {
+                "base_url": "http://127.0.0.1:9",
+                "auth": "form",
+                "timeout_ms": 10,
+                "evidence": {"redact": {"env": ["SHOP_TENANT"]}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class _Rejected:
+        def goto(self, _path):
+            pass
+
+        def fill(self, _target, _value):
+            pass
+
+        def click(self, _target):
+            pass
+
+        def wait_while_visible(self, _target, timeout_ms):
+            raise TimeoutError("Timeout 10ms exceeded")
+
+        def eval_js(self, _script):
+            return [f"tenant {secret} is suspended"]
+
+        def count(self, _target):
+            return 1
+
+        def aria_snapshot(self, _target=None):
+            return f'- textbox "Tenant": {secret}'
+
+    auth = from_settings(Settings.load(tmp_path))
+    with pytest.raises(LoginFailed) as caught:
+        auth.authenticate(_Rejected())
+
+    assert caught.value.page_errors == ("tenant <redacted> is suspended",)
+    assert caught.value.form_aria == '- textbox "Tenant": <redacted>'
+    assert secret not in str(caught.value)
 
 
 def test_api_session_auth_injects_cookie_into_browser(engine, app):

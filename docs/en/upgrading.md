@@ -51,6 +51,9 @@ brings them up to the packaged pack.
 | `ExpectedState.absent(..., entity_id=...)` passes on an empty or 404 read; the binding is checked only on a row that is still there | nothing |
 | `testence init` declares a `drop-save` control and the onboarding test applies it; `testence demo run` adds a fourth, negative run | `init` never overwrites existing files: to try it in an existing project, run `testence demo run --project testence-demo` in a new folder |
 | MCP tools reject arguments their `inputSchema` does not declare, and wrong types; `testence_doctor` with a failed check returns `isError: true` | send only the documented arguments ([MCP](mcp.md)); read the doctor report from the error result |
+| `LoginFailed` from a form login has more lines: what the page said and the login form's ARIA tree | match on its first line, or read `page_errors` and `form_aria` |
+| `TRIAGE.md` opens with a section for a person; the judge's instructions follow `## For an agent judging this failure` | a tool that fed the whole file to a model can keep doing so; one that read only the start should read from that heading |
+| `testence doctor --json` prints nothing on stderr; progress lines are for a terminal | drop `--json` to see them |
 | `ApiClient` keeps connections alive; a call that gets no answer in time raises `TimeoutError` (urllib raised `URLError` for a connect timeout); other connection failures are still `URLError` | catch `TimeoutError` (or `OSError`, which covers both) where a connect timeout was caught as `URLError` |
 | A POST or PATCH whose connection breaks while the request is in flight fails instead of being repeated | retry in the test only where the endpoint is safe to repeat |
 | `session_role_field` is read only when named or when `session_expected_role` is set; cache records are version 2 | nothing; the first run after upgrading logs in once ([configuration](configuration.md#optional-session-cache)) |
