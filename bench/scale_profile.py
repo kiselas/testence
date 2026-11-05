@@ -76,13 +76,18 @@ def sample(count: int, failure_every: int = 0, error_bytes: int = 0) -> dict[str
         target = Path(temporary)
         tracemalloc.start()
         started = time.perf_counter()
+        cpu_started = time.process_time()
         paths = export_ctrf(run, target)
+        cpu_ms = (time.process_time() - cpu_started) * 1000
         elapsed_ms = (time.perf_counter() - started) * 1000
         _current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
         raw = paths[0].read_bytes()
     return {
         "elapsed_ms": round(elapsed_ms, 2),
+        # What the budget gates: this process's own CPU time, which a busy or
+        # preempted runner does not stretch. Wall time stays in the receipt.
+        "cpu_ms": round(cpu_ms, 2),
         "peak_memory_bytes": peak,
         "artifact_bytes": len(raw),
         "sha256": hashlib.sha256(raw).hexdigest(),
@@ -115,6 +120,7 @@ def _cold(count: int, failure_every: int, error_bytes: int) -> dict[str, Any]:
 def aggregate(samples: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "elapsed_ms": distribution([float(item["elapsed_ms"]) for item in samples]),
+        "cpu_ms": distribution([float(item["cpu_ms"]) for item in samples]),
         "peak_memory_bytes": distribution([float(item["peak_memory_bytes"]) for item in samples]),
         "artifact_bytes": distribution([float(item["artifact_bytes"]) for item in samples]),
         "unique_output_digests": len({item["sha256"] for item in samples}),
@@ -177,6 +183,7 @@ def main() -> None:
         "protocol": {
             "export": "CTRF from LoadedRun",
             "failure_storm": "1000 failed results with 4096-byte bounded errors",
+            "time": "budget gates process CPU time (cpu_ms); wall time elapsed_ms is reported only",
             "memory": "Python allocations measured by tracemalloc",
             "flake": "all repeated output SHA-256 digests must be identical",
         },
