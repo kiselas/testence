@@ -599,7 +599,6 @@ def _resolve_contract(
     )
 
 
-@pytest.hookimpl(trylast=True)
 def _xdist_group(item: pytest.Item) -> str | None:
     marker = item.get_closest_marker("xdist_group")
     if marker is None:
@@ -615,11 +614,13 @@ class _LongestFirst:
     def __init__(self, durations: dict[str, float]) -> None:
         self.durations = durations
 
-    @pytest.hookimpl(trylast=True)
-    def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> None:
+    @pytest.hookimpl(wrapper=True)
+    def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> Iterator[None]:
+        yield  # every other implementation, filters included, has run
         items[:] = longest_first(items, self.durations, nodeid=_test_id, group=_xdist_group)
 
 
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     state = config.stash.get(_LIFECYCLE_KEY, None)
     available_capabilities = (
