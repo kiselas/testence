@@ -2326,6 +2326,7 @@ def ex(
         testence_writer,
         test_id,
         store=testence_fingerprints,
+        fingerprints=str(testence_settings.evidence_config().get("fingerprints", "every-green")),
     )
     request.node.stash[_ENGINE_KEY] = testence_engine
     request.node.stash[_FINGERPRINTS_KEY] = testence_fingerprints

@@ -72,10 +72,11 @@ path only, and only when `bench/kernels.py` says a threshold was crossed.
    that do not request `ex`; the fixture resets browser capture when used.
 2. Each `Actions` call: `step.start` (intent, target) → engine action (auto-wait) →
    `step.end` (duration, fingerprint on green). The fingerprint, a heal proposal's
-   baseline, is taken once per step and target: when `.testence/fingerprints.json`
-   already holds it for the same target, or the target is a CSS selector without an
-   accessible name, the step skips the browser call and says so in
-   `fingerprint_kept` (`stored`/`css`).
+   baseline, is taken after every green step with a target, so
+   `.testence/fingerprints.json` holds the last green run. With
+   `evidence.fingerprints: once` a step whose store already holds it for the same
+   target skips the browser call and says so in `fingerprint_kept: stored`; the
+   baseline is then the first green run of that step and target.
 3. Oracle points: `save_and_verify`-style checks emit `oracle` events; divergence
    raises and fails the step.
 4. On failure: `assemble_pack` captures aria/network/console/oracle + `browser.json`

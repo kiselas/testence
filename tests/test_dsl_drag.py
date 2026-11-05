@@ -85,15 +85,13 @@ def test_a_missing_destination_is_named_in_the_failure(ex):
 
 
 def test_the_drag_is_one_step_with_the_source_fingerprint(ex):
-    # A source with an accessible handle: a bare CSS selector gets no fingerprint.
-    card = Target("text", "Write docs")
-    ex.drag(card, DONE, intent="move the card to Done")
+    ex.drag(CARD, DONE, intent="move the card to Done")
     ex.writer.close()
     events = [json.loads(line) for line in ex.writer.path.read_text(encoding="utf-8").splitlines()]
     (start,) = [e for e in events if e["kind"] == "step.start"]
-    assert (start["intent"], start["target"]) == ("move the card to Done", card.describe())
+    assert (start["intent"], start["target"]) == ("move the card to Done", CARD.describe())
     (end,) = [e for e in events if e["kind"] == "step.end"]
-    assert end["status"] == "ok" and end["fingerprint"]["text"] == "Write docs"
+    assert end["status"] == "ok" and end["fingerprint"]
 
 
 class _EngineWithoutDrag:

@@ -292,7 +292,7 @@ class Settings:
         value = self.extra.get("evidence", {}) or {}
         if not isinstance(value, dict):
             raise ValueError("evidence must be an object")
-        known = {"redact", "mask", "screenshots", "trace", "video", "durability"}
+        known = {"redact", "mask", "screenshots", "trace", "video", "durability", "fingerprints"}
         unknown = sorted(set(value) - known)
         if unknown:
             raise ValueError("unknown evidence field(s): " + ", ".join(unknown))
@@ -303,6 +303,8 @@ class Settings:
                 raise ValueError(f"evidence.{key} must be off, on or retain-on-failure")
         if value.get("durability", "test") not in ("test", "step"):
             raise ValueError("evidence.durability must be test or step")
+        if value.get("fingerprints", "every-green") not in ("every-green", "once"):
+            raise ValueError("evidence.fingerprints must be every-green or once")
         return value
 
     def redaction_policy(self) -> RedactionPolicy:

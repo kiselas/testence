@@ -364,6 +364,19 @@ may be kept, and note each file is marked `redaction: none`. Only
 stream do not. They need a context Testence owns, so
 an attached browser or a persistent profile refuses them.
 
+### Element fingerprints
+
+```json
+{"evidence": {"fingerprints": "once"}}
+```
+
+`every-green` (default): after every green step with a target the element's
+fingerprint is taken and stored in `.testence/fingerprints.json`, so a heal proposal
+and the repair skill compare a failure with the last green run. `once`: a step whose
+store already holds the fingerprint for the same target skips that browser call; a
+changed target is taken again. That saves one round trip per step on every green
+replay, and the baseline becomes the first green run of the step and target.
+
 ### Ledger durability
 
 ```json

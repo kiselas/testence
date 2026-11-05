@@ -1,9 +1,10 @@
-"""A green replay does not take element fingerprints it already has.
+"""``evidence.fingerprints: once``: a green replay takes no fingerprint it has.
 
-A fingerprint is the baseline of a heal proposal. It was taken after every green step
-with a target, one browser round trip each, on every run. Now it is taken once per
-step and target: a replay whose store holds it skips the call, a changed target takes
-it again, and a CSS selector, which has no accessible name to heal towards, never.
+A fingerprint is the baseline of a heal proposal, taken after every green step with a
+target (CSS selectors included), one browser round trip each, so the store holds the
+last green run. That stays the default. A project can opt into ``once``: a replay
+whose store holds the fingerprint of a step and target skips the call, and a changed
+target takes it again.
 """
 
 from __future__ import annotations
@@ -60,12 +61,16 @@ class _Counting:
         return getattr(self._engine, name)
 
 
-def _replay(browser, tmp_path, store: FingerprintStore, save: Target = SAVE) -> tuple[int, int]:
+def _replay(
+    browser, tmp_path, store: FingerprintStore, save: Target = SAVE, policy: str = "once"
+) -> tuple[int, int]:
     browser.goto(PAGE)
     counting = _Counting(browser)
     writer = EvidenceWriter(tmp_path / f"run-{id(counting)}")
     try:
-        ex = Actions(counting, writer, "test_fp.py::case", store=store)  # type: ignore[arg-type]
+        ex = Actions(  # type: ignore[arg-type]
+            counting, writer, "test_fp.py::case", store=store, fingerprints=policy
+        )
         ex.fill(NAME, "alice", "type the name")
         ex.click(save, "save")
         ex.click(CANCEL, "cancel")
@@ -82,10 +87,18 @@ def _replay(browser, tmp_path, store: FingerprintStore, save: Target = SAVE) -> 
     return counting.fingerprints, len(steps)
 
 
-def test_a_green_replay_takes_no_fingerprint_it_has(browser, tmp_path):
+def test_by_default_every_green_step_is_fingerprinted(browser, tmp_path):
+    store = FingerprintStore(tmp_path / "fingerprints.json")
+    first, steps = _replay(browser, tmp_path, store, policy="every-green")
+    again, _steps = _replay(browser, tmp_path, store, policy="every-green")
+    assert first == again == steps == 5  # the last green run, CSS targets included
+    assert store.get("test_fp.py::case", "the status reads ready")
+
+
+def test_once_a_green_replay_takes_no_fingerprint_it_has(browser, tmp_path):
     store = FingerprintStore(tmp_path / "fingerprints.json")
     first, steps = _replay(browser, tmp_path, store)
-    assert first == 4  # every step with a non-CSS target
+    assert first == steps == 5
     store.flush()
 
     replay, steps = _replay(browser, tmp_path, FingerprintStore(tmp_path / "fingerprints.json"))
@@ -93,7 +106,7 @@ def test_a_green_replay_takes_no_fingerprint_it_has(browser, tmp_path):
     assert replay == 0
 
 
-def test_a_changed_target_is_fingerprinted_again(browser, tmp_path):
+def test_once_a_changed_target_is_fingerprinted_again(browser, tmp_path):
     store = FingerprintStore(tmp_path / "fingerprints.json")
     _replay(browser, tmp_path, store)
     changed, _steps = _replay(
@@ -102,7 +115,13 @@ def test_a_changed_target_is_fingerprinted_again(browser, tmp_path):
     assert changed == 1
 
 
-def test_a_css_target_is_never_fingerprinted(browser, tmp_path):
-    store = FingerprintStore(tmp_path / "fingerprints.json")
-    _replay(browser, tmp_path, store)
-    assert store.get("test_fp.py::case", "the status reads ready") is None
+def test_an_unknown_policy_is_refused(tmp_path):
+    from testence.config import Settings
+
+    with EvidenceWriter(tmp_path) as writer, pytest.raises(ValueError, match="fingerprints"):
+        Actions(object(), writer, "t", fingerprints="never")  # type: ignore[arg-type]
+    (tmp_path / "testence.json").write_text(
+        json.dumps({"evidence": {"fingerprints": "sometimes"}}), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="every-green or once"):
+        Settings.load(tmp_path).evidence_config()

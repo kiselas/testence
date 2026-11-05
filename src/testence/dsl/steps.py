@@ -135,6 +135,10 @@ class _EngineOperation:
         return result
 
 
+#: How often a green step's element fingerprint is taken (``evidence.fingerprints``).
+FINGERPRINT_POLICIES = ("every-green", "once")
+
+
 class Actions:
     """Engine + evidence, bound to one test. Projects build ActionMaps on top."""
 
@@ -144,11 +148,18 @@ class Actions:
         writer: EvidenceWriter,
         test_id: str,
         store: FingerprintStore | None = None,
+        *,
+        fingerprints: str = "every-green",
     ) -> None:
+        if fingerprints not in FINGERPRINT_POLICIES:
+            raise ValueError(f"fingerprints must be one of {', '.join(FINGERPRINT_POLICIES)}")
         self.engine = engine
         self.writer = writer
         self.test_id = test_id
         self.store = store
+        #: ``every-green``: a fingerprint after every green step with a target, so the
+        #: store holds the last green run; ``once``: only when the store lacks it.
+        self.fingerprints = fingerprints
         #: Set when a step raises; the runner reads it to build a heal proposal.
         self.last_failure: StepFailure | None = None
         self._step_no = 0
@@ -280,17 +291,20 @@ class Actions:
     def _fingerprint(self, intent: str, target: Target | None) -> tuple[dict[str, Any] | None, str]:
         """The element's fingerprint after a green step, and why none was taken.
 
-        It is the baseline a heal proposal is measured against, so it is remembered
-        once per step and target: a store that already holds it for the same target
-        is not asked again (``"stored"``). A CSS selector has no accessible name to
-        heal towards, so it gets none (``"css"``). Each skipped capture is one browser
-        round trip saved on every green replay.
+        It is the baseline a heal proposal is measured against. By default
+        (``every-green``) it is taken after every green step with a target, so the
+        store holds the last green run. With ``evidence.fingerprints: once`` a store
+        that already holds it for the same step and target is not asked again
+        (``"stored"``): one browser round trip saved per step on every green replay,
+        and the baseline is the first green run of that step and target.
         """
         if target is None:
             return None, ""
-        if target.kind == "css" and not target.name:
-            return None, "css"
-        if self.store is not None and self.store.holds(self.test_id, intent, target.describe()):
+        if (
+            self.fingerprints == "once"
+            and self.store is not None
+            and self.store.holds(self.test_id, intent, target.describe())
+        ):
             return None, "stored"
         fingerprint = self.engine.element_fingerprint(target)
         if fingerprint and self.store is not None:
