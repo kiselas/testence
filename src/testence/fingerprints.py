@@ -19,8 +19,10 @@ the repo keeps one reviewable artifact.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -37,9 +39,13 @@ class FingerprintStore:
         worker: str | None = None,
         redact_values: tuple[str, ...] | list[str] = (),
         redaction_policy: RedactionPolicy = DEFAULT_POLICY,
+        live_secrets: Callable[[], tuple[str, ...]] | None = None,
     ) -> None:
+        """``live_secrets`` is asked on every write: a credential the login produced
+        is learned after this store is created, and a snapshot would never mask it."""
         self.path = Path(path)
-        self._redact_values = tuple(value for value in redact_values if value)
+        self._known_redact_values = tuple(value for value in redact_values if value)
+        self._live_secrets = live_secrets
         self._policy = redaction_policy
         self.worker = worker if worker is not None else os.environ.get(WORKER_ENV, "")
         self.write_path = (
@@ -52,6 +58,12 @@ class FingerprintStore:
             self._data.update(_read_json(source))
         self._dirty = False
 
+    @property
+    def _redact_values(self) -> tuple[str, ...]:
+        if self._live_secrets is None:
+            return self._known_redact_values
+        return (*self._known_redact_values, *(value for value in self._live_secrets() if value))
+
     def _shards(self) -> list[Path]:
         """Base file first, then worker shards — later keys win, and they never
         collide because a test lives on one worker."""
@@ -63,8 +75,17 @@ class FingerprintStore:
         return f"{test_id}::{intent}"
 
     def _key(self, test_id: str, intent: str) -> str:
+        """What the store is keyed by: the masked id, plus a digest when masking changed it.
+
+        Two variants whose ids differ only in a secret both read ``test[<redacted>]``
+        once masked. Keyed by that alone they would overwrite each other's memory, so the
+        identity of the original id stays in the key as a digest; the file shows no value.
+        """
+        shown = sanitize_text(test_id, secrets=self._redact_values, policy=self._policy, limit=500)
+        if shown != test_id:
+            shown += "~" + hashlib.sha256(test_id.encode("utf-8")).hexdigest()[:12]
         return self.key(
-            sanitize_text(test_id, secrets=self._redact_values, policy=self._policy, limit=500),
+            shown,
             sanitize_text(intent, secrets=self._redact_values, policy=self._policy, limit=500),
         )
 

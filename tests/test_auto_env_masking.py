@@ -130,7 +130,12 @@ def test_doctor_lists_the_masked_names_and_never_the_values(clean_env, monkeypat
 
 
 def run_project(
-    project: Path, files: dict[str, str], settings: dict[str, Any], env_extra: dict[str, str]
+    project: Path,
+    files: dict[str, str],
+    settings: dict[str, Any],
+    env_extra: dict[str, str],
+    *,
+    returncode: int = 1,
 ) -> Path:
     """Run a nested pytest session in ``project``; returns the one run directory."""
     project.mkdir()
@@ -162,7 +167,7 @@ def run_project(
         cwd=project,
         env=env,
     )
-    assert result.returncode == 1, result.stdout + result.stderr
+    assert result.returncode == returncode, result.stdout + result.stderr
     (run_dir,) = [path for path in (project / "runs").iterdir() if path.is_dir()]
     return run_dir
 

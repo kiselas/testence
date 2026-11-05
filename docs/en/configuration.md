@@ -350,6 +350,14 @@ Projects extend these rules in `testence.json`:
   baselines. A baseline records its masks, so changing them makes the baseline an
   incompatible profile rather than a pixel verdict.
 
+A secret that Testence knows is masked in every spelling a test id or a traceback can
+carry it in: as is, URL-encoded, JSON- and `repr`-escaped, and as pytest escapes a
+parameter id (`é`, `к`). A parameter id such as `test_login[<redacted>]` is only
+what is shown. The case, the variant, the Allure `historyId` and the last-green
+fingerprints are computed from the original value, so history does not split when a
+value is masked. Give credentials `ids=` anyway: Testence cannot mask a secret it does
+not know.
+
 The ledger records the policy (names only) in `run.start`. `testence export` and
 `testence report` apply it again, so a run written before a rule existed does not leave
 in clear text. Invalid settings stop the session before any test runs.

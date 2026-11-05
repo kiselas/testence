@@ -292,8 +292,8 @@ def _redact_assignments(text: str, policy: RedactionPolicy) -> str:
 
 
 def _known_forms(secrets: Iterable[str]) -> set[str]:
-    """Each known secret as text can carry it: verbatim, URL-encoded, JSON- and
-    repr-escaped. `SYNTH-S&Y#N` reached network.jsonl as `SYNTH-S%26Y%23N`."""
+    """Each known secret as text can carry it: verbatim, URL-encoded, JSON-, repr- and
+    pytest-id-escaped. `SYNTH-S&Y#N` reached network.jsonl as `SYNTH-S%26Y%23N`."""
     forms: set[str] = set()
     for secret in secrets:
         if len(secret) < 4:
@@ -306,6 +306,10 @@ def _known_forms(secrets: Iterable[str]) -> set[str]:
                 json.dumps(secret, ensure_ascii=False)[1:-1],
                 json.dumps(secret)[1:-1],
                 repr(secret)[1:-1],
+                # pytest writes a parameter id with ``unicode_escape``: an accented
+                # letter becomes backslash-x-e9, which is neither JSON's spelling
+                # (backslash-u-00e9) nor repr()'s (the letter itself).
+                secret.encode("unicode_escape").decode("ascii"),
             }
         )
     return {form for form in forms if len(form) >= 4}
