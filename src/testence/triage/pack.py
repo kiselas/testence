@@ -21,7 +21,7 @@ from testence.contracts import (
     VERDICT_KINDS,
     VERDICT_SCHEMA,
 )
-from testence.engine import Engine, dump_net
+from testence.engine import Engine, NetRecord, dump_net
 from testence.evidence import EvidenceWriter, budgets_for, estimate_tokens
 from testence.evidence.sanitize import FULL_SECTION_CHAR_LIMIT
 from testence.identity import proof_id, source_case_id
@@ -89,6 +89,62 @@ says so; that is a useful answer, and a confident wrong one is not.
 If evidence is insufficient, say what is missing and attach to the live browser
 named in browser.json before guessing.
 """
+
+
+#: How much of the error TRIAGE.md shows; the whole error is in pack.json.
+_ERROR_LINES = 8
+_ERROR_CHARS = 1_200
+
+
+def _triage_text(
+    index: dict[str, Any],
+    pack_dir: Path,
+    network: list[NetRecord],
+    console: list[dict[str, Any]],
+) -> str:
+    """TRIAGE.md: what a person looks at first, then the judge's instructions.
+
+    It used to open with "You are the judge for a failed browser test", so the person
+    who opened the pack of their own failure read a prompt before the failure.
+    """
+    error = str(index.get("error") or "").strip()
+    lines = error.splitlines()
+    shown = "\n".join(lines[:_ERROR_LINES])[:_ERROR_CHARS]
+    if shown != error:
+        shown += "\n... the full error is in pack.json"
+    page = index.get("page_url") or "unknown"
+    state = "settled" if index.get("page_settled") else "still loading when captured"
+    failed = sum(
+        1 for record in network if record.failure is not None or (record.status or 0) >= 400
+    )
+    errors = sum(1 for message in console if message.get("level") == "error")
+    present = {path.name for path in pack_dir.iterdir()}
+    look = []
+    if "screenshot.png" in present:
+        look.append("- `screenshot.png`: the page when the test failed.")
+    look.append(
+        "- `aria.txt`: what the page offered, as an accessibility tree. An element the "
+        "test could not find is either there under another name or missing."
+    )
+    look.append(
+        f"- `network.jsonl`: {len(network)} request(s) to the API, {failed} failed "
+        "(status 400 or more, or no answer)."
+    )
+    look.append(f"- `console.txt`: {errors} error(s) in the browser console.")
+    if "oracle.json" in present:
+        look.append("- `oracle.json`: where the independent check disagreed with the page.")
+    if "heal.json" in present:
+        look.append(
+            "- `heal.json`: a candidate locator change, and whether the element moved or is gone."
+        )
+    look.append("- `events.json`: every step the test ran, in order.")
+    return (
+        f"# {index.get('test')} failed\n\n"
+        "```text\n" + shown.replace("```", "'''") + "\n```\n\n"
+        f"Page: {page} ({state}).\n\n"
+        "## What to look at first\n\n" + "\n".join(look) + "\n\n"
+        "## For an agent judging this failure\n\n" + _TRIAGE_PROMPT
+    )
 
 
 def _truncate(text: str, budget_tokens: int, full_path: Path) -> str:
@@ -206,7 +262,6 @@ def assemble_pack(
     (pack_dir / "browser.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n"
     )
-    (pack_dir / "TRIAGE.md").write_text(_TRIAGE_PROMPT, encoding="utf-8", newline="\n")
 
     context = writer.context_for(test_id)
     if not context.get("case_id"):
@@ -266,6 +321,11 @@ def assemble_pack(
         index["heal_hint"] = {"verdict_hint": heal.verdict_hint, "score": heal.score}
     (pack_dir / "pack.json").write_text(
         json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n"
+    )
+    (pack_dir / "TRIAGE.md").write_text(
+        _triage_text(index, pack_dir, engine.network_log(), engine.console_log()),
+        encoding="utf-8",
+        newline="\n",
     )
     pack_digest = _write_manifest(pack_dir, context)
     if has_verdict_template:
