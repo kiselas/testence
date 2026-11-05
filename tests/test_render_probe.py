@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from testence.dsl import Actions
+from testence.dsl.steps import StepFailed
 from testence.engine import Target
 from testence.engine.playwright_cdp import PlaywrightCdpEngine
 from testence.evidence import EvidenceWriter
@@ -38,6 +39,15 @@ render();
 </script></body></html>"""
 
 BLANK = "<!doctype html><html><body><div id='root'></div></body></html>"
+#: Mounts 300 ms after load and shows a spinner that stays: a check of its absence
+#: made before the mount passes against an empty page.
+LATE = """<!doctype html><html><body><div id="root"></div>
+<script>
+setTimeout(() => {
+  document.getElementById('root').innerHTML = '<div id="spinner">loading</div>';
+}, 300);
+</script></body></html>"""
+SPINNER = Target("css", "#spinner")
 ROOT = Target("css", "#root")
 
 
@@ -46,7 +56,12 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self) -> None:  # noqa: N802
-        body = (BLANK if self.path.startswith("/blank") else ROUTER).encode()
+        if self.path.startswith("/blank"):
+            body = BLANK.encode()
+        elif self.path.startswith("/late"):
+            body = LATE.encode()
+        else:
+            body = ROUTER.encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
         self.send_header("Content-Length", str(len(body)))
@@ -116,4 +131,25 @@ def test_a_direct_engine_call_after_goto_gets_the_probe(ex, browser):
     """A test may mix DSL steps with direct engine calls; those keep the old rule."""
     ex.goto("/r/a")
     browser.wait_while_visible(Target("css", "#absent"), timeout_ms=1_000)
+    assert "wait_until_rendered" in _ops(browser)
+
+
+@pytest.mark.parametrize(
+    "check",
+    [
+        pytest.param(lambda ex: ex.expect_hidden(SPINNER), id="expect_hidden"),
+        pytest.param(lambda ex: ex.expect_count(SPINNER, 0), id="expect_count-0"),
+    ],
+)
+def test_a_check_of_absence_right_after_goto_waits_for_the_app(ex, browser, check):
+    """Absent on a page that has not mounted is not absent: the probe runs first, so
+    the spinner the app then shows fails the check."""
+    ex.goto("/late")
+    timeout = browser.timeout_ms
+    browser.timeout_ms = 1_000
+    try:
+        with pytest.raises(StepFailed):
+            check(ex)
+    finally:
+        browser.timeout_ms = timeout
     assert "wait_until_rendered" in _ops(browser)

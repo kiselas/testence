@@ -190,6 +190,7 @@ class Actions:
         check: bool = False,
         destination: Target | None = None,
         _operation: _EngineOperation | None = None,
+        _absence: bool = False,
     ) -> Iterator[None]:
         """One recorded step. ``check=True`` marks an assertion, which an open
         ``ex.soft`` block records and lets the test continue past. ``destination``
@@ -201,7 +202,10 @@ class Actions:
             self._children[-1] += 1
         self._children.append(0)
         self._annotations.append({})
-        self._render_probe(target)
+        # A check that passes when the element is absent (expect_hidden, a count of
+        # zero) proves nothing about a page that has not rendered yet: it gets the
+        # render probe like a step without a target.
+        self._render_probe(None if _absence else target)
         self.writer.emit(
             "step.start",
             test=self.test_id,
@@ -298,9 +302,10 @@ class Actions:
     def _render_probe(self, target: Target | None) -> None:
         """Settle a goto's deferred render probe before this step starts.
 
-        A step with a target waits for its element, which is a stronger readiness
-        signal than "the app painted something"; a step without one (a URL check, a
-        screenshot, raw access, an oracle) gets the probe it was owed.
+        A step that needs its element present waits for it, which is a stronger
+        readiness signal than "the app painted something"; a step without a target (a
+        URL check, a screenshot, raw access, an oracle) and a check that passes on an
+        absent element (``expect_hidden``, ``expect_count(..., 0)``) get the probe.
         """
         due = getattr(self.engine, "render_probe_due", None)
         if not callable(due) or not due():
@@ -537,7 +542,9 @@ class Actions:
                 )
 
     def expect_hidden(self, target: Target, intent: str | None = None) -> None:
-        with self.step(intent or f"expect {target.describe()} gone", target, check=True):
+        with self.step(
+            intent or f"expect {target.describe()} gone", target, check=True, _absence=True
+        ):
             require_capabilities(self.engine, "expect_hidden", Capability.DOM)
             method = getattr(self.engine, "expect_hidden", None)
             if callable(method):
@@ -593,7 +600,12 @@ class Actions:
             self._engine_method("expect_value")(target, value)
 
     def expect_count(self, target: Target, count: int, intent: str | None = None) -> None:
-        with self.step(intent or f"expect {count} of {target.describe()}", target, check=True):
+        with self.step(
+            intent or f"expect {count} of {target.describe()}",
+            target,
+            check=True,
+            _absence=count == 0,
+        ):
             require_capabilities(self.engine, "expect_count", Capability.DOM)
             self._engine_method("expect_count")(target, count)
 
