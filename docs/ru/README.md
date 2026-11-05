@@ -4,10 +4,12 @@
 
 - [Первый тест](first-test.md) — десять минут, без файла плана, начните отсюда
 - [Тестирование UI-функции](testing-a-feature.md) — полный рабочий процесс
+- [Генераторы для авторов](authoring-generators.md) — план и заготовки тестов из файла кейсов
 - [Глоссарий](glossary.md)
 - [Конфигурация](configuration.md)
 - [Аутентификация](auth.md)
 - [Возможности engine и строгие действия](engine-capabilities.md)
+- [Киты компонентов](kits.md) — Koobiq, react-aria, react-select, React Flow
 - [Отчётность и экспортёры](reporting.md)
 - [Testence в CI](ci.md)
 - [Схема доказательств](evidence-schema.md)

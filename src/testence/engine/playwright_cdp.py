@@ -132,6 +132,86 @@ def _free_tcp_port() -> int:
 #: ``evidence.trace`` / ``evidence.video``: never, always, or kept only for a failure.
 RECORDING_POLICIES = ("off", "on", "retain-on-failure")
 
+#: How long open() waits for the app's router to change the document after a pushed
+#: route; a router reacts in the same task or within a few frames.
+_ROUTER_REACTION_MS = 500
+
+#: open(): push the route, announce it as popstate, and report whether the document
+#: changed in response, which is the only sign that a router took the navigation.
+_PUSH_ROUTE_JS = """([target, waitMs]) => new Promise((resolve) => {
+    let changed = false;
+    const observer = new MutationObserver(() => { changed = true; });
+    observer.observe(document.documentElement,
+        {subtree: true, childList: true, characterData: true, attributes: true});
+    history.pushState({}, '', target);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    const deadline = performance.now() + waitMs;
+    const check = () => {
+        if (changed || performance.now() >= deadline) {
+            observer.disconnect();
+            resolve(changed);
+            return;
+        }
+        setTimeout(check, 16);
+    };
+    setTimeout(check, 0);
+})"""
+
+#: The page shows a rendered application: a known SPA root (or the body) holds text
+#: or a meaningful control. wait_until_rendered waits for it; open() asks it once.
+_RENDERED_JS = """() => {
+    const body = document.body;
+    if (!body) return false;
+    const roots = [...document.querySelectorAll(
+        '#root, #app, [data-reactroot], [data-react-app]'
+    )];
+    const scopes = roots.length ? roots : [body];
+    return scopes.some(scope => {
+        if ((scope.innerText || '').trim().length) return true;
+        return !!scope.querySelector(
+            'input, textarea, select, button, a[href], img, svg,'
+            + ' canvas, video, [role], [aria-label], [contenteditable]'
+        );
+    });
+}"""
+
+#: expect_settled, in the page: resolve once the element's box is the same in two
+#: consecutive animation frames and lies wholly inside the viewport. A timer guards
+#: the deadline, since a page that paints no frames never runs the callback.
+_SETTLED_JS = """(element, timeout) => new Promise((resolve) => {
+  const viewport = () => ({width: window.innerWidth, height: window.innerHeight});
+  const box = () => {
+    const r = element.getBoundingClientRect();
+    return {x: r.x, y: r.y, width: r.width, height: r.height};
+  };
+  const inside = (b) => b.width > 0 && b.height > 0 && b.x >= -0.5 && b.y >= -0.5
+    && b.x + b.width <= window.innerWidth + 0.5 && b.y + b.height <= window.innerHeight + 0.5;
+  const same = (a, b) => a !== null && ["x", "y", "width", "height"].every(
+    (key) => Math.abs(a[key] - b[key]) < 0.01);
+  let previous = null;
+  let frames = 0;
+  let done = false;
+  const finish = (result) => { if (!done) { done = true; resolve(result); } };
+  const deadline = performance.now() + timeout;
+  setTimeout(() => {
+    const last = box();
+    finish({ok: false, rect: last, viewport: viewport(),
+      reason: !inside(last) ? "outside" : (frames < 2 ? "frames" : "moving")});
+  }, timeout);
+  const frame = () => {
+    if (done) return;
+    frames += 1;
+    const current = box();
+    if (same(previous, current) && inside(current)) {
+      finish({ok: true, rect: current, viewport: viewport(), frames});
+      return;
+    }
+    previous = current;
+    if (performance.now() < deadline) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+})"""
+
 _EMULATION_KEYS = frozenset(
     {"device", "locale", "timezone_id", "geolocation", "permissions", "color_scheme", "user_agent"}
 )
@@ -281,6 +361,13 @@ class PlaywrightCdpEngine(Engine):
         #: Pages whose events already reach the buffers. Kept as objects, not ids: a
         #: closed page's id can be reused by the next one.
         self._tapped_pages: list[Any] = []
+        #: What a test changed in this context that a next test sharing the page
+        #: (page_reuse: module) would inherit: routes, a fake clock, raw access.
+        self._sticky: set[str] = set()
+        #: Defer the render probe of goto to the next step that has no target
+        #: (set by the DSL); a step with a target waits for its element instead.
+        self.defer_render_probe = False
+        self._render_due = False
         self._capture_omissions: dict[str, int] = {}
         self._capture_bytes = 0
         #: Wait ledger: every wait/action records {op, detail, ms, ok}. This is the
@@ -481,6 +568,7 @@ class PlaywrightCdpEngine(Engine):
         other._console = []
         other._ws = []
         other._tapped_pages = []
+        other._sticky = set()
         other._capture_omissions = {}
         other._capture_bytes = 0
         other._waits = []
@@ -524,6 +612,7 @@ class PlaywrightCdpEngine(Engine):
             self._context.close()
         # A fresh session: the previous test's credentials do not carry over.
         self._extra_headers = {}
+        self._sticky = set()
         self._context = self._browser.new_context(
             ignore_https_errors=self.ignore_https_errors, **self._context_options()
         )
@@ -811,6 +900,8 @@ class PlaywrightCdpEngine(Engine):
     # -- targets -----------------------------------------------------------
 
     def _locate(self, target: Target) -> Locator:
+        if self._render_due:
+            self.flush_render_probe()  # see _require_page
         page = (
             self._locate(target.within) if target.within else (self._scope or self._require_page())
         )
@@ -837,6 +928,10 @@ class PlaywrightCdpEngine(Engine):
     def _require_page(self) -> Page:
         if self._page is None:
             raise RuntimeError("engine not started")
+        if self._render_due:
+            # A direct engine call after a deferred goto (not a DSL step, which
+            # settles the probe itself) gets the probe goto used to run.
+            self.flush_render_probe()
         return self._page
 
     # -- actions -------------------------------------------------------------
@@ -859,7 +954,10 @@ class PlaywrightCdpEngine(Engine):
         # has the app painted anything.
         with self._timed("goto", url):
             self._require_page().goto(full, wait_until="domcontentloaded")
-        self.wait_until_rendered()
+        if self.defer_render_probe:
+            self._render_due = True
+        else:
+            self.wait_until_rendered()
 
     def navigate(self, url: str, *, hard: bool = False) -> bool:
         """Go to an in-app route, preferring client-side routing.
@@ -910,27 +1008,68 @@ class PlaywrightCdpEngine(Engine):
         """
         with self._timed("wait_until_rendered"):
             try:
-                self._require_page().wait_for_function(
-                    """() => {
-                        const body = document.body;
-                        if (!body) return false;
-                        const roots = [...document.querySelectorAll(
-                            '#root, #app, [data-reactroot], [data-react-app]'
-                        )];
-                        const scopes = roots.length ? roots : [body];
-                        return scopes.some(scope => {
-                            if ((scope.innerText || '').trim().length) return true;
-                            return !!scope.querySelector(
-                                'input, textarea, select, button, a[href], img, svg,'
-                                + ' canvas, video, [role], [aria-label], [contenteditable]'
-                            );
-                        });
-                    }""",
-                    timeout=timeout_ms,
-                )
+                self._require_page().wait_for_function(_RENDERED_JS, timeout=timeout_ms)
                 return True
             except Exception:  # noqa: BLE001 - readiness probes fail closed
                 return False
+
+    def render_probe_due(self) -> bool:
+        """Whether a goto's render probe was deferred and has not run yet."""
+        return self._render_due
+
+    def flush_render_probe(self) -> bool | None:
+        """Run a deferred render probe now; None when none was due."""
+        if not self._render_due:
+            return None
+        self._render_due = False
+        return self.wait_until_rendered()
+
+    def skip_render_probe(self) -> None:
+        """Drop a deferred render probe: the next step waits for its own element."""
+        if self._render_due:
+            self._render_due = False
+            self._waits.append(
+                {"op": "wait_until_rendered(skipped)", "detail": "", "ms": 0.0, "ok": True}
+            )
+
+    def open(self, url: str) -> str:
+        """Open a route the fastest correct way; returns ``"navigate"`` or ``"goto"``.
+
+        When the page already shows the application (same origin as ``base_url`` and
+        its root has rendered something), the route is pushed to the app's own router,
+        as a click on an in-app link would, and must change the document within
+        ``_ROUTER_REACTION_MS``. Otherwise (no page yet, another origin, a route outside
+        ``base_url``, an application that is not mounted, a page whose router does not
+        listen to popstate) it is a document load. Client-side navigation keeps the
+        state of mounted components: a case about a first load opens with ``goto``.
+        """
+        absolute = bool(_URL_SCHEME.match(url))
+        full = url if absolute else f"{self.base_url}{url}"
+        page = self._page
+        if (
+            page is not None
+            and self.base_url
+            and _under(page.url, self.base_url)
+            and _under(full, self.base_url)
+            and self._app_mounted()
+        ):
+            path = full[len(self.base_url) :] or "/"
+            with self._timed("open(navigate)", path):
+                reacted = bool(page.evaluate(_PUSH_ROUTE_JS, [path, _ROUTER_REACTION_MS]))
+            if reacted:
+                return "navigate"
+            # The URL changed but nothing on the page did: no router listens to popstate.
+            # A document load is the only way to show the route.
+        self.goto(url)
+        return "goto"
+
+    def _app_mounted(self) -> bool:
+        """Whether the page shows a rendered application right now (no waiting)."""
+        try:
+            # A probe still due runs first (_require_page): the document may be booting.
+            return bool(self._require_page().evaluate(_RENDERED_JS))
+        except Exception:  # noqa: BLE001 - a page that cannot answer is not mounted
+            return False
 
     def settle(self, timeout_ms: int = 1_500) -> bool:
         """Wait for network quiet. Short and optional by design: apps that poll or
@@ -1074,6 +1213,81 @@ class PlaywrightCdpEngine(Engine):
                 # on the current page lets them be dispatched.
                 self._require_page().wait_for_timeout(50)
 
+    def reuse_blockers(self) -> list[str]:
+        """What this test left in its context that the next test would inherit.
+
+        Empty means the page can be handed to the next test of the module
+        (``page_reuse: module``): a route, a fake clock, a WebSocket gate, a response
+        rewrite, raw Playwright access or a recording belong to one test only.
+        """
+        blockers = set(self._sticky)
+        if self._ws_gates:
+            blockers.add("ws_gate")
+        if self._response_rewrites is not None:
+            blockers.add("response-rewrite")
+        if self._native_routes is not None:
+            blockers.add("native-route")
+        if self._tracing or self.video != "off":
+            blockers.add("recording")
+        if self._context is None or self._page is None or self._page.is_closed():
+            blockers.add("no page")
+        else:
+            if self._scope is not self._page:
+                blockers.add("frame scope")
+            try:
+                # A crashed page is still "open"; it fails the first call into it.
+                self._page.evaluate("1")
+            except Exception:  # noqa: BLE001 - any failure means it cannot be handed on
+                blockers.add("unresponsive page")
+        return sorted(blockers)
+
+    def prepare_reuse(self) -> int:
+        """Hand this page to the next test: close the other tabs, clear the buffers.
+
+        Returns how many tabs were closed. Cookies, storage and the page itself stay:
+        that is the point of sharing it.
+        """
+        if self._context is None:
+            raise RuntimeError("engine not started")
+        if self._page is not None and not self._page.is_closed():
+            # Page events reach Python on the next call into the driver: without a
+            # round trip a tab the previous test opened last is not listed yet.
+            with suppress(Exception):
+                self._page.evaluate("1")
+        pages = [page for page in self._context.pages if not page.is_closed()]
+        if not pages:
+            raise RuntimeError("no open page to reuse")
+        keep = self._page if self._page in pages else pages[0]
+        closed = 0
+        with self._timed("page.prepare_reuse"):
+            for page in pages:
+                if page is not keep:
+                    with suppress(Exception):
+                        page.close()
+                    closed += 1
+        self._page = self._scope = self._js_scope = keep
+        self._tapped_pages = [keep]
+        self.reset_taps()
+        return closed
+
+    def remove_storage_items(self, keys: list[str], *, session: bool = False) -> int:
+        """Remove the named keys from the page's storage; returns how many were set."""
+        page = self._require_page()
+        if page.url in ("about:blank", ""):
+            return 0
+        area = "sessionStorage" if session else "localStorage"
+        with self._timed("reset_storage", ", ".join(keys)):
+            return int(
+                page.evaluate(
+                    f"""(keys) => keys.filter((key) => {{
+                        const present = {area}.getItem(key) !== null;
+                        {area}.removeItem(key);
+                        return present;
+                    }}).length""",
+                    list(keys),
+                )
+            )
+
     def close_page(self) -> None:
         """Close the current page and continue on the most recently opened one left."""
         if self._context is None or self._page is None:
@@ -1115,10 +1329,12 @@ class PlaywrightCdpEngine(Engine):
             route.fulfill(status=status, body=body, headers=headers, content_type=content_type)
 
         setattr(answer, "_testence_builtin_mock", True)
+        self._sticky.add("route")
         with self._timed("route", f"{'abort' if abort else status} {pattern}"):
             self._context.route(pattern, answer)
 
     def clock_install(self, moment: Any = None) -> None:
+        self._sticky.add("clock")
         with self._timed("clock_install", repr(moment)):
             if moment is None:
                 self._clock().install()
@@ -1215,6 +1431,42 @@ class PlaywrightCdpEngine(Engine):
                 )
             except PlaywrightTimeoutError as exc:
                 raise AssertionError(f"target did not become visible: {target.describe()}") from exc
+
+    def expect_settled(self, target: Target, timeout_ms: int | None = None) -> None:
+        """Wait until the target stops moving and lies wholly inside the viewport.
+
+        Settled means the same ``getBoundingClientRect`` in two consecutive animation
+        frames, inside the viewport: a drawer still sliding in, or a panel mid-way
+        through its transition, measures a size it never keeps. The frames are
+        counted in the page, in one round trip; a page that paints no frames (a
+        hidden tab) fails at the deadline instead of hanging.
+        """
+        timeout = timeout_ms or self.timeout_ms
+        with self._timed("expect_settled", target.describe()):
+            started = time.monotonic()
+            locator = self._locate(target)
+            try:
+                locator.wait_for(state="visible", timeout=timeout)
+            except PlaywrightTimeoutError as exc:
+                raise AssertionError(f"target did not become visible: {target.describe()}") from exc
+            remaining = max(int(timeout - (time.monotonic() - started) * 1000), 1)
+            result = locator.evaluate(_SETTLED_JS, remaining, timeout=timeout)
+            if not result.get("ok"):
+                rect = result.get("rect") or {}
+                viewport = result.get("viewport") or {}
+                where = (
+                    f"last box x={rect.get('x')} y={rect.get('y')} "
+                    f"w={rect.get('width')} h={rect.get('height')} in a "
+                    f"{viewport.get('width')}x{viewport.get('height')} viewport"
+                )
+                reason = {
+                    "moving": "it was still moving",
+                    "outside": "it was not wholly inside the viewport; scroll it into view",
+                    "frames": "the page painted no animation frames",
+                }.get(str(result.get("reason")), str(result.get("reason")))
+                raise AssertionError(
+                    f"{target.describe()} did not settle within {timeout} ms: {reason} ({where})"
+                )
 
     # -- state assertions ---------------------------------------------------
     #
@@ -1686,6 +1938,8 @@ class PlaywrightCdpEngine(Engine):
         (ADR-0027): the DSL records the step around it, so evidence still knows an
         unrecorded interaction happened and why.
         """
+        # Raw access can change anything about the context; it is not handed on.
+        self._sticky.add("native")
         page = self._require_page()
         if self._native_routes is None:
             self._native_routes = NativeRoutes(

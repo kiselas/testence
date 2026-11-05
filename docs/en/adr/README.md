@@ -43,6 +43,9 @@ Statuses: `accepted` · `proposed (experiment pending)` · `superseded by ADR-XX
 | [0033](0033-negative-proof.md) | Negative proof: a recorded run in which the test failed for its claim | implemented (engineering, opt-in) |
 | [0034](0034-parallel-safety-on-a-shared-target.md) | Parallel safety on a shared target: classified from the ledger, proven with a neighbour | accepted (methodology) |
 | [0035](0035-websocket-gate.md) | A recorded WebSocket gate for stale-tab scenarios | implemented (engineering) |
+| [0036](0036-browserless-api-tests.md) | An API-only test runs without a browser | implemented (engineering) |
+| [0037](0037-ledger-durability-per-test.md) | Ledger durability per test, flush per event | implemented (engineering) |
+| [0038](0038-page-reuse-within-a-module.md) | Opt-in page reuse within a module | implemented (engineering, opt-in) |
 
 Format: Context → Options compared → Decision → Consequences → Tripwire.
 Metric names are defined alongside their implementation and benchmark documentation.

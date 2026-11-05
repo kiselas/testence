@@ -135,6 +135,10 @@ class _EngineOperation:
         return result
 
 
+#: How often a green step's element fingerprint is taken (``evidence.fingerprints``).
+FINGERPRINT_POLICIES = ("every-green", "once")
+
+
 class Actions:
     """Engine + evidence, bound to one test. Projects build ActionMaps on top."""
 
@@ -144,11 +148,18 @@ class Actions:
         writer: EvidenceWriter,
         test_id: str,
         store: FingerprintStore | None = None,
+        *,
+        fingerprints: str = "every-green",
     ) -> None:
+        if fingerprints not in FINGERPRINT_POLICIES:
+            raise ValueError(f"fingerprints must be one of {', '.join(FINGERPRINT_POLICIES)}")
         self.engine = engine
         self.writer = writer
         self.test_id = test_id
         self.store = store
+        #: ``every-green``: a fingerprint after every green step with a target, so the
+        #: store holds the last green run; ``once``: only when the store lacks it.
+        self.fingerprints = fingerprints
         #: Set when a step raises; the runner reads it to build a heal proposal.
         self.last_failure: StepFailure | None = None
         self._step_no = 0
@@ -159,11 +170,17 @@ class Actions:
         #: half of them (48 of 95 step starts in a recent run were nested, and the
         #: step total came out larger than the test total, which cannot be true).
         self._children: list[int] = []
+        #: Fields the open steps add to their ``step.end`` (innermost last).
+        self._annotations: list[dict[str, Any]] = []
         #: Failed checks collected by the open ``ex.soft`` block, if any.
         self._soft: list[StepFailure] | None = None
         observer = getattr(engine, "set_native_mock_observer", None)
         if callable(observer):
             observer(lambda **data: self.writer.emit("network.mocked", test=self.test_id, **data))
+        # A goto's render probe waits for the first step that has no element to
+        # wait for; a step with a target waits for its own element (B3).
+        if hasattr(engine, "defer_render_probe"):
+            engine.defer_render_probe = True
         #: Gates opened by ``ws_gate``; each is summarized when the test ends.
         self._ws_gates: list[WebSocketGate] = []
         gate_observer = getattr(engine, "set_ws_gate_observer", None)
@@ -184,6 +201,7 @@ class Actions:
         check: bool = False,
         destination: Target | None = None,
         _operation: _EngineOperation | None = None,
+        _absence: bool = False,
     ) -> Iterator[None]:
         """One recorded step. ``check=True`` marks an assertion, which an open
         ``ex.soft`` block records and lets the test continue past. ``destination``
@@ -194,6 +212,11 @@ class Actions:
         if self._children:
             self._children[-1] += 1
         self._children.append(0)
+        self._annotations.append({})
+        # A check that passes when the element is absent (expect_hidden, a count of
+        # zero) proves nothing about a page that has not rendered yet: it gets the
+        # render probe like a step without a target.
+        self._render_probe(None if _absence else target)
         self.writer.emit(
             "step.start",
             test=self.test_id,
@@ -229,6 +252,7 @@ class Actions:
                 and isinstance(exc, AssertionError)
                 and not isinstance(exc, UnsupportedCapability)
             )
+            self._annotations.pop()
             self.writer.emit(
                 "step.end",
                 test=self.test_id,
@@ -248,11 +272,9 @@ class Actions:
             if isinstance(exc, UnsupportedCapability):
                 raise
             raise StepFailed(intent, exc, target, matches) from exc
-        fingerprint = self.engine.element_fingerprint(target) if target else None
-        if fingerprint and target is not None and self.store is not None:
-            # Remember what "working" looked like: the only baseline a heal
-            # proposal can honestly be measured against.
-            self.store.record(self.test_id, intent, target.describe(), fingerprint)
+        fingerprint, kept = self._fingerprint(intent, target)
+        if kept:
+            self._annotations[-1]["fingerprint_kept"] = kept
         self.writer.emit(
             "step.end",
             test=self.test_id,
@@ -262,8 +284,64 @@ class Actions:
             fingerprint=fingerprint or None,
             depth=depth,
             children=self._children.pop(),
+            **self._annotations.pop(),
             **({"operation": _operation.to_json()} if _operation else {}),
         )
+
+    def _fingerprint(self, intent: str, target: Target | None) -> tuple[dict[str, Any] | None, str]:
+        """The element's fingerprint after a green step, and why none was taken.
+
+        It is the baseline a heal proposal is measured against. By default
+        (``every-green``) it is taken after every green step with a target, so the
+        store holds the last green run. With ``evidence.fingerprints: once`` a store
+        that already holds it for the same step and target is not asked again
+        (``"stored"``): one browser round trip saved per step on every green replay,
+        and the baseline is the first green run of that step and target.
+        """
+        if target is None:
+            return None, ""
+        if (
+            self.fingerprints == "once"
+            and self.store is not None
+            and self.store.holds(self.test_id, intent, target.describe())
+        ):
+            return None, "stored"
+        fingerprint = self.engine.element_fingerprint(target)
+        if fingerprint and self.store is not None:
+            # Remember what "working" looked like: the only baseline a heal
+            # proposal can honestly be measured against.
+            self.store.record(self.test_id, intent, target.describe(), fingerprint)
+        return fingerprint or None, ""
+
+    def _render_probe(self, target: Target | None) -> None:
+        """Settle a goto's deferred render probe before this step starts.
+
+        A step that needs its element present waits for it, which is a stronger
+        readiness signal than "the app painted something"; a step without a target (a
+        URL check, a screenshot, raw access, an oracle) and a check that passes on an
+        absent element (``expect_hidden``, ``expect_count(..., 0)``) get the probe.
+        """
+        due = getattr(self.engine, "render_probe_due", None)
+        if not callable(due) or not due():
+            return
+        if target is not None:
+            self.engine.skip_render_probe()  # type: ignore[attr-defined]
+        else:
+            self.engine.flush_render_probe()  # type: ignore[attr-defined]
+
+    def finish(self) -> None:
+        """End of the test: a deferred render probe still due runs now.
+
+        After a failed step it is dropped instead: it would only wait out its timeout
+        on a page that broke, and evidence code that reads the page runs it anyway.
+        """
+        due = getattr(self.engine, "render_probe_due", None)
+        if callable(due) and due():
+            if self.last_failure is not None:
+                self.engine.skip_render_probe()  # type: ignore[attr-defined]
+            else:
+                self.engine.flush_render_probe()  # type: ignore[attr-defined]
+        self._finish_ws_gates()
 
     def _describe_matches(self, target: Target) -> str:
         return describe_matches(self.engine, target)
@@ -309,6 +387,26 @@ class Actions:
         with self.step(intent or f"go to {url}"):
             require_capabilities(self.engine, "navigate", Capability.NAVIGATION)
             return self.engine.navigate(url, hard=hard)
+
+    def open(self, route: str, intent: str | None = None) -> str:
+        """Open a route the fastest correct way: the app's own router when the
+        application is mounted on this origin, a document load otherwise (the first
+        navigation, another origin, a route outside ``base_url``).
+
+        Returns ``"navigate"`` or ``"goto"``, and the step's ``step.end`` records it as
+        ``navigation``. Client-side navigation keeps mounted state: a case about a
+        first load uses ``goto``.
+        """
+        with self.step(intent or f"open {route}"):
+            require_capabilities(self.engine, "open", Capability.NAVIGATION)
+            opener = getattr(self.engine, "open", None)
+            if callable(opener):
+                path = str(opener(route))
+            else:  # engines written before open(): a document load, said so
+                self.engine.goto(route)
+                path = "goto"
+            self._annotations[-1]["navigation"] = path
+            return path
 
     def click(self, target: Target, intent: str | None = None, *, fast: bool = False) -> None:
         """Click. ``fast=True`` drops the actionability checks — see Engine.click.
@@ -465,13 +563,41 @@ class Actions:
                 )
 
     def expect_hidden(self, target: Target, intent: str | None = None) -> None:
-        with self.step(intent or f"expect {target.describe()} gone", target, check=True):
+        with self.step(
+            intent or f"expect {target.describe()} gone", target, check=True, _absence=True
+        ):
             require_capabilities(self.engine, "expect_hidden", Capability.DOM)
             method = getattr(self.engine, "expect_hidden", None)
             if callable(method):
                 method(target)
             else:  # engines written before expect_hidden: a wait, reported as before
                 self.engine.wait_while_visible(target)
+
+    def reset_storage(
+        self, keys: list[str] | tuple[str, ...], intent: str | None = None, *, session: bool = False
+    ) -> int:
+        """Remove the named keys from the page's ``localStorage`` (``sessionStorage``
+        with ``session=True``); returns how many were set. For a page shared with the
+        previous test (``page_reuse: module``): clear what that test left behind and
+        this test must not read, such as a saved filter or a draft."""
+        names = [str(key) for key in keys]
+        if not names:
+            raise ValueError("reset_storage needs at least one key")
+        area = "sessionStorage" if session else "localStorage"
+        with self.step(intent or f"reset {area} {', '.join(names)}"):
+            require_capabilities(self.engine, "reset_storage", Capability.SESSION)
+            return int(self._engine_method("remove_storage_items")(names, session=session))
+
+    def expect_settled(
+        self, target: Target, intent: str | None = None, *, timeout_ms: int | None = None
+    ) -> None:
+        """Wait until the target has stopped moving: the same box two frames running,
+        wholly inside the viewport. Use it before reading the geometry of anything that
+        animates in (a drawer, a sliding panel), whose size mid-transition is not the
+        size it keeps."""
+        with self.step(intent or f"expect {target.describe()} settled", target, check=True):
+            require_capabilities(self.engine, "expect_settled", Capability.DOM)
+            self._engine_method("expect_settled")(target, timeout_ms=timeout_ms)
 
     # -- state assertions --------------------------------------------------------
     #
@@ -495,7 +621,12 @@ class Actions:
             self._engine_method("expect_value")(target, value)
 
     def expect_count(self, target: Target, count: int, intent: str | None = None) -> None:
-        with self.step(intent or f"expect {count} of {target.describe()}", target, check=True):
+        with self.step(
+            intent or f"expect {count} of {target.describe()}",
+            target,
+            check=True,
+            _absence=count == 0,
+        ):
             require_capabilities(self.engine, "expect_count", Capability.DOM)
             self._engine_method("expect_count")(target, count)
 

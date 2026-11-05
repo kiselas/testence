@@ -574,6 +574,125 @@ def test_legacy_or_malformed_session_cache_is_a_miss(tmp_path, monkeypatch):
     assert inner.calls == 1
 
 
+def _probe_body(body, status=200):
+    return Response(status, [], json.dumps(body))
+
+
+def _roleless_auth(tmp_path, inner, **kwargs):
+    return CachedSessionAuth(
+        inner,
+        base_url="https://app.example.test",
+        probe_path="/api/v1/auth/me",
+        cache_file=tmp_path / "session.json",
+        cache_ttl_s=60,
+        scope={"project": "testence", "origin": "https://app.example.test"},
+        expected_identity=USER,
+        **kwargs,
+    )
+
+
+def test_session_cache_works_for_a_probe_without_a_role(tmp_path, monkeypatch):
+    """A probe answering only `{"email": ...}` is enough identity to reuse a session."""
+    monkeypatch.setattr(
+        "testence.api.http_json", lambda *_args, **_kwargs: _probe_body({"email": USER})
+    )
+    inner = _CountingSessionAuth()
+    auth = _roleless_auth(tmp_path, inner)
+
+    auth.authenticate(_CookieEngine())
+    engine = _CookieEngine()
+    cached = auth.authenticate(engine)
+
+    assert inner.calls == 1
+    assert cached.scheme == "api-session+cached"
+    assert cached.user == {"identity_verified": True}
+    assert engine.added and engine.added[0]["value"] == "cache-canary"
+
+
+def test_session_cache_identity_and_id_follow_a_dot_path(tmp_path, monkeypatch):
+    bodies = iter(
+        [
+            {"user": {"email": USER, "id": 7}},
+            {"user": {"email": USER, "id": 7}},
+            {"user": {"email": USER, "id": 8}},
+            {"user": {"email": USER, "id": 8}},
+        ]
+    )
+    monkeypatch.setattr(
+        "testence.api.http_json", lambda *_args, **_kwargs: _probe_body(next(bodies))
+    )
+    inner = _CountingSessionAuth()
+    auth = _roleless_auth(tmp_path, inner, identity_field="user.email", id_field="user.id")
+
+    auth.authenticate(_CookieEngine())
+    assert auth.authenticate(_CookieEngine()).scheme == "api-session+cached"
+    # Another account id behind the same e-mail is another identity: a real login.
+    assert auth.authenticate(_CookieEngine()).scheme == "api-session"
+    assert inner.calls == 2
+    identity = json.loads((tmp_path / "session.json").read_text(encoding="utf-8"))["identity"]
+    assert len(identity["id"]) == 64 and identity["id"] != "8"  # stored as a digest
+
+
+def test_session_cache_named_id_or_identity_absent_is_never_reused(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "testence.api.http_json", lambda *_args, **_kwargs: _probe_body({"email": USER})
+    )
+    inner = _CountingSessionAuth()
+    auth = _roleless_auth(tmp_path, inner, id_field="id")
+
+    auth.authenticate(_CookieEngine())
+    auth.authenticate(_CookieEngine())
+
+    assert inner.calls == 2
+    assert not (tmp_path / "session.json").exists()
+
+
+def test_session_cache_expected_role_without_role_in_probe_is_a_miss(tmp_path, monkeypatch):
+    """An expected role is checked only when set, and then a roleless probe never reuses."""
+    monkeypatch.setattr(
+        "testence.api.http_json", lambda *_args, **_kwargs: _probe_body({"email": USER})
+    )
+    inner = _CountingSessionAuth()
+    auth = _roleless_auth(tmp_path, inner, expected_role="admin")
+
+    auth.authenticate(_CookieEngine())
+    auth.authenticate(_CookieEngine())
+
+    assert auth.role_field == "role"
+    assert inner.calls == 2
+
+
+def test_session_cache_role_change_invalidates_when_a_role_field_is_named(tmp_path, monkeypatch):
+    bodies = iter(
+        [{"email": USER, "role": "admin"}, {"email": USER, "role": "viewer"}]
+        + [{"email": USER, "role": "viewer"}] * 2
+    )
+    monkeypatch.setattr(
+        "testence.api.http_json", lambda *_args, **_kwargs: _probe_body(next(bodies))
+    )
+    inner = _CountingSessionAuth()
+    auth = _roleless_auth(tmp_path, inner, role_field="role")
+
+    auth.authenticate(_CookieEngine())
+    assert auth.authenticate(_CookieEngine()).scheme == "api-session"
+    assert inner.calls == 2
+
+
+def test_version_one_session_cache_is_a_miss(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "testence.api.http_json", lambda *_args, **_kwargs: _probe_body({"email": USER})
+    )
+    inner = _CountingSessionAuth()
+    auth = _roleless_auth(tmp_path, inner)
+    auth.authenticate(_CookieEngine())
+    document = json.loads((tmp_path / "session.json").read_text(encoding="utf-8"))
+    document["v"] = 1
+    (tmp_path / "session.json").write_text(json.dumps(document), encoding="utf-8")
+
+    auth.authenticate(_CookieEngine())
+    assert inner.calls == 2
+
+
 def test_http_json_treats_4xx_as_data(app):
     response = http_json(
         "POST", f"{app.base_url}/api/v1/auth/login", body={"email": USER, "password": "nope"}

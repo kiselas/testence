@@ -54,3 +54,8 @@ brings them up to the packaged pack.
 | `LoginFailed` from a form login has more lines: what the page said and the login form's ARIA tree | match on its first line, or read `page_errors` and `form_aria` |
 | `TRIAGE.md` opens with a section for a person; the judge's instructions follow `## For an agent judging this failure` | a tool that fed the whole file to a model can keep doing so; one that read only the start should read from that heading |
 | `testence doctor --json` prints nothing on stderr; progress lines are for a terminal | drop `--json` to see them |
+| `ApiClient` keeps connections alive; a call that gets no answer in time raises `TimeoutError` (urllib raised `URLError` for a connect timeout); other connection failures are still `URLError` | catch `TimeoutError` (or `OSError`, which covers both) where a connect timeout was caught as `URLError` |
+| A POST or PATCH whose connection breaks while the request is in flight fails instead of being repeated | retry in the test only where the endpoint is safe to repeat |
+| `session_role_field` is read only when named or when `session_expected_role` is set; cache records are version 2 | nothing; the first run after upgrading logs in once ([configuration](configuration.md#optional-session-cache)) |
+| A test that asks for `testence_api` without `ex` or `testence_engine` starts no browser when the scheme logs in over HTTP | ask for `ex` or `testence_engine` where the test needs a page |
+| The ledger is flushed per event and synced to disk per test | `evidence.durability: "step"` for the previous fsync per event |

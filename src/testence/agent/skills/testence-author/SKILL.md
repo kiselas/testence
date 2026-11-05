@@ -24,6 +24,7 @@ Before running cases in parallel against one shared target, or marking one
 5. Inspect source, API schemas, and project adapters. Use controlled browser discovery only against the approved target.
 6. Prefer role plus accessible name, then label/placeholder, stable test ID, and only then CSS. Keep application-specific targets in project code.
 7. Write ordinary pytest plus Testence actions. Bind the exact plan path and claim IDs with `@pytest.mark.testence` as shown in [references/proof-gates.md](references/proof-gates.md).
+   A stub from `testence plan skeleton` already carries the binding, intents and a bound check per expected result; replace each `TODO(...)` with a Target from `testence explore` or the MCP snapshot, and take seed and cleanup from `testence seed scaffold --openapi <spec>` (marked names, dependents-first deletion, absence proven by 404). Iterate on one case with `testence watch --warm -w <tests> -- pytest <file>::<test>`; after a run, `testence inventory <run dir>` adds its Targets, API calls, texts and traps to `docs/inventory/`, which the next case reads before exploring again.
 8. Prove every claim on the healthy target, exercise a seeded defect or negative control, verify failure for the intended reason, restore the target, and rerun green from a clean seed. Record the control: declare it under `controls` in `testence.json`, apply it in the test when `testence_control` names it, run `testence run --control <name>`, and read each targeted claim's outcome in `testence inspect`.
 9. Report changed files, exact commands, claim coverage, evidence/run paths, readiness and run timings, remaining ambiguity, and any proof gate that could not be completed.
 
@@ -78,7 +79,8 @@ Before running cases in parallel against one shared target, or marking one
   `save_and_verify_state` call to complete.
 - Prefer the DSL. Check state with its exact checks — `expect_text`, `expect_value`,
   `expect_count`, `expect_visible`/`expect_hidden`, `expect_enabled`/`expect_disabled`,
-  `expect_checked`, `expect_attribute`, `expect_url` — and act with `click`, `fill`,
+  `expect_checked`, `expect_attribute`, `expect_url`, `expect_settled` (before measuring
+  anything that animates in) — and act with `click`, `fill`,
   `press`, `check`/`uncheck`, `hover`, `drag(source, destination)` and
   `select(..., label=...)`. Group independent
   facts of one screen in `with ex.soft(...)`; drive timers with `ex.clock` instead of

@@ -42,7 +42,7 @@ def test_skill_pack_declares_the_public_workflow_contracts():
     pack = load_skill_pack()
 
     assert pack["schema"] == SKILL_PACK_SCHEMA
-    assert pack["version"] == "0.1.25"
+    assert pack["version"] == "0.1.26"
     assert pack["contracts"] == {
         "plan": PLAN_SCHEMA,
         "evidence": SCHEMA_VERSION,

@@ -45,7 +45,8 @@ provenance. Вывод агента становится доверенным т
 | Слой | Модуль | Ответственность | Что может импортировать |
 |---|---|---|---|
 | тестовые сценарии | репозиторий проекта | по 5–15 строк DSL с намерением | проектный ActionMap |
-| ActionMap | репозиторий проекта | шаги приложения, селекторы, обход продуктовых ловушек, oracles | `testence.dsl`, `testence.oracle`, адаптеры |
+| ActionMap | репозиторий проекта | шаги приложения, селекторы, обход продуктовых ловушек, oracles | `testence.dsl`, `testence.oracle`, `testence.kits`, адаптеры |
+| киты | `testence.kits` | адреса и ловушки библиотек компонентов ([киты](kits.md)), собранные из шагов `ex` | `testence.engine` (`Target`, capabilities) |
 | DSL | `testence.dsl` | обёртка шага: намерение, время, fingerprint и события | `testence.engine`, `testence.evidence` |
 | адаптеры | `testence.adapters` | контракты Auth/Seed, реализуемые в проекте | `testence.engine` |
 | триаж | `testence.triage` | сборка pack и контракт таксономии вердиктов | engine, evidence |
@@ -78,7 +79,12 @@ provenance. Вывод агента становится доверенным т
 1. Pytest lifecycle hook публикует `test.start` для каждого selected test, включая
    тесты без `ex`; fixture при использовании сбрасывает browser capture.
 2. Каждый вызов `Actions`: `step.start` с намерением и целью → действие engine с
-   auto-wait → `step.end` с длительностью и fingerprint на зелёном пути.
+   auto-wait → `step.end` с длительностью и fingerprint на зелёном пути. Fingerprint —
+   основа heal proposal — снимается после каждого зелёного шага с target, поэтому
+   `.testence/fingerprints.json` хранит последний зелёный прогон. При
+   `evidence.fingerprints: once` шаг, для которого store уже хранит fingerprint того же
+   target, не обращается к браузеру и отмечает это в `fingerprint_kept: stored`; тогда
+   основа — первый зелёный прогон этого шага и target.
 3. Точки oracle: проверки вида `save_and_verify` публикуют события `oracle`;
    расхождение выбрасывает исключение и завершает шаг ошибкой.
 4. При падении `assemble_pack` захватывает ARIA, network, console, oracle и

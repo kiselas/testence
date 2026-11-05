@@ -1,0 +1,72 @@
+{
+  "schema": "testence/performance-budget/1",
+  "scenario": "kit methods on the Koobiq conformance stand",
+  "note": "Koobiq overlays animate for 300 ms in and out; a method that waits out a 5 s step budget breaks these ceilings, ordinary host noise does not.",
+  "minimum_repeats": 3,
+  "limits": {
+    "methods.recognize_components.p95": {
+      "max": 500,
+      "min_samples": 3
+    },
+    "methods.koobiq_select_choose.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.koobiq_checkbox_check.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.koobiq_tabs_select.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.react_aria_tooltip_open.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.koobiq_table_select_row.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.koobiq_table_row_menu_choose.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.react_select_multi_state.p95": {
+      "max": 500,
+      "min_samples": 3
+    },
+    "methods.react_select_multi_pick.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.react_select_multi_remove.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.koobiq_toast_new_and_dismiss.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.koobiq_side_panel_open_and_wait.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.koobiq_number_field_set.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.koobiq_side_panel_close.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.xyflow_node_open.p95": {
+      "max": 2500,
+      "min_samples": 3
+    },
+    "methods.xyflow_node_action.p95": {
+      "max": 2500,
+      "min_samples": 3
+    }
+  }
+}

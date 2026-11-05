@@ -1,0 +1,39 @@
+{
+  "schema": "testence/kit-stand-receipt/1",
+  "koobiq": "0.38.0",
+  "checked": "2026-11-05",
+  "how": "The stand's sources built in a separate directory with only @koobiq/react-components changed in package.json, then served with TESTENCE_KOOBIQ_STAND=<that dist>; the build itself is not committed.",
+  "stand": {
+    "sources": {
+      "index.html": "dd88b3278421dff455962e0677a4f3dd99dd7a94d3376e77343f6e06d82533c7",
+      "package.json": "df57acc09e5dab7862de56b951cb1768f0560b659287fd1edf9d390a1c15a7c0",
+      "package-lock.json": "41051ba87a8ad71afc24638a28a211ab9fab7fb0cbc9c7d18cec11760876ff7d",
+      "src/main.tsx": "c10138570c86e33a41ee03320bde31cf49147b7b1a9c6c01ce391068f468b465",
+      "vite.config.ts": "9546b184276f1c78e272fdf0add15d05070c378a73fa9c2c84b4e25e61b6977c"
+    },
+    "packages": {
+      "@koobiq/react-components": "0.38.0",
+      "react-select": "5.10.2",
+      "@xyflow/react": "12.12.1",
+      "react": "19.3.1",
+      "react-dom": "19.3.1"
+    }
+  },
+  "tests": "tests/test_kits_koobiq.py tests/test_kits_react_select.py tests/test_kits_xyflow.py tests/test_kits_discovery.py tests/test_kits_support.py",
+  "runs": [
+    {
+      "os": "Windows 11",
+      "python": "3.12",
+      "playwright": "1.62.0",
+      "browser": "msedge 156.0.4314.58",
+      "result": "50 passed"
+    },
+    {
+      "os": "Ubuntu 22.04 (WSL)",
+      "python": "3.10.12",
+      "playwright": "1.49.0",
+      "browser": "chromium-headless-shell 131.0.6778.33",
+      "result": "50 passed"
+    }
+  ]
+}

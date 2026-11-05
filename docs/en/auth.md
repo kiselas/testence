@@ -69,6 +69,15 @@ in). A test of the login page itself, or of public pages, opts out:
 def test_login_rejects_a_wrong_password(ex): ...
 ```
 
+A test that asks for `testence_api` and neither `ex` nor `testence_engine` starts no
+browser when its scheme logs in over HTTP (`api-session`, `bearer`, `basic`, `none`):
+the login is one request and the test costs its own calls. Its calls are its
+[`test.waits`](evidence-schema.md) ledger (op `api.request`), and a failure still
+produces a pack with the calls in its history. `form`, `attached`, `storage-state`, a
+custom `module:factory` login and `api_auth_from_storage` need a page, so such a test
+still gets a browser. A test that asks for `ex` later with `request.getfixturevalue`
+gets a browser carrying the session the HTTP login produced.
+
 ## Several users in one test
 
 Permissions and "another user sees my change" need more than one session. Declare the

@@ -4,10 +4,12 @@
 
 - [Your first test](first-test.md) — ten minutes, no plan file, start here
 - [Testing a UI feature](testing-a-feature.md) — the full workflow
+- [Authoring generators](authoring-generators.md) — plan and test skeletons from a case file
 - [Glossary](glossary.md)
 - [Configuration](configuration.md)
 - [Authentication](auth.md)
 - [Engine capabilities and strict actions](engine-capabilities.md)
+- [Component kits](kits.md) — Koobiq, react-aria, react-select, React Flow
 - [Reporting and exporters](reporting.md)
 - [Running in CI](ci.md)
 - [Evidence schema](evidence-schema.md)

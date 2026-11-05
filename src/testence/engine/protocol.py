@@ -167,6 +167,11 @@ class Engine(Protocol):
         """
         ...
 
+    def open(self, url: str) -> str:
+        """Open a route: client-side when the application is mounted on this origin,
+        otherwise a document load; returns ``"navigate"`` or ``"goto"``."""
+        ...
+
     def click(self, target: Target, *, fast: bool = False) -> None:
         """Click the target. ``fast=True`` skips the actionability checks.
 
@@ -255,6 +260,11 @@ class Engine(Protocol):
     # State assertions raise AssertionError when the state never holds; any other
     # error means the evidence was unavailable (see expect_visible).
     def expect_hidden(self, target: Target, timeout_ms: int | None = None) -> None: ...
+    def expect_settled(self, target: Target, timeout_ms: int | None = None) -> None:
+        """Wait until the target's box is the same two animation frames running and lies
+        wholly inside the viewport; AssertionError when it never does."""
+        ...
+
     def expect_value(self, target: Target, value: str, timeout_ms: int | None = None) -> None: ...
     def expect_count(self, target: Target, count: int, timeout_ms: int | None = None) -> None: ...
     def expect_enabled(

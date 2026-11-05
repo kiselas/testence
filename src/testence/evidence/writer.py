@@ -2,8 +2,15 @@
 
 Crash-safety over cleverness: every event is flushed on write, so a hung browser or
 killed process still leaves a readable ledger up to the last completed action —
-the evidence must survive exactly the situations it exists for. Measured cost of
-that guarantee: 0.5 ms per event, 0.09 s across a nine-case run.
+the evidence must survive exactly the situations it exists for.
+
+Flushing hands the line to the operating system, which keeps it through the death of
+the process; only ``fsync`` keeps it through the death of the machine. That costs
+milliseconds per call on Windows, and two events a step made it seconds a run, so
+``durability`` decides when it happens. ``test`` (the default) syncs at the end of
+each test, on any event that records a failure or an error, at the run's manifest
+checkpoints, when a failure pack binds the ledger, and at close: whatever a failed
+test leaves behind is on disk before its pack is read. ``step`` syncs every event.
 
 **One file per process, never per run.** The lock here is a ``threading.Lock``,
 which means nothing between processes: four workers appending to one ``run.jsonl``
@@ -46,6 +53,22 @@ RUN_ID_ENV = "TESTENCE_RUN_ID"
 WORKER_ENV = "PYTEST_XDIST_WORKER"
 #: Controller events after which the run manifest is checkpointed.
 _MANIFEST_CHECKPOINTS = frozenset({"run.start", "collection.end", "run.end"})
+#: When the ledger is synced to disk; see the module docstring.
+DURABILITY_MODES = ("test", "step")
+_FAILED_STATUSES = frozenset({"fail", "failed", "broken", "error"})
+
+
+def _records_failure(kind: str, payload: Mapping[str, Any]) -> bool:
+    """Whether an event is part of a failure: the evidence a pack must not lose."""
+    if kind == "test.end" or kind in _MANIFEST_CHECKPOINTS:
+        return True
+    status = payload.get("status")
+    return bool(
+        (isinstance(status, str) and status.lower() in _FAILED_STATUSES)
+        or payload.get("ok") is False
+        or payload.get("outcome") == "failed"
+        or payload.get("error")
+    )
 
 
 def new_run_id() -> str:
@@ -103,12 +126,17 @@ class EvidenceWriter:
         redaction_policy: RedactionPolicy = DEFAULT_POLICY,
         *,
         deferred: bool = False,
+        durability: str = "test",
     ) -> None:
         """``deferred`` keeps the events in memory and touches no file until
         :meth:`activate`; :meth:`close` before that leaves nothing on disk. The
         pytest plugin opens a session this way unless it was asked to record, and
         activates it only when a test uses Testence, so installing the package does
-        not make an unrelated suite write run directories."""
+        not make an unrelated suite write run directories. ``durability`` is
+        ``test`` or ``step`` (module docstring)."""
+        if durability not in DURABILITY_MODES:
+            raise ValueError(f"durability must be one of {', '.join(DURABILITY_MODES)}")
+        self.durability = durability
         self.run_id = run_id or os.environ.get(RUN_ID_ENV) or new_run_id()
         self.worker = worker if worker is not None else os.environ.get(WORKER_ENV, "")
         self.project_id = project_id
@@ -164,8 +192,8 @@ class EvidenceWriter:
     def _append(self, line: str, *, sync: bool = True) -> None:
         assert self._fh is not None
         self._fh.write(line)
+        self._fh.flush()
         if sync:
-            self._fh.flush()
             os.fsync(self._fh.fileno())
         encoded = line.encode("utf-8")
         self._ledger_sha.update(encoded)
@@ -279,7 +307,7 @@ class EvidenceWriter:
             event.stamp(self._seq)
             line = event.to_json() + "\n"
             if self._fh is not None:
-                self._append(line)
+                self._append(line, sync=self.durability == "step" or _records_failure(kind, merged))
                 if not self.worker and kind in _MANIFEST_CHECKPOINTS:
                     self._write_run_manifest(kind, event, merged)
             elif not self._closed:
@@ -356,6 +384,10 @@ class EvidenceWriter:
     def ledger_checkpoint(self) -> dict[str, Any]:
         """Bind the flushed prefix of this writer's shard, excluding later appends."""
         with self._lock:
+            if self._fh is not None and not self._fh.closed:
+                # A failure pack binds this prefix: it is on disk before the pack is.
+                self._fh.flush()
+                os.fsync(self._fh.fileno())
             return {
                 "path": self.path.name,
                 "bytes": self._ledger_bytes,
@@ -448,6 +480,8 @@ class EvidenceWriter:
             self._closed = True
             self._pending = []
             if self._fh is not None and not self._fh.closed:
+                self._fh.flush()
+                os.fsync(self._fh.fileno())
                 self._fh.close()
 
     def __enter__(self) -> "EvidenceWriter":

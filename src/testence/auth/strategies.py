@@ -36,6 +36,8 @@ from testence.engine import Engine, Target
 from .base import AuthContext, Credentials, LoginFailed
 
 _RECHECK_MS = 300
+#: Session cache record format; 2 added the optional id and an optional role.
+_CACHE_VERSION = 2
 _DEFAULT_SUCCESS_TIMEOUT_MS = 15_000
 #: What a failed login is told about the page, at most.
 _PAGE_ERRORS = 5
@@ -481,6 +483,11 @@ class CachedSessionAuth:
     records expire, carry their project/origin/account/role scope and are written
     with owner-only permissions where the operating system supports that mode.
 
+    The identity is ``identity_field`` (a dot path such as ``user.email``), plus an
+    optional ``id_field`` and ``role_field``. A probe that answers without a role
+    still caches the session; ``expected_role`` is enforced only when set, and then
+    a probe without the role field is never reused.
+
     The cache file holds a session cookie — the same secret the browser profile
     holds — so it lives under ``runs/`` (git-ignored) and is keyed by host.
     Delete it to force a fresh login. Enabled by configuring
@@ -497,7 +504,8 @@ class CachedSessionAuth:
         cache_ttl_s: int = 3600,
         scope: dict[str, str] | None = None,
         identity_field: str = "email",
-        role_field: str = "role",
+        role_field: str = "",
+        id_field: str = "",
         expected_identity: str = "",
         expected_role: str = "",
         verify_tls: bool = True,
@@ -512,7 +520,10 @@ class CachedSessionAuth:
         self.cache_ttl_s = cache_ttl_s
         self.scope = dict(scope or {})
         self.identity_field = identity_field
-        self.role_field = role_field
+        # A role check needs a role to read: an expected role with no field named
+        # reads the conventional `role`, so a configured expectation is never ignored.
+        self.role_field = role_field or ("role" if expected_role else "")
+        self.id_field = id_field
         self.expected_identity_digest = _identity_digest(expected_identity)
         self.expected_role = expected_role
         self.verify_tls = verify_tls
@@ -527,11 +538,10 @@ class CachedSessionAuth:
         if cached and self._still_valid(cached):
             cookies = cached["cookies"]
             engine.add_cookies(cookies)
-            return AuthContext(
-                cookies=cookies,
-                user={"identity_verified": True, "role": cached["identity"]["role"]},
-                scheme=f"{self.inner.scheme}+cached",
-            )
+            user: dict[str, Any] = {"identity_verified": True}
+            if cached["identity"].get("role"):
+                user["role"] = cached["identity"]["role"]
+            return AuthContext(cookies=cookies, user=user, scheme=f"{self.inner.scheme}+cached")
         context = self.inner.authenticate(engine)
         identity = self._probe_identity(context.cookies)
         if identity is not None:
@@ -563,9 +573,17 @@ class CachedSessionAuth:
         if not response.ok or not isinstance(response.json, dict):
             return None
         account = _json_field(response.json, self.identity_field)
-        role = _json_field(response.json, self.role_field)
-        if account is None or role is None:
+        if account is None or isinstance(account, (dict, list)):
             return None
+        role = _json_field(response.json, self.role_field) if self.role_field else None
+        if self.expected_role and role is None:
+            return None  # the expectation cannot be checked: log in for real
+        identifier = ""
+        if self.id_field:
+            raw_id = _json_field(response.json, self.id_field)
+            if raw_id is None or isinstance(raw_id, (dict, list)):
+                return None  # a named id that is absent cannot pin the identity
+            identifier = _identity_digest(str(raw_id))
         account_digest = _identity_digest(str(account))
         if self.expected_identity_digest and account_digest != self.expected_identity_digest:
             raise RuntimeError(
@@ -575,12 +593,16 @@ class CachedSessionAuth:
             raise RuntimeError(
                 f"session identity probe returned role {role!r}, expected {self.expected_role!r}"
             )
-        return {"account": account_digest, "role": str(role)}
+        return {
+            "account": account_digest,
+            "id": identifier,
+            "role": "" if role is None else str(role),
+        }
 
     def _load(self) -> dict[str, Any] | None:
         try:
             document = json.loads(self.cache_file.read_text(encoding="utf-8"))
-            if not isinstance(document, dict) or document.get("v") != 1:
+            if not isinstance(document, dict) or document.get("v") != _CACHE_VERSION:
                 return None
             created_at = float(document["created_at"])
             if not math.isfinite(created_at):
@@ -599,7 +621,7 @@ class CachedSessionAuth:
             ):
                 return None
             identity = document.get("identity")
-            if not isinstance(identity, dict) or not {"account", "role"} <= identity.keys():
+            if not isinstance(identity, dict) or set(identity) != {"account", "id", "role"}:
                 return None
             return document
         except Exception:
@@ -610,7 +632,7 @@ class CachedSessionAuth:
         try:
             self.cache_file.parent.mkdir(parents=True, exist_ok=True)
             document = {
-                "v": 1,
+                "v": _CACHE_VERSION,
                 "created_at": time.time(),
                 "scope": self.scope,
                 "identity": identity,
@@ -850,7 +872,8 @@ def from_settings(settings: Any, engine_base_url: str = "") -> Any:
             cache_ttl_s=int(settings.extra.get("session_cache_ttl_s", 3600)),
             scope=scope,
             identity_field=str(settings.extra.get("session_identity_field") or "email"),
-            role_field=str(settings.extra.get("session_role_field") or "role"),
+            role_field=str(settings.extra.get("session_role_field") or ""),
+            id_field=str(settings.extra.get("session_id_field") or ""),
             expected_identity=credentials.username,
             expected_role=expected_role,
             verify_tls=verify_tls,

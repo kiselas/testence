@@ -40,7 +40,8 @@ See [agent-workflow.md](agent-workflow.md) for the target public lifecycle and
 | layer | module | responsibility | may import |
 |---|---|---|---|
 | test cases | project repo | 5–15 intent-bearing DSL lines each | project ActionMap |
-| ActionMap | project repo | app steps, selectors, product-trap workarounds, oracles | `testence.dsl`, `testence.oracle`, adapters |
+| ActionMap | project repo | app steps, selectors, product-trap workarounds, oracles | `testence.dsl`, `testence.oracle`, `testence.kits`, adapters |
+| kits | `testence.kits` | component-library addresses and traps ([kits](kits.md)), composed from `ex` steps | `testence.engine` (`Target`, capabilities) |
 | DSL | `testence.dsl` | step wrapper: intent + timing + fingerprint + events | `testence.engine`, `testence.evidence` |
 | adapters | `testence.adapters` | Auth/Seed contracts (implemented per project) | `testence.engine` |
 | triage | `testence.triage` | pack assembly, verdict taxonomy contract | engine, evidence |
@@ -71,7 +72,12 @@ path only, and only when `bench/kernels.py` says a threshold was crossed.
 1. Pytest lifecycle hook emits `test.start` for every selected test, including tests
    that do not request `ex`; the fixture resets browser capture when used.
 2. Each `Actions` call: `step.start` (intent, target) → engine action (auto-wait) →
-   `step.end` (duration, fingerprint on green).
+   `step.end` (duration, fingerprint on green). The fingerprint, a heal proposal's
+   baseline, is taken after every green step with a target, so
+   `.testence/fingerprints.json` holds the last green run. With
+   `evidence.fingerprints: once` a step whose store already holds it for the same
+   target skips the browser call and says so in `fingerprint_kept: stored`; the
+   baseline is then the first green run of that step and target.
 3. Oracle points: `save_and_verify`-style checks emit `oracle` events; divergence
    raises and fails the step.
 4. On failure: `assemble_pack` captures aria/network/console/oracle + `browser.json`
