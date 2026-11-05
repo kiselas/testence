@@ -34,8 +34,11 @@ panel.number_field("VLAN", hint="from 1 to 4094").set(42)
 
 ## Koobiq и react-aria
 
-`koobiq.SUPPORTED` — `">=0.37,<1"`; `koobiq.VERIFIED` — версии, на которых прошёл
-конформанс-стенд (0.37.0, 0.38.0; сверка с исходниками пакета 2026-11-04). Адрес
+`koobiq.SUPPORTED` — `">=0.37,<0.39"`; `koobiq.VERIFIED` — версии, на которых прошёл
+конформанс-стенд: 0.37.0 — закоммиченная сборка, для 0.38.0 есть квитанция в
+`bench/sut/koobiq/receipts` (отдельная сборка тех же исходников стенда, прогон на нижней
+границе Playwright и на свежем браузере). Тест падает, если у заявленной версии нет
+такого свидетельства или квитанция старше текущих исходников стенда. Адрес
 выбирается так: сначала роль и доступное имя, затем атрибуты `data-*` Koobiq
 (`data-slot`, `data-transition`, `data-status`, `data-variant`), и только потом
 **префикс** класса CSS-модуля (`kbq-dialog-header-`): Koobiq хеширует классы модулей,
@@ -53,8 +56,8 @@ panel.number_field("VLAN", hint="from 1 to 4094").set(42)
 | `koobiq.tooltip(ex, trigger)` | `role=tooltip` | `open`, `expect_text` | react-aria открывает подсказку по наведению только после того, как `pointermove` выставил модальность «pointer»; первое движение мыши в тесте входит в кнопку раньше, и одиночный hover ничего не открывает. `open` сначала уводит курсор в угол страницы (один шаг `ex.native`). |
 | `koobiq.search(ex, label)` | `role=searchbox` | `submit(text)` | Поиск отправляется только по Enter; ввод сам ничего не отправляет. |
 | `koobiq.dialog(ex, title)`, `koobiq.side_panel(ex, title)` | `role=dialog`, у которого элемент `kbq-dialog-header-` читается как заголовок (XPath) | `wait_open`, `wait_closed`, `close`, `press(name)`, `button`, `field`, `number_field` | У диалогов Koobiq нет доступного имени (шапка — не heading). Оверлеи анимируются 300 мс и остаются в DOM, пока уходят: `wait_open` ждёт `data-transition="entered"`, закрытие ждёт исчезновения элемента. Имя крестика переводится — он находится по структуре. |
-| `koobiq.confirm(ex, title)` | диалог с этим заголовком | `accept(action)`, `cancel(name="Cancel")` | Кнопка применения несёт глагол («Delete», «Publish»); диалог с другим заголовком не подходит. |
-| `koobiq.toasts(ex)` | `role=alertdialog` с именем заголовка; подпись — по `aria-describedby` | `read`, `mark`, `expect_new(mark, title, status=)`, `expect_no_new(mark, within_ms=)`; у `Toast` — `expect_caption`, `dismiss` | Заголовки повторяются: тост засчитывается, только если появился после `mark()`, а уходящий — никогда. `ToastProvider` — сама область тостов, детей не рендерит. Отрицание (`expect_no_new`) по построению тратит весь бюджет. |
+| `koobiq.confirm(ex, title)` | диалог с этим заголовком | `accept(action)`, `cancel(name)` | Кнопка применения несёт глагол («Delete», «Publish»); диалог с другим заголовком не подходит. Кнопка отмены — слово продукта, поэтому `cancel` принимает её имя. |
+| `koobiq.toasts(ex)` | `role=alertdialog` с именем заголовка; подпись — по `aria-describedby` | `read`, `mark`, `expect_new(mark, title, status=)`, `expect_no_new(mark, within_ms=)`; у `Toast` — `expect_caption`, `dismiss` | Заголовки повторяются: тост засчитывается, только если появился после `mark()`, а уходящий — никогда. `ToastProvider` — сама область тостов, детей не рендерит. Отрицание (`expect_no_new`) по построению тратит весь бюджет и закрыто по ошибке: нечитаемая страница или переход во время окна — это не «тостов нет». |
 | `koobiq.badge(ex, text)` | элемент `kbq-badge-` с `data-variant` и этим текстом | `read`, `expect_variant`, `expect_color` | Цвет, который продукт задал в inline-стиле (`style.color`), читается и ожидается в нормализованном браузером виде `rgb(r, g, b)`. |
 | `koobiq.tag_group(ex, name)` | `role=grid`, теги — `role=row` | `tag`, `remove(label)`, `expect_tags(count)` | Экспортируемый `Tag` — элемент группы и в одиночку ничего не рендерит; имя крестика переводится. |
 | `react_aria.listbox(ex, name)` | `role=listbox`, `role=option` | `option`, `expect_selected` | Список select называется по подписи поля, а не по кнопке. |
@@ -68,9 +71,9 @@ input-комбобоксу: `aria-label`, `aria-labelledby` или `<label for>`
 
 | Часть | Адрес | Действия | Зашитая ловушка |
 | --- | --- | --- | --- |
-| поле | `input` (`role=combobox`), `control`, `menu` | `open`, `close`, `expect_open`, `wait_loaded`, `search(text)` | Escape внутри диалога закрывает и диалог: `close` уводит фокус (react-select закрывает меню на blur). `search` заполняет поле и никогда не жмёт Backspace, который в пустом поле снимает последний чип. |
+| поле | `input` (`role=combobox`), `control`, `menu` (то, что вокруг списка из `aria-controls` поля, на месте или в портале) | `open`, `close`, `expect_open`, `wait_loaded`, `search(text)` | Escape внутри диалога закрывает и диалог, Tab выбирает подсвеченный вариант (`tabSelectsValue`), клик «снаружи» попадает во что придётся: `close` снимает фокус с input этого поля (react-select закрывает меню на blur). `search` заполняет поле и никогда не жмёт Backspace, который в пустом поле снимает последний чип. |
 | варианты | `option(label)` внутри меню | `pick(*labels, keep_open=)` | Мультиселект может закрываться после каждого выбора (`closeMenuOnSelect`); `pick` открывает меню заново, только если оно закрылось, и проверяет чип или значение. |
-| чипы | `chip(label)`, `chip_remove(label)` (`[role=button]` в чипе) | `remove(label)`, `expect_chips([...])`, `clear()` | Крестик по умолчанию — «Remove <label>», в дизайн-системах часто переименован («Delete»); он ищется внутри чипа, а не по имени. |
+| чипы | `chip(label)`, `chip_remove(label)` (`[role=button]` в чипе) | `remove(label)`, `expect_chips([...])`, `clear()` (после него поле пусто) | Крестик по умолчанию — «Remove <label>», в дизайн-системах часто переименован («Delete»); он ищется внутри чипа, а не по имени. |
 | состояние | один evaluate | `state()`: чипы, значение, плейсхолдер, open, loading, варианты (label, group, selected, disabled, focused), группы, notice, `unoffered` | Сохранённое значение, которого больше нет среди вариантов, всё равно рисует чип: `unoffered` перечисляет такие чипы. |
 
 ## React Flow
@@ -95,7 +98,13 @@ input-комбобоксу: `aria-label`, `aria-labelledby` или `<label for>`
 числовые, поисковые и обязательные или с подсказкой текстовые поля, флажки и
 переключатели со скрытым input, диалоги и боковые панели (с их `transition`), тосты (с
 заголовками), таблицы и группы тегов, вкладки, открытые меню и списки, узлы React Flow.
-Имена проходят политику редактирования проекта, как и весь снимок. Распознавание —
+Помощник react-aria предлагается только там, где react-aria оставил свои признаки
+(`data-rac`, `data-collection`, `data-react-aria-pressable`, id `react-aria…`) или Koobiq —
+свои классы: голая ARIA-роль, обычная `<table>` или нативный флажок строки кита не
+получают. Компонент без доступного имени получает позиционный `Target('css', …, nth=N)` и
+`note`, а не вызов кита, которому нужно отсутствующее имя. Одного вида показывается не
+больше 8, чтобы страница флажков не вытеснила диалог. Имена проходят политику
+редактирования проекта, как и весь снимок. Распознавание —
 подсказка для написания теста, одним evaluate; о продукте оно ничего не доказывает.
 
 ## Конформанс

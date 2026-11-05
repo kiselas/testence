@@ -34,9 +34,11 @@ Kits ship with Testence; they add no dependency.
 
 ## Koobiq and react-aria
 
-`koobiq.SUPPORTED` is `">=0.37,<1"`; `koobiq.VERIFIED` lists the releases the
-conformance stand passed with (0.37.0, 0.38.0, checked 2026-11-04 against the package
-sources). Addresses prefer role and accessible name, then Koobiq's `data-*` attributes
+`koobiq.SUPPORTED` is `">=0.37,<0.39"`; `koobiq.VERIFIED` lists the releases the
+conformance stand passed with: 0.37.0 is the committed build, 0.38.0 has a receipt in
+`bench/sut/koobiq/receipts` (a separate build of the same stand sources, run at the
+Playwright floor and on a current browser). A test fails when a claimed version has no
+such evidence, or when the receipt predates the stand's current sources. Addresses prefer role and accessible name, then Koobiq's `data-*` attributes
 (`data-slot`, `data-transition`, `data-status`, `data-variant`), and only then a CSS
 module class **prefix** (`kbq-dialog-header-`): Koobiq hashes its module classes and
 the suffix changes between releases.
@@ -53,8 +55,8 @@ the suffix changes between releases.
 | `koobiq.tooltip(ex, trigger)` | `role=tooltip` | `open`, `expect_text` | react-aria opens a tooltip on hover only once a `pointermove` has set the "pointer" modality; the first move of a test enters the trigger before that, so a single hover opens nothing. `open` moves the pointer to the page corner first (one `ex.native` step). |
 | `koobiq.search(ex, label)` | `role=searchbox` | `submit(text)` | A search field submits on Enter only; typing alone sends nothing. |
 | `koobiq.dialog(ex, title)`, `koobiq.side_panel(ex, title)` | `role=dialog` whose `kbq-dialog-header-` element reads the title (XPath) | `wait_open`, `wait_closed`, `close`, `press(name)`, `button`, `field`, `number_field` | Koobiq dialogs have no accessible name (the header is not a heading). Overlays animate for 300 ms and stay mounted while leaving: `wait_open` waits for `data-transition="entered"`, closing waits until the element is gone. The close button's name is translated; it is found by structure. |
-| `koobiq.confirm(ex, title)` | the dialog with that title | `accept(action)`, `cancel(name="Cancel")` | The action button carries the verb ("Delete", "Publish"); a dialog with another title never matches. |
-| `koobiq.toasts(ex)` | `role=alertdialog` named by the title; caption by `aria-describedby` | `read`, `mark`, `expect_new(mark, title, status=)`, `expect_no_new(mark, within_ms=)`; a `Toast` has `expect_caption`, `dismiss` | Titles repeat: a toast counts only if it appeared after `mark()`, and one already leaving never counts. `ToastProvider` is the region itself and renders no children. A negative (`expect_no_new`) costs its whole budget by construction. |
+| `koobiq.confirm(ex, title)` | the dialog with that title | `accept(action)`, `cancel(name)` | The action button carries the verb ("Delete", "Publish"); a dialog with another title never matches. The dismissing button is the product's word, so `cancel` takes its name. |
+| `koobiq.toasts(ex)` | `role=alertdialog` named by the title; caption by `aria-describedby` | `read`, `mark`, `expect_new(mark, title, status=)`, `expect_no_new(mark, within_ms=)`; a `Toast` has `expect_caption`, `dismiss` | Titles repeat: a toast counts only if it appeared after `mark()`, and one already leaving never counts. `ToastProvider` is the region itself and renders no children. A negative (`expect_no_new`) costs its whole budget by construction and fails closed: a page that cannot be read, or that navigated during the window, is not "no toast". |
 | `koobiq.badge(ex, text)` | `kbq-badge-` element with `data-variant` and that text | `read`, `expect_variant`, `expect_color` | The colour a product sets inline (`style.color`) is read and waited on as the browser normalizes it, `rgb(r, g, b)`. |
 | `koobiq.tag_group(ex, name)` | `role=grid`, tags are `role=row` | `tag`, `remove(label)`, `expect_tags(count)` | The exported `Tag` is the group's item and renders nothing alone; the remove button's name is translated. |
 | `react_aria.listbox(ex, name)` | `role=listbox`, `role=option` | `option`, `expect_selected` | A select's list is named after the field's label, not after the trigger. |
@@ -69,9 +71,9 @@ only when the product sets `classNamePrefix`; pass `prefix=` if it is not
 
 | Part | Address | Actions | Trap the kit carries |
 | --- | --- | --- | --- |
-| field | `input` (`role=combobox`), `control`, `menu` | `open`, `close`, `expect_open`, `wait_loaded`, `search(text)` | Escape inside a dialog also dismisses the dialog: `close` takes focus away (react-select closes on blur). `search` fills, it never sends Backspace, which removes the last chip in an empty input. |
+| field | `input` (`role=combobox`), `control`, `menu` (the one around the list the input's `aria-controls` names, inline or portalled) | `open`, `close`, `expect_open`, `wait_loaded`, `search(text)` | Escape inside a dialog also dismisses the dialog, Tab picks the focused option (`tabSelectsValue`), a click outside lands on whatever is there: `close` blurs this field's own input (react-select closes on blur). `search` fills, it never sends Backspace, which removes the last chip in an empty input. |
 | options | `option(label)` inside the menu | `pick(*labels, keep_open=)` | A multi-select may close after each pick (`closeMenuOnSelect`); `pick` reopens it only when it closed, then checks the chip or the value. |
-| chips | `chip(label)`, `chip_remove(label)` (`[role=button]` in the chip) | `remove(label)`, `expect_chips([...])`, `clear()` | The remove button is "Remove <label>" by default and often renamed ("Delete"); it is found inside the chip, not by name. |
+| chips | `chip(label)`, `chip_remove(label)` (`[role=button]` in the chip) | `remove(label)`, `expect_chips([...])`, `clear()` (then nothing is held) | The remove button is "Remove <label>" by default and often renamed ("Delete"); it is found inside the chip, not by name. |
 | state | one evaluation | `state()`: chips, single, placeholder, open, loading, options (label, group, selected, disabled, focused), groups, notice, `unoffered` | A saved value the options no longer offer still renders a chip: `unoffered` lists such chips. |
 
 ## React Flow
@@ -96,7 +98,13 @@ Recognized: react-select fields (with `prefix=` or `input_id=` when needed), Koo
 selects, number, search and required or hinted text fields, hidden-input checkboxes
 and switches, dialogs and side panels (with their `transition`), toasts (with their
 titles), tables and tag groups, tab lists, open menus and lists, React Flow nodes.
-Names pass through the project's redaction policy like the rest of the snapshot.
+A react-aria helper is suggested only where react-aria left its markers (`data-rac`,
+`data-collection`, `data-react-aria-pressable`, `react-aria…` ids) or Koobiq its
+classes: a bare ARIA role, a plain `<table>` or a native checkbox gets no kit line. A
+component without an accessible name gets a positional `Target('css', …, nth=N)` and a
+`note`, never a kit call that would need the missing name. At most 8 of one kind are
+listed, so a page of checkboxes does not crowd out its dialog. Names pass through the
+project's redaction policy like the rest of the snapshot.
 Recognition is a hint for authoring, read in one evaluation; it proves nothing about
 the product.
 

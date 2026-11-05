@@ -57,8 +57,12 @@ TESTENCE_KOOBIQ_STAND=/tmp/stand-next/dist uv run pytest -q tests/test_kits_koob
   tests/test_kits_react_select.py tests/test_kits_xyflow.py tests/test_kits_discovery.py
 ```
 
-When it passes, add the version to `VERIFIED` in `src/testence/kits/koobiq.py`, move the
-stand to it and rebuild `dist/`.
+When it passes, add the version to `VERIFIED` in `src/testence/kits/koobiq.py` and raise
+`SUPPORTED` to the next minor, with its evidence: either move the stand to it and rebuild
+`dist/`, or commit a receipt `receipts/koobiq-<version>.json` holding that build's
+`stand.json`, the test command and each run's environment and result
+(`receipts/koobiq-0.38.0.json` is one). `tests/test_kits_stand.py` refuses a claimed
+version without evidence, and a receipt made from other page sources than the stand's.
 
 ## Latency
 
