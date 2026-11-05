@@ -519,4 +519,12 @@ def redact_document_text(
             lines.append(line if cleaned == record else json.dumps(cleaned, ensure_ascii=False))
         rebuilt = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
         return text if rebuilt == text else rebuilt
+    # CSV, XML and HTML name some secrets by structure, not by spelling. They are
+    # replaced first and the text rules below run on the result as a second pass. The
+    # import is local because the structural rules build on this module's key rules.
+    from .structured import redact_structured
+
+    structured = redact_structured(text, suffix, policy)
+    if structured is not None:
+        text = structured
     return sanitize_text(text, secrets=secrets, limit=limit, policy=policy)

@@ -358,6 +358,16 @@ fingerprints are computed from the original value, so history does not split whe
 value is masked. Give credentials `ids=` anyway: Testence cannot mask a secret it does
 not know.
 
+Attachments of a test (`ex.attach`, `allure.attach`) in three formats are also masked by
+structure, before the text rules run on the result. In **HTML**, the `value` of
+`password` and `hidden` inputs, of one-time-code and password-autocomplete inputs and of
+inputs and textareas named like a secret, and the `content` of a `csrf-token` meta tag. In
+**XML**, the text and attributes of an element whose name is a secret name (and of
+everything inside it), an attribute with a secret name, and the `value` of an element
+that names a secret in `name`/`key`. In **CSV** and **TSV**, the cells of a column whose
+header is a secret name. Everything else in the file is kept, so it still parses and
+diffs; a document that is not well-formed, or declares entities, gets the text rules only.
+
 The ledger records the policy (names only) in `run.start`. `testence export` and
 `testence report` apply it again, so a run written before a rule existed does not leave
 in clear text. Invalid settings stop the session before any test runs.
