@@ -8,10 +8,11 @@ in place. This module reads an OpenAPI 3.x document and writes a fixture module 
 does it in the right order:
 
 - ``temp_name(ticket, label)`` carries the marker;
-- ``Sweeper`` finds marked objects by name, deletes them **dependents first** (the order
-  comes from ``$ref`` properties, ``<name>_id`` fields and nested paths of the schema),
-  repeats a DELETE answered with 409 for up to five seconds, requires ``GET`` to answer
-  404 afterwards, and finally asserts that nothing marked is left.
+- ``Sweeper`` finds marked objects by name across every page of a list, deletes them
+  **dependents first** (the order comes from ``$ref`` properties, ``<name>_id`` fields
+  and nested paths of the schema), repeats a DELETE answered with 409 for up to five
+  seconds, requires ``GET`` to answer 404 afterwards, and finally asserts that nothing
+  marked is left.
 
 The generated code uses :class:`testence.api.ApiClient` only (through the
 ``testence_api`` fixture), never the browser.
@@ -28,11 +29,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .skeleton import _TRANSLIT, read_utf8
+
 SEED_SCHEMA = "testence/seed-scaffold/1"
 MARKER = "testence:seed-scaffold"
 _NAME_FIELDS = ("name", "title", "label", "display_name", "displayName")
 _SEARCH_PARAMS = ("search", "q", "query", "name", "filter", "name__icontains", "name_contains")
 _ITEMS_KEYS = ("items", "data", "results", "content", "records", "rows")
+_TOTAL_KEYS = ("total", "count", "total_count", "totalCount", "totalElements", "total_items")
+_PAGE_PARAMS = ("page", "page_number", "pageNumber", "pageIndex")
+_SIZE_PARAMS = ("page_size", "pageSize", "per_page", "perPage", "size", "limit")
+_OFFSET_PARAMS = ("offset", "skip", "start")
 _FETCH_TIMEOUT_S = 30.0
 
 
@@ -50,12 +57,23 @@ class Collection:
     name_field: str = ""
     search_param: str | None = None
     items_key: str | None = None
+    total_key: str | None = None
+    page_param: str | None = None
+    page_start: int = 1
+    offset_param: str | None = None
+    size_param: str | None = None
     schema: str | None = None
     parent: str | None = None
-    parent_param: str | None = None
     depends_on: set[str] = field(default_factory=set)
 
     def describe(self) -> dict[str, Any]:
+        paging = (
+            {"page": self.page_param, "start": self.page_start, "size": self.size_param}
+            if self.page_param
+            else {"offset": self.offset_param, "size": self.size_param}
+            if self.offset_param
+            else None
+        )
         return {
             "name": self.name,
             "list_path": self.list_path,
@@ -63,6 +81,8 @@ class Collection:
             "name_field": self.name_field,
             "search_param": self.search_param,
             "items_key": self.items_key,
+            "total_key": self.total_key,
+            "paging": paging,
             "parent": self.parent,
             "depends_on": sorted(self.depends_on),
         }
@@ -71,20 +91,27 @@ class Collection:
 # --------------------------------------------------------------------------- loading
 
 
+def _decode(raw: bytes, source: str) -> str:
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise SeedError(
+            f"{source} is not UTF-8 (byte {exc.start}: {exc.reason}); OpenAPI documents "
+            "are UTF-8, save or serve it as UTF-8"
+        ) from exc
+
+
 def load_openapi(source: str) -> dict[str, Any]:
     """Read an OpenAPI 3.x document from a path or an http(s) URL, JSON or YAML."""
     if re.match(r"^https?://", source, re.IGNORECASE):
         request = urllib.request.Request(source, headers={"Accept": "application/json"})
         try:
             with urllib.request.urlopen(request, timeout=_FETCH_TIMEOUT_S) as response:  # noqa: S310
-                raw = response.read().decode("utf-8")
+                raw = _decode(response.read(), source)
         except OSError as exc:
             raise SeedError(f"cannot fetch {source}: {exc}") from exc
     else:
-        try:
-            raw = Path(source).read_text(encoding="utf-8-sig")
-        except OSError as exc:
-            raise SeedError(f"cannot read {source}: {exc}") from exc
+        raw = read_utf8(Path(source), SeedError)
     document: Any
     try:
         document = json.loads(raw)
@@ -110,10 +137,10 @@ def load_openapi(source: str) -> dict[str, Any]:
 # --------------------------------------------------------------------------- analysis
 
 
-def _ref_name(node: Any) -> str | None:
+def _ref_name(node: Any, kind: str = "schemas") -> str | None:
     if isinstance(node, dict):
         ref = node.get("$ref")
-        if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+        if isinstance(ref, str) and ref.startswith(f"#/components/{kind}/"):
             return ref.rsplit("/", 1)[1]
     return None
 
@@ -136,6 +163,21 @@ def _resolve(document: dict[str, Any], node: Any, depth: int = 0) -> dict[str, A
     return node
 
 
+def _parameters(
+    document: dict[str, Any], path_item: dict[str, Any], method: str
+) -> list[dict[str, Any]]:
+    """Path-level and operation parameters with ``#/components/parameters`` resolved."""
+    result: list[dict[str, Any]] = []
+    operation = path_item.get(method) or {}
+    for entry in list(path_item.get("parameters") or []) + list(operation.get("parameters") or []):
+        name = _ref_name(entry, "parameters")
+        if name is not None:
+            entry = document.get("components", {}).get("parameters", {}).get(name)
+        if isinstance(entry, dict):
+            result.append(entry)
+    return result
+
+
 def _json_schema(operation: Any, *, request: bool) -> Any:
     if not isinstance(operation, dict):
         return None
@@ -151,7 +193,7 @@ def _json_schema(operation: Any, *, request: bool) -> Any:
     return (media or {}).get("schema")
 
 
-def _schema_name(document: dict[str, Any], node: Any) -> str | None:
+def _schema_name(node: Any) -> str | None:
     if not isinstance(node, dict):
         return None
     direct = _ref_name(node)
@@ -166,6 +208,11 @@ def _schema_name(document: dict[str, Any], node: Any) -> str | None:
 
 def _static(segment: str) -> bool:
     return not (segment.startswith("{") and segment.endswith("}"))
+
+
+def _shape(path: str) -> tuple[str, ...]:
+    """Path segments with every parameter written the same way."""
+    return tuple("{}" if not _static(part) else part for part in path.strip("/").split("/"))
 
 
 def _server_prefix(document: dict[str, Any]) -> str:
@@ -187,8 +234,30 @@ def _singular(name: str) -> str:
 
 
 def _identifier(value: str) -> str:
-    text = re.sub(r"[^0-9a-zA-Z]+", "_", value).strip("_").lower()
+    text = re.sub(r"[^0-9a-z]+", "_", value.casefold().translate(_TRANSLIT)).strip("_")
     return text if text and not text[0].isdigit() else f"c_{text}"
+
+
+def _unique(name: str, taken: set[str]) -> str:
+    if name not in taken:
+        return name
+    number = 2
+    while f"{name}_{number}" in taken:
+        number += 1
+    return f"{name}_{number}"
+
+
+def _paging(collection: Collection, query: list[dict[str, Any]]) -> None:
+    by_name = {entry.get("name"): entry for entry in query}
+    collection.page_param = next((p for p in _PAGE_PARAMS if p in by_name), None)
+    if collection.page_param is None:
+        collection.offset_param = next((p for p in _OFFSET_PARAMS if p in by_name), None)
+    if collection.page_param or collection.offset_param:
+        collection.size_param = next((p for p in _SIZE_PARAMS if p in by_name), None)
+    if collection.page_param:
+        schema = by_name[collection.page_param].get("schema") or {}
+        start = schema.get("default", schema.get("minimum", 1))
+        collection.page_start = start if isinstance(start, int) and start in (0, 1) else 1
 
 
 def analyse(document: dict[str, Any]) -> tuple[list[Collection], list[dict[str, str]]]:
@@ -205,8 +274,8 @@ def analyse(document: dict[str, Any]) -> tuple[list[Collection], list[dict[str, 
             continue
         item = next(
             (
-                (candidate, candidate.rsplit("/", 1)[1][1:-1])
-                for candidate in paths
+                (candidate, candidate.rstrip("/").rsplit("/", 1)[1][1:-1])
+                for candidate in sorted(paths)
                 if candidate.rstrip("/").rsplit("/", 1)[0] == path.rstrip("/")
                 and not _static(candidate.rstrip("/").rsplit("/", 1)[1])
                 and "delete" in paths[candidate]
@@ -216,81 +285,86 @@ def analyse(document: dict[str, Any]) -> tuple[list[Collection], list[dict[str, 
         if item is None:
             continue
         item_path, id_param = item
+        taken = set(found) | {entry["name"] for entry in skipped}
         name = _identifier(segments[-1])
-        if name in found:
+        if name in taken:
             name = _identifier("_".join(s for s in segments if _static(s))[-60:])
+        name = _unique(name, taken)  # never let two collections share a name
+        create_schema = _json_schema(ops.get("post"), request=True)
+        item_schema = _json_schema(paths[item_path].get("get"), request=False)
         schema_name = (
-            _schema_name(document, _json_schema(ops.get("post"), request=True))
-            or _schema_name(document, _json_schema(paths[item_path].get("get"), request=False))
-            or _schema_name(
-                document, (_json_schema(ops.get("get"), request=False) or {}).get("items")
-            )
+            _schema_name(create_schema)
+            or _schema_name(item_schema)
+            or _schema_name((_json_schema(ops.get("get"), request=False) or {}).get("items"))
         )
-        schema = _resolve(
-            document,
-            _json_schema(ops.get("post"), request=True)
-            or _json_schema(paths[item_path].get("get"), request=False)
-            or {},
-        )
-        properties = schema.get("properties") or {}
+        properties = _resolve(document, create_schema or item_schema or {}).get("properties")
+        properties = properties or {}
         name_field = next((key for key in _NAME_FIELDS if key in properties), "")
         if not name_field:
             skipped.append(
                 {"name": name, "reason": "no name/title/label field to carry the marker"}
             )
             continue
-        parameters = (ops.get("get") or {}).get("parameters") or []
-        query = {
-            entry.get("name")
-            for entry in parameters
-            if isinstance(entry, dict) and entry.get("in") == "query"
-        }
+        query = [p for p in _parameters(document, ops, "get") if p.get("in") == "query"]
         list_schema = _resolve(document, _json_schema(ops.get("get"), request=False) or {})
+        envelope = list_schema.get("properties") or {}
         items_key = None
         if list_schema.get("type") != "array":
-            items_key = next(
-                (key for key in _ITEMS_KEYS if key in (list_schema.get("properties") or {})),
-                None,
-            )
-        id_field = "id" if "id" in properties or id_param in ("id",) else id_param
+            items_key = next((key for key in _ITEMS_KEYS if key in envelope), None)
         collection = Collection(
             name=name,
             list_path=prefix + path,
             item_path=prefix + item_path,
             id_param=id_param,
-            id_field="id" if "id" in properties else id_field,
+            id_field="id" if "id" in properties else id_param,
             name_field=name_field,
-            search_param=next((p for p in _SEARCH_PARAMS if p in query), None),
+            search_param=next(
+                (p for p in _SEARCH_PARAMS if p in {e.get("name") for e in query}), None
+            ),
             items_key=items_key,
+            total_key=next((key for key in _TOTAL_KEYS if key in envelope), None)
+            if items_key
+            else None,
             schema=schema_name,
         )
-        params_in_list = [segment[1:-1] for segment in segments if not _static(segment)]
-        if params_in_list:
-            collection.parent_param = params_in_list[-1]
-            parent_path = "/" + "/".join(segments[: segments.index("{" + params_in_list[-1] + "}")])
-            collection.parent = parent_path  # resolved to a collection name below
+        _paging(collection, query)
         found[name] = collection
 
-    by_path = {c.list_path[len(prefix) :].rstrip("/"): c.name for c in found.values()}
+    by_item_shape = {_shape(c.item_path[len(prefix) :]): c.name for c in found.values()}
     by_schema = {c.schema: c.name for c in found.values() if c.schema}
     by_singular = {_singular(c.name): c.name for c in found.values()}
     by_singular.update({c.name: c.name for c in found.values()})
     for collection in found.values():
-        if collection.parent is not None:
-            parent = by_path.get(collection.parent.rstrip("/"))
+        shape = _shape(collection.list_path[len(prefix) :])
+        if "{}" in shape:
+            # The nearest collection whose item path this list sits under is its parent;
+            # that parent may be nested itself, to any depth.
+            last = len(shape) - 1 - shape[::-1].index("{}")
+            parent = by_item_shape.get(shape[: last + 1])
             if parent is None:
                 skipped.append(
                     {
                         "name": collection.name,
-                        "reason": f"nested under {collection.parent}, which is not a "
-                        "deletable collection",
+                        "reason": f"nested under /{'/'.join(shape[: last + 1])}, which is not "
+                        "the item path of a deletable collection",
                     }
                 )
-            collection.parent = parent
-            if parent:
+            else:
+                collection.parent = parent
                 collection.depends_on.add(parent)
         _references(document, collection, paths, prefix, by_schema, by_singular)
     unusable = {entry["name"] for entry in skipped}
+    # A collection nested under an unusable one cannot be found either.
+    changed = True
+    while changed:
+        changed = False
+        for collection in found.values():
+            if collection.name not in unusable and collection.parent in unusable:
+                skipped.append(
+                    {"name": collection.name, "reason": f"nested under {collection.parent}"}
+                )
+                unusable.add(collection.name)
+                changed = True
     return [c for c in found.values() if c.name not in unusable], skipped
 
 
@@ -317,7 +391,7 @@ def _references(
                 value,
                 (value or {}).get("items") if isinstance(value, dict) else None,
             ):
-                name = _schema_name(document, candidate)
+                name = _schema_name(candidate)
                 if name and name in by_schema:
                     targets.add(by_schema[name])
             match = re.fullmatch(r"(?P<base>.+?)(?:_ids?|Ids?|_uuids?)", key)
@@ -376,6 +450,11 @@ left. Edit freely: once this file changes, regeneration leaves it alone.
 
 Use it from a conftest.py: `pytest_plugins = ["{module}"]`. Under parallel workers give
 each worker its own marker, or the sweepers delete each other's objects.
+
+Lists are read page by page where the API declares paging parameters. A list without
+them is read once; when its envelope declares a total larger than the page it returned,
+`find` fails rather than miss marked objects. A list with neither cannot show that it
+was cut short: give it a search parameter or paging in the API, or extend `_read_all`.
 """
 
 from __future__ import annotations
@@ -393,7 +472,11 @@ from testence.api import ApiClient
 MARKER = {marker}
 #: How long a DELETE answered with 409 (a dependent still being removed) is repeated.
 CONFLICT_TIMEOUT_S = 5.0
+#: How long, after the DELETE, a GET may still find the object before it must answer 404.
+ABSENCE_TIMEOUT_S = 5.0
 POLL_S = 0.25
+PAGE_SIZE = 100
+MAX_PAGES = 100
 
 
 def temp_name(ticket: str, label: str) -> str:
@@ -406,13 +489,16 @@ class Collection:
     name: str
     list_path: str
     item_path: str
-    id_param: str
     id_field: str
     name_field: str
     search_param: str | None = None
     items_key: str | None = None
+    total_key: str | None = None
+    page_param: str | None = None
+    page_start: int = 1
+    offset_param: str | None = None
+    size_param: str | None = None
     parent: str | None = None
-    parent_param: str | None = None
 
 
 COLLECTIONS: dict[str, Collection] = {{
@@ -431,17 +517,13 @@ class Sweeper:
         self.marker = marker
 
     def create(
-        self,
-        collection: str,
-        ticket: str,
-        label: str,
-        parent_id: Any = None,
-        **fields: Any,
+        self, collection: str, ticket: str, label: str, *parent_ids: Any, **fields: Any
     ) -> dict[str, Any]:
-        """POST a marked object; ``fields`` are the rest of the request body."""
+        """POST a marked object; ``parent_ids`` fill the list path's parameters in order,
+        ``fields`` are the rest of the request body."""
         spec = COLLECTIONS[collection]
         body = {{spec.name_field: temp_name(ticket, label), **fields}}
-        response = self.api.post(self._list_path(spec, parent_id), body)
+        response = self.api.post(self._fill(spec.list_path, parent_ids), body)
         if not response.ok:
             raise AssertionError(
                 f"creating {{collection}} returned HTTP {{response.status}}: {{response.body[:300]}}"
@@ -453,27 +535,18 @@ class Sweeper:
     def find(self, collection: str) -> list[tuple[str, dict[str, Any]]]:
         """Marked objects of ``collection`` as (item path, object) pairs."""
         spec = COLLECTIONS[collection]
-        parents: list[Any] = [None]
+        bases = [spec.list_path]
         if spec.parent is not None:
-            parent_spec = COLLECTIONS[spec.parent]
-            parents = [item[parent_spec.id_field] for _, item in self.find(spec.parent)]
+            # A nested list lives under each marked parent's own item path.
+            depth = len(COLLECTIONS[spec.parent].item_path.split("/"))
+            suffix = "/".join(spec.list_path.split("/")[depth:])
+            bases = [f"{{path}}/{{suffix}}" for path, _ in self.find(spec.parent)]
         found: list[tuple[str, dict[str, Any]]] = []
-        for parent_id in parents:
-            path = self._list_path(spec, parent_id)
-            if spec.search_param:
-                query = urllib.parse.urlencode({{spec.search_param: self.marker}})
-                path = f"{{path}}?{{query}}"
-            response = self.api.get_fresh(path)
-            if not response.ok:
-                raise AssertionError(f"GET {{path}} returned HTTP {{response.status}}")
-            body = response.json
-            items = body
-            if spec.items_key and isinstance(body, dict):
-                items = body.get(spec.items_key, [])
-            assert isinstance(items, list), f"GET {{path}} did not return a list: {{body!r:.200}}"
-            for item in items:
+        for base in bases:
+            for item in self._read_all(spec, base):
                 if isinstance(item, dict) and self.marker in str(item.get(spec.name_field, "")):
-                    found.append((self._item_path(spec, item[spec.id_field], parent_id), item))
+                    item_id = urllib.parse.quote(str(item[spec.id_field]), safe="")
+                    found.append((f"{{base}}/{{item_id}}", item))
         return found
 
     def delete(self, path: str) -> None:
@@ -488,6 +561,7 @@ class Sweeper:
             raise AssertionError(
                 f"DELETE {{path}} returned HTTP {{response.status}}: {{response.body[:300]}}"
             )
+        deadline = time.monotonic() + ABSENCE_TIMEOUT_S
         while True:
             status = self.api.get_fresh(path).status
             if status == 404:
@@ -511,17 +585,56 @@ class Sweeper:
         left = {{name: len(items) for name in DELETE_ORDER if (items := self.find(name))}}
         assert not left, f"temporary objects left after cleanup: {{left}}"
 
-    @staticmethod
-    def _list_path(spec: Collection, parent_id: Any) -> str:
-        if spec.parent_param is None:
-            return spec.list_path
-        return spec.list_path.replace("{{" + spec.parent_param + "}}", str(parent_id))
+    def _read_all(self, spec: Collection, base: str) -> list[Any]:
+        """Every object of one list, following its paging parameters."""
+        paged = spec.page_param or spec.offset_param
+        collected: list[Any] = []
+        previous: list[Any] | None = None
+        for index in range(MAX_PAGES):
+            query: dict[str, Any] = {{}}
+            if spec.search_param:
+                query[spec.search_param] = self.marker
+            if spec.page_param:
+                query[spec.page_param] = spec.page_start + index
+            elif spec.offset_param:
+                query[spec.offset_param] = len(collected)
+            if paged and spec.size_param:
+                query[spec.size_param] = PAGE_SIZE
+            path = f"{{base}}?{{urllib.parse.urlencode(query)}}" if query else base
+            response = self.api.get_fresh(path)
+            if not response.ok:
+                raise AssertionError(f"GET {{path}} returned HTTP {{response.status}}")
+            body = response.json
+            items = body
+            if spec.items_key and isinstance(body, dict):
+                items = body.get(spec.items_key, [])
+            assert isinstance(items, list), f"GET {{path}} did not return a list: {{body!r:.200}}"
+            total = body.get(spec.total_key) if spec.total_key and isinstance(body, dict) else None
+            if not paged:
+                if isinstance(total, int) and total > len(items):
+                    raise AssertionError(
+                        f"GET {{path}} returned {{len(items)}} of {{total}} objects and declares no "
+                        "paging parameter; marked objects past this page would be missed"
+                    )
+                return items
+            if items and items == previous:
+                raise AssertionError(f"GET {{path}} repeated the previous page: paging ignored")
+            collected += items
+            short = spec.size_param is not None and len(items) < PAGE_SIZE
+            if not items or short or (isinstance(total, int) and len(collected) >= total):
+                return collected
+            previous = items
+        raise AssertionError(f"GET {{base}} has more than {{MAX_PAGES}} pages")
 
-    def _item_path(self, spec: Collection, item_id: Any, parent_id: Any) -> str:
-        path = spec.item_path.replace("{{" + spec.id_param + "}}", str(item_id))
-        if spec.parent_param is not None:
-            path = path.replace("{{" + spec.parent_param + "}}", str(parent_id))
-        return path
+    @staticmethod
+    def _fill(template: str, values: tuple[Any, ...]) -> str:
+        parts = template.split("/")
+        slots = [i for i, part in enumerate(parts) if part.startswith("{{") and part.endswith("}}")]
+        if len(slots) != len(values):
+            raise TypeError(f"{{template}} needs {{len(slots)}} parent id(s), got {{len(values)}}")
+        for slot, value in zip(slots, values):
+            parts[slot] = urllib.parse.quote(str(value), safe="")
+        return "/".join(parts)
 
 
 @pytest.fixture
@@ -537,10 +650,10 @@ _FACTORY = '''
 
 @pytest.fixture
 def make_temp_{singular}(temp_sweeper: Sweeper) -> Callable[..., dict[str, Any]]:
-    """Create a marked {name} object: ``make_temp_{singular}(ticket, label{parent_hint}, **fields)``."""
+    """Create a marked {name} object: ``make_temp_{singular}(ticket, label{hint}, **fields)``."""
 
-    def make(ticket: str, label: str{parent_arg}, **fields: Any) -> dict[str, Any]:
-        return temp_sweeper.create({name_literal}, ticket, label{parent_pass}, **fields)
+    def make(ticket: str, label: str, *parent_ids: Any, **fields: Any) -> dict[str, Any]:
+        return temp_sweeper.create({name_literal}, ticket, label, *parent_ids, **fields)
 
     return make
 '''
@@ -551,17 +664,20 @@ def render(
 ) -> str:
     rows = []
     for collection in sorted(collections, key=lambda c: order.index(c.name)):
-        fields = {
+        fields: dict[str, Any] = {
             "name": collection.name,
             "list_path": collection.list_path,
             "item_path": collection.item_path,
-            "id_param": collection.id_param,
             "id_field": collection.id_field,
             "name_field": collection.name_field,
             "search_param": collection.search_param,
             "items_key": collection.items_key,
+            "total_key": collection.total_key,
+            "page_param": collection.page_param,
+            "page_start": collection.page_start if collection.page_param else None,
+            "offset_param": collection.offset_param,
+            "size_param": collection.size_param,
             "parent": collection.parent,
-            "parent_param": collection.parent_param,
         }
         arguments = "".join(
             f"        {key}={_literal(value)},\n"
@@ -569,25 +685,28 @@ def render(
             if value is not None
         )
         rows.append(f"    {_literal(collection.name)}: Collection(\n{arguments}    ),")
-    factories = "".join(
-        _FACTORY.format(
-            singular=_identifier(_singular(c.name)),
-            name=c.name,
-            name_literal=_literal(c.name),
-            parent_hint=", parent_id" if c.parent else "",
-            parent_arg=", parent_id: Any" if c.parent else "",
-            parent_pass=", parent_id" if c.parent else "",
+    factories = []
+    for c in sorted(collections, key=lambda c: c.name):
+        params = [part[1:-1] for part in c.list_path.split("/") if not _static(part)]
+        factories.append(
+            _FACTORY.format(
+                singular=_identifier(_singular(c.name)),
+                name=c.name,
+                name_literal=_literal(c.name),
+                hint="".join(f", {param}" for param in params),
+            )
         )
-        for c in sorted(collections, key=lambda c: c.name)
-    )
     order_literal = ", ".join(_literal(name) for name in order) + ("," if len(order) == 1 else "")
+    if len("DELETE_ORDER: tuple[str, ...] = ()") + len(order_literal) > 100:
+        # What ruff format would write: one name per line with a trailing comma.
+        order_literal = "\n" + "".join(f"    {_literal(name)},\n" for name in order)
     return _TEMPLATE.format(
         source=source.replace('"""', "'''"),
         module=module,
         marker=_literal(marker),
         collections="\n".join(rows),
         order=order_literal,
-        factories=factories,
+        factories="".join(factories),
     )
 
 
@@ -644,7 +763,7 @@ def scaffold(
     body = render(selected, order, marker=marker, source=Path(openapi).name, module=module)
     content = f"# {MARKER} sha256={_digest(body)}\n{body}"
     if target.exists():
-        existing = target.read_text(encoding="utf-8")
+        existing = read_utf8(target, SeedError)
         if existing == content:
             status = "unchanged"
         elif _untouched(existing):

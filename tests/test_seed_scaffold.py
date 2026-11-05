@@ -6,6 +6,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import urllib.parse
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -71,8 +72,12 @@ def test_generated_module_imports(tmp_path: Path, capsys: pytest.CaptureFixture[
 def test_generated_module_passes_ruff(tmp_path: Path) -> None:
     # The dependency-floor environment installs no dev tools; the lint check needs ruff.
     pytest.importorskip("ruff", reason="ruff is a dev dependency, absent from the floor venv")
-    out = tmp_path / "conftest_seed.py"
-    scaffold(str(OPENAPI), out, collections=["projects", "posts", "comments"])
+    out = tmp_path / "generated"
+    scaffold(str(OPENAPI), out / "conftest_seed.py", collections=["projects", "posts", "comments"])
+    # Seven collections: a DELETE_ORDER too long for one line, nesting, paging.
+    spec = tmp_path / "nested.json"
+    spec.write_text(json.dumps(NESTED, ensure_ascii=False), encoding="utf-8")
+    scaffold(str(spec), out / "seed_nested.py")
     for args in (["check"], ["format", "--check"]):
         completed = subprocess.run(
             [
@@ -194,3 +199,182 @@ def test_rerun_is_idempotent_and_keeps_an_edited_module(tmp_path: Path) -> None:
     out.write_text(out.read_text(encoding="utf-8") + "\n# local change\n", encoding="utf-8")
     assert scaffold(str(OPENAPI), out)["status"] == "kept"
     assert out.read_text(encoding="utf-8").endswith("# local change\n")
+
+
+def _ok(body: Any) -> Response:
+    return Response(200, [], json.dumps(body))
+
+
+def _schema(name_field: str = "name") -> dict[str, Any]:
+    return {"type": "object", "properties": {"id": {"type": "integer"}, name_field: {}}}
+
+
+def _collection(params: list[Any] | None = None, envelope: bool = False) -> dict[str, Any]:
+    listing: dict[str, Any] = {"type": "array", "items": _schema()}
+    if envelope:
+        listing = {"type": "object", "properties": {"items": listing, "total": {}}}
+    return {
+        "get": {
+            "parameters": params or [],
+            "responses": {"200": {"content": {"application/json": {"schema": listing}}}},
+        },
+        "post": {"requestBody": {"content": {"application/json": {"schema": _schema()}}}},
+    }
+
+
+DELETABLE = {"delete": {"responses": {"204": {"description": "gone"}}}}
+NESTED = {
+    "openapi": "3.1.0",
+    "paths": {
+        "/orgs": _collection(),
+        "/orgs/{org_id}": DELETABLE,
+        "/orgs/{org_id}/teams": _collection(),
+        "/orgs/{org_id}/teams/{team_id}": DELETABLE,
+        "/orgs/{org}/teams/{team}/members": _collection(
+            [{"$ref": "#/components/parameters/Page"}, {"$ref": "#/components/parameters/Size"}]
+        ),
+        "/orgs/{org}/teams/{team}/members/{member_id}": DELETABLE,
+        "/widgets": _collection(
+            [{"name": "offset", "in": "query"}, {"name": "limit", "in": "query"}]
+        ),
+        "/widgets/{id}": DELETABLE,
+        "/logs": _collection(envelope=True),
+        "/logs/{id}": DELETABLE,
+        "/документы": _collection(),
+        "/документы/{id}": DELETABLE,
+        "/отчёты": _collection(),
+        "/отчёты/{id}": DELETABLE,
+    },
+    "components": {
+        "parameters": {
+            "Page": {"name": "page", "in": "query", "schema": {"minimum": 1}},
+            "Size": {"name": "per_page", "in": "query"},
+        }
+    },
+}
+
+
+@pytest.fixture
+def nested(tmp_path: Path) -> tuple[Path, ModuleType]:
+    spec = tmp_path / "nested.json"
+    spec.write_text(json.dumps(NESTED, ensure_ascii=False), encoding="utf-8")
+    out = tmp_path / "seed_nested.py"
+    scaffold(str(spec), out)
+    module = _import(out)
+    module.POLL_S = 0.0
+    module.PAGE_SIZE = 2
+    return spec, module
+
+
+def test_nesting_paging_ref_parameters_and_non_ascii_names_are_analysed(
+    nested: tuple[Path, ModuleType],
+) -> None:
+    collections, skipped = analyse(load_openapi(str(nested[0])))
+    by_name = {c.name: c for c in collections}
+
+    assert skipped == []
+    assert {"dokumenty", "otchety"} <= set(by_name)  # no longer collapsed into one
+    assert (by_name["members"].parent, by_name["teams"].parent) == ("teams", "orgs")
+    order = delete_order(collections)
+    assert order.index("members") < order.index("teams") < order.index("orgs")
+    members = by_name["members"]
+    assert (members.page_param, members.page_start, members.size_param) == ("page", 1, "per_page")
+    assert (by_name["widgets"].offset_param, by_name["widgets"].size_param) == ("offset", "limit")
+    assert (by_name["logs"].items_key, by_name["logs"].total_key) == ("items", "total")
+
+
+class _PagedApi:
+    def __init__(self) -> None:
+        self.gets: list[str] = []
+        self.posts: list[str] = []
+
+    def get_fresh(self, path: str) -> Response:
+        self.gets.append(path)
+        base, _, query = path.partition("?")
+        args = dict(urllib.parse.parse_qsl(query))
+        if base == "/orgs":
+            return _ok([{"id": 1, "name": "T o (temp)"}, {"id": 2, "name": "kept"}])
+        if base == "/orgs/1/teams":
+            return _ok([{"id": 5, "name": "T t (temp)"}])
+        if base == "/orgs/1/teams/5/members":
+            pages = {
+                "1": [{"id": 7, "name": "a"}, {"id": 8, "name": "b"}],
+                "2": [{"id": 9, "name": "T m (temp)"}],
+            }
+            assert args["per_page"] == "2"
+            return _ok(pages.get(args["page"], []))
+        if base == "/widgets":
+            rows = [{"id": 1, "name": "a"}, {"id": 2, "name": "b"}, {"id": 3, "name": "x (temp)"}]
+            start = int(args["offset"])
+            return _ok(rows[start : start + int(args["limit"])])
+        if base == "/logs":
+            return _ok({"items": [{"id": 1, "name": "a"}], "total": 3})
+        return _ok([])
+
+    def post(self, path: str, body: Any) -> Response:
+        self.posts.append(path)
+        return Response(201, [], json.dumps({"id": 1, **body}))
+
+
+def test_find_follows_pages_offsets_and_nested_parents(nested: tuple[Path, ModuleType]) -> None:
+    module = nested[1]
+    api = _PagedApi()
+    sweeper = module.Sweeper(api)
+
+    assert [path for path, _ in sweeper.find("members")] == ["/orgs/1/teams/5/members/9"]
+    assert [path for path, _ in sweeper.find("widgets")] == ["/widgets/3"]
+    assert not any("{" in path or "None" in path for path in api.gets)
+
+    sweeper.create("members", "T", "m", 1, 5, role="viewer")
+    assert api.posts == ["/orgs/1/teams/5/members"]
+    with pytest.raises(TypeError, match="needs 2 parent id"):
+        sweeper.create("members", "T", "m", 1)
+
+
+def test_a_list_cut_short_without_paging_fails_instead_of_hiding_objects(
+    nested: tuple[Path, ModuleType],
+) -> None:
+    with pytest.raises(AssertionError, match="1 of 3 objects and declares no paging"):
+        nested[1].Sweeper(_PagedApi()).assert_clean()
+
+
+def test_the_absence_poll_has_its_own_deadline_after_a_long_conflict(
+    nested: tuple[Path, ModuleType], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = nested[1]
+
+    class Clock:
+        now = 0.0
+
+        def monotonic(self) -> float:
+            return self.now
+
+        def sleep(self, seconds: float) -> None:
+            self.now += max(seconds, 0.5)
+
+    clock = Clock()
+    monkeypatch.setattr(module, "time", clock)
+
+    class Slow:
+        def delete(self, path: str) -> Response:
+            return Response(409 if clock.now < 4.5 else 204, [], "")
+
+        def get_fresh(self, path: str) -> Response:
+            return Response(200 if clock.now < 8.0 else 404, [], "")
+
+    module.Sweeper(Slow()).delete("/widgets/3")  # 409 for 4.5 s, then gone after 8 s
+    assert clock.now >= 8.0
+
+
+def test_documents_that_are_not_utf8_are_input_errors(tmp_path: Path) -> None:
+    from testence.seed import _decode
+
+    cp1251 = tmp_path / "openapi.json"
+    cp1251.write_bytes('{"openapi": "3.0.0", "info": {"title": "Документы"}}'.encode("cp1251"))
+    with pytest.raises(SeedError, match="not UTF-8"):
+        load_openapi(str(cp1251))
+    assert json.loads(_decode(b'\xef\xbb\xbf{"openapi": "3.0.0"}', "url")) == {"openapi": "3.0.0"}
+
+    out = tmp_path / "conftest_seed.py"
+    out.write_bytes("# правка\n".encode("cp1251"))
+    assert main(["seed", "scaffold", "--openapi", str(OPENAPI), "--out", str(out)]) == 2
