@@ -9,7 +9,7 @@ A function qualifies only if it is **pure** and **plain-data**:
 
 | requirement | why | counter-example |
 |---|---|---|
-| no I/O | FFI boundaries and file handles do not mix; failures must be trivially retryable | `EvidenceWriter` (fsync per event) stays Python |
+| no I/O | FFI boundaries and file handles do not mix; failures must be trivially retryable | `EvidenceWriter` (fsync'd file I/O) stays Python |
 | no clocks / randomness | reproducibility: the same ledger must aggregate identically forever | timestamp stamping stays in the writer |
 | no global state | backends must be swappable mid-process for differential tests | no memoization inside a kernel |
 | plain data in/out | bytes, str, int, float, list, dict only — what crosses FFI cheaply | no `Target`, no Playwright objects, no callbacks |

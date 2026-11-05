@@ -20,6 +20,15 @@ frames, popups и вкладки, upload/download, dialogs, поддельные
 явное ослабление actionability. Оно записывается в `step.start` и переводит иначе
 verified attempt в `unverified` для review.
 
+`ex.expect_settled(target, intent=None, *, timeout_ms=None)` (`browser.dom`) ждёт,
+пока `getBoundingClientRect` цели не совпадёт в двух кадрах `requestAnimationFrame`
+подряд и прямоугольник не окажется целиком внутри viewport. Применяйте перед замером
+всего, что выезжает с анимацией: выдвижная панель видима с первого кадра, поэтому её
+ширина после `expect_visible` — ширина переходного состояния. Кадры считаются в
+странице за один round trip; ожидание — запись `expect_settled` в журнале ожиданий.
+Элемент, который не останавливается или остаётся вне viewport, падает как assertion с
+последним прямоугольником в сообщении.
+
 Внутри `with ex.frame(...)` locator actions, `eval_js` и `wait_for_predicate_js`
 используют один активный iframe. После выхода восстанавливается предыдущий page или
 вложенный frame scope. Операции с session и network остаются page-level.

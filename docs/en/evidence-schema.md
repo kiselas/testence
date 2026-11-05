@@ -1,15 +1,21 @@
 # Evidence schema `testence/2` (normative)
 
 One JSON object per line in `runs/<run-id>/run.jsonl`. Append-only; UTF-8; `\n` line
-endings on all platforms; fsync per event (crash-safety is the point, and it costs
-0.5 ms per event). Fields are append-only within a major version; breaking changes
+endings on all platforms. Every event is flushed to the operating system when it is
+written, so a crashed or killed process loses nothing. `fsync`, which keeps the line
+through a machine crash, follows `evidence.durability`: `test` (default) syncs at each
+`test.end`, on every event recording a failure or an error (a `fail`/`failed`/`broken`
+status, `ok: false`, `outcome: failed`, an `error` field), at the run manifest
+checkpoints, when a failure pack binds the ledger, and at close, so a failed test's
+evidence is on disk before its pack; `step` syncs every event (milliseconds each on
+Windows, about two per step). Fields are append-only within a major version; breaking changes
 bump the version and parsers must refuse foreign versions loudly.
 
 The fsync guarantee is the operating system's. On macOS `fsync` hands the data to the
 drive but does not flush the drive's own write cache, which needs `F_FULLFSYNC` and
 costs orders of magnitude more. A crashed or killed process loses nothing there either;
 a power loss can drop the last events. Testence keeps plain `fsync` on every platform
-rather than trade the per-event budget for that case.
+rather than trade the budget for that case.
 
 **One file per process, never per run.** Under `pytest -n` each worker writes
 `run-<worker>.jsonl` beside the controller's `run.jsonl`, all inside one run
@@ -67,7 +73,7 @@ a deterministic source-derived fallback that does not promise stability across r
 | `test.start` | `display_name`, `file`, `code` (12-hex digest of the test file), `nodeid`, `markers`, optional PlanSpec `owner`, scenario `risk`, `requirements` and `issues`; `allure` {`full_name`, `test_case_id`, `history_id` (allure-pytest formulas), `title_path`, `package`, `suite`, `test_class`, `test_method`, `labels`, `links`, `tags`, `parameters` (redacted name/value display), optional `title`, `description`, `description_html`, `docstring`, `plan_scenario` {title, claims, plan}} |
 | `test.phase` | `nodeid`, `display_name`, `phase`, pytest phase status, duration, optional error/xfail/xpass metadata |
 | `test.end` | `nodeid`, `display_name`, canonical `status` (`passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run`), `phase`, `duration_ms`, optional `pack`/error/xfail/xpass metadata, `error_kind` (`assertion`/`oracle`/`infrastructure`/`test_code`), `error_trace` (bounded, redacted), `screenshot` (run-relative, `evidence.screenshots: always`), `recordings` (`[{kind: trace\|video, path, redaction: none}]`, `evidence.trace`/`video`), `rerun: true` on an attempt that was repeated, `retries` and `flaky` on the final one, `allure_dynamic` {`title`, `description`, `description_html`, `labels`, `links`} from `allure.dynamic.*` calls of the attempt |
-| `test.waits` | `waited_ms`, `ops` (count), `by_op` {op: {ms, n}}, `top` (5 slowest) |
+| `test.waits` | `waited_ms`, `ops` (count), `by_op` {op: {ms, n}}, `top` (5 slowest); a browserless API-only test records its calls as op `api.request` |
 | `step.start` | `step` (id), `intent` (human sentence), `target`? (described), `depth` |
 | `step.end` | `step`, `status`, `duration_ms`, `depth`, `children`, `fingerprint`? (green runs), `error`? |
 | `net` | one per test with a browser, at the end of its call phase: `mutations` [{`method`, `origin`, `path` (identifiers templated as `{id}`), `status`, `failure`?, `request_keys`, `response_keys`, `id_path`?, `reads_after`}], `reads` [{`method`, `path`, `n`, `status`}], `bodies` (whether body capture was on). Names and shapes only; `testence oracle suggest` reads it |

@@ -473,6 +473,17 @@ class Actions:
             else:  # engines written before expect_hidden: a wait, reported as before
                 self.engine.wait_while_visible(target)
 
+    def expect_settled(
+        self, target: Target, intent: str | None = None, *, timeout_ms: int | None = None
+    ) -> None:
+        """Wait until the target has stopped moving: the same box two frames running,
+        wholly inside the viewport. Use it before reading the geometry of anything that
+        animates in (a drawer, a sliding panel), whose size mid-transition is not the
+        size it keeps."""
+        with self.step(intent or f"expect {target.describe()} settled", target, check=True):
+            require_capabilities(self.engine, "expect_settled", Capability.DOM)
+            self._engine_method("expect_settled")(target, timeout_ms=timeout_ms)
+
     # -- state assertions --------------------------------------------------------
     #
     # Exact by default, like expect_text. A state that never holds is a failed

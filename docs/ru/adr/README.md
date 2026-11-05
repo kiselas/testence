@@ -37,6 +37,8 @@
 | [0026](0026-streaming-allure-export.md) | Потоковая выдача результатов Allure по окончании тестов | accepted |
 | [0027](0027-native-escape-hatch.md) | Единственный записываемый выход на прямой Playwright | accepted |
 | [0028](0028-junit-exporter.md) | Экспортер JUnit рядом с `--junitxml` | accepted |
+| [0036](0036-browserless-api-tests.md) | API-тест выполняется без браузера | implemented (engineering) |
+| [0037](0037-ledger-durability-per-test.md) | Долговечность журнала по тестам, flush на событие | implemented (engineering) |
 
 Формат: Контекст → Рассмотренные варианты → Решение → Последствия → Tripwire.
 Имена метрик определяются рядом с их реализацией и benchmark-документацией.

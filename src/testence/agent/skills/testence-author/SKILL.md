@@ -78,7 +78,8 @@ Before running cases in parallel against one shared target, or marking one
   `save_and_verify_state` call to complete.
 - Prefer the DSL. Check state with its exact checks — `expect_text`, `expect_value`,
   `expect_count`, `expect_visible`/`expect_hidden`, `expect_enabled`/`expect_disabled`,
-  `expect_checked`, `expect_attribute`, `expect_url` — and act with `click`, `fill`,
+  `expect_checked`, `expect_attribute`, `expect_url`, `expect_settled` (before measuring
+  anything that animates in) — and act with `click`, `fill`,
   `press`, `check`/`uncheck`, `hover`, `drag(source, destination)` and
   `select(..., label=...)`. Group independent
   facts of one screen in `with ex.soft(...)`; drive timers with `ex.clock` instead of

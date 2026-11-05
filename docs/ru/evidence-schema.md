@@ -1,15 +1,22 @@
 # Схема доказательств `testence/2` (нормативная)
 
 Один JSON-объект на строку в `runs/<run-id>/run.jsonl`. Формат append-only, UTF-8,
-окончания строк `\n` на всех платформах, fsync после каждого события. Crash safety —
-сама цель и стоит около 0,5 мс на событие. Поля только добавляются внутри major version;
+окончания строк `\n` на всех платформах. Каждое событие при записи сбрасывается в
+операционную систему (flush), поэтому падение или убийство процесса ничего не теряет.
+`fsync`, который сохраняет строку и при падении машины, следует `evidence.durability`:
+`test` (по умолчанию) синхронизирует на каждом `test.end`, на каждом событии с падением
+или ошибкой (status `fail`/`failed`/`broken`, `ok: false`, `outcome: failed`, поле
+`error`), на контрольных точках манифеста запуска, когда failure pack привязывает
+журнал, и при закрытии — улики упавшего теста на диске раньше его pack; `step`
+синхронизирует каждое событие (на Windows — миллисекунды на каждое, около двух на шаг).
+Поля только добавляются внутри major version;
 breaking changes повышают версию, а parsers должны явно отклонять чужие версии.
 
 Гарантию fsync даёт операционная система. На macOS `fsync` передаёт данные накопителю,
 но не сбрасывает его собственный кэш записи: для этого нужен `F_FULLFSYNC`, который
 дороже на порядки. Падение или убийство процесса и там ничего не теряет, а при потере
 питания могут пропасть последние события. Testence оставляет обычный `fsync` на всех
-платформах, чтобы не жертвовать бюджетом на событие ради этого случая.
+платформах, чтобы не жертвовать бюджетом ради этого случая.
 
 **Один файл на процесс, но не на запуск.** При `pytest -n` каждый worker пишет
 `run-<worker>.jsonl` рядом с controller `run.jsonl` внутри одного каталога,
@@ -66,7 +73,7 @@ pytest-xdist добавляет при `--dist loadgroup`, остаётся sour
 | `test.start` | `display_name`, `file`, `code` (12-hex digest файла теста), `nodeid`, `markers`, optional `owner` PlanSpec, `risk` scenario, `requirements` и `issues`; `allure` {`full_name`, `test_case_id`, `history_id` (формулы allure-pytest), `title_path`, `package`, `suite`, `test_class`, `test_method`, `labels`, `links`, `tags`, `parameters` (замаскированные пары name/value), optional `title`, `description`, `description_html`, `docstring`, `plan_scenario` {title, claims, plan}} |
 | `test.phase` | `nodeid`, `display_name`, `phase`, pytest phase status, duration и optional error/xfail/xpass metadata |
 | `test.end` | `nodeid`, `display_name`, canonical `status` (`passed`/`failed`/`broken`/`skipped`/`aborted`/`not_run`), `phase`, `duration_ms`, optional `pack`/error/xfail/xpass metadata, `error_kind` (`assertion`/`oracle`/`infrastructure`/`test_code`), `error_trace` (ограниченный, замаскированный), `screenshot` (относительно прогона, `evidence.screenshots: always`), `recordings` (`[{kind: trace\|video, path, redaction: none}]`, `evidence.trace`/`video`), `rerun: true` у повторённой попытки, `retries` и `flaky` у итоговой, `allure_dynamic` {`title`, `description`, `description_html`, `labels`, `links`} из вызовов `allure.dynamic.*` этой попытки |
-| `test.waits` | `waited_ms`, `ops` (count), `by_op` {op: {ms, n}}, `top` (5 самых медленных) |
+| `test.waits` | `waited_ms`, `ops` (count), `by_op` {op: {ms, n}}, `top` (5 самых медленных); API-тест без браузера записывает свои вызовы как op `api.request` |
 | `step.start` | `step` (id), `intent` (фраза человека), `target`? (описание), `depth` |
 | `step.end` | `step`, `status`, `duration_ms`, `depth`, `children`, `fingerprint`? (green runs), `error`? |
 | `net` | одно на тест с браузером, в конце фазы call: `mutations` [{`method`, `origin`, `path` (идентификаторы как `{id}`), `status`, `failure`?, `request_keys`, `response_keys`, `id_path`?, `reads_after`}], `reads` [{`method`, `path`, `n`, `status`}], `bodies` (был ли включён захват тел). Только имена и формы; читает `testence oracle suggest` |

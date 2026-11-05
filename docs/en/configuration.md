@@ -98,24 +98,43 @@ are added only to requests for those origins, never to a CDN, analytics or font 
 the page loads from. Browser cookies additionally keep their domain, path, secure and
 expiry scope.
 
+`ApiClient` keeps its connections alive: one per origin, so the calls of a test share
+one TCP and TLS connection, closed when the test ends. Before an idle connection is
+used, it is checked: one the server closed while it sat idle is discarded and the
+request goes on a new connection. A connection that breaks while a request is in flight
+is retried once on a new connection only for an idempotent method (GET, HEAD, OPTIONS,
+PUT, DELETE); a POST or PATCH is never sent twice behind the test's back, the call
+fails instead, because the application may have applied it. A connection that fails or
+breaks raises `urllib.error.URLError`, as before; a call without an answer in time
+raises `TimeoutError`. Redirects follow urllib's rules (GET and HEAD follow, a POST
+answered 301-303 continues as a GET without its body, anything else is returned) and
+stay on the origin. Proxies come from the environment or the system settings, read for
+every request, as with urllib.
+
 ## Optional session cache
 
-Session reuse is disabled until a profile declares an identity probe. A safe cache
-profile names the expected role and a finite TTL:
+Session reuse is disabled until a profile declares an identity probe. The smallest
+cache profile names the probe and a finite TTL:
 
 ```json
 {
   "session_probe_path": "/api/v1/auth/me",
   "session_cache_ttl_s": 900,
-  "session_identity_field": "email",
-  "session_role_field": "role",
-  "session_expected_role": "qa-admin"
+  "session_identity_field": "user.email",
+  "session_id_field": "user.id"
 }
 ```
 
-The probe must return a JSON object containing the configured identity and role.
-Before every reuse Testence requires HTTP 2xx, the configured account and role, and
-an unexpired cache record. A logout, corrupt or legacy cache, changed project,
+The probe must return a JSON object containing the configured identity
+(`session_identity_field`, default `email`; a dot path reads a nested field). The
+identity is that value plus, when named, `session_id_field` and `session_role_field`:
+a different id or role behind the same account is another identity. A role is not
+required. Add `"session_expected_role": "qa-admin"` to pin one; it is enforced only
+when set, reads `role` unless `session_role_field` names another field, and a probe
+without that field is then never reused. A named id field that is missing from the
+probe is a miss too. Before every reuse Testence requires HTTP 2xx, the configured
+account (and role, when expected), the same identity as when the session was cached,
+and an unexpired cache record. A logout, corrupt or legacy cache, changed project,
 origin, account, profile, role or auth strategy causes a real login. Cache filenames
 are scope-derived, account values are hashed, and files use owner-only mode where
 the operating system supports it. Keep the cache under the ignored `runs_root`.
@@ -343,6 +362,19 @@ may be kept, and note each file is marked `redaction: none`. Only
 `testence export --attachments raw` ships them; the default export and the live Allure
 stream do not. They need a context Testence owns, so
 an attached browser or a persistent profile refuses them.
+
+### Ledger durability
+
+```json
+{"evidence": {"durability": "test"}}
+```
+
+Every event is flushed when it is written, so a killed process keeps the ledger.
+`durability` decides when it is also synced to disk (`fsync`), which only a machine
+crash needs: `test` (default) at the end of each test, on any failure or error event,
+when a failure pack binds the ledger and at close; `step` after every event, the
+earlier behaviour, at a few milliseconds per event on Windows. See
+[evidence schema](evidence-schema.md).
 
 ## Negative controls
 

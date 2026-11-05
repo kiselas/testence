@@ -17,7 +17,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -26,13 +27,14 @@ from testence.actors import ActorError, Actors
 from testence.assurance import POLICY_DIGEST
 from testence.auth import AuthContext, from_settings
 from testence.auth.base import session_secrets
-from testence.auth.strategies import api_headers_from_storage
+from testence.auth.strategies import api_headers_from_storage, is_custom_scheme
 from testence.config import Settings
 from testence.contracts import PlanSpec, load_plan
 from testence.contracts._validation import ContractError
 from testence.controls import Control, ControlError, resolve_control
 from testence.dsl import Actions
 from testence.engine import Engine, create_engine, engine_capabilities
+from testence.engine.browserless import HTTP_SCHEMES, BrowserlessSession
 from testence.evidence import RUN_ID_ENV, EvidenceWriter, new_run_id
 from testence.fingerprints import DEFAULT_STORE, FingerprintStore
 from testence.identity import TestIdentity, proof_id, source_case_id, variant_id
@@ -916,6 +918,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
     try:
         redaction_policy = settings.redaction_policy()
         redact_values = settings.redaction_values()
+        durability = str(settings.evidence_config().get("durability", "test"))
     except ValueError as exc:
         raise pytest.UsageError(f"invalid Testence evidence settings: {exc}") from exc
     writer = EvidenceWriter(
@@ -925,6 +928,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         redact_values=redact_values,
         redaction_policy=redaction_policy,
         deferred=not config.stash.get(_RECORD_KEY, True),
+        durability=durability,
     )
     stream_dir = config.getoption("--testence-allure-results")
     if stream_dir:
@@ -1743,6 +1747,14 @@ def testence_engine(
             _engine_phase_notes(testence_writer, _test_id(request.node), engine, "browser.start")
     if reuse:
         _engine_phase_notes(testence_writer, _test_id(request.node), engine, "context.fresh")
+    session = request.node.stash.get(_BROWSERLESS_KEY, None)
+    if session is not None:
+        # The browser was asked for after a browserless login (request.getfixturevalue
+        # of `ex` or `testence_engine` in the test body): it gets that session, and it
+        # is the test's engine from now on — the failure pack, any_failed, recordings
+        # and the final screenshot read the real browser, not the stand-in.
+        _carry_session(session, engine)
+        request.node.stash[_ENGINE_KEY] = engine
     state: dict[str, Any] = {"any_failed": False, "mode": mode}
     engine._testence_state = state  # type: ignore[attr-defined]
     try:
@@ -1786,27 +1798,64 @@ def testence_engine(
             )
 
 
+#: Fixtures whose test drives a browser; any of them in a test's closure means the
+#: login goes through that browser.
+_BROWSER_FIXTURES = frozenset({"ex", "testence_engine"})
+_BROWSERLESS_KEY = pytest.StashKey[BrowserlessSession]()
+
+
+def _browser_needed(request: pytest.FixtureRequest, settings: Settings) -> bool:
+    """Whether this test's login needs a browser: it drives one, or its scheme does."""
+    if _BROWSER_FIXTURES & set(request.fixturenames):
+        return True
+    if is_custom_scheme(settings.auth) or settings.extra.get("api_auth_from_storage"):
+        return True
+    return (settings.auth or "none").lower() not in HTTP_SCHEMES
+
+
+def _session_engine(request: pytest.FixtureRequest, settings: Settings) -> Engine:
+    """The engine a login of this test writes into: the browser, or a browserless session."""
+    if _browser_needed(request, settings):
+        return cast(Engine, request.getfixturevalue("testence_engine"))
+    session = request.node.stash.get(_BROWSERLESS_KEY, None)
+    if session is None:
+        session = request.node.stash[_BROWSERLESS_KEY] = BrowserlessSession()
+    return cast(Engine, session)
+
+
+def _carry_session(session: BrowserlessSession, engine: Engine) -> None:
+    """Put a browserless login into a browser asked for later in the same test."""
+    if session.cookies():
+        engine.add_cookies(session.cookies())
+    if session.extra_http_headers():
+        engine.set_extra_http_headers(session.extra_http_headers())
+    for key, value in session.storage_snapshot().items():
+        engine.set_storage_item(key, value)
+
+
 @pytest.fixture
 def testence_auth(
     request: pytest.FixtureRequest,
     testence_settings: Settings,
-    testence_engine: Engine,
     testence_writer: EvidenceWriter,
 ) -> AuthContext:
     """Authenticated session for one isolated test, using the configured scheme.
 
     Logged as an evidence event (scheme and names only) so a failed run always
-    shows whether it was authenticated — a surprisingly common root cause.
+    shows whether it was authenticated — a surprisingly common root cause. A test
+    that uses no browser and a scheme that logs in over HTTP starts no browser.
     """
+    # Resolved before the phase starts, so a browser launch is not timed as login.
+    engine = _session_engine(request, testence_settings)
     started = time.perf_counter()
     with _lifecycle_phase(testence_writer, _test_id(request.node), "auth"):
         adapter = from_settings(testence_settings)
-        context = adapter.authenticate(testence_engine)
+        context = adapter.authenticate(engine)
         spec = testence_settings.extra.get("api_auth_from_storage")
         if spec and context.scheme != "none":
             context.headers.update(
                 api_headers_from_storage(
-                    spec, testence_engine, timeout_ms=min(testence_settings.timeout_ms, 10_000)
+                    spec, engine, timeout_ms=min(testence_settings.timeout_ms, 10_000)
                 )
             )
     # A token, cookie or stored value produced at run time is masked like a
@@ -1828,17 +1877,45 @@ def testence_api(
     testence_settings: Settings,
     testence_auth: AuthContext,
     testence_writer: EvidenceWriter,
-) -> ApiClient:
+) -> Iterator[ApiClient]:
     """API client sharing the browser's session — for oracles and seeding.
 
     Every call is recorded as an ``api.request`` event of this test, and a failed test
-    that used only this client still gets a failure pack carrying those calls.
+    that used only this client still gets a failure pack carrying those calls. A test
+    without ``ex`` whose scheme logs in over HTTP runs without a browser; its calls
+    are then its wait ledger (``test.waits``).
     """
     from testence.api import ApiClient, evidence_recorder
 
-    request.node.stash.setdefault(_ENGINE_KEY, request.getfixturevalue("testence_engine"))
-    recorder = evidence_recorder(testence_writer, _test_id(request.node))
-    return ApiClient.from_settings(testence_settings, testence_auth, recorder=recorder)
+    test_id = _test_id(request.node)
+    session = request.node.stash.get(_BROWSERLESS_KEY, None)
+    engine = session if session is not None else request.getfixturevalue("testence_engine")
+    request.node.stash.setdefault(_ENGINE_KEY, cast(Engine, engine))
+    record = evidence_recorder(testence_writer, test_id)
+
+    def recorder(**fields: Any) -> None:
+        if session is not None:
+            path = urlsplit(str(fields.get("url", ""))).path or "/"
+            session.record_wait(
+                "api.request",
+                f"{fields.get('method', '')} {path}",
+                float(fields.get("duration_ms", 0.0)),
+                "error" not in fields,
+            )
+        record(**fields)
+
+    client = ApiClient.from_settings(testence_settings, testence_auth, recorder=recorder)
+    started = time.perf_counter()
+    try:
+        yield client
+    finally:
+        client.close()
+        if session is not None and _ACTIONS_KEY not in request.node.stash:
+            # No `ex` summarized this test's waits: the calls, plus the browser's own
+            # waits if a browser was asked for later.
+            current = request.node.stash.get(_ENGINE_KEY, None)
+            browser = [] if current is session else _ledger(current)
+            _emit_waits(testence_writer, test_id, browser + session.wait_ledger(), started)
 
 
 @pytest.fixture
@@ -1996,32 +2073,50 @@ def ex(
         yield actions
     finally:
         actions._finish_ws_gates()
-        duration_ms = round((time.perf_counter() - started) * 1000, 1)
         # Wait budget remains evidence supplied by the browser fixture; the terminal
         # execution outcome is owned by pytest_runtest_protocol.
-        ledger = testence_engine.wait_ledger() if hasattr(testence_engine, "wait_ledger") else []
-        if ledger:
-            waited_ms = round(sum(entry["ms"] for entry in ledger), 1)
-            top = sorted(ledger, key=lambda entry: -entry["ms"])[:5]
-            by_op: dict[str, dict[str, float]] = {}
-            for entry in ledger:
-                row = by_op.setdefault(entry["op"], {"ms": 0.0, "n": 0})
-                row["ms"] = round(row["ms"] + entry["ms"], 1)
-                row["n"] += 1
-            testence_writer.emit(
-                "test.waits",
-                test=test_id,
-                waited_ms=waited_ms,
-                ops=len(ledger),
-                by_op=by_op,
-                top=top,
-            )
-            _RUN_WAITS.append(
-                {
-                    "test": test_id,
-                    "wall_ms": duration_ms,
-                    "waited_ms": waited_ms,
-                    "top": top,
-                    "by_op": by_op,
-                }
-            )
+        ledger = _ledger(testence_engine)
+        session = request.node.stash.get(_BROWSERLESS_KEY, None)
+        if session is not None:
+            # A browser asked for after a browserless login: the API calls made before
+            # and after it are this test's waits too.
+            ledger += session.wait_ledger()
+        _emit_waits(testence_writer, test_id, ledger, started)
+
+
+def _ledger(engine: Any) -> list[dict[str, Any]]:
+    reader = getattr(engine, "wait_ledger", None)
+    return list(reader()) if callable(reader) else []
+
+
+def _emit_waits(
+    writer: EvidenceWriter, test_id: str, ledger: list[dict[str, Any]], started: float
+) -> None:
+    """One ``test.waits`` event summarizing a test's wait ledger, if it has one."""
+    if not ledger:
+        return
+    duration_ms = round((time.perf_counter() - started) * 1000, 1)
+    waited_ms = round(sum(entry["ms"] for entry in ledger), 1)
+    top = sorted(ledger, key=lambda entry: -entry["ms"])[:5]
+    by_op: dict[str, dict[str, float]] = {}
+    for entry in ledger:
+        row = by_op.setdefault(entry["op"], {"ms": 0.0, "n": 0})
+        row["ms"] = round(row["ms"] + entry["ms"], 1)
+        row["n"] += 1
+    writer.emit(
+        "test.waits",
+        test=test_id,
+        waited_ms=waited_ms,
+        ops=len(ledger),
+        by_op=by_op,
+        top=top,
+    )
+    _RUN_WAITS.append(
+        {
+            "test": test_id,
+            "wall_ms": duration_ms,
+            "waited_ms": waited_ms,
+            "top": top,
+            "by_op": by_op,
+        }
+    )

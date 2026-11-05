@@ -20,6 +20,15 @@ multiple matches fail unless the author deliberately supplies `Target(..., nth=N
 `fast=True` is an explicit actionability weakening. It is recorded on `step.start` and
 changes an otherwise verified attempt to `unverified` for review.
 
+`ex.expect_settled(target, intent=None, *, timeout_ms=None)` (`browser.dom`) waits
+until the target's `getBoundingClientRect` is the same in two consecutive
+`requestAnimationFrame` frames and the box lies wholly inside the viewport. Use it
+before measuring anything that animates in: a drawer is visible from its first frame,
+so its width read after `expect_visible` is a width of the transition. The frames are
+counted in the page in one round trip; the wait is an `expect_settled` entry of the
+wait ledger. An element that never stops, or stays outside the viewport, fails as an
+assertion naming its last box.
+
 Inside `with ex.frame(...)`, locator actions, `eval_js`, and `wait_for_predicate_js`
 share the same active iframe. Leaving the context restores the previous page or nested
 frame scope. Page-level session and network operations remain page-level.
