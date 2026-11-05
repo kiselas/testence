@@ -153,11 +153,18 @@ def test_api_only_overhead_is_the_http_calls(tmp_path):
 
     The baseline runs in the same session on the same host, so a loaded runner slows
     both; a browser start, a context or a login through a page alone would cost more
-    than the margin.
+    than the margin. The measured test is the second API test of the session: the
+    first pays once for what any first HTTP call pays (importing the HTTP stack), which
+    on a loaded macOS runner alone took more than the margin.
     """
     suite = """
 def test_baseline(testence_settings):
     pass
+
+
+def test_reads_first(testence_api):
+    for _ in range(5):
+        assert testence_api.get("/api/v1/widgets/7").status == 200
 
 
 def test_reads(testence_api):
@@ -167,10 +174,13 @@ def test_reads(testence_api):
     result, events = _run(tmp_path / "speed", {"auth": "api-session"}, suite)
     assert result.returncode == 0, result.stdout + result.stderr
     ends = {e["test"].rsplit("::", 1)[-1]: e for e in events if e["kind"] == "test.end"}
+    for name in ("test_reads_first", "test_reads"):
+        own = [e for e in events if str(e.get("test", "")).endswith(name)]
+        assert not [
+            e for e in own if e.get("lifecycle_phase") in ("browser.start", "context.fresh")
+        ]
     reads = [e for e in events if str(e.get("test", "")).endswith("test_reads")]
-    assert not [e for e in reads if e.get("lifecycle_phase") in ("browser.start", "context.fresh")]
-    (auth,) = [e for e in reads if e.get("lifecycle_phase") == "auth"]
-    http_ms = auth["duration_ms"] + sum(
+    http_ms = sum(e["duration_ms"] for e in reads if e.get("lifecycle_phase") == "auth") + sum(
         e["duration_ms"] for e in reads if e["kind"] == "api.request"
     )
     overhead = ends["test_reads"]["duration_ms"] - http_ms
