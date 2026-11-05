@@ -164,6 +164,7 @@ UI and the API see the same thing.
 | `TESTENCE_RUN_ID` | names the run directory; set by the plugin so every xdist worker shares one ([ADR-0012](adr/0012-parallel-execution.md)) |
 | `ALLURE_TESTPLAN_PATH` | standard Allure `version: 1.0` selective plan; invalid plans fail, unresolved entries are reported ([reporting](reporting.md#selecting-tests-from-a-testops-plan)) |
 | `TESTENCE_TESTPLAN_UNRESOLVED` | `warn` (default) or `fail` for plan entries that match no collected test |
+| `TESTENCE_SCHEDULE` | `default` or `longest-first`: order tests under pytest-xdist by earlier durations (`--testence-schedule`, [running in parallel](#slowest-tests-first)) |
 | `TESTENCE_RERUNS` | repeat a failed test up to N times, 0–5 (`--testence-reruns`); every attempt is recorded ([reporting](reporting.md#reruns-and-flaky-tests)) |
 | `TESTENCE_ALLURE_RESULTS` | stream Allure results into this directory as tests end (`--testence-allure-results`) |
 | `TESTENCE_FULL_TRACE` | `1` keeps the frames of Testence and Playwright below the test in failure tracebacks (`--testence-full-trace`; pytest's `--full-trace` does the same) |
@@ -363,6 +364,19 @@ may be kept, and note each file is marked `redaction: none`. Only
 stream do not. They need a context Testence owns, so
 an attached browser or a persistent profile refuses them.
 
+### Element fingerprints
+
+```json
+{"evidence": {"fingerprints": "once"}}
+```
+
+`every-green` (default): after every green step with a target the element's
+fingerprint is taken and stored in `.testence/fingerprints.json`, so a heal proposal
+and the repair skill compare a failure with the last green run. `once`: a step whose
+store already holds the fingerprint for the same target skips that browser call; a
+changed target is taken again. That saves one round trip per step on every green
+replay, and the baseline becomes the first green run of the step and target.
+
 ### Ledger durability
 
 ```json
@@ -401,6 +415,26 @@ synthetic target. An undeclared name and `--testence-reruns` with a control are
 usage errors. A run made with a control never proves product behaviour, and
 `ci evaluate` refuses it as the run under evaluation.
 
+## Sharing a page within a module
+
+```json
+{"page_reuse": "module"}
+```
+
+`test` (default): every test gets a fresh context and logs in. `module`: a test hands its
+tab and context to the next test pytest runs when that test is in the same module,
+logs in the same way (the configured scheme, or anonymous) and is not marked
+`@pytest.mark.testence(fresh_page=True)`. The next test takes the page over with its
+other tabs closed and its network, console and wait buffers cleared; its `auth` phase
+reuses the login (`reused: true`). Each test's evidence and `test.waits` stay its own.
+
+A page is not handed on after a failure, after `ex.route`, a fake clock, a WebSocket
+gate, a response rewrite or `ex.native`, with trace or video on, in warm or attached
+mode, or when the next test does not share module and login; a `page not kept` note
+says why. Cookies, storage and the current document are shared: a test that reads
+state another test may leave clears it with `ex.reset_storage(["key", ...])`, or opts
+out with `fresh_page=True`. See [ADR-0038](adr/0038-page-reuse-within-a-module.md).
+
 ## Running in parallel
 
 ```bash
@@ -421,3 +455,21 @@ other's data on a shared server. Which tests may share one target is decided per
 test from what its serial run read and wrote, and proven with repeated parallel runs
 and an adversarial neighbour ([ADR-0034](adr/0034-parallel-safety-on-a-shared-target.md)).
 Agents follow the procedure in the author skill's `references/parallel-safety.md`.
+
+### Slowest tests first
+
+```bash
+pytest tests_e2e/ -q -n 4 --testence-schedule longest-first
+```
+
+xdist hands tests out in collection order, so a slow test collected last becomes the
+tail of the run. `longest-first` (or `TESTENCE_SCHEDULE=longest-first`) has the
+controller read the `test.end` durations of the 20 most recent runs under `runs_root`
+(the median of each test's last five, repeated attempts excluded) and every worker
+order its collection by them. The unit is a module: modules go longest first by their
+total, and the tests of a module keep their order and stay together, so module
+fixtures and `page_reuse: module` keep working. The tests of one `xdist_group` are a
+unit of their own (under `--dist loadgroup` xdist keeps that order). A test without
+history counts as the median test. Without history nothing changes; other `--dist`
+modes are refused. Under `--dist load` xdist still hands a module's tests out in
+chunks, so a long module can be split between workers as before.

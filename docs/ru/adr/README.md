@@ -39,6 +39,7 @@
 | [0028](0028-junit-exporter.md) | Экспортер JUnit рядом с `--junitxml` | accepted |
 | [0036](0036-browserless-api-tests.md) | API-тест выполняется без браузера | implemented (engineering) |
 | [0037](0037-ledger-durability-per-test.md) | Долговечность журнала по тестам, flush на событие | implemented (engineering) |
+| [0038](0038-page-reuse-within-a-module.md) | Переиспользование вкладки внутри модуля по выбору проекта | implemented (engineering, opt-in) |
 
 Формат: Контекст → Рассмотренные варианты → Решение → Последствия → Tripwire.
 Имена метрик определяются рядом с их реализацией и benchmark-документацией.

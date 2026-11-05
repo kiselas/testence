@@ -167,6 +167,11 @@ class Engine(Protocol):
         """
         ...
 
+    def open(self, url: str) -> str:
+        """Open a route: client-side when the application is mounted on this origin,
+        otherwise a document load; returns ``"navigate"`` or ``"goto"``."""
+        ...
+
     def click(self, target: Target, *, fast: bool = False) -> None:
         """Click the target. ``fast=True`` skips the actionability checks.
 
