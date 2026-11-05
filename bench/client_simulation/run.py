@@ -34,6 +34,32 @@ STYLES = {
 }
 
 
+#: Run once in a separate process before any scenario. A freshly installed browser's first launch,
+#: navigation and first screenshot on a hosted runner can take longer than the 5 s the scenarios
+#: allow (the executable was downloaded seconds earlier and is still being scanned and initialised).
+#: The failed runs of 2026-09-29, 10-13, 11-02 and 11-05 were all a screenshot of a freshly launched
+#: browser that timed out or differed from the next one, and this warm-up used to stop before taking
+#: any: it takes two. It pays that cost untimed by any scenario and is recorded; a warm-up failure
+#: is evidence, not a verdict.
+WARMUP_CODE = (
+    "from testence.config import Settings\n"
+    "from testence.engine import create_engine\n"
+    "import sys, tempfile\n"
+    "from pathlib import Path\n"
+    "engine = create_engine(Settings(base_url=sys.argv[1], headed=False, "
+    "debug_port=0, timeout_ms=60000))\n"
+    "engine.start()\n"
+    "try:\n"
+    "    engine.goto('/')\n"
+    "    with tempfile.TemporaryDirectory() as scratch:\n"
+    "        for number in (1, 2):\n"
+    "            engine.screenshot(str(Path(scratch) / f'warmup-{number}.png'))\n"
+    "        print('warm-up screenshots:', len(list(Path(scratch).glob('*.png'))))\n"
+    "finally:\n"
+    "    engine.stop()\n"
+)
+
+
 def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -133,22 +159,7 @@ def main() -> int:
 
     checkpoint()
     try:
-        # A freshly installed browser's first launch and navigation on a hosted runner
-        # can take longer than the 5 s the scenarios allow (the executable was downloaded
-        # seconds earlier and is still being scanned). Pay that once, untimed by any
-        # scenario, and record it; a warm-up failure is evidence, not a verdict.
-        warmup_code = (
-            "from testence.config import Settings\n"
-            "from testence.engine import create_engine\n"
-            "import sys\n"
-            "engine = create_engine(Settings(base_url=sys.argv[1], headed=False, "
-            "debug_port=0, timeout_ms=60000))\n"
-            "engine.start()\n"
-            "try:\n"
-            "    engine.goto('/')\n"
-            "finally:\n"
-            "    engine.stop()\n"
-        )
+        warmup_code = WARMUP_CODE
         warmup_log = output / "warmup.log"
         code, elapsed = invoke(
             [sys.executable, "-I", "-c", warmup_code, f"http://127.0.0.1:{server.server_port}"],
