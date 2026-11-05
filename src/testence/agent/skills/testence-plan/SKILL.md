@@ -10,6 +10,7 @@ Create the semantic contract before creating test code or exploring the live UI.
 ## Workflow
 
 1. Read the request, nearby product documentation, API/schema truth, and existing plans.
+   When the cases already exist as a Markdown table or per-case sections, start from `testence plan skeleton <cases.md> --plan specs/<feature>.json --tests <dir>`: one claim per expected result with the source text as `expected`, open questions for cases without one. Review its claims and oracles like any draft (upgrade `ui` to `api` where the outcome is stored data); never fill an open question with a guess.
 2. State the user or business outcome at risk. Separate independent outcomes into stable claims.
 3. Give each claim a lowercase dotted ID. Record the observation sources that can prove it.
 4. Prefer at least one oracle independent of the rendered UI when the claim concerns persistence, permissions, money, delivery, or another durable side effect.

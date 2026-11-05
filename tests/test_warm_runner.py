@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -119,3 +120,24 @@ def test_warm_engine_is_reused_and_closed_once(monkeypatch):
     assert first is second is engine
     assert engine.starts == 1
     assert engine.stops == [False]
+
+
+def test_watch_reports_each_iteration_exit_code_and_time(monkeypatch, tmp_path, capsys):
+    """Iteration time is the loop's whole point, so every run prints it."""
+    from testence import cli
+
+    (tmp_path / "test_probe.py").write_text("def test_probe():\n    pass\n", encoding="utf-8")
+    monkeypatch.setattr(
+        cli.subprocess, "run", lambda cmd, check: type("Done", (), {"returncode": 5})()
+    )
+
+    def stop(_seconds):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli.time, "sleep", stop)
+
+    assert cli._watch([tmp_path], ["*.py"], ["pytest", "test_probe.py"]) == 0
+
+    out = capsys.readouterr().out
+    assert re.search(r"\[watch\] run 1 exit 5 in \d+\.\ds", out), out
+    assert "stopped after 1 run(s)" in out

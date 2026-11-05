@@ -64,6 +64,44 @@ testence watch --warm -w tests -- python -m pytest tests/test_import.py::test_im
 
 This does not preserve arbitrary fixture state or bypass authentication. For an
 explicit attached browser profile see [fast authoring](../../README.md#fast-agent-authoring).
+
+### The warm loop for one case, measured
+
+What a warm iteration keeps: the Python interpreter, pytest and Testence imports, and
+the browser and its driver (`TESTENCE_WARM_ENGINE=1`; the engine is closed once, by
+`close_warm_engine`, when the loop stops). What it renews: the pytest session, every
+fixture, the run ID and evidence, and the browser context: each test starts from
+`reset_session()` with no cookies or storage. Project modules under the watched roots
+are evicted before each rerun, so a saved edit is what runs. A form login therefore runs
+again on every iteration, as it does in a fresh process; it is part of the test. Where a
+login is too slow to repeat, a saved session (`auth: storage-state`, see
+[Authentication](auth.md)) starts each new context signed in.
+
+Every run prints its exit code and wall-clock time:
+
+```text
+[watch] run 2 exit 0 in 2.2s
+```
+
+Measured on the bundled examples (a scratch copy of `examples/` with its synthetic app),
+Windows 11, Python 3.12.4, `TESTENCE_BROWSER_CHANNEL=msedge`, headless, on a host that
+was running other browser suites at the same time. Cold is a fresh
+`python -m pytest … --testence-headless` process, timed from start to exit. Warm is
+`testence watch --warm -w examples -- pytest … --testence-headless`, with the test module
+edited (one `intent` string changed) between runs; the changed intent appears in the
+next run's `run.jsonl`, and no warm run launched a browser.
+
+| Scope | Cold, fresh process | Warm run 1 | Warm run 2 | Warm run 3 |
+|---|---|---|---|---|
+| `examples/test_login_flow.py::test_login_form_grants_access` | 6.0 s, 7.1 s, 7.2 s | 7.9 s | 2.2 s | 1.8 s |
+| `examples` (5 passed, 1 skipped) | 28.8 s to 172.6 s over six runs | 26.1 s | 9.1 s | 6.2 s |
+
+The first warm run pays the same start-up as a cold one; from the second run on, an
+iteration of the whole examples directory stays under 10 s while a cold run of it takes
+at least 25 s on this host. Cold timings varied widely under the concurrent load (one
+cold run also failed on a 10 s `goto` timeout of a local `file://` page), which is the
+other reason to keep the browser: a warm iteration does not repeat the launch that the
+load slows down. Accept the result with a fresh process all the same, as above.
 Finish acceptance with a fresh process and clean seed. Parallel runs require a
 worker-specific data namespace and independently verified cleanup; they are not
 automatically safe for every application.

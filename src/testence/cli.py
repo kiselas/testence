@@ -174,10 +174,14 @@ def _watch(
         while True:
             runs += 1
             print(f"[watch] run {runs}")
+            started = time.perf_counter()
             if warm_runner is not None:
-                warm_runner.run()
+                code = warm_runner.run()
             else:
-                subprocess.run(cmd, check=False)
+                code = subprocess.run(cmd, check=False).returncode
+            # The loop's whole point is iteration time: show it, so a slow fixture
+            # or a lost warm engine is visible at a glance instead of felt.
+            print(f"[watch] run {runs} exit {code} in {time.perf_counter() - started:.1f}s")
             print("[watch] waiting for a change...")
             while True:
                 time.sleep(_WATCH_POLL_S)
@@ -223,7 +227,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Agent-first browser testing with evidence-backed verdicts.",
         epilog=(
             "Start here: doctor, init, run, inspect, report.\n"
-            "Authoring: status, debug, explore, plan, capabilities, watch, bench, demo, agent.\n"
+            "Authoring: status, debug, explore, plan, seed, inventory, capabilities, watch, "
+            "bench, demo, agent.\n"
             "Results: export, metrics, verdict, repair, quality, ci, delivery.\n"
             "Testence maintainers only: corpus, release.\n"
             "\n"
@@ -310,6 +315,25 @@ def main(argv: list[str] | None = None) -> int:
     p_plan_validate = plan_sub.add_parser("validate", help="validate a PlanSpec")
     p_plan_validate.add_argument("path", type=Path, help="PlanSpec markdown or JSON file")
     p_plan_validate.add_argument("--json", dest="json_output", action="store_true")
+    p_plan_skeleton = plan_sub.add_parser(
+        "skeleton", help="build a PlanSpec and pytest stubs from a Markdown case file"
+    )
+    p_plan_skeleton.add_argument("cases", type=Path, help="Markdown file with the cases")
+    p_plan_skeleton.add_argument(
+        "--plan", type=Path, required=True, help="PlanSpec to write (.json or .md)"
+    )
+    p_plan_skeleton.add_argument(
+        "--tests", type=Path, required=True, help="directory for the test skeleton"
+    )
+    p_plan_skeleton.add_argument(
+        "--module", default=None, help="one module with every case instead of a file per case"
+    )
+    p_plan_skeleton.add_argument(
+        "--root", type=Path, default=Path("."), help="pytest root the plan= path is relative to"
+    )
+    p_plan_skeleton.add_argument("--project-id", default=None)
+    p_plan_skeleton.add_argument("--id", dest="plan_id", default=None, help="plan id")
+    p_plan_skeleton.add_argument("--json", dest="json_output", action="store_true")
     p_plan_prepare = plan_sub.add_parser(
         "prepare", help="check scenario readiness before browser authoring"
     )
@@ -323,6 +347,30 @@ def main(argv: list[str] | None = None) -> int:
         help="run explicitly configured argv fix recipes, then recheck",
     )
     p_plan_prepare.add_argument("--json", dest="json_output", action="store_true")
+
+    p_seed = sub.add_parser("seed", help="generate seed and cleanup code for test data")
+    seed_sub = p_seed.add_subparsers(dest="seed_command", required=True)
+    p_seed_scaffold = seed_sub.add_parser(
+        "scaffold", help="temporary-object fixtures with ordered cleanup from an OpenAPI document"
+    )
+    p_seed_scaffold.add_argument(
+        "--openapi", required=True, help="OpenAPI 3.x document: a file or an http(s) URL"
+    )
+    p_seed_scaffold.add_argument("--out", type=Path, default=Path("conftest_seed.py"))
+    p_seed_scaffold.add_argument(
+        "--marker", default="(temp)", help="text every temporary object's name carries"
+    )
+    p_seed_scaffold.add_argument(
+        "--collections", default=None, help="comma-separated collection names (default: all)"
+    )
+    p_seed_scaffold.add_argument("--json", dest="json_output", action="store_true")
+
+    p_inventory = sub.add_parser(
+        "inventory", help="build a per-screen reference from a run's ledger"
+    )
+    p_inventory.add_argument("run_dir", type=Path, help="run directory, e.g. runs/r-123")
+    p_inventory.add_argument("--out", type=Path, default=Path("docs/inventory"))
+    p_inventory.add_argument("--json", dest="json_output", action="store_true")
 
     p_verdict = sub.add_parser("verdict", help="validate an evidence-backed verdict")
     verdict_sub = p_verdict.add_subparsers(dest="verdict_command", required=True)
@@ -583,6 +631,10 @@ def main(argv: list[str] | None = None) -> int:
             "testence ci summary runs/r-local --negative-run runs/r-drop-save",
         ],
         p_inspect: ["testence inspect runs/r-local", "testence inspect runs/r-local --json"],
+        p_inventory: [
+            "testence inventory runs/r-local",
+            "testence inventory runs/r-local --out docs/inventory --json",
+        ],
         p_oracle_suggest: [
             "testence oracle suggest runs/r-local",
             "testence oracle suggest runs/r-local --json",
@@ -596,7 +648,17 @@ def main(argv: list[str] | None = None) -> int:
             "testence export runs/r-local --to ctrf -o build/ctrf --attachments minimal",
         ],
         p_plan_prepare: ["testence plan prepare specs/checkout.md --project ."],
+        p_plan_skeleton: [
+            "testence plan skeleton cases/login.md --plan specs/login.json --tests tests_e2e",
+            "testence plan skeleton cases/login.md --plan specs/login.md --tests tests_e2e "
+            "--module test_login",
+        ],
         p_demo_run: ["testence demo run --project testence-demo --json"],
+        p_seed_scaffold: [
+            'testence seed scaffold --openapi openapi.json --out conftest_seed.py --marker "(temp)"',
+            "testence seed scaffold --openapi https://app.example/openapi.json "
+            "--collections projects,posts",
+        ],
         p_capabilities: ["testence capabilities --project . --json"],
     }
     for _subparser, _lines in _examples.items():
@@ -1017,7 +1079,79 @@ def main(argv: list[str] | None = None) -> int:
                 parser.error(str(exc))
         return _watch(roots, args.pattern or ["*.py"], cmd, warm=args.warm)
 
+    if args.command == "inventory":
+        from .inventory import InventoryError, inventory
+
+        try:
+            inventory_result = inventory(args.run_dir, args.out)
+        except (InventoryError, OSError) as exc:
+            print(f"inventory failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(inventory_result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            for page in inventory_result["pages"]:
+                print(
+                    f"{page['status']:9} {page['path']}: {page['targets']} targets, "
+                    f"{page['api_calls']} API calls, {page['traps']} traps"
+                )
+        return 0
+
+    if args.command == "seed" and args.seed_command == "scaffold":
+        from .seed import SeedError, scaffold
+
+        names = [name.strip() for name in (args.collections or "").split(",") if name.strip()]
+        try:
+            seed_result = scaffold(
+                args.openapi, args.out, marker=args.marker, collections=names or None
+            )
+        except (SeedError, OSError) as exc:
+            print(f"seed scaffold failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(seed_result, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(f"{seed_result['status']}: {seed_result['out']}")
+            print(f"  delete order: {' -> '.join(seed_result['delete_order'])}")
+            for entry in seed_result["skipped"]:
+                print(f"  skipped {entry['name']}: {entry['reason']}")
+            if seed_result["status"] == "kept":
+                print("  the file was edited; delete it to regenerate")
+        return 0
+
     if args.command == "plan":
+        if args.plan_command == "skeleton":
+            from .skeleton import SkeletonError, skeleton
+
+            try:
+                result = skeleton(
+                    args.cases,
+                    args.plan,
+                    args.tests,
+                    module=args.module,
+                    root=args.root,
+                    project_id=args.project_id,
+                    plan_id=args.plan_id,
+                )
+            except (SkeletonError, OSError) as exc:
+                print(f"plan skeleton failed: {exc}", file=sys.stderr)
+                return 2
+            if args.json_output:
+                print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+            else:
+                print(
+                    f"{result['format']}: {len(result['cases'])} case(s) -> plan "
+                    f"{result['plan']['id']} ({'valid' if result['plan']['valid'] else 'INVALID'})"
+                )
+                for entry in result["files"]:
+                    print(f"  {entry['status']:9} {entry['path']}")
+                for question in result["open_questions"]:
+                    print(f"  open question, case {question['case']}: {question['question']}")
+                for warning in result["warnings"]:
+                    print(f"  warning, case {warning['case']}: {warning['warning']}")
+                print(f"next: testence plan validate {args.plan}")
+            return 0 if result["plan"]["valid"] else 3
+
         if args.plan_command == "validate":
             from .contracts import load_plan
             from .contracts._validation import ContractError
