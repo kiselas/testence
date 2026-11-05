@@ -14,10 +14,11 @@ import re
 import time
 import warnings
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -26,19 +27,21 @@ from testence.actors import ActorError, Actors
 from testence.assurance import POLICY_DIGEST
 from testence.auth import AuthContext, from_settings
 from testence.auth.base import session_secrets
-from testence.auth.strategies import api_headers_from_storage
+from testence.auth.strategies import api_headers_from_storage, is_custom_scheme
 from testence.config import Settings
 from testence.contracts import PlanSpec, load_plan
 from testence.contracts._validation import ContractError
 from testence.controls import Control, ControlError, resolve_control
 from testence.dsl import Actions
 from testence.engine import Engine, create_engine, engine_capabilities
+from testence.engine.browserless import HTTP_SCHEMES, BrowserlessSession
 from testence.evidence import RUN_ID_ENV, EvidenceWriter, new_run_id
 from testence.fingerprints import DEFAULT_STORE, FingerprintStore
 from testence.identity import TestIdentity, proof_id, source_case_id, variant_id
 from testence.isolation import TestNamespace
 from testence.oracle_suggest import net_digest
 from testence.reruns import RERUNS_ENV, Reruns, rerun_count
+from testence.schedule import SCHEDULES, durations_from_history, longest_first
 from testence.testplan import (
     ALLURE_TESTPLAN_ENV,
     UNRESOLVED_POLICIES,
@@ -167,6 +170,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--testence-schedule",
+        choices=SCHEDULES,
+        default=os.environ.get("TESTENCE_SCHEDULE") or "default",
+        help=(
+            "order of tests under pytest-xdist: longest-first starts the slowest tests "
+            "(by test.end durations of earlier runs) first; --dist load or loadgroup; "
+            "without history the order is unchanged (env TESTENCE_SCHEDULE)"
+        ),
+    )
+    group.addoption(
         "--testence-full-trace",
         action="store_true",
         default=_as_bool(os.environ.get(FULL_TRACE_ENV, "")),
@@ -201,8 +214,9 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "testence(plan, claims, case_id, allure_id, title, description, severity, labels, "
-        "links, tms, anonymous): bind a test to a PlanSpec case and/or describe it for "
-        "reports; anonymous=True runs ex without logging in",
+        "links, tms, anonymous, fresh_page): bind a test to a PlanSpec case and/or "
+        "describe it for reports; anonymous=True runs ex without logging in; "
+        "fresh_page=True opts out of page_reuse: module",
     )
     reruns = rerun_count(config)
     if reruns and config.getoption("--testence-control"):
@@ -221,6 +235,42 @@ def pytest_configure(config: pytest.Config) -> None:
         run_id = new_run_id()
         os.environ[RUN_ID_ENV] = run_id
         config.stash[_OWN_RUN_ID_KEY] = run_id
+    _plan_schedule(config)
+
+
+#: Durations (ms by node id) the controller hands to its workers for longest-first.
+_DURATIONS_KEY = pytest.StashKey[dict[str, float]]()
+
+
+def _plan_schedule(config: pytest.Config) -> None:
+    """Read the history for ``--testence-schedule longest-first`` on the controller."""
+    if config.getoption("--testence-schedule", default="default") != "longest-first":
+        return
+    workerinput = getattr(config, "workerinput", None)
+    if isinstance(workerinput, dict):
+        durations = workerinput.get("testence_durations")
+        if durations and not config.pluginmanager.has_plugin("testence-schedule"):
+            config.pluginmanager.register(_LongestFirst(durations), "testence-schedule")
+        return  # the controller read the history (pytest_configure_node)
+    dist = str(getattr(config.option, "dist", "no") or "no")
+    if dist not in ("load", "loadgroup"):
+        if dist != "no":
+            raise pytest.UsageError(
+                "--testence-schedule longest-first works with --dist load or loadgroup"
+            )
+        return  # a serial run has no workers to balance
+    try:
+        runs_root = _settings_from_config(config).runs_root
+    except (OSError, ValueError):
+        return  # the session reports invalid settings itself
+    durations = durations_from_history(runs_root, exclude_run=os.environ.get(RUN_ID_ENV, ""))
+    if not durations:
+        return
+    config.stash[_DURATIONS_KEY] = durations
+    if dist == "loadgroup":
+        # xdist sorts groups by their number of tests unless told to keep the
+        # collection order, which is the longest-first order the workers build.
+        config.option.loadscopereorder = False
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
@@ -274,6 +324,9 @@ _RECORDING_OPTIONS = (
 def pytest_configure_node(node: Any) -> None:
     """Hand the controller's recording decision to an xdist worker."""
     node.workerinput["testence_record"] = node.config.stash.get(_RECORD_KEY, False)
+    durations = node.config.stash.get(_DURATIONS_KEY, None)
+    if durations:
+        node.workerinput["testence_durations"] = durations
 
 
 def _uses_testence(item: pytest.Item) -> bool:
@@ -348,8 +401,9 @@ _TMS_PATTERNS = {
     "xray": re.compile(r"^[A-Z][A-Z0-9_]*-[1-9][0-9]*$"),
 }
 _CONTRACT_FIELDS = frozenset({"plan", "claims", "case_id"})
-#: How the test runs: ``anonymous=True`` keeps ``ex`` from logging in.
-_SESSION_FIELDS = frozenset({"anonymous"})
+#: How the test runs: ``anonymous=True`` keeps ``ex`` from logging in;
+#: ``fresh_page=True`` gives it a page of its own under ``page_reuse: module``.
+_SESSION_FIELDS = frozenset({"anonymous", "fresh_page"})
 
 
 @dataclass(frozen=True)
@@ -543,6 +597,27 @@ def _resolve_contract(
         claims,
         case_id,
     )
+
+
+def _xdist_group(item: pytest.Item) -> str | None:
+    marker = item.get_closest_marker("xdist_group")
+    if marker is None:
+        return None
+    return str(marker.args[0] if marker.args else marker.kwargs.get("name", "default"))
+
+
+class _LongestFirst:
+    """Orders a worker's collection by the controller's durations, after every other
+    plugin has filtered it. Every worker gets the same durations and sorts stably, so
+    the collections xdist compares stay identical."""
+
+    def __init__(self, durations: dict[str, float]) -> None:
+        self.durations = durations
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> Iterator[None]:
+        yield  # every other implementation, filters included, has run
+        items[:] = longest_first(items, self.durations, nodeid=_test_id, group=_xdist_group)
 
 
 @pytest.hookimpl(trylast=True)
@@ -833,6 +908,10 @@ _OWN_RUN_ID_KEY = pytest.StashKey[str]()
 _SETTINGS_ERROR_KEY = pytest.StashKey[str]()
 _ACTIONS_KEY = pytest.StashKey[Actions]()
 _ENGINE_KEY = pytest.StashKey[Engine]()
+#: The test pytest runs after this one in this process (None for the last).
+_NEXT_ITEM_KEY = pytest.StashKey[Any]()
+#: page_reuse: module — the page kept for the next test: {"key", "engine", "auth"}.
+_KEPT_PAGE_KEY = pytest.StashKey[dict[str, Any]]()
 _FINGERPRINTS_KEY = pytest.StashKey[FingerprintStore]()
 _PACK_KEY = pytest.StashKey[str]()
 _PACK_ATTEMPTED_KEY = pytest.StashKey[bool]()
@@ -913,9 +992,11 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         control = resolve_control(settings.extra, config.getoption("--testence-control"))
     except ControlError as exc:
         raise pytest.UsageError(f"invalid Testence control: {exc}") from exc
+    _page_reuse(settings)  # a typo stops the session before any test runs
     try:
         redaction_policy = settings.redaction_policy()
         redact_values = settings.redaction_values()
+        durability = str(settings.evidence_config().get("durability", "test"))
     except ValueError as exc:
         raise pytest.UsageError(f"invalid Testence evidence settings: {exc}") from exc
     writer = EvidenceWriter(
@@ -925,6 +1006,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         redact_values=redact_values,
         redaction_policy=redaction_policy,
         deferred=not config.stash.get(_RECORD_KEY, True),
+        durability=durability,
     )
     stream_dir = config.getoption("--testence-allure-results")
     if stream_dir:
@@ -1452,6 +1534,7 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
         yield
         return
     item.stash[_RETRIES_KEY] = 0
+    item.stash[_NEXT_ITEM_KEY] = nextitem
     _start_test(item, state)
     try:
         yield
@@ -1544,6 +1627,12 @@ def _close_lifecycle(state: _LifecycleState, exitstatus: int | pytest.ExitCode) 
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int | pytest.ExitCode) -> None:
+    kept = session.config.stash.get(_KEPT_PAGE_KEY, None)
+    if kept is not None:
+        # An interrupted run (-x, Ctrl+C) can end with a page kept for a next test.
+        del session.config.stash[_KEPT_PAGE_KEY]
+        with suppress(Exception):
+            kept["engine"].stop()
     global _ACTIVE_STATE
     if session.config.stash.get(_TESTPLAN_NOOP_KEY, False) and int(exitstatus) == int(
         pytest.ExitCode.NO_TESTS_COLLECTED
@@ -1711,6 +1800,24 @@ def testence_engine(
     )
     warm = mode == "warm"
     reuse = _browser_reuse(request.config, testence_settings)
+    test_id = _test_id(request.node)
+    page_key = _page_key(request.node, testence_settings) if mode == "isolated" else None
+    kept = _take_kept_page(request.config, testence_writer, page_key, test_id)
+    if kept is not None:
+        engine = kept["engine"]
+        state_kept: dict[str, Any] = {"any_failed": False, "mode": "page-reuse"}
+        if kept.get("auth") is not None:
+            state_kept["auth"] = kept["auth"]
+        engine._testence_state = state_kept  # type: ignore[attr-defined]
+        if request.node.stash.get(_BROWSERLESS_KEY, None) is not None:
+            # Asked for after a browserless login: the kept page, already signed in
+            # the same way, is the test's engine from now on (see below).
+            request.node.stash[_ENGINE_KEY] = engine
+        try:
+            yield engine
+        finally:
+            _release_page(request, testence_settings, testence_writer, engine, page_key)
+        return
     if reuse:
         owner = request.getfixturevalue("_testence_browser_owner")
         with _lifecycle_phase(testence_writer, _test_id(request.node), "context.fresh"):
@@ -1743,6 +1850,14 @@ def testence_engine(
             _engine_phase_notes(testence_writer, _test_id(request.node), engine, "browser.start")
     if reuse:
         _engine_phase_notes(testence_writer, _test_id(request.node), engine, "context.fresh")
+    session = request.node.stash.get(_BROWSERLESS_KEY, None)
+    if session is not None:
+        # The browser was asked for after a browserless login (request.getfixturevalue
+        # of `ex` or `testence_engine` in the test body): it gets that session, and it
+        # is the test's engine from now on — the failure pack, any_failed, recordings
+        # and the final screenshot read the real browser, not the stand-in.
+        _carry_session(session, engine)
+        request.node.stash[_ENGINE_KEY] = engine
     state: dict[str, Any] = {"any_failed": False, "mode": mode}
     engine._testence_state = state  # type: ignore[attr-defined]
     try:
@@ -1774,45 +1889,241 @@ def testence_engine(
                 )
         if warm:
             _WARM_ENGINE_ANY_FAILED = _WARM_ENGINE_ANY_FAILED or state["any_failed"]
+        elif page_key is not None and not state.get("recordings"):
+            _release_page(request, testence_settings, testence_writer, engine, page_key)
         else:
             # CI/default isolation owns and closes its browser even after failure.
             # Attached mode only detaches; the launcher's browser is never ours.
-            mark = len(getattr(engine, "wait_ledger", lambda: [])())
-            close_phase = "context.release" if reuse else "browser.close"
-            with _lifecycle_phase(testence_writer, _test_id(request.node), close_phase):
-                engine.stop(keep_browser=mode == "attached" and state["any_failed"])
-            _engine_phase_notes(
-                testence_writer, _test_id(request.node), engine, close_phase, start=mark
+            _close_engine(
+                testence_writer,
+                _test_id(request.node),
+                engine,
+                "context.release" if reuse else "browser.close",
+                keep_browser=mode == "attached" and state["any_failed"],
             )
+
+
+def _close_engine(
+    writer: EvidenceWriter, test_id: str, engine: Engine, phase: str, *, keep_browser: bool
+) -> None:
+    mark = len(getattr(engine, "wait_ledger", lambda: [])())
+    with _lifecycle_phase(writer, test_id, phase):
+        engine.stop(keep_browser=keep_browser)
+    _engine_phase_notes(writer, test_id, engine, phase, start=mark)
+
+
+def _page_reuse(settings: Settings) -> str:
+    value = settings.extra.get("page_reuse", "test")
+    if value not in ("test", "module"):
+        raise pytest.UsageError('page_reuse must be "test" or "module"')
+    return str(value)
+
+
+def _page_key(item: pytest.Item, settings: Settings) -> tuple[str, str] | None:
+    """The module and login a test shares its page under; None for a page of its own.
+
+    ``page_reuse: module`` hands one tab and context from test to test of a module
+    while they log in the same way; ``fresh_page=True`` on the testence marker opts a
+    test out. Trace and video belong to one test's context, so they turn it off.
+    """
+    if _page_reuse(settings) != "module" or os.environ.get("TESTENCE_WARM_ENGINE") == "1":
+        return None
+    if settings.cdp_url:
+        return None
+    evidence = settings.evidence_config()
+    if evidence.get("trace", "off") != "off" or evidence.get("video", "off") != "off":
+        return None
+    marker = item.get_closest_marker("testence")
+    if marker is not None and marker.kwargs.get("fresh_page"):
+        return None
+    login = "anonymous" if _anonymous(item) else (settings.auth or "none").lower()
+    return (item.nodeid.split("::", 1)[0], login)
+
+
+def _login_held(engine: Engine, auth: Any) -> bool:
+    """Whether the browser still holds what the login put into it.
+
+    A test that signed out, or lost its session, must not hand an "authenticated" page
+    to the next test: every cookie and storage key of the login must still be there
+    (a cookie's value may rotate, its presence may not lapse). Headers set on the
+    context cannot be lost by the page.
+    """
+    if not isinstance(auth, AuthContext):
+        return True  # anonymous, or a login that left nothing in the browser
+    try:
+        present = {c.get("name"): c.get("value") for c in engine.cookies()}
+        if any(not present.get(cookie.get("name")) for cookie in auth.cookies):
+            return False
+        return all(engine.storage_item(key) is not None for key in auth.storage)
+    except Exception:  # noqa: BLE001 - a page that cannot answer is not handed on
+        return False
+
+
+def _take_kept_page(
+    config: pytest.Config, writer: EvidenceWriter, key: tuple[str, str] | None, test_id: str
+) -> dict[str, Any] | None:
+    """The page the previous test kept for this one, ready to use; else close it."""
+    kept = config.stash.get(_KEPT_PAGE_KEY, None)
+    if kept is None:
+        return None
+    del config.stash[_KEPT_PAGE_KEY]
+    engine = kept["engine"]
+    if key is None or kept["key"] != key:
+        # Closed during this test's setup, for the test that kept it: a run-level event,
+        # not one of a test whose test.end is already written.
+        writer.emit("note", text="kept page released", kept_by=kept["test"], taken_by=test_id)
+        _close_engine(writer, "", engine, "page.release", keep_browser=False)
+        return None
+    try:
+        with _lifecycle_phase(writer, test_id, "page.reuse"):
+            closed = engine.prepare_reuse()
+    except Exception as exc:  # noqa: BLE001 - a page that cannot be handed on is closed
+        writer.emit(
+            "note",
+            test=test_id,
+            text="kept page could not be reused",
+            error=f"{type(exc).__name__}: {exc}",
+        )
+        _close_engine(writer, test_id, engine, "page.release", keep_browser=False)
+        return None
+    writer.emit(
+        "note",
+        test=test_id,
+        text="page reused",
+        reused_from=kept["test"],
+        closed_tabs=closed,
+    )
+    return dict(kept)
+
+
+def _release_page(
+    request: pytest.FixtureRequest,
+    settings: Settings,
+    writer: EvidenceWriter,
+    engine: Engine,
+    key: tuple[str, str] | None,
+) -> None:
+    """Keep this test's page for the next test of the module, or close it."""
+    test_id = _test_id(request.node)
+    state = getattr(engine, "_testence_state", {})
+    following = request.node.stash.get(_NEXT_ITEM_KEY, None)
+    reason = ""
+    reports = request.node.stash.get(_REPORTS_KEY, {})
+    if key is None:
+        reason = "own page"
+    elif state.get("any_failed") or any(report.failed for report in reports.values()):
+        # From the reports, not only from `ex`: a test that used testence_engine or
+        # testence_api alone, or failed in setup after the browser started, also
+        # leaves a page nobody should inherit.
+        reason = "the test failed"
+    elif following is None or _page_key(following, settings) != key:
+        reason = "the next test does not share it"
+    else:
+        blockers = getattr(engine, "reuse_blockers", lambda: ["engine cannot hand on a page"])()
+        if blockers:
+            reason = "the test left " + ", ".join(blockers)
+        elif not _login_held(engine, state.get("auth")):
+            reason = "the test signed out (its login is gone from the browser)"
+    if reason:
+        if key is not None:
+            writer.emit("note", test=test_id, text="page not kept", reason=reason)
+        _close_engine(
+            writer,
+            test_id,
+            engine,
+            "context.release" if _browser_reuse(request.config, settings) else "browser.close",
+            keep_browser=False,
+        )
+        return
+    request.config.stash[_KEPT_PAGE_KEY] = {
+        "key": key,
+        "engine": engine,
+        "auth": state.get("auth"),
+        "test": test_id,
+    }
+
+
+#: Fixtures whose test drives a browser; any of them in a test's closure means the
+#: login goes through that browser.
+_BROWSER_FIXTURES = frozenset({"ex", "testence_engine"})
+_BROWSERLESS_KEY = pytest.StashKey[BrowserlessSession]()
+
+
+def _browser_needed(request: pytest.FixtureRequest, settings: Settings) -> bool:
+    """Whether this test's login needs a browser: it drives one, or its scheme does."""
+    if _BROWSER_FIXTURES & set(request.fixturenames):
+        return True
+    if is_custom_scheme(settings.auth) or settings.extra.get("api_auth_from_storage"):
+        return True
+    return (settings.auth or "none").lower() not in HTTP_SCHEMES
+
+
+def _session_engine(request: pytest.FixtureRequest, settings: Settings) -> Engine:
+    """The engine a login of this test writes into: the browser, or a browserless session."""
+    if _browser_needed(request, settings):
+        return cast(Engine, request.getfixturevalue("testence_engine"))
+    session = request.node.stash.get(_BROWSERLESS_KEY, None)
+    if session is None:
+        session = request.node.stash[_BROWSERLESS_KEY] = BrowserlessSession()
+    return cast(Engine, session)
+
+
+def _carry_session(session: BrowserlessSession, engine: Engine) -> None:
+    """Put a browserless login into a browser asked for later in the same test."""
+    if session.cookies():
+        engine.add_cookies(session.cookies())
+    if session.extra_http_headers():
+        engine.set_extra_http_headers(session.extra_http_headers())
+    for key, value in session.storage_snapshot().items():
+        engine.set_storage_item(key, value)
 
 
 @pytest.fixture
 def testence_auth(
     request: pytest.FixtureRequest,
     testence_settings: Settings,
-    testence_engine: Engine,
     testence_writer: EvidenceWriter,
 ) -> AuthContext:
     """Authenticated session for one isolated test, using the configured scheme.
 
     Logged as an evidence event (scheme and names only) so a failed run always
-    shows whether it was authenticated — a surprisingly common root cause.
+    shows whether it was authenticated — a surprisingly common root cause. A test
+    that uses no browser and a scheme that logs in over HTTP starts no browser.
     """
+    # Resolved before the phase starts, so a browser launch is not timed as login.
+    engine = _session_engine(request, testence_settings)
+    state = getattr(engine, "_testence_state", None)
+    shared = state.get("auth") if isinstance(state, dict) else None
+    if isinstance(shared, AuthContext):
+        # page_reuse: module — the page this test took over is logged in already.
+        testence_writer.emit(
+            "note",
+            test=_test_id(request.node),
+            text="lifecycle timing",
+            lifecycle_phase="auth",
+            duration_ms=0,
+            ok=True,
+            reused=True,
+        )
+        testence_writer.emit("note", text="authenticated", auth=shared.describe(), reused=True)
+        return shared
     started = time.perf_counter()
     with _lifecycle_phase(testence_writer, _test_id(request.node), "auth"):
         adapter = from_settings(testence_settings)
-        context = adapter.authenticate(testence_engine)
+        context = adapter.authenticate(engine)
         spec = testence_settings.extra.get("api_auth_from_storage")
         if spec and context.scheme != "none":
             context.headers.update(
                 api_headers_from_storage(
-                    spec, testence_engine, timeout_ms=min(testence_settings.timeout_ms, 10_000)
+                    spec, engine, timeout_ms=min(testence_settings.timeout_ms, 10_000)
                 )
             )
     # A token, cookie or stored value produced at run time is masked like a
     # configured secret.
     for value in session_secrets(context):
         testence_writer.remember_secret(value)
+    if isinstance(state, dict) and state.get("mode") != "browserless":
+        state["auth"] = context  # handed on with the page under page_reuse: module
     testence_writer.emit(
         "note",
         text="authenticated",
@@ -1828,17 +2139,45 @@ def testence_api(
     testence_settings: Settings,
     testence_auth: AuthContext,
     testence_writer: EvidenceWriter,
-) -> ApiClient:
+) -> Iterator[ApiClient]:
     """API client sharing the browser's session — for oracles and seeding.
 
     Every call is recorded as an ``api.request`` event of this test, and a failed test
-    that used only this client still gets a failure pack carrying those calls.
+    that used only this client still gets a failure pack carrying those calls. A test
+    without ``ex`` whose scheme logs in over HTTP runs without a browser; its calls
+    are then its wait ledger (``test.waits``).
     """
     from testence.api import ApiClient, evidence_recorder
 
-    request.node.stash.setdefault(_ENGINE_KEY, request.getfixturevalue("testence_engine"))
-    recorder = evidence_recorder(testence_writer, _test_id(request.node))
-    return ApiClient.from_settings(testence_settings, testence_auth, recorder=recorder)
+    test_id = _test_id(request.node)
+    session = request.node.stash.get(_BROWSERLESS_KEY, None)
+    engine = session if session is not None else request.getfixturevalue("testence_engine")
+    request.node.stash.setdefault(_ENGINE_KEY, cast(Engine, engine))
+    record = evidence_recorder(testence_writer, test_id)
+
+    def recorder(**fields: Any) -> None:
+        if session is not None:
+            path = urlsplit(str(fields.get("url", ""))).path or "/"
+            session.record_wait(
+                "api.request",
+                f"{fields.get('method', '')} {path}",
+                float(fields.get("duration_ms", 0.0)),
+                "error" not in fields,
+            )
+        record(**fields)
+
+    client = ApiClient.from_settings(testence_settings, testence_auth, recorder=recorder)
+    started = time.perf_counter()
+    try:
+        yield client
+    finally:
+        client.close()
+        if session is not None and _ACTIONS_KEY not in request.node.stash:
+            # No `ex` summarized this test's waits: the calls, plus the browser's own
+            # waits if a browser was asked for later.
+            current = request.node.stash.get(_ENGINE_KEY, None)
+            browser = [] if current is session else _ledger(current)
+            _emit_waits(testence_writer, test_id, browser + session.wait_ledger(), started)
 
 
 @pytest.fixture
@@ -1987,6 +2326,7 @@ def ex(
         testence_writer,
         test_id,
         store=testence_fingerprints,
+        fingerprints=str(testence_settings.evidence_config().get("fingerprints", "every-green")),
     )
     request.node.stash[_ENGINE_KEY] = testence_engine
     request.node.stash[_FINGERPRINTS_KEY] = testence_fingerprints
@@ -1995,33 +2335,51 @@ def ex(
     try:
         yield actions
     finally:
-        actions._finish_ws_gates()
-        duration_ms = round((time.perf_counter() - started) * 1000, 1)
+        actions.finish()
         # Wait budget remains evidence supplied by the browser fixture; the terminal
         # execution outcome is owned by pytest_runtest_protocol.
-        ledger = testence_engine.wait_ledger() if hasattr(testence_engine, "wait_ledger") else []
-        if ledger:
-            waited_ms = round(sum(entry["ms"] for entry in ledger), 1)
-            top = sorted(ledger, key=lambda entry: -entry["ms"])[:5]
-            by_op: dict[str, dict[str, float]] = {}
-            for entry in ledger:
-                row = by_op.setdefault(entry["op"], {"ms": 0.0, "n": 0})
-                row["ms"] = round(row["ms"] + entry["ms"], 1)
-                row["n"] += 1
-            testence_writer.emit(
-                "test.waits",
-                test=test_id,
-                waited_ms=waited_ms,
-                ops=len(ledger),
-                by_op=by_op,
-                top=top,
-            )
-            _RUN_WAITS.append(
-                {
-                    "test": test_id,
-                    "wall_ms": duration_ms,
-                    "waited_ms": waited_ms,
-                    "top": top,
-                    "by_op": by_op,
-                }
-            )
+        ledger = _ledger(testence_engine)
+        session = request.node.stash.get(_BROWSERLESS_KEY, None)
+        if session is not None:
+            # A browser asked for after a browserless login: the API calls made before
+            # and after it are this test's waits too.
+            ledger += session.wait_ledger()
+        _emit_waits(testence_writer, test_id, ledger, started)
+
+
+def _ledger(engine: Any) -> list[dict[str, Any]]:
+    reader = getattr(engine, "wait_ledger", None)
+    return list(reader()) if callable(reader) else []
+
+
+def _emit_waits(
+    writer: EvidenceWriter, test_id: str, ledger: list[dict[str, Any]], started: float
+) -> None:
+    """One ``test.waits`` event summarizing a test's wait ledger, if it has one."""
+    if not ledger:
+        return
+    duration_ms = round((time.perf_counter() - started) * 1000, 1)
+    waited_ms = round(sum(entry["ms"] for entry in ledger), 1)
+    top = sorted(ledger, key=lambda entry: -entry["ms"])[:5]
+    by_op: dict[str, dict[str, float]] = {}
+    for entry in ledger:
+        row = by_op.setdefault(entry["op"], {"ms": 0.0, "n": 0})
+        row["ms"] = round(row["ms"] + entry["ms"], 1)
+        row["n"] += 1
+    writer.emit(
+        "test.waits",
+        test=test_id,
+        waited_ms=waited_ms,
+        ops=len(ledger),
+        by_op=by_op,
+        top=top,
+    )
+    _RUN_WAITS.append(
+        {
+            "test": test_id,
+            "wall_ms": duration_ms,
+            "waited_ms": waited_ms,
+            "top": top,
+            "by_op": by_op,
+        }
+    )

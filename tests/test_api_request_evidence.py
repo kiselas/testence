@@ -140,11 +140,16 @@ def test_a_call_without_an_answer_is_recorded_and_still_raises(tmp_path, server,
     else:
         client = _client(server, writer, timeout_s=0.2)
         path = "/slow"
-    with pytest.raises((urllib.error.URLError, TimeoutError, OSError)):
+    # A refused connection is urllib's URLError, as before the kept-alive client; a
+    # call that got no answer in time is a TimeoutError.
+    expected = urllib.error.URLError if target == "refused" else TimeoutError
+    with pytest.raises(expected) as caught:
         client.get(path)
+    if target == "refused":
+        assert isinstance(caught.value.__cause__, ConnectionRefusedError)
     (event,) = _events(writer)
     assert "status" not in event and "response" not in event
-    assert event["error"].split(":", 1)[0] in {"URLError", "TimeoutError", "timeout"}
+    assert event["error"].split(":", 1)[0] == expected.__name__
     validate_document(event, "evidence.schema.json")
 
 
