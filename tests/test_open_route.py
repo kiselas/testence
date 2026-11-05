@@ -45,7 +45,13 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self) -> None:  # noqa: N802
-        body = (BLANK if self.path.startswith("/blank") else ROUTER).encode()
+        if self.path.startswith("/blank"):
+            body = BLANK.encode()
+        elif self.path.startswith("/s/"):
+            # Rendered on the server, no router: popstate changes nothing on the page.
+            body = f"<!doctype html><div id='root'>static {self.path}</div>".encode()
+        else:
+            body = ROUTER.encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
         self.send_header("Content-Length", str(len(body)))
@@ -114,3 +120,11 @@ def test_open_loads_a_route_outside_the_app(ex, server):
     ex.open("/r/a")
     other = server.replace("127.0.0.1", "localhost") + "/r/x"
     assert ex.open(other) == "goto"
+
+
+def test_open_loads_when_the_page_ignores_popstate(ex, browser):
+    """A page whose router does not listen to popstate shows nothing new after a
+    pushed route; open() notices that the document did not change and loads it."""
+    ex.goto("/s/a")
+    assert ex.open("/s/b") == "goto"
+    ex.expect_text(ROOT, "static /s/b")

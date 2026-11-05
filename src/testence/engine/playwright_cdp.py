@@ -132,6 +132,31 @@ def _free_tcp_port() -> int:
 #: ``evidence.trace`` / ``evidence.video``: never, always, or kept only for a failure.
 RECORDING_POLICIES = ("off", "on", "retain-on-failure")
 
+#: How long open() waits for the app's router to change the document after a pushed
+#: route; a router reacts in the same task or within a few frames.
+_ROUTER_REACTION_MS = 500
+
+#: open(): push the route, announce it as popstate, and report whether the document
+#: changed in response, which is the only sign that a router took the navigation.
+_PUSH_ROUTE_JS = """([target, waitMs]) => new Promise((resolve) => {
+    let changed = false;
+    const observer = new MutationObserver(() => { changed = true; });
+    observer.observe(document.documentElement,
+        {subtree: true, childList: true, characterData: true, attributes: true});
+    history.pushState({}, '', target);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    const deadline = performance.now() + waitMs;
+    const check = () => {
+        if (changed || performance.now() >= deadline) {
+            observer.disconnect();
+            resolve(changed);
+            return;
+        }
+        setTimeout(check, 16);
+    };
+    setTimeout(check, 0);
+})"""
+
 #: The page shows a rendered application: a known SPA root (or the body) holds text
 #: or a meaningful control. wait_until_rendered waits for it; open() asks it once.
 _RENDERED_JS = """() => {
@@ -1012,10 +1037,11 @@ class PlaywrightCdpEngine(Engine):
 
         When the page already shows the application (same origin as ``base_url`` and
         its root has rendered something), the route is pushed to the app's own router,
-        as a click on an in-app link would. Otherwise (no page yet, another origin, a
-        route outside ``base_url``, an application that is not mounted) it is a
-        document load. Client-side navigation keeps the state of mounted components:
-        a case about a first load opens with ``goto``.
+        as a click on an in-app link would, and must change the document within
+        ``_ROUTER_REACTION_MS``. Otherwise (no page yet, another origin, a route outside
+        ``base_url``, an application that is not mounted, a page whose router does not
+        listen to popstate) it is a document load. Client-side navigation keeps the
+        state of mounted components: a case about a first load opens with ``goto``.
         """
         absolute = bool(_URL_SCHEME.match(url))
         full = url if absolute else f"{self.base_url}{url}"
@@ -1029,14 +1055,11 @@ class PlaywrightCdpEngine(Engine):
         ):
             path = full[len(self.base_url) :] or "/"
             with self._timed("open(navigate)", path):
-                page.evaluate(
-                    """(target) => {
-                        history.pushState({}, '', target);
-                        window.dispatchEvent(new PopStateEvent('popstate'));
-                    }""",
-                    path,
-                )
-            return "navigate"
+                reacted = bool(page.evaluate(_PUSH_ROUTE_JS, [path, _ROUTER_REACTION_MS]))
+            if reacted:
+                return "navigate"
+            # The URL changed but nothing on the page did: no router listens to popstate.
+            # A document load is the only way to show the route.
         self.goto(url)
         return "goto"
 

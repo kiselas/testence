@@ -33,7 +33,10 @@ assertion naming its last box.
 way: when the page already shows the application on `base_url`'s origin (its root has
 rendered something), the route is pushed to the app's own router, as a click on an
 in-app link would; otherwise (the first navigation, another origin, a route outside
-`base_url`, an application not mounted) it is a document load. It returns `navigate` or
+`base_url`, an application not mounted) it is a document load. The client-side path
+needs a router that listens to `popstate` (React Router, Vue Router and most others
+do): if the document does not change within 500 ms of the pushed route, `ex.open`
+loads the route instead. It returns `navigate` or
 `goto`, and the step's `step.end` records it as `navigation`. Client-side navigation
 keeps mounted component state: a case about a first load uses `ex.goto`.
 
