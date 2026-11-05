@@ -144,6 +144,10 @@ function submitWidget(event) {
 
 class _Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+    # Headers and body go out as two writes. On a kept-alive connection Nagle holds the
+    # body until the client acknowledges the headers, and a delayed ACK (about 200 ms
+    # on macOS) then lands in every timing the tests measure.
+    disable_nagle_algorithm = True
 
     def log_message(self, *args: Any) -> None:  # keep pytest output clean
         pass

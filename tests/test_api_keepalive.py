@@ -54,6 +54,9 @@ class _CountingServer(LoopbackHTTPServer):
 
 class _Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+    # Headers and body as two writes: without this, Nagle and a delayed ACK add about
+    # 200 ms to a response on a kept-alive connection (see tests/mock_app.py).
+    disable_nagle_algorithm = True
     server: _CountingServer
 
     def log_message(self, *args: Any) -> None:

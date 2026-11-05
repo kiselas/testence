@@ -39,7 +39,7 @@ documentation if it differs from your version. `--headed` shows the exploration 
 | `testence_status` | the active package, settings and declared parallel policy, to locate the installation |
 | `testence_debug` | replays exactly one pytest node in a fresh, guarded process and returns failure ARIA, triage and phase timings ([authoring loop](authoring-loop.md)) |
 | `testence_doctor` | checks the runtime; `target: true` also reaches `base_url`, checks credentials and tries the login |
-| `testence_snapshot` | opens a page (`url`, a path on `base_url` or absolute) and lists its interactive elements; each has the `Target` that addresses it, the Python that spells it and how many elements it matches: `unique: true` is usable as is |
+| `testence_snapshot` | opens a page (`url`, a path on `base_url` or absolute) and lists its interactive elements; each has the `Target` that addresses it, the Python that spells it and how many elements it matches: `unique: true` is usable as is; `components` lists the kit components it recognizes, each with its kit line, such as `koobiq.select(ex, "Mode")` ([kits](kits.md)) |
 | `testence_click` | clicks a `Target` in the exploration browser, to see what happens before writing the step |
 | `testence_fill` | fills a field; the value is not echoed back |
 | `testence_run` | runs pytest through `testence run` and returns the exit code, the run directory and its summary |

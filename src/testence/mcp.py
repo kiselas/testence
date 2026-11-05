@@ -86,7 +86,9 @@ TOOLS: list[dict[str, Any]] = [
         "description": "Open a page (a path on base_url or an absolute URL; omit to keep the "
         "current one) and list its interactive elements. Each element carries the Target "
         "that addresses it, the Python that spells it, and how many elements it matches "
-        "(unique=true means it can be used as is).",
+        "(unique=true means it can be used as is). components lists the kit components it "
+        "recognizes (react-select, Koobiq, react-aria, React Flow), each with the kit line "
+        'that addresses it, such as koobiq.select(ex, "Mode").',
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,

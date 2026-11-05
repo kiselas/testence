@@ -9,6 +9,7 @@
 - [Конфигурация](configuration.md)
 - [Аутентификация](auth.md)
 - [Возможности engine и строгие действия](engine-capabilities.md)
+- [Киты компонентов](kits.md) — Koobiq, react-aria, react-select, React Flow
 - [Отчётность и экспортёры](reporting.md)
 - [Testence в CI](ci.md)
 - [Схема доказательств](evidence-schema.md)
