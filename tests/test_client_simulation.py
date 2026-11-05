@@ -1,13 +1,7 @@
 import importlib.util
-import subprocess
-import sys
-import threading
-from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 import pytest
-
-from testence.loopback import LoopbackHTTPServer
 
 
 @pytest.mark.parametrize(
@@ -35,59 +29,13 @@ def test_simulation_cannot_grade_unproven_failures_as_detection(tmp_path, fault)
     assert module.grade(junit, inspection, 1, True) is (fault is None)
 
 
-def _load_run():
+def test_every_step_logs_playwright_calls_and_the_browser_process():
+    """A failed screenshot must explain itself: the harness turns on Playwright's call and
+    browser logging for each child process, and only that (no retry, no changed timeout)."""
     path = Path(__file__).parents[1] / "bench/client_simulation/run.py"
-    spec = importlib.util.spec_from_file_location("client_simulation_warmup", path)
+    spec = importlib.util.spec_from_file_location("client_simulation_diag", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module
-
-
-def test_the_warm_up_takes_screenshots_so_the_first_scenario_does_not_pay_for_them():
-    """Every failed visual job was a screenshot of a freshly launched browser (timeout or
-    two unlike captures); the warm-up has to exercise that path, not only launch and goto."""
-    code = _load_run().WARMUP_CODE
-    assert code.count("engine.screenshot(") == 1 and "for number in (1, 2)" in code
-    assert (
-        code.index("engine.goto(") < code.index("engine.screenshot(") < code.index("engine.stop(")
-    )
-
-
-def test_the_warm_up_runs_against_a_real_page_and_takes_both_screenshots():
-    panel = (Path(__file__).parents[1] / "bench/client_simulation/panel.html").read_bytes()
-
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, *_args):
-            pass
-
-        def do_GET(self):
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(panel)))
-            self.end_headers()
-            self.wfile.write(panel)
-
-    server = LoopbackHTTPServer(("127.0.0.1", 0), Handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    process = subprocess.Popen(
-        [sys.executable, "-c", _load_run().WARMUP_CODE, f"http://127.0.0.1:{server.server_port}"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        text=True,
-    )
-    line: list[str] = []
-    reader = threading.Thread(
-        target=lambda: line.append(process.stdout.readline()),  # type: ignore[union-attr]
-        daemon=True,
-    )
-    reader.start()
-    try:
-        # What is under test is the screenshots, not how long this host takes to close
-        # its browser afterwards: stop waiting once they are reported.
-        reader.join(timeout=300)
-    finally:
-        process.kill()
-        process.wait(timeout=30)
-        server.shutdown()
-        server.server_close()
-    assert line and "warm-up screenshots: 2" in line[0]
+    assert module.DIAGNOSTIC_ENV == {"DEBUG": "pw:api,pw:browser"}
+    source = path.read_text(encoding="utf-8")
+    assert "env.update(DIAGNOSTIC_ENV)" in source
