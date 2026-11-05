@@ -1147,6 +1147,8 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"  {entry['status']:9} {entry['path']}")
                 for question in result["open_questions"]:
                     print(f"  open question, case {question['case']}: {question['question']}")
+                for warning in result["warnings"]:
+                    print(f"  warning, case {warning['case']}: {warning['warning']}")
                 print(f"next: testence plan validate {args.plan}")
             return 0 if result["plan"]["valid"] else 3
 

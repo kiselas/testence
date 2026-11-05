@@ -62,6 +62,8 @@ class Case:
     expected: list[str] = field(default_factory=list)
     precondition: str | None = None
     postcondition: str | None = None
+    #: Headed "Case N"/"Кейс N"; a bare "N. title" heading is a case only with outcomes.
+    keyword: bool = True
 
     @property
     def all_expected(self) -> list[str]:
@@ -102,7 +104,8 @@ _BULLET = re.compile(r"^\s*[-*+]\s+(?P<rest>.+)$")
 _HEADING = re.compile(r"^(?P<level>#{1,6})\s+(?P<text>.+?)\s*#*\s*$")
 _CASE_HEADING = re.compile(
     r"^(?:(?:кейс|тест-кейс|тесткейс|сценарий|case|test case|testcase|scenario|tc)\s*"
-    r"(?:№\s*)?(?P<kn>\d{1,4})\s*(?:[.:)—–-]\s*)?|(?P<n>\d{1,4})\s*[.):—–-]\s*)(?P<title>.*)$",
+    r"(?:№\s*)?(?P<kn>\d{1,4})\s*(?:[.:)—–-]\s*)?|(?P<n>\d{1,4})\s*[.):—–-](?!\d)\s*)"
+    r"(?P<title>.*)$",
     re.IGNORECASE,
 )
 
@@ -241,6 +244,7 @@ def _parse_sections(lines: list[str]) -> list[Case]:
                     number=int(match.group("kn") or match.group("n")),
                     title=_clean(match.group("title")) or heading.group("text").strip(),
                     line=number,
+                    keyword=match.group("kn") is not None,
                 )
                 cases.append(current)
                 case_level, mode, last_kind = level, "steps", ""
@@ -284,8 +288,12 @@ def _parse_sections(lines: list[str]) -> list[Case]:
         if numbered:
             add_step(current, numbered.group("rest"))
             continue
-        if _META_LINE.match(raw):
-            last_kind = ""
+        if _META_LINE.match(raw) and not current.steps:
+            last_kind = ""  # "- Priority: High" above the steps is metadata
+            continue
+        if bullet is not None and not (raw.startswith(("  ", "	")) and current.steps):
+            # "- Open the page" is a step; an indented bullet under a step details it.
+            add_step(current, bullet.group("rest"))
             continue
         if raw.startswith((" ", "\t")) and last_kind:
             # A wrapped line continues whatever it is indented under.
@@ -313,7 +321,9 @@ def parse_cases(text: str) -> tuple[str, list[Case]]:
     cases = _parse_table(lines)
     kind = "table"
     if not cases:
-        cases, kind = _parse_sections(lines), "sections"
+        # "## 3. Overview" is a numbered section, not a case, unless it states an outcome.
+        cases = [case for case in _parse_sections(lines) if case.keyword or case.all_expected]
+        kind = "sections"
     if not cases:
         raise SkeletonError(
             "no cases found: expected a table with steps and expected-result columns, "
@@ -499,6 +509,7 @@ _KEY = re.compile(
 )
 _URL = re.compile(r"(?P<url>https?://\S+?|(?<![\w/])/[\w\-./?=&%#]*)(?=[`'\"»)\s,;]|$)")
 _QUOTED = re.compile(r"«(?P<a>[^»]+)»|\"(?P<b>[^\"]+)\"|`(?P<c>[^`]+)`|“(?P<d>[^”]+)”")
+_PRESS = re.compile(r"\b(press|hit|нажать|нажмите|клавиш)", re.IGNORECASE)
 _KEY_NAMES = {"ctrl": "Control", "cmd": "Meta", "esc": "Escape"}
 
 
@@ -542,18 +553,25 @@ def _step_lines(case: Case, position: int, step: Step, words: _Words) -> list[st
     intent = _py(f"{words.step(case.number, position)}: {_truncate(step.text, 120)}")
     what = _py(_truncate(step.text, 60))
     lines = _comment(f"{position}. ", step.text)
-    key = _KEY.search(step.text)
     url = _URL.search(step.text)
-    action = next((name for name, pattern in _ACTIONS if pattern.search(step.text)), None)
+    key = _KEY.search(step.text)
+    if key and "+" not in key.group("key") and not _PRESS.search(step.text):
+        key = None  # "Enter the name" types; "Press Enter" and "Ctrl+S" press a key
+    # The key's own name must not pick the action: "Enter" is also a fill verb.
+    verbs = _KEY.sub(" ", step.text) if key else step.text
+    action = next((name for name, pattern in _ACTIONS if pattern.search(verbs)), None)
+    press = _call("press", [_py(_key(key.group("key"))), f"intent={intent}"]) if key else []
     if action == "observe":
         lines.append("    # an observation: the expectations below check it")
     elif url and re.search(r"(открыть|перейти|зайти|open|go to|navigate|visit)", step.text, re.I):
         lines += _call("goto", [_py(url.group("url")), f"intent={intent}"])
-    elif key and action in (None, "click"):
-        lines += _call("press", [_py(_key(key.group("key"))), f"intent={intent}"])
     elif action in {"fill", "select"}:
-        value = _quoted(step.text) or "TODO"
-        lines += _call(action, [f"TODO({what})", _py(value), f"intent={intent}"])
+        quoted = _quoted(step.text)
+        value = _py(quoted) if quoted else f"TODO_VALUE({what})"
+        lines += _call(action, [f"TODO({what})", value, f"intent={intent}"])
+        lines += press  # "Type the name and press Enter"
+    elif key:
+        lines += press
     elif action in {"hover", "check", "uncheck", "click"}:
         lines += _call(action, [f"TODO({what})", f"intent={intent}"])
     else:
@@ -644,6 +662,11 @@ def _module(cases: list[Case], ids: _Ids, words: _Words, *, plan_ref: str, sourc
         "def TODO(what: str) -> Target:",
         '    """An address the case file does not give: fails the step until replaced."""',
         '    raise NotImplementedError(f"skeleton: no Target yet for {what!r}")',
+        "",
+        "",
+        "def TODO_VALUE(what: str) -> str:",
+        '    """A value the case file does not quote: fails the step until replaced."""',
+        '    raise NotImplementedError(f"skeleton: no value yet for {what!r}")',
     ]
     body: list[str] = []
     for case in cases:
@@ -691,10 +714,24 @@ def _canonical(document: dict[str, Any]) -> str:
     return json.dumps(document, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def read_utf8(path: Path, error: type[ValueError] = ValueError) -> str:
+    """Read a text file as UTF-8 (a BOM is fine), raising ``error`` with a fix otherwise."""
+    try:
+        return path.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise error(
+            f"{path} is not UTF-8 text (byte {exc.start}: {exc.reason}); save it as UTF-8, "
+            "for example in an editor's 'Save with encoding' or with "
+            "`iconv -f cp1251 -t utf-8`"
+        ) from exc
+    except OSError as exc:
+        raise error(f"cannot read {path}: {exc}") from exc
+
+
 def _write(path: Path, content: str, untouched: Any) -> str:
     """Write a generated file unless an author owns it now; return what happened."""
     if path.exists():
-        existing = path.read_text(encoding="utf-8")
+        existing = read_utf8(path, SkeletonError)
         if existing == content:
             return "unchanged"
         if not untouched(existing):
@@ -758,10 +795,7 @@ def skeleton(
     root_dir = Path(root)
     if plan_file.suffix.lower() not in {".json", ".md"}:
         raise SkeletonError("--plan must end in .json or .md")
-    try:
-        text = source.read_text(encoding="utf-8-sig")
-    except OSError as exc:
-        raise SkeletonError(f"cannot read {source}: {exc}") from exc
+    text = read_utf8(source, SkeletonError)
     kind, cases = parse_cases(text)
 
     heading = next(
@@ -822,6 +856,17 @@ def skeleton(
                 }
             )
             targets[case.number] = target
+    files += _stale(tests, {Path(entry["path"]) for entry in files}, plan_ref)
+    warnings = [
+        {
+            "case": case.number,
+            "line": case.line,
+            "warning": "no steps found: the test has checks only; number the steps "
+            "(1. …) or list them as '- …' bullets",
+        }
+        for case in covered
+        if not case.steps
+    ]
     for case in covered:
         case_rows.append(
             {
@@ -847,4 +892,33 @@ def skeleton(
         "cases": case_rows,
         "files": files,
         "open_questions": questions,
+        "warnings": warnings,
     }
+
+
+def _stale(tests: Path, written: set[Path], plan_ref: str) -> list[dict[str, str]]:
+    """Earlier skeletons of this plan that no case produces any more (a retitled case).
+
+    Left in place they would bind the same claims twice. An untouched one is removed;
+    one an author edited is reported as ``stale`` and kept for them to merge.
+    """
+    if not tests.is_dir():
+        return []
+    reference = f"PLAN = {_py(plan_ref)}"
+    found: list[dict[str, str]] = []
+    resolved = {path.resolve() for path in written}
+    for path in sorted(tests.glob("*.py")):
+        if path.resolve() in resolved:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not _STAMP.match(text.partition("\n")[0]) or reference not in text:
+            continue
+        if _untouched(text):
+            path.unlink()
+            found.append({"path": str(path), "kind": "tests", "status": "removed"})
+        else:
+            found.append({"path": str(path), "kind": "tests", "status": "stale"})
+    return found
