@@ -26,6 +26,10 @@ LOG = Target("css", "#log")
 #: Step budget of every test. A test that shortens it for a negative case changes the
 #: shared engine; each test starts from this again, so no budget leaks into the next.
 TIMEOUT_MS = 5_000
+#: How long the stand may take to render its first heading: a cold page loads the
+#: Koobiq bundle, which a loaded CI runner has taken more than five seconds to do. The
+#: step budget above stays for every kit step.
+STAND_LOAD_MS = 30_000
 
 
 def _server_module() -> Any:
@@ -57,7 +61,9 @@ def open_stand(engine: PlaywrightCdpEngine, tmp_path: Path, locale: str = "en-US
     engine.timeout_ms = TIMEOUT_MS
     engine.reset_taps()
     engine.goto(f"/index.html?locale={locale}")
-    engine.wait_for_count(Target("role", "heading", name="Koobiq conformance stand"))
+    engine.wait_for_count(
+        Target("role", "heading", name="Koobiq conformance stand"), timeout_ms=STAND_LOAD_MS
+    )
     return Actions(engine, EvidenceWriter(tmp_path / "evidence"), "kit-conformance")
 
 
