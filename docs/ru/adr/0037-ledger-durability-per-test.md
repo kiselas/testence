@@ -1,6 +1,8 @@
 # ADR-0037: Долговечность журнала по тестам, flush на событие
 
-Статус: implemented (engineering). Уточняет ADR-0003.
+Статус: implemented (engineering). Уточняет ADR-0003 и по умолчанию заменяет его fsync
+на каждое событие; ADR-0009 и [kernels](../kernels.md) оставляют writer — файловый I/O
+с fsync — в Python.
 
 ## Контекст
 

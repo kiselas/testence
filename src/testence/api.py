@@ -25,10 +25,12 @@ import base64
 import functools
 import http.client
 import json
+import select
 import socket
 import ssl
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterator
@@ -124,7 +126,27 @@ _STALE = (
     BrokenPipeError,
     ConnectionResetError,
     ConnectionAbortedError,
+    ssl.SSLEOFError,
 )
+#: Methods a stale connection may repeat on a new one: sending them twice changes
+#: nothing more than sending them once (RFC 9110, 9.2.2).
+_IDEMPOTENT = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
+
+
+def _dropped(connection: http.client.HTTPConnection) -> bool:
+    """Whether an idle connection was closed by the server (or has stray data).
+
+    An idle kept-alive socket has nothing to read; readable means the peer closed it
+    or sent something no request asked for. Either way it must not carry a request.
+    """
+    sock = connection.sock
+    if sock is None:
+        return True
+    try:
+        readable, _, _ = select.select([sock], [], [], 0)
+    except (OSError, ValueError):
+        return True
+    return bool(readable)
 
 
 def _same_origin_redirect(method: str, url: str, status: int, location: str | None) -> str | None:
@@ -162,15 +184,10 @@ def _cached_tls(verify_tls: bool, ca_bundle: str) -> ssl.SSLContext:
     return tls_context(verify_tls, ca_bundle) or ssl.create_default_context()
 
 
-@functools.lru_cache(maxsize=None)
-def _proxies() -> dict[str, str]:
-    """The proxies urllib would have used: the environment, then the system settings."""
-    return dict(urllib.request.getproxies())
-
-
-@functools.lru_cache(maxsize=256)
 def _proxy_for(scheme: str, host: str) -> str:
-    proxy = _proxies().get(scheme, "")
+    """The proxy urllib would use for this request, read now: the environment (a
+    change between calls is honoured), then the system settings; ``""`` for none."""
+    proxy = urllib.request.getproxies().get(scheme, "")
     if not proxy:
         return ""
     try:
@@ -265,6 +282,9 @@ class ConnectionPool:
                 request_headers["Proxy-Authorization"] = _proxy_authorization(proxy)
         with self._lock:
             connection = self._idle.pop(key, None)
+        if connection is not None and _dropped(connection):
+            connection.close()  # closed while idle: never send a request on it
+            connection = None
         reused = connection is not None
         if connection is None:
             connection = self._connect(scheme, hostname, port, proxy, context)
@@ -278,10 +298,14 @@ class ConnectionPool:
                 body = answer.read()
             except _STALE:
                 connection.close()
-                if not reused:
+                if not reused or method.upper() not in _IDEMPOTENT:
+                    # A connection that dropped after the request was written does not
+                    # prove the application never saw it: a POST or PATCH is not sent
+                    # twice behind the test's back.
                     raise
-                # The server closed the connection while it was idle: the request never
-                # reached the application, so it goes once more on a new connection.
+                # A kept-alive connection that passed the idle check closed as the
+                # request went out (a keep-alive timer racing it): an idempotent
+                # request goes once more, on a new connection.
                 connection = self._connect(scheme, hostname, port, proxy, context)
                 reused = False
                 continue
@@ -395,6 +419,12 @@ def http_json(
             raise TimeoutError(
                 f"{current_method} {current_url}: no answer in {timeout_s} s"
             ) from exc
+        except (http.client.HTTPException, ssl.SSLError, ConnectionError, OSError) as exc:
+            if isinstance(exc, urllib.error.URLError):
+                raise
+            # urllib reported a connection that failed or broke as URLError; callers
+            # that catch it keep working (the cause stays chained).
+            raise urllib.error.URLError(exc) from exc
         location = next((v for k, v in answer_headers if k.lower() == "location"), None)
         follow = _same_origin_redirect(current_method, current_url, status, location)
         if follow is None or location is None:

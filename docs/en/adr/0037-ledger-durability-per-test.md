@@ -1,6 +1,8 @@
 # ADR-0037: Ledger durability per test, flush per event
 
-Status: implemented (engineering). Refines ADR-0003.
+Status: implemented (engineering). Refines ADR-0003, whose fsync per event it
+replaces by default; ADR-0009 and [kernels](../kernels.md) keep the writer, fsync'd
+file I/O, in Python.
 
 ## Context
 

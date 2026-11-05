@@ -1848,8 +1848,11 @@ def testence_engine(
     session = request.node.stash.get(_BROWSERLESS_KEY, None)
     if session is not None:
         # The browser was asked for after a browserless login (request.getfixturevalue
-        # of `ex` or `testence_engine` in the test body): it gets that session.
+        # of `ex` or `testence_engine` in the test body): it gets that session, and it
+        # is the test's engine from now on — the failure pack, any_failed, recordings
+        # and the final screenshot read the real browser, not the stand-in.
         _carry_session(session, engine)
+        request.node.stash[_ENGINE_KEY] = engine
     state: dict[str, Any] = {"any_failed": False, "mode": mode}
     engine._testence_state = state  # type: ignore[attr-defined]
     try:
@@ -2136,8 +2139,12 @@ def testence_api(
         yield client
     finally:
         client.close()
-        if session is not None and request.node.stash.get(_ENGINE_KEY, None) is session:
-            _emit_waits(testence_writer, test_id, session.wait_ledger(), started)
+        if session is not None and _ACTIONS_KEY not in request.node.stash:
+            # No `ex` summarized this test's waits: the calls, plus the browser's own
+            # waits if a browser was asked for later.
+            current = request.node.stash.get(_ENGINE_KEY, None)
+            browser = [] if current is session else _ledger(current)
+            _emit_waits(testence_writer, test_id, browser + session.wait_ledger(), started)
 
 
 @pytest.fixture
@@ -2297,8 +2304,18 @@ def ex(
         actions.finish()
         # Wait budget remains evidence supplied by the browser fixture; the terminal
         # execution outcome is owned by pytest_runtest_protocol.
-        ledger = testence_engine.wait_ledger() if hasattr(testence_engine, "wait_ledger") else []
+        ledger = _ledger(testence_engine)
+        session = request.node.stash.get(_BROWSERLESS_KEY, None)
+        if session is not None:
+            # A browser asked for after a browserless login: the API calls made before
+            # and after it are this test's waits too.
+            ledger += session.wait_ledger()
         _emit_waits(testence_writer, test_id, ledger, started)
+
+
+def _ledger(engine: Any) -> list[dict[str, Any]]:
+    reader = getattr(engine, "wait_ledger", None)
+    return list(reader()) if callable(reader) else []
 
 
 def _emit_waits(

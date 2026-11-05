@@ -99,12 +99,17 @@ the page loads from. Browser cookies additionally keep their domain, path, secur
 expiry scope.
 
 `ApiClient` keeps its connections alive: one per origin, so the calls of a test share
-one TCP and TLS connection, closed when the test ends. A connection the server closed
-while it sat idle is retried once on a new connection, since the request never
-reached the application; a connection that fails on first use is an error. Redirects
-follow urllib's rules (GET and HEAD follow, a POST answered 301-303 continues as a GET
-without its body, anything else is returned) and stay on the origin. Proxies come from
-the environment or the system settings, as with urllib.
+one TCP and TLS connection, closed when the test ends. Before an idle connection is
+used, it is checked: one the server closed while it sat idle is discarded and the
+request goes on a new connection. A connection that breaks while a request is in flight
+is retried once on a new connection only for an idempotent method (GET, HEAD, OPTIONS,
+PUT, DELETE); a POST or PATCH is never sent twice behind the test's back, the call
+fails instead, because the application may have applied it. A connection that fails or
+breaks raises `urllib.error.URLError`, as before; a call without an answer in time
+raises `TimeoutError`. Redirects follow urllib's rules (GET and HEAD follow, a POST
+answered 301-303 continues as a GET without its body, anything else is returned) and
+stay on the origin. Proxies come from the environment or the system settings, read for
+every request, as with urllib.
 
 ## Optional session cache
 

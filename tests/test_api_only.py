@@ -148,20 +148,34 @@ def test_api_only_tests_start_no_browser(tmp_path):
 
 
 def test_api_only_overhead_is_the_http_calls(tmp_path):
-    """An API-only test costs its HTTP calls plus under 100 ms of the framework."""
+    """An API-only test costs its HTTP calls plus under 100 ms more than a Testence
+    test that does nothing.
+
+    The baseline runs in the same session on the same host, so a loaded runner slows
+    both; a browser start, a context or a login through a page alone would cost more
+    than the margin.
+    """
     suite = """
+def test_baseline(testence_settings):
+    pass
+
+
 def test_reads(testence_api):
     for _ in range(5):
         assert testence_api.get("/api/v1/widgets/7").status == 200
 """
     result, events = _run(tmp_path / "speed", {"auth": "api-session"}, suite)
     assert result.returncode == 0, result.stdout + result.stderr
-    (end,) = [e for e in events if e["kind"] == "test.end"]
-    (auth,) = [e for e in events if e.get("lifecycle_phase") == "auth" and e.get("test")]
+    ends = {e["test"].rsplit("::", 1)[-1]: e for e in events if e["kind"] == "test.end"}
+    reads = [e for e in events if str(e.get("test", "")).endswith("test_reads")]
+    assert not [e for e in reads if e.get("lifecycle_phase") in ("browser.start", "context.fresh")]
+    (auth,) = [e for e in reads if e.get("lifecycle_phase") == "auth"]
     http_ms = auth["duration_ms"] + sum(
-        e["duration_ms"] for e in events if e["kind"] == "api.request"
+        e["duration_ms"] for e in reads if e["kind"] == "api.request"
     )
-    assert end["duration_ms"] - http_ms < 100, (end["duration_ms"], http_ms)
+    overhead = ends["test_reads"]["duration_ms"] - http_ms
+    baseline = ends["test_baseline"]["duration_ms"]
+    assert overhead - baseline < 100, (overhead, baseline, http_ms)
 
 
 def test_form_login_still_uses_the_browser(tmp_path):
@@ -184,3 +198,48 @@ def test_browserless_session_names_the_fix_for_a_browser_call():
     assert getattr(session, "finish_recording", None) is None
     with pytest.raises(BrowserRequired, match="Request `ex`"):
         session.goto("/app")
+
+
+MIXED = """
+from testence.engine import Target
+
+WHOAMI = Target("css", "#whoami")
+
+
+def test_api_then_engine_fails(request, testence_api):
+    assert testence_api.get("/api/v1/auth/me").status == 200
+    engine = request.getfixturevalue("testence_engine")
+    engine.goto("/app")
+    assert testence_api.get("/api/v1/widgets/7").status == 200
+    assert False, "deliberate"
+
+
+def test_api_then_ex(request, testence_api):
+    assert testence_api.get("/api/v1/auth/me").status == 200
+    ex = request.getfixturevalue("ex")
+    ex.goto("/app")
+    ex.expect_text(WHOAMI, "{user}", intent="signed in through the HTTP login", exact=False)
+"""
+
+
+def test_a_browser_asked_for_later_owns_the_evidence(tmp_path):
+    """The pack and the waits of a test that started without a browser and asked for
+    one later describe the real browser, and still hold the API calls."""
+    result, events = _run(tmp_path / "mixed", {"auth": "api-session"}, MIXED)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "1 failed, 1 passed" in result.stdout
+
+    failed = _of(events, "test_api_then_engine_fails")
+    (end,) = [e for e in failed if e["kind"] == "test.end"]
+    pack = next((tmp_path / "mixed" / "runs").glob("*/run.jsonl")).parent / end["pack"]
+    browser = json.loads((pack / "browser.json").read_text(encoding="utf-8"))
+    assert browser["mode"] != "browserless" and browser["page_url"].endswith("/app")
+    assert "no browser" not in (pack / "aria.txt").read_text(encoding="utf-8")
+    history = json.loads((pack / "events.json").read_text(encoding="utf-8"))
+    assert [item["event"]["kind"] for item in history["events"]].count("api.request") == 2
+    (waits,) = [e for e in failed if e["kind"] == "test.waits"]
+    assert waits["by_op"]["api.request"]["n"] == 2 and "goto" in waits["by_op"]
+
+    passed = _of(events, "test_api_then_ex")
+    (waits,) = [e for e in passed if e["kind"] == "test.waits"]
+    assert waits["by_op"]["api.request"]["n"] == 1 and "goto" in waits["by_op"]
