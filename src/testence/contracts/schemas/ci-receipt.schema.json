@@ -59,6 +59,21 @@
             }
           }
         },
+        "controls": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["run_id", "control", "failed_claims"],
+            "properties": {
+              "run_id": {"type": "string"},
+              "control": {"type": "string"},
+              "failed_claims": {"type": "integer", "minimum": 0},
+              "collateral_claims": {"type": "array", "items": {"type": "string"}},
+              "collateral_share": {"type": "number", "minimum": 0, "maximum": 1},
+              "blunt": {"type": "boolean"}
+            }
+          }
+        },
         "claims": {
           "type": "object",
           "additionalProperties": {

@@ -21,7 +21,12 @@ from testence import __version__
 from testence.config import Settings, default_browser_channel
 from testence.contracts import SCHEMA_INVENTORY, load_plan, load_verdict
 from testence.contracts.versions import DEMO_RUN_SCHEMA, SCAFFOLD_SCHEMA, SUBMISSION_SCHEMA
-from testence.controls import ControlError, evaluate_negative_proof, run_control
+from testence.controls import (
+    ControlError,
+    declared_controls,
+    evaluate_negative_proof,
+    run_control,
+)
 from testence.export import LoadedRun
 from testence.managed_paths import ManagedPathError, atomic_write_bytes, checked_member
 from testence.metrics import load_run
@@ -779,6 +784,206 @@ def inspect_run(run_dir: Path | str) -> dict[str, Any]:
         "control": control.to_json() if control else None,
         **({"negative_proof": negative} if control else {}),
     }
+
+
+#: What ``testence run`` and ``testence prove`` run when no test is named.
+QUICK_START_ARGS = (".testence/examples/test_onboarding.py", "-q")
+
+_RUN_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,95}")
+
+
+def run_pytest(
+    project: Path,
+    run_id: str,
+    pytest_args: list[str] | tuple[str, ...],
+    *,
+    control: str | None = None,
+    environment: dict[str, str] | None = None,
+    stdout_to_stderr: bool = False,
+) -> int:
+    """One pytest session of ``project`` recorded under ``run_id``; its exit code.
+
+    ``stdout_to_stderr`` keeps a ``--json`` caller's stdout parseable: pytest's own
+    output goes to the error stream instead.
+    """
+    from testence.evidence import RUN_ID_ENV
+
+    env = dict(os.environ if environment is None else environment)
+    env[RUN_ID_ENV] = run_id
+    control_args = ["--testence-control", control] if control else []
+    completed = subprocess.run(
+        [sys.executable, "-m", "pytest", "--rootdir", str(project), *control_args, *pytest_args],
+        cwd=project,
+        env=env,
+        check=False,
+        stdout=2 if stdout_to_stderr else None,
+    )
+    return int(completed.returncode)
+
+
+def prove(
+    project: Path | str,
+    *,
+    pytest_args: list[str] | tuple[str, ...] = (),
+    controls: list[str] | tuple[str, ...] = (),
+    run_id: str | None = None,
+    receipt: Path | str | None = None,
+    say: Callable[[str], None] = print,
+    stdout_to_stderr: bool = False,
+) -> dict[str, Any]:
+    """Strict mode in one call: a green run, one run per control, ``proven`` evaluation.
+
+    Equivalent to ``testence run``, ``testence run --control NAME`` for each control and
+    ``testence ci evaluate --quality-mode proven --negative-run ...`` with one receipt
+    (ADR-0033). The run directories are ``runs/<ID>`` and ``runs/<ID>-<control>``. A
+    green run that is not green stops the command: a negative run would prove nothing
+    about a test that already fails. Every negative run executes the same selection as
+    the green run; it is not narrowed to the tests of the targeted claims, because the
+    claims of a test are only known to the ledger once the test ran.
+
+    The result carries ``final_exit``, the exit code ``ci evaluate`` would give.
+    """
+    from testence.ci import CIError, evaluate_ci, write_ci_receipt
+    from testence.controls import blunt_warning
+    from testence.evidence import new_run_id
+    from testence.reruns import RERUNS_ENV
+
+    root = Path(project).resolve()
+    try:
+        settings = Settings.load(root)
+        declared = declared_controls(settings.extra)
+    except (RuntimeError, ControlError, OSError) as exc:
+        raise ApplicationError(f"cannot read the project settings: {exc}") from exc
+    if not declared:
+        raise ApplicationError(
+            "no negative control is declared in testence.json, so there is nothing to prove "
+            "against; declare one under controls (docs/en/configuration.md) or use "
+            "`testence run`"
+        )
+    chosen = list(dict.fromkeys(controls)) if controls else sorted(declared)
+    unknown = [name for name in chosen if name not in declared]
+    if unknown:
+        raise ApplicationError(
+            f"unknown control {', '.join(map(repr, unknown))}; declared: "
+            + ", ".join(sorted(declared))
+        )
+    arguments = [part for part in pytest_args if part != "--"]
+    if any(
+        part == "--testence-reruns" or part.startswith("--testence-reruns=") for part in arguments
+    ):
+        raise ApplicationError(
+            "--testence-reruns cannot be combined with a control: a repeat can erase the "
+            "defect a negative run exists to show (ADR-0033)"
+        )
+    if not arguments:
+        arguments = list(QUICK_START_ARGS)
+    green_id = run_id or new_run_id()
+    if not _RUN_ID_RE.fullmatch(green_id):
+        raise ApplicationError("run id must contain only letters, digits, '.', '_' or '-'")
+    runs_root = root / settings.runs_root
+    negative_ids = {name: f"{green_id}-{name}" for name in chosen}
+    taken = [
+        identifier
+        for identifier in (green_id, *negative_ids.values())
+        if (runs_root / identifier).exists()
+    ]
+    if taken:
+        raise ApplicationError(
+            "run directory already exists, a reused id would append to its ledger: "
+            + ", ".join(str(runs_root / identifier) for identifier in taken)
+        )
+    receipt_path = Path(receipt) if receipt is not None else runs_root / f"{green_id}.receipt.json"
+
+    result: dict[str, Any] = {
+        "run_id": green_id,
+        "project_id": settings.project_id,
+        "runs": [],
+        "receipt": None,
+        "warnings": [],
+        "stopped": None,
+        "final_exit": 0,
+    }
+
+    def execute(identifier: str, control: str | None, label: str) -> int:
+        say(f"testence prove: {label} {identifier}")
+        code = run_pytest(
+            root,
+            identifier,
+            arguments,
+            control=control,
+            environment=(
+                # A repeat would erase the defect a negative run exists to show.
+                {**os.environ, RERUNS_ENV: "0"} if control else None
+            ),
+            stdout_to_stderr=stdout_to_stderr,
+        )
+        result["runs"].append(
+            {
+                "run_id": identifier,
+                "control": control,
+                "exit_code": code,
+                "run_dir": str(runs_root / identifier),
+            }
+        )
+        return code
+
+    green_code = execute(green_id, None, "green run")
+    if green_code != 0:
+        result["stopped"] = "green_run_failed"
+        result["final_exit"] = green_code
+        say(
+            f"testence prove: the green run exited {green_code}; the negative runs were "
+            "not executed, because a test that fails without a defect proves nothing. "
+            f"Read what failed: testence inspect {runs_root / green_id}"
+        )
+        return result
+
+    for name, identifier in negative_ids.items():
+        code = execute(identifier, name, f"negative run (control {name})")
+        # A failure is the point of a negative run; exit codes above 1 are the runner's.
+        if code > 1:
+            say(f"testence prove: pytest exited {code} in the run of control {name!r}")
+
+    try:
+        evaluation = evaluate_ci(
+            run_dir=runs_root / green_id,
+            run_id=green_id,
+            test_exit=0,
+            quality_mode="proven",
+            negative_runs=[runs_root / identifier for identifier in negative_ids.values()],
+        )
+        write_ci_receipt(receipt_path, evaluation)
+    except CIError as exc:
+        codes = ", ".join(f"{item['control']}={item['exit_code']}" for item in result["runs"][1:])
+        raise ApplicationError(
+            f"cannot evaluate the proof ({exc}); pytest exit codes: {codes}"
+        ) from exc
+
+    proof = evaluation["quality"]["negative_proof"]
+    result["receipt"] = str(receipt_path)
+    result["quality"] = evaluation["quality"]
+    result["counts"] = proof["counts"]
+    result["claims"] = {claim: entry["outcome"] for claim, entry in proof["claims"].items()}
+    result["warnings"] = [
+        warning
+        for item in proof["controls"]
+        if (warning := blunt_warning(str(item["control"]), item)) is not None
+    ]
+    result["final_exit"] = int(evaluation["final_exit"])
+
+    proven = proof["counts"]["proven"]
+    say(f"testence prove: {proven} of {len(proof['claims'])} required claims proven")
+    for claim, outcome in result["claims"].items():
+        say(f"  {claim}: {outcome}")
+    for error in evaluation["quality"]["errors"]:
+        say(f"  not satisfied: {error}")
+    for warning in result["warnings"]:
+        say(f"warning: {warning}")
+    say(
+        f"prove -> {receipt_path}: quality={evaluation['quality']['exit_code']} "
+        f"final={evaluation['final_exit']}"
+    )
+    return result
 
 
 def run_demo(root: Path | str, *, run_prefix: str | None = None) -> dict[str, Any]:

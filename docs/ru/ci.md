@@ -36,6 +36,8 @@ jobs:
           python -m pip install testence
           python -m playwright install --with-deps chromium
       - name: Run the tests
+        # Strict mode (opt-in, one more run per declared control): replace this command
+        # with `testence prove --project . --run-id "ci-${{ github.run_id }}"`.
         run: testence run --project . --run-id "ci-${{ github.run_id }}"
       - name: Export JUnit for the CI test view
         if: always()
@@ -77,6 +79,30 @@ jobs:
 тест упал на assertion этого claim ([ADR-0033](../en/adr/0033-negative-proof.md)):
 
 ```bash
+testence prove --project . --run-id "ci-${GITHUB_RUN_ID}"
+```
+
+`testence prove` — весь строгий режим одной командой:
+
+1. зелёный прогон, `runs/ci-<id>`; если он не зелёный, команда останавливается с его
+   кодом выхода и больше ничего не запускает: тест, падающий без дефекта, ничего не
+   доказывает;
+2. по одному прогону на каждый объявленный контроль, `runs/ci-<id>-<контроль>`, либо
+   только на названные через `--control NAME` (опцию можно повторять);
+3. оценка как `ci evaluate --quality-mode proven`, где каждый прогон контроля идёт как
+   `--negative-run`, и один receipt, `runs/ci-<id>.receipt.json` (`-o` меняет путь).
+
+Код выхода тот же, что у `ci evaluate`: 0, когда у каждого обязательного claim есть
+негативное доказательство, 10, когда доказательства не хватает. Тесты и опции pytest
+пишутся после `--`, как у `testence run`; без них запускается onboarding-тест. Каждый
+прогон контроля выполняет тот же выбор тестов, что и зелёный. Прогоны контролей не
+повторяются: `TESTENCE_RERUNS` там игнорируется, а `--testence-reruns` отклоняется.
+`--json` печатает один документ в stdout, а вывод pytest отправляет в stderr.
+
+Команда — короткая запись того, что джоб может расписать и вручную, например чтобы
+гонять контроли в параллельных джобах:
+
+```bash
 testence run --project . --run-id "ci-${GITHUB_RUN_ID}"
 testence run --project . --run-id "ci-${GITHUB_RUN_ID}-drop-save" --control drop-save || true
 testence ci evaluate "runs/ci-${GITHUB_RUN_ID}" --run-id "ci-${GITHUB_RUN_ID}" \
@@ -84,7 +110,10 @@ testence ci evaluate "runs/ci-${GITHUB_RUN_ID}" --run-id "ci-${GITHUB_RUN_ID}" \
   --negative-run "runs/ci-${GITHUB_RUN_ID}-drop-save" -o ci-receipt.json
 ```
 
-Негативный прогон должен падать, поэтому его код выхода не определяет результат джоба.
+Негативный прогон должен падать, поэтому его код выхода не определяет результат джоба
+(`prove` это учитывает). Шаг summary в шаблоне читает по одному прогону контроля на
+каждый `--negative-run`:
+`testence ci summary "runs/ci-${GITHUB_RUN_ID}" --negative-run "runs/ci-${GITHUB_RUN_ID}-drop-save"`.
 В receipt поле `quality.negative_proof` даёт по каждому claim один исход:
 
 | исход | значение |
@@ -102,6 +131,9 @@ testence ci evaluate "runs/ci-${GITHUB_RUN_ID}" --run-id "ci-${GITHUB_RUN_ID}" \
 `testence ci summary RUN_DIR > summary.md && gh pr comment "$PR" --body-file summary.md --edit-last --create-if-none`.
 
 Падения claim, на которые контроль не нацелен, перечислены в `collateral_claims`.
-Каждый контроль стоит ещё одного прогона, а у части claim честного контроля нет,
-поэтому `proven` — более строгий уровень для самых важных claim, а не режим по
-умолчанию.
+Если больше половины claim, упавших в прогоне контроля, побочные, `testence prove`,
+`ci summary` и receipt (`quality.negative_proof.controls`, `blunt: true`) предупреждают, что контроль, возможно, слишком
+грубый и `proven` говорит немногое ([ADR-0033](../en/adr/0033-negative-proof.md#tripwire));
+код выхода предупреждение не меняет. Каждый контроль стоит ещё одного прогона, а у
+части claim честного контроля нет, поэтому `proven` — более строгий уровень для самых
+важных claim, а не режим по умолчанию.

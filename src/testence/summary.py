@@ -13,7 +13,13 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
-from testence.controls import evaluate_negative_proof, proof_attempts, run_control
+from testence.controls import (
+    blunt_warning,
+    collateral_report,
+    evaluate_negative_proof,
+    proof_attempts,
+    run_control,
+)
 from testence.export import LoadedRun
 from testence.metrics import load_run
 
@@ -70,6 +76,8 @@ def summarize(run: LoadedRun, negatives: list[LoadedRun]) -> str:
             outcome = outcomes[claim]["outcome"] if claim in outcomes else "not_run"
             lines.append(f"| `{claim}` | {outcome} |")
         lines.append("")
+        if warning := blunt_warning(control.name, collateral_report(run, control)):
+            lines += [f"**Warning:** {warning}.", ""]
     else:
         lines += ["| | |", "|---|---|"]
         lines.append(
@@ -96,6 +104,9 @@ def summarize(run: LoadedRun, negatives: list[LoadedRun]) -> str:
             ]
             if missing:
                 lines += ["**Without negative proof:**", *_listed(missing), ""]
+            for item in proof["controls"]:
+                if warning := blunt_warning(str(item["control"]), item):
+                    lines += [f"**Warning:** {warning}.", ""]
         if flaky:
             lines += ["**Flaky:**", *_listed(flaky), ""]
 

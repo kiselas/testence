@@ -36,6 +36,8 @@ jobs:
           python -m pip install testence
           python -m playwright install --with-deps chromium
       - name: Run the tests
+        # Strict mode (opt-in, one more run per declared control): replace this command
+        # with `testence prove --project . --run-id "ci-${{ github.run_id }}"`.
         run: testence run --project . --run-id "ci-${{ github.run_id }}"
       - name: Export JUnit for the CI test view
         if: always()
@@ -76,6 +78,29 @@ The opt-in `proven` mode also requires, for every required claim, a run with a
 an assertion bound to that claim ([ADR-0033](adr/0033-negative-proof.md)):
 
 ```bash
+testence prove --project . --run-id "ci-${GITHUB_RUN_ID}"
+```
+
+`testence prove` is the whole strict mode in one command:
+
+1. the green run, `runs/ci-<id>`; when it is not green the command stops with its exit
+   code and runs nothing else, because a test that fails without a defect proves nothing;
+2. one run per declared control, `runs/ci-<id>-<control>`, or only the ones named with
+   `--control NAME` (repeat the option for several);
+3. the evaluation, as `ci evaluate --quality-mode proven` with every control run as a
+   `--negative-run`, and one receipt, `runs/ci-<id>.receipt.json` (`-o` moves it).
+
+The exit code is the one `ci evaluate` gives: 0 when every required claim has a negative
+proof, 10 when proof is missing. Tests and pytest options go after `--`, as for
+`testence run`; without them the onboarding test runs. Every control run executes the
+same selection as the green run. Control runs never repeat, so `TESTENCE_RERUNS` is
+ignored there and `--testence-reruns` is refused. `--json` prints one document on
+stdout and sends pytest's output to stderr.
+
+The command is the short form of what a job can also spell out, for example to run the
+controls in parallel jobs:
+
+```bash
 testence run --project . --run-id "ci-${GITHUB_RUN_ID}"
 testence run --project . --run-id "ci-${GITHUB_RUN_ID}-drop-save" --control drop-save || true
 testence ci evaluate "runs/ci-${GITHUB_RUN_ID}" --run-id "ci-${GITHUB_RUN_ID}" \
@@ -83,7 +108,10 @@ testence ci evaluate "runs/ci-${GITHUB_RUN_ID}" --run-id "ci-${GITHUB_RUN_ID}" \
   --negative-run "runs/ci-${GITHUB_RUN_ID}-drop-save" -o ci-receipt.json
 ```
 
-The negative run is expected to fail, so its exit code is not the job's. The receipt's
+A negative run is expected to fail, so its exit code is not the job's (`prove` knows
+this). The summary step of the template reads one control run per `--negative-run`:
+`testence ci summary "runs/ci-${GITHUB_RUN_ID}" --negative-run "runs/ci-${GITHUB_RUN_ID}-drop-save"`.
+The receipt's
 `quality.negative_proof` lists each claim with one outcome:
 
 | outcome | meaning |
@@ -100,6 +128,9 @@ to the job summary. To post the summary as a pull request comment instead, give 
 job `pull-requests: write` and run
 `testence ci summary RUN_DIR > summary.md && gh pr comment "$PR" --body-file summary.md --edit-last --create-if-none`.
 
-Failures of claims a control does not target are listed as `collateral_claims`. Each
-control costs one more run, and some claims have no honest control, so `proven` is a
-stricter level for the claims that matter most, not the default.
+Failures of claims a control does not target are listed as `collateral_claims`. When
+more than half of the claims that failed in a control run are collateral, `testence
+prove`, `ci summary` and the receipt (`quality.negative_proof.controls`, `blunt: true`) warn that the control may be too
+blunt for `proven` to say much ([ADR-0033](adr/0033-negative-proof.md#tripwire)); the
+warning does not change the exit code. Each control costs one more run, and some
+claims have no honest control, so `proven` is a stricter level for the claims that matter most, not the default.

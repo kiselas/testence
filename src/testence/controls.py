@@ -26,6 +26,10 @@ if TYPE_CHECKING:
 #: other piece of evidence for the same claim; among the rest the first listed is reported.
 OUTCOMES = ("proven", "stayed_green", "wrong_reason", "inconclusive", "stale", "no_control")
 
+#: ADR-0033 tripwire: a control whose failures are mostly on claims it does not target is
+#: too blunt for ``proven`` to carry information. The warning triggers above this share.
+BLUNT_SHARE = 0.5
+
 
 class ControlError(ValueError):
     """A control declaration or activation that cannot be used."""
@@ -198,6 +202,37 @@ def _pair_outcome(
     return "inconclusive", f"assurance in the negative run was {negative.assurance}"
 
 
+def collateral_report(run: LoadedRun, control: Control) -> dict[str, Any]:
+    """How many of the claims that failed in a negative run the control does not target.
+
+    The share is visible, never a gate: a blunt control still proves the claims it
+    lists, and the warning tells a reviewer that ``proven`` says less than it seems to.
+    """
+    failed: set[str] = set()
+    for attempt in proof_attempts(run).values():
+        failed |= attempt.failed_claims
+    collateral = sorted(failed - set(control.claims))
+    report: dict[str, Any] = {"failed_claims": len(failed)}
+    if collateral:
+        report["collateral_claims"] = collateral
+    if failed:
+        share = round(len(collateral) / len(failed), 3)
+        report["collateral_share"] = share
+        report["blunt"] = share > BLUNT_SHARE
+    return report
+
+
+def blunt_warning(control_name: str, report: Mapping[str, Any]) -> str | None:
+    """The sentence for a control whose failures are mostly collateral, else ``None``."""
+    if not report.get("blunt"):
+        return None
+    return (
+        f"control {control_name!r}: {len(report['collateral_claims'])} of "
+        f"{report['failed_claims']} failed claims are not ones it targets "
+        f"({report['collateral_share']:.0%}); it may be too blunt for proven (ADR-0033)"
+    )
+
+
 def evaluate_negative_proof(green: LoadedRun, negatives: Iterable[LoadedRun]) -> dict[str, Any]:
     """Per required claim of ``green``: its negative-proof outcome and the evidence."""
     green_attempts = proof_attempts(green)
@@ -237,16 +272,24 @@ def evaluate_negative_proof(green: LoadedRun, negatives: Iterable[LoadedRun]) ->
             {"run_id": run.run_id, "control": control.name if control else None}
             for run, control, _ in runs
         ],
+        "controls": [
+            {"run_id": run.run_id, "control": control.name, **collateral_report(run, control)}
+            for run, control, _ in runs
+            if control is not None
+        ],
         "claims": dict(sorted(claims.items())),
         "counts": counts,
     }
 
 
 __all__ = [
+    "BLUNT_SHARE",
     "OUTCOMES",
     "Control",
     "ControlError",
     "ProofAttempt",
+    "blunt_warning",
+    "collateral_report",
     "declared_controls",
     "evaluate_negative_proof",
     "proof_attempts",
