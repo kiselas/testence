@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import socket
 import threading
+import time
 import urllib.error
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler
@@ -31,11 +32,24 @@ class _CountingServer(LoopbackHTTPServer):
         self.requests: list[tuple[str, str, bytes]] = []
         #: Close each connection after this many answers, as a keep-alive timeout would.
         self.answers_per_connection = 0
+        #: Connections the server has closed.
+        self.closed = 0
 
     def get_request(self):  # type: ignore[no-untyped-def]
         accepted = super().get_request()
         self.accepted += 1
         return accepted
+
+    def shutdown_request(self, request):  # type: ignore[no-untyped-def]
+        super().shutdown_request(request)
+        self.closed += 1
+
+    def wait_closed(self, count: int) -> None:
+        """Until the server has closed ``count`` connections: they are idle and gone."""
+        deadline = time.monotonic() + 5
+        while self.closed < count:
+            assert time.monotonic() < deadline, f"server closed {self.closed} of {count}"
+            time.sleep(0.01)
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -116,7 +130,9 @@ def test_an_idle_connection_the_server_closed_is_not_used(server):
     server.answers_per_connection = 1
     with ApiClient(_base(server)) as client:
         assert client.get("/items/1").status == 200
+        server.wait_closed(1)  # the connection was closed while it sat idle
         assert client.post("/items", {"name": "a"}).status == 200
+        server.wait_closed(2)
         assert client.get("/items/3").status == 200
     # Each call after the first found its idle connection closed and opened a new
     # one before sending: every request reached the server once.
