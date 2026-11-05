@@ -12,11 +12,13 @@ from __future__ import annotations
 import json
 from typing import Any
 
-#: The most components one snapshot lists.
+#: The most components one snapshot lists, and the most of one kind: a page with a
+#: hundred checkboxes must not crowd out its dialog.
 LIMIT = 40
+PER_KIND = 8
 
-_SCRIPT = r"""(limit) => {
-    const out = [];
+_SCRIPT = r"""(limit, perKind) => {
+    const out = [], kinds = {};
     const squash = t => (t || '').replace(/\s+/g, ' ').trim().slice(0, 200);
     const shown = el => el.getClientRects().length > 0;
     const text = el => squash(el ? el.textContent : '');
@@ -25,7 +27,15 @@ _SCRIPT = r"""(limit) => {
     const accName = el => squash(el.getAttribute('aria-label')) || byIds(el.getAttribute('aria-labelledby'));
     const kbq = (el, part) => [...el.classList].some(c => c.startsWith('kbq-' + part + '-')
         || c === 'kbq-' + part);
-    const add = item => { if (out.length < limit) out.push(item); };
+    const add = item => {
+        kinds[item.kind] = (kinds[item.kind] || 0) + 1;
+        if (out.length < limit && kinds[item.kind] <= perKind) out.push(item);
+    };
+    // react-aria leaves these on what it renders; a bare ARIA role is not react-aria.
+    const ARIA = '[data-rac],[data-collection],[data-react-aria-pressable],[id^="react-aria"]';
+    const reactAria = el => el.matches(ARIA) || Boolean(el.querySelector(ARIA));
+    // An unnamed component gets a Target by position: its index among all matches.
+    const position = (el, css) => ({css, nth: [...document.querySelectorAll(css)].indexOf(el)});
     const fieldLabel = field => {
         const label = field.querySelector('[data-slot="form-field-label"]');
         if (!label) return null;
@@ -52,7 +62,8 @@ _SCRIPT = r"""(limit) => {
         let name = accName(input);
         if (!name && input.labels && input.labels.length) name = text(input.labels[0]);
         add({kind: multi ? 'react_select.multi' : 'react_select.single', name,
-             prefix, input_id: name ? null : (input.id || null)});
+             prefix, input_id: name ? null : (input.id || null),
+             ...(name || input.id ? {} : position(control, '.' + prefix + '__control'))});
     }
 
     // Koobiq form fields: select, number, text; the label says required and hint.
@@ -88,6 +99,7 @@ _SCRIPT = r"""(limit) => {
         const name = squash(label.textContent);
         if (!name) continue;
         const koobiq = kbq(label, 'checkbox') || kbq(label, 'toggle');
+        if (!koobiq && !reactAria(label)) continue;
         const kind = input.getAttribute('role') === 'switch' ? 'switch' : 'checkbox';
         add({kind: (koobiq ? 'koobiq.' : 'react_aria.') + kind, name});
     }
@@ -113,35 +125,43 @@ _SCRIPT = r"""(limit) => {
             byIds(t.getAttribute('aria-labelledby'))).slice(0, 10)});
     }
 
-    // Grids: Koobiq tag groups are grids of rows too; tables are named grids.
-    for (const grid of document.querySelectorAll('[role="grid"], table')) {
-        if (!shown(grid)) continue;
+    // Grids: the table kits address role=grid, so a plain <table> is not one of them.
+    // Koobiq tag groups are grids of rows too.
+    for (const grid of document.querySelectorAll('[role="grid"]')) {
+        if (!shown(grid) || grid.parentElement.closest('[role="grid"]')) continue;
         const name = accName(grid);
-        if (kbq(grid, 'taggroup')) { add({kind: 'koobiq.tag_group', name}); continue; }
-        if (grid.closest('[role="grid"]') !== grid && grid.closest('[role="grid"]')) continue;
+        const at = name ? {} : position(grid, '[role="grid"]');
+        if (kbq(grid, 'taggroup')) { add({kind: 'koobiq.tag_group', name, ...at}); continue; }
+        if (!kbq(grid, 'table') && !reactAria(grid)) continue;
         const rows = grid.querySelectorAll('[role="rowheader"]').length;
-        add({kind: kbq(grid, 'table') ? 'koobiq.table' : 'react_aria.table', name, rows});
+        add({kind: kbq(grid, 'table') ? 'koobiq.table' : 'react_aria.table', name, rows, ...at});
     }
 
     for (const tablist of document.querySelectorAll('[role="tablist"]')) {
         if (!shown(tablist)) continue;
+        const koobiq = Boolean(tablist.closest('[class*="kbq-tabs"]'))
+            || [...tablist.querySelectorAll('*')].some(e => kbq(e, 'tabs'));
+        if (!koobiq && !reactAria(tablist)) continue;
         const name = accName(tablist);
-        add({kind: [...tablist.querySelectorAll('*')].some(e => kbq(e, 'tabs'))
-             || tablist.closest('[class*="kbq-tabs"]') ? 'koobiq.tabs' : 'react_aria.tabs', name});
+        add({kind: koobiq ? 'koobiq.tabs' : 'react_aria.tabs', name,
+             ...(name ? {} : position(tablist, '[role="tablist"]'))});
     }
 
     for (const menu of document.querySelectorAll('[role="menu"]')) {
-        if (shown(menu)) add({kind: 'react_aria.menu', name: accName(menu)});
+        if (!shown(menu) || !reactAria(menu)) continue;
+        const name = accName(menu);
+        add({kind: 'react_aria.menu', name, ...(name ? {} : position(menu, '[role="menu"]'))});
     }
 
     // Open lists that are not react-select's own menu list.
     for (const list of document.querySelectorAll('[role="listbox"]')) {
         if (!shown(list) || [...list.classList].some(c => c.endsWith('__menu-list'))) continue;
-        add({kind: 'react_aria.listbox', name: accName(list)});
+        if (!reactAria(list)) continue;
+        const name = accName(list);
+        add({kind: 'react_aria.listbox', name, ...(name ? {} : position(list, '[role="listbox"]'))});
     }
 
-    const nodes = [...document.querySelectorAll('.react-flow__node[data-id]')];
-    for (const node of nodes.slice(0, 20)) {
+    for (const node of document.querySelectorAll('.react-flow__node[data-id]')) {
         const type = [...node.classList].find(c => c.startsWith('react-flow__node-'));
         add({kind: 'xyflow.node', name: node.getAttribute('data-id'),
              node_kind: type ? type.slice('react-flow__node-'.length) : null,
@@ -186,7 +206,7 @@ _KINDS = frozenset(
 
 def script() -> str:
     """The recognizer, as an expression the engine evaluates."""
-    return f"({_SCRIPT})({LIMIT})"
+    return f"({_SCRIPT})({LIMIT}, {PER_KIND})"
 
 
 def _literal(value: str) -> str:
@@ -218,6 +238,12 @@ def python(item: dict[str, Any]) -> str:
         return f"Target('role', {role!r})"
     if kind == "koobiq.toasts":
         return "koobiq.toasts(ex)"
+    if not name and isinstance(item.get("css"), str) and type(item.get("nth")) is int:
+        # The kit factories take a name and this component has none: address it by
+        # position, usable now, to be replaced once the product names it.
+        return f"Target('css', {_literal(item['css'])}, nth={item['nth']})"
+    if not name and not item.get("input_id"):
+        raise ValueError(f"{kind} without a name or a position")
     args = [_literal(name)] if name else []
     if kind.startswith("react_select."):
         if not name and item.get("input_id"):
@@ -235,11 +261,25 @@ def python(item: dict[str, Any]) -> str:
 
 
 def describe(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Add the kit line and the import it needs to each (already redacted) entry."""
+    """Add the kit line and the import it needs to each (already redacted) entry.
+
+    An entry no runnable line can be written for (unnamed, without a position) is
+    dropped rather than printed as a call that would raise.
+    """
+    kept: list[dict[str, Any]] = []
     for item in items:
-        item["python"] = python(item)
-        module = item["kind"].split(".", 1)[0]
-        item["import"] = _MODULES.get(module, "from testence.engine import Target")
+        try:
+            item["python"] = python(item)
+        except ValueError:
+            continue
+        if item["python"].startswith("Target("):
+            item["import"] = "from testence.engine import Target"
+            if not item["name"] and item["kind"] != "dialog":
+                item["note"] = "no accessible name: addressed by position; name it in the product"
+        else:
+            item["import"] = _MODULES[item["kind"].split(".", 1)[0]]
+        kept.append(item)
+    items[:] = kept
     return items
 
 
