@@ -177,7 +177,7 @@ def test_confirm_by_title_accepts_and_cancels(ex):
     koobiq.confirm(ex, "Delete «router-two»").accept("Delete")
     logged(ex, "confirm: delete")
     ex.click(react_aria.button("Delete item"), intent="ask again")
-    koobiq.confirm(ex, "Delete «router-two»").cancel()
+    koobiq.confirm(ex, "Delete «router-two»").cancel("Cancel")
     logged(ex, "confirm: cancel")
 
 
@@ -222,5 +222,11 @@ def test_no_new_toast_is_a_bounded_negative(ex):
     before = toasts.mark()
     toasts.expect_no_new(before, within_ms=200)
     ex.click(react_aria.button("Show toast"), intent="save")
-    with pytest.raises(StepFailed, match="a toast appeared"):
+    with pytest.raises(StepFailed, match="condition held.*Router saved"):
         toasts.expect_no_new(before, within_ms=2_000)
+
+
+def test_a_zero_window_is_refused_not_turned_into_the_step_budget(ex):
+    toasts = koobiq.toasts(ex)
+    with pytest.raises(ValueError, match="within_ms"):
+        toasts.expect_no_new(toasts.mark(), within_ms=0)

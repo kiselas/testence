@@ -1,9 +1,10 @@
 """Koobiq (``@koobiq/react-components``): what it renders on top of react-aria.
 
 Checked against the package sources and the conformance stand
-(``bench/sut/koobiq``) on 2026-11-04, for ``@koobiq/react-components`` 0.37.0 and
-0.38.0. Koobiq is pre-1.0; :data:`SUPPORTED` is the range this kit is held to, and
-:data:`VERIFIED` the versions the stand was built and passed with.
+(``bench/sut/koobiq``): ``@koobiq/react-components`` 0.37.0 is the committed build
+(2026-11-04), 0.38.0 passed a separate build of the same stand (receipt, 2026-11-05).
+Koobiq is pre-1.0; :data:`SUPPORTED` is the range this kit is held to, and
+:data:`VERIFIED` the versions with that evidence.
 
 How addresses are chosen, most stable first:
 
@@ -45,7 +46,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from testence.engine import Capability, Target, require_capabilities
+from testence.engine import Target
 from testence.kits import _support, react_aria
 from testence.kits.react_aria import (
     checkbox,
@@ -58,8 +59,11 @@ from testence.kits.react_aria import (
 )
 
 #: The ``@koobiq/react-components`` range this kit is held to.
-SUPPORTED = ">=0.37,<1"
-#: Versions the conformance stand was built with and passed against.
+#: Koobiq is pre-1.0 and a minor release may change what it renders, so the range
+#: ends at the next unverified minor.
+SUPPORTED = ">=0.37,<0.39"
+#: Versions the conformance stand passed with: the committed build
+#: (``bench/sut/koobiq/dist/stand.json``) or a receipt in ``bench/sut/koobiq/receipts``.
 VERIFIED = ("0.37.0", "0.38.0")
 #: When the roles, attributes and class prefixes were last checked against the sources.
 CHECKED = "2026-11-04"
@@ -291,7 +295,9 @@ class Confirm:
         )
         self.dialog.press(action)
 
-    def cancel(self, name: str = "Cancel") -> None:
+    def cancel(self, name: str) -> None:
+        """Press the dismissing button ``name``. The product names it, in its own
+        language ("Cancel", "Отмена"), so the kit takes the name rather than guess it."""
         self.dialog.press(name)
 
 
@@ -392,14 +398,17 @@ class Toasts:
         return Toast(self.ex, title, target, caption)
 
     def expect_no_new(self, mark: ToastMark, *, within_ms: int = 1_500) -> None:
-        """No toast appears for ``within_ms``. A negative costs its whole budget."""
-        with self.ex.step(f"no new toast within {within_ms} ms", check=True):
-            require_capabilities(self.ex.engine, "kit wait", Capability.JAVASCRIPT)
-            if self.ex.engine.wait_for_predicate_js(
-                _support.call(_ANY_NEW_TOAST, list(mark.seen)), within_ms
-            ):
-                shown = self.ex.engine.eval_js(_support.call(_TOASTS))
-                raise AssertionError(f"a toast appeared: {shown}")
+        """No toast appears for ``within_ms`` after ``mark``. A negative costs its whole
+        budget, and fails closed: a page that cannot be read, or that navigated during
+        the window, is not "no toast" (see :func:`_support.stays_false`)."""
+        _support.stays_false(
+            self.ex,
+            f"no new toast within {within_ms} ms",
+            _ANY_NEW_TOAST,
+            list(mark.seen),
+            within_ms=within_ms,
+            describe=_TOASTS,
+        )
 
 
 def toasts(ex: Any) -> Toasts:
