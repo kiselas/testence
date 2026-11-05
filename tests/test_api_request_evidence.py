@@ -15,6 +15,7 @@ import socket
 import sys
 import threading
 import time
+import urllib.error
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
@@ -139,9 +140,13 @@ def test_a_call_without_an_answer_is_recorded_and_still_raises(tmp_path, server,
     else:
         client = _client(server, writer, timeout_s=0.2)
         path = "/slow"
-    expected = ConnectionRefusedError if target == "refused" else TimeoutError
-    with pytest.raises(expected):
+    # A refused connection is urllib's URLError, as before the kept-alive client; a
+    # call that got no answer in time is a TimeoutError.
+    expected = urllib.error.URLError if target == "refused" else TimeoutError
+    with pytest.raises(expected) as caught:
         client.get(path)
+    if target == "refused":
+        assert isinstance(caught.value.__cause__, ConnectionRefusedError)
     (event,) = _events(writer)
     assert "status" not in event and "response" not in event
     assert event["error"].split(":", 1)[0] == expected.__name__

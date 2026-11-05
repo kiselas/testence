@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import socket
 import threading
+import urllib.error
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler
 from typing import Any
@@ -111,15 +112,67 @@ def test_ten_calls_share_one_connection(server):
     assert [call["status"] for call in recorded] == [200] * 10
 
 
-def test_an_idle_connection_the_server_closed_is_retried_once(server):
+def test_an_idle_connection_the_server_closed_is_not_used(server):
     server.answers_per_connection = 1
     with ApiClient(_base(server)) as client:
         assert client.get("/items/1").status == 200
         assert client.post("/items", {"name": "a"}).status == 200
         assert client.get("/items/3").status == 200
-    # Each call after the first found its idle connection closed and opened one more.
+    # Each call after the first found its idle connection closed and opened a new
+    # one before sending: every request reached the server once.
     assert server.accepted == 3
     assert [method for method, _path, _body in server.requests] == ["GET", "POST", "GET"]
+
+
+class _DropsSecondRequest(_Handler):
+    """Answers the first request of a connection; reads the second and hangs up
+    without an answer, as a server whose keep-alive timer fires mid-request."""
+
+    def _route(self, method: str) -> None:
+        if self.answered == 0:
+            super()._route(method)
+            return
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length) if length else b""
+        self.server.requests.append((method, self.path, body))
+        self.close_connection = True
+
+
+def test_a_post_on_a_connection_that_drops_is_not_sent_twice(server):
+    server.RequestHandlerClass = _DropsSecondRequest
+    with ApiClient(_base(server)) as client:
+        assert client.get("/items/1").status == 200
+        with pytest.raises(urllib.error.URLError):
+            client.post("/items", {"name": "seed"})
+    # The server saw the POST once; the client did not repeat it behind the test.
+    assert [method for method, _path, _body in server.requests] == ["GET", "POST"]
+    assert server.accepted == 1
+
+
+def test_an_idempotent_request_on_a_connection_that_drops_is_repeated_once(server):
+    server.RequestHandlerClass = _DropsSecondRequest
+    with ApiClient(_base(server)) as client:
+        assert client.get("/items/1").status == 200
+        assert client.get("/items/2").json["path"] == "/items/2"
+    assert [path for _method, path, _body in server.requests] == [
+        "/items/1",
+        "/items/2",
+        "/items/2",
+    ]
+    assert server.accepted == 2
+
+
+def test_the_proxy_follows_the_environment_between_calls(monkeypatch):
+    from testence.api import _proxy_for
+
+    monkeypatch.setenv("HTTP_PROXY", "http://first.invalid:3128")
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+    assert _proxy_for("http", "app.example.test") == "http://first.invalid:3128"
+    monkeypatch.setenv("HTTP_PROXY", "http://second.invalid:3128")
+    assert _proxy_for("http", "app.example.test") == "http://second.invalid:3128"
+    monkeypatch.setenv("NO_PROXY", "app.example.test")
+    assert _proxy_for("http", "app.example.test") == ""
 
 
 def test_a_new_connection_that_fails_is_not_retried():
@@ -137,7 +190,7 @@ def test_a_new_connection_that_fails_is_not_retried():
     thread = threading.Thread(target=drop, daemon=True)
     thread.start()
     try:
-        with pytest.raises(ConnectionError):
+        with pytest.raises(urllib.error.URLError):
             ApiClient(f"http://127.0.0.1:{listener.getsockname()[1]}").get("/items/1")
         thread.join(5)
         assert accepted == [1]
