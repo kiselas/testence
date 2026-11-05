@@ -130,7 +130,12 @@ def test_doctor_lists_the_masked_names_and_never_the_values(clean_env, monkeypat
 
 
 def run_project(
-    project: Path, files: dict[str, str], settings: dict[str, Any], env_extra: dict[str, str]
+    project: Path,
+    files: dict[str, str],
+    settings: dict[str, Any],
+    env_extra: dict[str, str],
+    *,
+    returncode: int = 1,
 ) -> Path:
     """Run a nested pytest session in ``project``; returns the one run directory."""
     project.mkdir()
@@ -141,6 +146,10 @@ def run_project(
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     env.update(env_extra)
     env.pop(RUN_ID_ENV, None)
+    # A nested session that inherits xdist's worker variables believes it is a worker
+    # and writes shard files (fingerprints.gw0.json) instead of the base ones.
+    for name in ("PYTEST_XDIST_WORKER", "PYTEST_XDIST_WORKER_COUNT", "PYTEST_XDIST_TESTRUNUID"):
+        env.pop(name, None)
     env["PYTHONPATH"] = os.pathsep.join(
         [str(ROOT / "src"), value] if (value := env.get("PYTHONPATH")) else [str(ROOT / "src")]
     )
@@ -162,7 +171,7 @@ def run_project(
         cwd=project,
         env=env,
     )
-    assert result.returncode == 1, result.stdout + result.stderr
+    assert result.returncode == returncode, result.stdout + result.stderr
     (run_dir,) = [path for path in (project / "runs").iterdir() if path.is_dir()]
     return run_dir
 

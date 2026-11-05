@@ -832,11 +832,11 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
         payload["xfail"] = bool(report.skipped)
         payload["xpass"] = bool(report.passed or report.failed)
     if report.failed or report.skipped:
-        payload["error"] = _report_error(report)
+        payload["error"] = _report_error(report, state.writer)
     if report.failed and not item.stash.get(_ERROR_KEY, None):
         item.stash[_ERROR_KEY] = {
             "error_kind": _error_kind(call.excinfo.value if call.excinfo else None),
-            "error_trace": _report_trace(report),
+            "error_trace": _report_trace(report, state.writer),
         }
     if report.when == "call" and report.passed:
         _final_screenshot(item, state)
@@ -851,7 +851,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
             engine._testence_state["any_failed"] = True  # type: ignore[attr-defined]
         if report.when != "teardown" and not item.stash.get(_PACK_ATTEMPTED_KEY, False):
             item.stash[_PACK_ATTEMPTED_KEY] = True
-            pack = _failure_pack(item, state, _test_id(item), _report_error(report))
+            pack = _failure_pack(item, state, _test_id(item), _report_error(report, state.writer))
             if pack:
                 item.stash[_PACK_KEY] = pack
 
@@ -1077,13 +1077,13 @@ def pytest_collectreport(report: pytest.CollectReport) -> None:
         state.writer.emit(
             "collection.error",
             nodeid=report.nodeid,
-            error=_report_error(report),
+            error=_report_error(report, state.writer),
         )
     elif report.skipped:
         state.writer.emit(
             "collection.skip",
             nodeid=report.nodeid,
-            reason=_report_error(report),
+            reason=_report_error(report, state.writer),
         )
 
 
@@ -1185,15 +1185,27 @@ def _test_id(item: pytest.Item) -> str:
     return nodeid
 
 
-def _report_error(report: pytest.TestReport | pytest.CollectReport) -> str:
+def _report_error(
+    report: pytest.TestReport | pytest.CollectReport, writer: EvidenceWriter | None = None
+) -> str:
+    """The failure's message; with a ``writer``, masked before it is clipped."""
     crash = getattr(getattr(report, "longrepr", None), "reprcrash", None)
     message = getattr(crash, "message", None)
     if message:
         return str(message)
     longreprtext = getattr(report, "longreprtext", None)
     if longreprtext:
-        return str(longreprtext)[-4000:]
-    return str(getattr(report, "longrepr", ""))[-4000:]
+        return _tail(str(longreprtext), 4000, writer)
+    return _tail(str(getattr(report, "longrepr", "")), 4000, writer)
+
+
+def _tail(text: str, size: int, writer: EvidenceWriter | None) -> str:
+    """The last ``size`` characters of ``text``, after the run's secrets are masked.
+
+    Cutting first could split a secret: the fragment that stayed matched no known form
+    and reached the ledger.
+    """
+    return (writer.mask_text(text) if writer is not None else text)[-size:]
 
 
 def _error_kind(exc: BaseException | None) -> str:
@@ -1224,9 +1236,9 @@ def _error_kind(exc: BaseException | None) -> str:
     return "test_code"
 
 
-def _report_trace(report: pytest.TestReport) -> str:
+def _report_trace(report: pytest.TestReport, writer: EvidenceWriter | None = None) -> str:
     text = getattr(report, "longreprtext", None) or str(getattr(report, "longrepr", "") or "")
-    return str(text)[-8000:]
+    return _tail(str(text), 8000, writer)
 
 
 def _final_screenshot(item: pytest.Item, state: _LifecycleState) -> None:
@@ -1444,7 +1456,7 @@ def _finalize_test(item: pytest.Item, state: _LifecycleState) -> None:
     test_id = _test_id(item)
     reports = item.stash.get(_REPORTS_KEY, {})
     status, phase = _execution_outcome(reports)
-    errors = [_report_error(report) for report in reports.values() if _failed(report)]
+    errors = [_report_error(report, state.writer) for report in reports.values() if _failed(report)]
     # The failed phase of an attempt that is repeated is relabelled ``rerun``.
     rerun = any(report.outcome == "rerun" for report in reports.values())
     retries = int(item.stash.get(_RETRIES_KEY, 0))
@@ -2296,6 +2308,7 @@ def testence_fingerprints(
         Path(request.config.rootpath) / DEFAULT_STORE,
         redact_values=testence_writer.redact_values,
         redaction_policy=testence_writer.redaction_policy,
+        live_secrets=lambda: testence_writer.redact_values,
     )
     yield store
     store.flush()

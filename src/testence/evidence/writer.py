@@ -40,6 +40,7 @@ from testence.identity import UNKNOWN_PROJECT_ID, proof_id, source_case_id
 from .events import Event
 from .sanitize import (
     DEFAULT_POLICY,
+    FULL_SECTION_CHAR_LIMIT,
     RedactionPolicy,
     redact_document_text,
     sanitize,
@@ -376,6 +377,16 @@ class EvidenceWriter:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, target)
+
+    def mask_text(self, text: str) -> str:
+        """``text`` with the run's secrets and credential forms masked, not clipped.
+
+        For text a caller clips afterwards: clipping first can cut a secret in half, and
+        the half that is left matches no known form.
+        """
+        return sanitize_text(
+            text, secrets=self._redact_values, policy=self._policy, limit=FULL_SECTION_CHAR_LIMIT
+        )
 
     def sanitized(self, value: Any, *, limit: int = 16_384) -> Any:
         """Sanitize a pack value with the same policy as the ledger."""
