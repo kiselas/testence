@@ -50,10 +50,15 @@ def test_multi_search_filters_the_menu(ex):
 
 
 def test_disabled_option_cannot_be_picked(ex):
-    ex.engine.timeout_ms = 500
     targets = react_select.multi(ex, "Targets")
-    with pytest.raises(StepFailed):
-        targets.pick("gamma.example.test")
+    targets.open()
+    gamma = targets.option("gamma.example.test")
+    ex.expect_attribute(gamma, "aria-disabled", "true", intent="the option is there, disabled")
+    # The click itself is refused: the option is found and is not enabled.
+    with pytest.raises(
+        StepFailed, match=r"(?s)pick \W*gamma\.example\.test.*element is not enabled"
+    ):
+        targets.pick("gamma.example.test", keep_open=True)
     targets.expect_chips(["retired.example.test"])
 
 
@@ -68,7 +73,6 @@ def test_single_choose_notice_and_clear(ex):
     zone.pick("LAN")
     logged(ex, "zone: lan")
     zone.clear()
-    zone.expect_value(None)
     logged(ex, "zone: -")
 
 

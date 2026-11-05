@@ -30,9 +30,7 @@ from typing import Any
 from testence.engine import Target
 from testence.kits import _support
 
-_STATE = """(spec) => {
-    const tok = (el, name) => el && (' ' + el.className + ' ').includes(' ' + name + ' ');
-    const p = spec.prefix;
+_INPUTS = """(spec) => {
     const named = input => {
         if (spec.inputId) return input.id === spec.inputId;
         const text = el => (el ? el.textContent : '').replace(/\\s+/g, ' ').trim();
@@ -41,23 +39,30 @@ _STATE = """(spec) => {
         if (ids.length) return ids.map(id => text(document.getElementById(id))).join(' ') === spec.label;
         return [...(input.labels || [])].some(l => text(l) === spec.label);
     };
-    const inputs = [...document.querySelectorAll('input[role="combobox"]')].filter(named);
-    if (inputs.length !== 1) return {found: inputs.length};
+    return [...document.querySelectorAll('input[role="combobox"]')].filter(named);
+}"""
+_STATE = f"""(spec) => {{
+    const tok = (el, name) => el && (' ' + el.className + ' ').includes(' ' + name + ' ');
+    const p = spec.prefix;
+    const inputs = ({_INPUTS})(spec);
+    if (inputs.length !== 1) return {{found: inputs.length}};
     const input = inputs[0];
     let control = input;
     while (control && !tok(control, p + '__control')) control = control.parentElement;
-    if (!control) return {found: 0, prefix: false};
+    if (!control) return {{found: 0, prefix: false}};
     const container = control.parentElement;
     const own = container.querySelector(':scope > .' + p + '__menu');
-    const menu = own || (input.getAttribute('aria-expanded') === 'true'
-        ? document.querySelector('.' + p + '__menu') : null);
-    const chips = [...control.querySelectorAll('.' + p + '__multi-value')].map(chip => ({
+    // A portalled menu is elsewhere in <body>: the open input names its list
+    // (aria-controls), which is inside this field's menu and no other.
+    const list = document.getElementById(input.getAttribute('aria-controls') || '');
+    const menu = own || (list ? list.closest('.' + p + '__menu') : null);
+    const chips = [...control.querySelectorAll('.' + p + '__multi-value')].map(chip => ({{
         label: ((chip.querySelector('.' + p + '__multi-value__label') || chip).textContent || '').trim(),
         removable: Boolean(chip.querySelector('[role="button"]')),
-    }));
+    }}));
     const single = control.querySelector('.' + p + '__single-value');
     const placeholder = control.querySelector('.' + p + '__placeholder');
-    const state = {
+    const state = {{
         found: 1,
         chips: chips.map(c => c.label),
         single: single ? single.textContent.trim() : null,
@@ -67,29 +72,29 @@ _STATE = """(spec) => {
         loading: Boolean(container.querySelector('.' + p + '__loading-indicator')),
         clearable: Boolean(control.querySelector('.' + p + '__clear-indicator')),
         search: input.value,
-    };
+    }};
     if (!menu) return state;
     const grouped = new Map();
-    for (const group of menu.querySelectorAll('.' + p + '__group')) {
+    for (const group of menu.querySelectorAll('.' + p + '__group')) {{
         const heading = group.querySelector('.' + p + '__group-heading');
-        for (const option of group.querySelectorAll('.' + p + '__option')) {
+        for (const option of group.querySelectorAll('.' + p + '__option')) {{
             grouped.set(option, heading ? heading.textContent.trim() : '');
-        }
-    }
-    state.options = [...menu.querySelectorAll('.' + p + '__option')].map(o => ({
+        }}
+    }}
+    state.options = [...menu.querySelectorAll('.' + p + '__option')].map(o => ({{
         label: o.textContent.trim(),
         group: grouped.has(o) ? grouped.get(o) : null,
         selected: o.getAttribute('aria-selected') === 'true' || tok(o, p + '__option--is-selected'),
         disabled: o.getAttribute('aria-disabled') === 'true' || tok(o, p + '__option--is-disabled'),
         focused: tok(o, p + '__option--is-focused'),
-    }));
+    }}));
     state.groups = [...menu.querySelectorAll('.' + p + '__group-heading')].map(h => h.textContent.trim());
     const notice = menu.querySelector('.' + p + '__menu-notice');
     state.notice = notice ? notice.textContent.trim() : null;
     const offered = new Set(state.options.map(o => o.label));
     state.unoffered = state.chips.filter(c => !offered.has(c));
     return state;
-}"""
+}}"""
 _IS_OPEN = (
     f"(spec, open) => {{ const s = ({_STATE})(spec); return s.found === 1 && s.open === open; }}"
 )
@@ -98,11 +103,12 @@ _HAS_CHIPS = f"""(spec, chips) => {{ const s = ({_STATE})(spec);
 _HAS_SINGLE = f"""(spec, value) => {{ const s = ({_STATE})(spec);
     return s.found === 1 && s.single === value; }}"""
 _LOADED = f"(spec) => {{ const s = ({_STATE})(spec); return s.found === 1 && !s.loading; }}"
-_BLUR = """(spec) => {
-    const el = document.activeElement;
-    if (el && el.getAttribute('role') === 'combobox') el.blur();
+_BLUR = f"""(spec) => {{
+    const inputs = ({_INPUTS})(spec);
+    if (inputs.length !== 1) return false;
+    if (document.activeElement === inputs[0]) inputs[0].blur();
     return true;
-}"""
+}}"""
 
 
 def _cls(name: str) -> str:
@@ -176,8 +182,16 @@ class ReactSelect:
         )
 
     def close(self) -> None:
-        """Close the menu by taking focus away (Escape would close a dialog too)."""
-        _support.read(self.ex, f"take focus out of {self.label!r}", _BLUR, self._spec)
+        """Close the menu by taking focus out of this field's input.
+
+        react-select closes its menu on blur. The user-like alternatives each do
+        something else: Escape also dismisses a surrounding dialog or side panel, Tab
+        picks the focused option (``tabSelectsValue`` is on by default), and a click
+        "outside" lands on whatever is there, or dismisses a modal. Only this field's
+        input is blurred, and only when it has focus.
+        """
+        if not _support.read(self.ex, f"take focus out of {self.label!r}", _BLUR, self._spec):
+            raise AssertionError(f"react-select {self.label!r}: the field was not found")
         self.expect_open(False)
 
     def wait_loaded(self) -> None:
@@ -214,7 +228,12 @@ class ReactSelect:
         self.ex.expect_hidden(self.chip(label), intent=f"the chip {label!r} is gone")
 
     def clear(self) -> None:
+        """Press the clear indicator; then the field must hold nothing."""
         self.ex.click(self.clear_indicator, intent=f"clear {self.label!r}")
+        if self.multi:
+            self.expect_chips([])
+        else:
+            self.expect_value(None)
 
     def expect_chips(self, labels: list[str]) -> None:
         _support.wait_until(
@@ -251,13 +270,13 @@ def _build(ex: Any, label: str, multi: bool, prefix: str, input_id: str | None) 
             f" or @id=//label[normalize-space(.)={lit}]/@for"
         )
         field_input = Target("role", "combobox", name=label)
-    control = f"xpath=//*[{_cls(prefix + '__control')}][.//input[@role='combobox'][{named}]]"
-    # The menu is the control's sibling; a portalled menu (menuPortalTarget) is the
-    # only one open, at the end of <body>.
+    field_xpath = f"//input[@role='combobox'][{named}]"
+    control = f"xpath=//*[{_cls(prefix + '__control')}][.{field_xpath}]"
+    # The open input names its list (aria-controls), inline or portalled
+    # (menuPortalTarget): the menu is the one around that list, never another field's.
     menu = Target(
         "css",
-        f"{control}/following-sibling::*[{_cls(prefix + '__menu')}]"
-        f" | //body/*[{_cls(prefix + '__menu-portal')}]//*[{_cls(prefix + '__menu')}]",
+        f"xpath=//*[{_cls(prefix + '__menu')}][.//*[@id={field_xpath}/@aria-controls]]",
     )
     return ReactSelect(
         ex,
