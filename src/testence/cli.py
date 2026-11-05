@@ -499,6 +499,39 @@ def main(argv: list[str] | None = None) -> int:
         help="passed to pytest unchanged, after an optional --; default: the onboarding test",
     )
 
+    p_prove = sub.add_parser(
+        "prove",
+        help="strict mode in one command: green run, a run per control, proven evaluation",
+    )
+    p_prove.add_argument(
+        "--project", type=Path, default=Path("."), help="project whose scaffold to run"
+    )
+    p_prove.add_argument(
+        "--run-id",
+        default=None,
+        help="run id of the green run; the control runs are <ID>-<control>; generated when omitted",
+    )
+    p_prove.add_argument(
+        "--control",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="prove against this control only; repeat for several (default: every declared control)",
+    )
+    p_prove.add_argument(
+        "-o",
+        "--out",
+        type=Path,
+        default=None,
+        help="where to write the receipt (default: runs/<ID>.receipt.json)",
+    )
+    p_prove.add_argument("--json", dest="json_output", action="store_true")
+    p_prove.add_argument(
+        "pytest_args",
+        nargs=argparse.REMAINDER,
+        help="passed to pytest unchanged, after an optional --; default: the onboarding test",
+    )
+
     p_explore = sub.add_parser(
         "explore", help="map one page: ARIA, unique Targets and data-key rows"
     )
@@ -626,6 +659,11 @@ def main(argv: list[str] | None = None) -> int:
             "testence run --project . --run-id r-local -- tests_e2e -q -k checkout",
             "testence run --project . --run-id r-drop-save --control drop-save -- tests_e2e -q",
         ],
+        p_prove: [
+            "testence prove --project .",
+            "testence prove --project . --run-id ci-42 -- tests_e2e -q",
+            "testence prove --project . --control drop-save -- tests_e2e -q",
+        ],
         p_ci_summary: [
             "testence ci summary runs/r-local",
             "testence ci summary runs/r-local --negative-run runs/r-drop-save",
@@ -717,33 +755,18 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "run":
-        from .evidence import RUN_ID_ENV, new_run_id
+        from .application import QUICK_START_ARGS, run_pytest
+        from .evidence import new_run_id
 
         project = args.project.resolve()
         run_id = args.run_id or new_run_id()
         pytest_args = [part for part in args.pytest_args if part != "--"]
         quick_start = not pytest_args
         if quick_start:
-            pytest_args = [".testence/examples/test_onboarding.py", "-q"]
-        environment = dict(os.environ)
-        environment[RUN_ID_ENV] = run_id
+            pytest_args = list(QUICK_START_ARGS)
         print(f"testence run: {run_id}")
-        control_args = ["--testence-control", args.control] if args.control else []
-        completed = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pytest",
-                "--rootdir",
-                str(project),
-                *control_args,
-                *pytest_args,
-            ],
-            cwd=project,
-            env=environment,
-            check=False,
-        )
-        if quick_start and completed.returncode == 0:
+        returncode = run_pytest(project, run_id, pytest_args, control=args.control)
+        if quick_start and returncode == 0:
             demo = project / ".testence" / "examples" / "test_demo_failure.py"
             if demo.is_file():
                 print(
@@ -752,20 +775,44 @@ def main(argv: list[str] | None = None) -> int:
                     "  testence run -- .testence/examples/test_demo_failure.py -q\n"
                     "then read its evidence: testence inspect runs/<new run id>"
                 )
-        if completed.returncode == 1:
+        if returncode == 1:
             # The pass path already points at the next step; a failure is where the
             # evidence matters most and said nothing.
             runs = project / "runs" / run_id
             shown = os.path.relpath(runs) if runs.is_relative_to(Path.cwd()) else str(runs)
             print(f"next: read what failed: testence inspect {shown}")
-        if completed.returncode == 5:  # pytest.ExitCode.NO_TESTS_COLLECTED
+        if returncode == 5:  # pytest.ExitCode.NO_TESTS_COLLECTED
             # Options alone (`-- -x`) select pytest's own default paths, not the example.
             print(
                 "testence run: pytest collected no tests. Name them after --, for example\n"
                 "  testence run --project . -- tests/ -q",
                 file=sys.stderr,
             )
-        return int(completed.returncode)
+        return int(returncode)
+
+    if args.command == "prove":
+        from .application import ApplicationError, prove
+
+        def say(line: str) -> None:
+            # --json keeps stdout for the one document; progress goes to stderr.
+            print(line, file=sys.stderr if args.json_output else sys.stdout, flush=True)
+
+        try:
+            proved = prove(
+                args.project,
+                pytest_args=args.pytest_args,
+                controls=args.control,
+                run_id=args.run_id,
+                receipt=args.out,
+                say=say,
+                stdout_to_stderr=args.json_output,
+            )
+        except ApplicationError as exc:
+            print(f"prove failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(proved, ensure_ascii=False, separators=(",", ":")))
+        return int(proved["final_exit"])
 
     if args.command in ("debug", "status"):
         from .debug import debug, project_status

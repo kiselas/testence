@@ -26,6 +26,8 @@ jobs:
           python -m pip install testence
           python -m playwright install --with-deps chromium
       - name: Run the tests
+        # Strict mode (opt-in, one more run per declared control): replace this command
+        # with `testence prove --project . --run-id "ci-${{ github.run_id }}"`.
         run: testence run --project . --run-id "ci-${{ github.run_id }}"
       - name: Export JUnit for the CI test view
         if: always()
