@@ -1208,8 +1208,14 @@ class PlaywrightCdpEngine(Engine):
             blockers.add("recording")
         if self._context is None or self._page is None or self._page.is_closed():
             blockers.add("no page")
-        elif self._scope is not self._page:
-            blockers.add("frame scope")
+        else:
+            if self._scope is not self._page:
+                blockers.add("frame scope")
+            try:
+                # A crashed page is still "open"; it fails the first call into it.
+                self._page.evaluate("1")
+            except Exception:  # noqa: BLE001 - any failure means it cannot be handed on
+                blockers.add("unresponsive page")
         return sorted(blockers)
 
     def prepare_reuse(self) -> int:
@@ -1895,14 +1901,14 @@ class PlaywrightCdpEngine(Engine):
             page.screenshot(path=path, full_page=False)
 
     def native_page(self) -> Page:
-        # Raw access can change anything about the context; it is not handed on.
-        self._sticky.add("native")
         """The Playwright page behind this engine, for ``Actions.native`` only.
 
         The one sanctioned place where a Playwright type leaves the engine
         (ADR-0027): the DSL records the step around it, so evidence still knows an
         unrecorded interaction happened and why.
         """
+        # Raw access can change anything about the context; it is not handed on.
+        self._sticky.add("native")
         page = self._require_page()
         if self._native_routes is None:
             self._native_routes = NativeRoutes(

@@ -316,10 +316,17 @@ class Actions:
             self.engine.flush_render_probe()  # type: ignore[attr-defined]
 
     def finish(self) -> None:
-        """End of the test: a deferred render probe still due runs now."""
-        flush = getattr(self.engine, "flush_render_probe", None)
-        if callable(flush):
-            flush()
+        """End of the test: a deferred render probe still due runs now.
+
+        After a failed step it is dropped instead: it would only wait out its timeout
+        on a page that broke, and evidence code that reads the page runs it anyway.
+        """
+        due = getattr(self.engine, "render_probe_due", None)
+        if callable(due) and due():
+            if self.last_failure is not None:
+                self.engine.skip_render_probe()  # type: ignore[attr-defined]
+            else:
+                self.engine.flush_render_probe()  # type: ignore[attr-defined]
         self._finish_ws_gates()
 
     def _describe_matches(self, target: Target) -> str:

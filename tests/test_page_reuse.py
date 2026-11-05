@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from testence.evidence import RUN_ID_ENV
-from tests.mock_app import PASSWORD, USER, MockApp
+from tests.mock_app import PASSWORD, SESSION_COOKIE, USER, MockApp
 from tests.owned_pytest import run_pytest
 
 ROOT = Path(__file__).parents[1]
@@ -69,6 +69,25 @@ def test_f_routes(ex, testence_engine):
 def test_g_after_a_route(ex, testence_engine):
     ex.goto("/app")
     assert testence_engine.eval_js("window.__mark || 'none'") == "none"
+
+
+def test_h_engine_only_fails(testence_engine):
+    testence_engine.goto("/app")
+    assert False, "deliberate, without ex"
+
+
+def test_i_after_an_engine_only_failure(ex):
+    ex.goto("/app")
+
+
+def test_j_signs_out(ex, testence_engine):
+    ex.goto("/app")
+    testence_engine.eval_js("document.cookie = '{SESSION_COOKIE}=; Max-Age=0; path=/'; 1")
+
+
+def test_k_after_a_sign_out(ex):
+    ex.goto("/app")
+    ex.expect_text(WHOAMI, "signed in as {USER}")
 """
 
 FORM = {"auth": "form", "login_path": "/login", "success_url_contains": "/app"}
@@ -129,7 +148,7 @@ def _phases(events: list[dict[str, Any]], name: str) -> list[str]:
 def test_module_tests_share_one_page_and_keep_their_own_evidence(tmp_path):
     result, events = _run(tmp_path / "reuse", {**FORM, "page_reuse": "module"})
     assert result.returncode == 1, result.stdout + result.stderr
-    assert "1 failed, 6 passed" in result.stdout, result.stdout
+    assert "2 failed, 9 passed" in result.stdout, result.stdout
 
     # b takes a's page over: no browser start and no login of its own.
     assert "browser.start" in _phases(events, "test_a_first")
@@ -143,10 +162,24 @@ def test_module_tests_share_one_page_and_keep_their_own_evidence(tmp_path):
     ]
     assert auth["reused"] is True and auth["duration_ms"] == 0
     # fresh_page, a failed test and a route each end the sharing.
-    for name in ("test_c_opts_out", "test_e_after_a_failure", "test_g_after_a_route"):
+    for name in (
+        "test_c_opts_out",
+        "test_e_after_a_failure",
+        "test_g_after_a_route",
+        "test_i_after_an_engine_only_failure",
+        "test_k_after_a_sign_out",
+    ):
         assert "browser.start" in _phases(events, name), name
-    reasons = [e["reason"] for e in events if e.get("text") == "page not kept"]
-    assert "the test failed" in reasons and "the test left route" in reasons
+    reasons = {
+        e["test"].rsplit("::", 1)[-1]: e["reason"]
+        for e in events
+        if e.get("text") == "page not kept"
+    }
+    assert reasons["test_d_fails"] == "the test failed"
+    assert reasons["test_f_routes"] == "the test left route"
+    # Failed without `ex`: the reports say so, not only the DSL.
+    assert reasons["test_h_engine_only_fails"] == "the test failed"
+    assert reasons["test_j_signs_out"].startswith("the test signed out")
 
     # Each test's waits are its own: b's ledger has no goto, a's does.
     waits = {e["test"].rsplit("::", 1)[-1]: e["by_op"] for e in events if e["kind"] == "test.waits"}

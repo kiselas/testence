@@ -1940,6 +1940,25 @@ def _page_key(item: pytest.Item, settings: Settings) -> tuple[str, str] | None:
     return (item.nodeid.split("::", 1)[0], login)
 
 
+def _login_held(engine: Engine, auth: Any) -> bool:
+    """Whether the browser still holds what the login put into it.
+
+    A test that signed out, or lost its session, must not hand an "authenticated" page
+    to the next test: every cookie and storage key of the login must still be there
+    (a cookie's value may rotate, its presence may not lapse). Headers set on the
+    context cannot be lost by the page.
+    """
+    if not isinstance(auth, AuthContext):
+        return True  # anonymous, or a login that left nothing in the browser
+    try:
+        present = {c.get("name"): c.get("value") for c in engine.cookies()}
+        if any(not present.get(cookie.get("name")) for cookie in auth.cookies):
+            return False
+        return all(engine.storage_item(key) is not None for key in auth.storage)
+    except Exception:  # noqa: BLE001 - a page that cannot answer is not handed on
+        return False
+
+
 def _take_kept_page(
     config: pytest.Config, writer: EvidenceWriter, key: tuple[str, str] | None, test_id: str
 ) -> dict[str, Any] | None:
@@ -1950,7 +1969,10 @@ def _take_kept_page(
     del config.stash[_KEPT_PAGE_KEY]
     engine = kept["engine"]
     if key is None or kept["key"] != key:
-        _close_engine(writer, kept["test"], engine, "page.release", keep_browser=False)
+        # Closed during this test's setup, for the test that kept it: a run-level event,
+        # not one of a test whose test.end is already written.
+        writer.emit("note", text="kept page released", kept_by=kept["test"], taken_by=test_id)
+        _close_engine(writer, "", engine, "page.release", keep_browser=False)
         return None
     try:
         with _lifecycle_phase(writer, test_id, "page.reuse"):
@@ -1986,9 +2008,13 @@ def _release_page(
     state = getattr(engine, "_testence_state", {})
     following = request.node.stash.get(_NEXT_ITEM_KEY, None)
     reason = ""
+    reports = request.node.stash.get(_REPORTS_KEY, {})
     if key is None:
         reason = "own page"
-    elif state.get("any_failed"):
+    elif state.get("any_failed") or any(report.failed for report in reports.values()):
+        # From the reports, not only from `ex`: a test that used testence_engine or
+        # testence_api alone, or failed in setup after the browser started, also
+        # leaves a page nobody should inherit.
         reason = "the test failed"
     elif following is None or _page_key(following, settings) != key:
         reason = "the next test does not share it"
@@ -1996,6 +2022,8 @@ def _release_page(
         blockers = getattr(engine, "reuse_blockers", lambda: ["engine cannot hand on a page"])()
         if blockers:
             reason = "the test left " + ", ".join(blockers)
+        elif not _login_held(engine, state.get("auth")):
+            reason = "the test signed out (its login is gone from the browser)"
     if reason:
         if key is not None:
             writer.emit("note", test=test_id, text="page not kept", reason=reason)
