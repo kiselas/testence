@@ -1764,6 +1764,17 @@ def _engine_phase_notes(
                 nested_in=parent,
                 ok=entry["ok"],
             )
+        elif entry.get("op") == "close.deadline_exceeded":
+            writer.emit(
+                "note",
+                test=test,
+                text="engine close deadline exceeded; its browser and driver were killed",
+                lifecycle_phase=entry["op"],
+                step=entry.get("detail", ""),
+                duration_ms=entry["ms"],
+                nested_in=parent,
+                ok=False,
+            )
 
 
 @pytest.fixture(scope="session")
