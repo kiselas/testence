@@ -22,11 +22,14 @@ and is kept, verbatim, on every regeneration.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import urllib.parse
 from pathlib import Path
 from typing import Any
+
+from .skeleton import _TRANSLIT, read_utf8
 
 INVENTORY_SCHEMA = "testence/inventory/1"
 UNKNOWN_PAGE = "unknown-page"
@@ -65,11 +68,33 @@ def template_path(url: str) -> str:
     return templated if templated == "/" else templated.rstrip("/")
 
 
+_RESERVED = frozenset({"index", UNKNOWN_PAGE})
+
+
 def page_slug(page: str) -> str:
+    """A file name for ``page`` that no other page can share.
+
+    Segments are joined with ``_`` and kept readable (Cyrillic is transliterated). When
+    that loses anything (case, punctuation, ``{id}``, other scripts, length) a digest of
+    the page is appended, so ``/a/b`` and ``/a-b`` or ``/`` and ``/привет`` never
+    meet in one file.
+    """
     if page == UNKNOWN_PAGE:
         return UNKNOWN_PAGE
-    words = re.findall(r"[a-z0-9]+", page.lower().replace("{id}", "id"))
-    return "-".join(words)[:80] or "index"
+    if page == "/":
+        return "index"
+    segments = page.strip("/").split("/")
+    readable = "_".join(
+        re.sub(r"[^a-z0-9]+", "-", segment.casefold().translate(_TRANSLIT)).strip("-")
+        for segment in segments
+    )
+    # "{id}" reads as "id"; a literal "id" segment is the one that gets the digest.
+    rebuilt = "/" + "/".join("{id}" if part == "id" else part for part in readable.split("_"))
+    lossless = rebuilt == page and readable not in _RESERVED
+    if lossless and len(readable) <= 80:
+        return readable
+    digest = hashlib.sha256(page.encode("utf-8")).hexdigest()[:8]
+    return f"{readable[:80].strip('-_')}-{digest}" if readable.strip("-_") else digest
 
 
 def _navigation_url(event: dict[str, Any]) -> str | None:
@@ -303,7 +328,7 @@ def _read_existing(path: Path) -> tuple[dict[str, Any] | None, list[str]]:
     """Previous data and the author's manual sections of an inventory file."""
     if not path.exists():
         return None, []
-    text = path.read_text(encoding="utf-8")
+    text = read_utf8(path, InventoryError)
     data = None
     match = _DATA.search(text)
     if match:
@@ -415,6 +440,12 @@ def inventory(run_dir: Path | str, out: Path | str = Path("docs/inventory")) -> 
     for page, data in sorted(pages.items()):
         path = target_dir / f"{page_slug(page)}.md"
         previous, manual = _read_existing(path)
+        if previous is not None and previous.get("page") != page:
+            # Another page owns this name (a file from an older naming, or a digest
+            # collision): never merge into it or take its manual sections.
+            digest = hashlib.sha256(page.encode("utf-8")).hexdigest()[:16]
+            path = target_dir / f"{page_slug(page)}-{digest}.md"
+            previous, manual = _read_existing(path)
         if previous and previous.get("page") == page:
             # A run already merged is not counted twice: rerunning is idempotent.
             seen = set(data["runs"]) <= set(previous.get("runs", []))
@@ -423,7 +454,7 @@ def inventory(run_dir: Path | str, out: Path | str = Path("docs/inventory")) -> 
             merged = data
         content = render(merged, manual)
         status = "created" if not path.exists() else "updated"
-        if path.exists() and path.read_text(encoding="utf-8") == content:
+        if path.exists() and read_utf8(path, InventoryError) == content:
             status = "unchanged"
         else:
             path.parent.mkdir(parents=True, exist_ok=True)

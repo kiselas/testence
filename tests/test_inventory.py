@@ -10,7 +10,7 @@ import pytest
 
 from testence.cli import main
 from testence.evidence import EvidenceWriter
-from testence.inventory import UNKNOWN_PAGE, inventory, template_path
+from testence.inventory import UNKNOWN_PAGE, inventory, page_slug, template_path
 
 SAVE = "role='button' name='Save'"
 NAME = "role='textbox' name='Name'"
@@ -139,7 +139,7 @@ def test_inventory_lists_targets_api_texts_and_traps_per_page(
 
     pages = {page["page"]: page for page in result["pages"]}
     assert set(pages) == {"/projects/{id}/settings", UNKNOWN_PAGE}
-    settings = (out / "projects-id-settings.md").read_text(encoding="utf-8")
+    settings = (out / "projects_id_settings.md").read_text(encoding="utf-8")
     assert settings.startswith("# /projects/{id}/settings\n")
     assert "`https://app.example/projects/42/settings`" in settings
     assert "| `role='textbox' name='Name'` | textbox | Name | fill |" in settings
@@ -163,7 +163,7 @@ def test_inventory_lists_targets_api_texts_and_traps_per_page(
 def test_rerun_merges_with_the_file_and_keeps_manual_sections(tmp_path: Path) -> None:
     out = tmp_path / "inventory"
     inventory(_first_run(tmp_path), out)
-    page = out / "projects-id-settings.md"
+    page = out / "projects_id_settings.md"
     manual = "## Notes <!-- manual -->\n\nThe Save button stays disabled until the name changes.\n"
     page.write_text(page.read_text(encoding="utf-8").replace("## Texts", manual + "\n## Texts"),
                     encoding="utf-8")  # fmt: skip
@@ -201,3 +201,49 @@ def test_rerun_merges_with_the_file_and_keeps_manual_sections(tmp_path: Path) ->
 
 def test_a_missing_run_directory_is_an_input_error(tmp_path: Path) -> None:
     assert main(["inventory", str(tmp_path / "runs" / "r-none")]) == 2
+
+
+def test_distinct_pages_never_share_a_file() -> None:
+    pages = [
+        "/a/b",
+        "/a-b",
+        "/a_b",
+        "/",
+        "/привет",
+        "/пока",
+        "/index",
+        "/unknown-page",
+        "/projects/{id}/settings",
+        "/projects/id/settings",
+        "/Login",
+        "/login",
+        UNKNOWN_PAGE,
+    ]
+    slugs = [page_slug(page) for page in pages]
+    assert len(set(slugs)) == len(slugs), dict(zip(pages, slugs))
+    assert page_slug("/projects/{id}/settings") == "projects_id_settings"
+    assert page_slug("/a/b") == "a_b"
+
+
+def test_a_file_owned_by_another_page_is_neither_merged_nor_robbed(tmp_path: Path) -> None:
+    out = tmp_path / "inventory"
+    out.mkdir()
+    squatter = out / "projects_id_settings.md"
+    squatter.write_text(
+        "# /elsewhere\n\n## Mine <!-- manual -->\n\nkeep me\n\n"
+        '<!-- testence:inventory {"page": "/elsewhere", "runs": ["r-0"]} -->\n',
+        encoding="utf-8",
+    )
+    result = inventory(_first_run(tmp_path), out)
+
+    [entry] = [p for p in result["pages"] if p["page"] == "/projects/{id}/settings"]
+    assert Path(entry["path"]).name.startswith("projects_id_settings-")
+    assert entry["manual_sections"] == 0
+    assert "keep me" in squatter.read_text(encoding="utf-8")
+
+
+def test_an_existing_file_that_is_not_utf8_is_an_input_error(tmp_path: Path) -> None:
+    out = tmp_path / "inventory"
+    out.mkdir()
+    (out / "projects_id_settings.md").write_bytes("# Настройки\n".encode("cp1251"))
+    assert main(["inventory", str(_first_run(tmp_path)), "--out", str(out)]) == 2
