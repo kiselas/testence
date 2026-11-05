@@ -65,6 +65,28 @@ class FakeEngine:
         return {"cdp_endpoint": "http://127.0.0.1:9222", "page_url": "http://app/x"}
 
 
+def test_triage_opens_with_the_failure_and_ends_with_the_judge(tmp_path):
+    """Stage 6, T04: TRIAGE.md opened with "You are the judge"; the person who opened
+    the pack of their own failure read a prompt before the failure."""
+    writer = EvidenceWriter(tmp_path, worker="")
+    error = "AssertionError: total is 100.00\n" + "\n".join(f"line {n}" for n in range(20))
+    pack = assemble_pack(FakeEngine(), writer, "test_thing", error=error)
+
+    triage = (pack / "TRIAGE.md").read_text(encoding="utf-8")
+    person, judge = triage.split("## For an agent judging this failure\n\n")
+
+    assert person.startswith("# test_thing failed\n\n```text\nAssertionError: total is 100.00\n")
+    assert "line 6\n... the full error is in pack.json\n```" in person
+    assert "line 7" not in person
+    assert "Page: http://app/x (settled)." in person
+    assert "`network.jsonl`: 2 request(s) to the API, 1 failed" in person
+    assert "`console.txt`: 1 error(s) in the browser console." in person
+    # Only sections the pack has are offered.
+    assert "screenshot.png" not in person and "heal.json" not in person
+    assert judge.startswith("You are the judge for a failed browser test.")
+    assert "You are the judge" not in person
+
+
 def test_pack_contains_every_section_an_agent_needs(tmp_path):
     writer = EvidenceWriter(tmp_path, worker="")
     pack = assemble_pack(FakeEngine(), writer, "test_thing", error="AssertionError: nope")

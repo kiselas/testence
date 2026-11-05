@@ -690,10 +690,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "doctor":
         from .application import doctor
 
+        # Progress is for a person at a terminal. A caller that asked for JSON often
+        # reads both streams together, and a line before the document breaks it.
         result = doctor(
             args.root,
             target=args.target,
-            progress=lambda message: print(message, file=sys.stderr, flush=True),
+            progress=None
+            if args.json_output
+            else lambda message: print(message, file=sys.stderr, flush=True),
         )
         if args.json_output:
             print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))

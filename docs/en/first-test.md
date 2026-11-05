@@ -19,7 +19,9 @@ Create `testence.json` next to your tests (`auth` is `none` for a public app; se
 ```
 
 Then `testence doctor --target` reaches `base_url`, checks the credentials and tries the
-login once, so a wrong URL or password is one line, not a timeout.
+login once, so a wrong URL or password is one line, not a timeout. A browser start or a
+login can take a minute on a cold machine; doctor says what it is doing and, every
+15 seconds, that it is still doing it. With `--json` it prints only the JSON.
 
 ## 2. Write one test
 

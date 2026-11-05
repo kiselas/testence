@@ -163,6 +163,28 @@ Without an explicit success signal the strategy waits for the password field to
 disappear — so a wrong password fails *at the login step* with a readable error
 rather than as a mysterious timeout three steps later.
 
+The error, `LoginFailed`, also says what the page said and shows the form:
+
+```text
+LoginFailed: login at /login did not complete within 15000 ms: the password field is
+still visible. Check the credentials (env), or set success_url_contains or a success
+target for this app
+The page says:
+  Invalid credentials
+The login form (ARIA):
+  - textbox "Email": <redacted>
+  - textbox "Password"
+  - button "Sign in"
+```
+
+What the page says comes from visible `role="alert"` and `aria-live="assertive"`
+elements, the message of each field marked `aria-invalid` (its `aria-errormessage` or
+`aria-describedby`), and error text next to the form. Both parts are redacted like
+evidence: the login pair, the values of `evidence.redact.env` and the project's
+redaction policy. They are also on the exception as `page_errors` and `form_aria`.
+`testence doctor --target` and `testence auth export` add the page's words to their
+one-line report.
+
 ## Your own login
 
 A strategy is an object with `scheme: str` and `authenticate(engine) -> AuthContext`

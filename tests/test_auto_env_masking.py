@@ -231,3 +231,14 @@ def test_with_auto_env_off_the_same_run_keeps_the_variable_visible(tmp_path):
         tmp_path / "project", {"test_leak.py": _LEAKY_TEST}, settings, {"SYNTH_API_TOKEN": CANARY}
     )
     assert CANARY in (run_dir / "run.jsonl").read_text(encoding="utf-8")
+
+
+def test_login_failure_text_masks_an_unlisted_token_variable(clean_env, monkeypatch):
+    """``_redact_for`` asks ``redaction_values()``, so the rule reaches what a failed
+    login quotes from the page."""
+    from testence.auth.base import Credentials
+    from testence.auth.strategies import _redact_for
+
+    monkeypatch.setenv("SYNTH_API_TOKEN", CANARY)
+    redact = _redact_for(Settings(), Credentials("ann", "pw-for-login"))
+    assert CANARY not in redact(f"The page says: invalid token {CANARY}")
