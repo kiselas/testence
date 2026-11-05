@@ -163,14 +163,17 @@ class RedactionPolicy:
     def from_config(cls, value: object) -> RedactionPolicy:
         """Build from the ``evidence.redact`` object of ``testence.json``.
 
-        ``env`` (names of variables whose values are redacted) is resolved by the
-        caller, because values must never enter a policy that is written to evidence.
+        ``env`` (names of variables whose values are redacted) and ``auto_env`` (the
+        switch for masking secret-looking variables by name) are resolved by the caller,
+        because values must never enter a policy that is written to evidence.
         """
         if value is None:
             return cls()
         if not isinstance(value, Mapping):
             raise ValueError("evidence.redact must be an object")
-        unknown = sorted(set(value) - {"keys", "allow_keys", "url_params", "pii", "env"})
+        unknown = sorted(
+            set(value) - {"keys", "allow_keys", "url_params", "pii", "env", "auto_env"}
+        )
         if unknown:
             raise ValueError("unknown evidence.redact field(s): " + ", ".join(unknown))
         lists: dict[str, list[object]] = {}

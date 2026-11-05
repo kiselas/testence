@@ -317,6 +317,7 @@ Projects extend these rules in `testence.json`:
       "allow_keys": ["session_status"],
       "url_params": ["ticket"],
       "env": ["SHOP_API_TOKEN"],
+      "auto_env": true,
       "pii": ["email", "phone"]
     },
     "screenshots": "on-failure",
@@ -333,6 +334,13 @@ Projects extend these rules in `testence.json`:
 - `url_params` adds query parameter names.
 - `env` names environment variables whose values are replaced wherever they appear, in
   addition to the login and password variables. The values are never written.
+- `auto_env` (default `true`) also masks, without listing them, the values of
+  environment variables (the process environment and `.env` files) whose names contain
+  `TOKEN`, `SECRET`, `PASSWORD`, `PASSWD`, `API_KEY`, `PRIVATE_KEY` or `CREDENTIAL`, in any
+  case. A value shorter than 8 characters, a boolean word (`true`, `off`, `none`…) and a
+  number are skipped, so `TOKENIZERS_PARALLELISM=false` stays readable. The rule only adds
+  values: a variable named in `env` is masked whatever it holds. `testence doctor` lists the
+  names it matched (never the values). `"auto_env": false` switches the rule off.
 - `pii` opts into email and phone redaction. They are off by default because tests often
   assert the signed-in user's email.
 - `screenshots`: `on-failure` (default) keeps a screenshot in the failure pack;
