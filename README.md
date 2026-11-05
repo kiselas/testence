@@ -212,6 +212,20 @@ p50 from **2,808 ms to 447 ms** (−84.1%) and whole-run p50 from **3,447 ms to
 [ADR-0018](https://github.com/kiselas/testence/blob/main/docs/en/adr/0018-warm-authoring-runner.md). Numbers are local engineering
 evidence, not a cross-machine performance promise.
 
+### Component kits
+
+Screens built from a component library no longer start with hand-written plumbing for
+the library itself. `from testence.kits import koobiq, react_select` gives small
+objects for [Koobiq](https://github.com/koobiq/react-components), react-aria,
+react-select and React Flow, composed from ordinary `ex` steps:
+`koobiq.select(ex, "Mode").choose("Safe")`, `koobiq.side_panel(ex, "Edit").wait_open()`,
+`react_select.multi(ex, "Targets").pick("alpha")`. Each one carries the component's
+traps (hidden checkbox inputs, a NumberField that commits on blur, overlays that keep
+animating, toasts with repeated titles, labels Koobiq translates), and `testence explore`
+prints the kit line for each component it recognizes. The kits are checked against a
+stand built from the real packages; see
+[Component kits](https://github.com/kiselas/testence/blob/main/docs/en/kits.md).
+
 ## Evidence, not runtime magic
 
 A verdict is a versioned document bound to the plan, claims and captured run:

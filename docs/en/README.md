@@ -8,6 +8,7 @@
 - [Configuration](configuration.md)
 - [Authentication](auth.md)
 - [Engine capabilities and strict actions](engine-capabilities.md)
+- [Component kits](kits.md) — Koobiq, react-aria, react-select, React Flow
 - [Reporting and exporters](reporting.md)
 - [Running in CI](ci.md)
 - [Evidence schema](evidence-schema.md)
