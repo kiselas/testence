@@ -14,10 +14,12 @@ the page at the failure state IS evidence.
 from __future__ import annotations
 
 import copy
+import os
 import re
 import shutil
 import socket
 import tempfile
+import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
@@ -36,6 +38,7 @@ from playwright.sync_api import (
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect as pw_expect
 
+from testence._process import ProcessTree
 from testence.config import default_browser_channel
 
 from .capabilities import Capability
@@ -55,6 +58,11 @@ _TAP_BYTE_CAP = 8 * 1024 * 1024
 #: poll. It is still a floor on how late an already completed mutation is observed:
 #: 50 ms was visible on fast React APIs, while 10 ms stays cheap and responsive.
 _POLL_MS = 10
+#: How long each step of ``stop()`` (close the context, close the browser, stop the
+#: driver) may take before the engine's own processes are killed. Normal closes take
+#: well under a second; recorded video can take a few. ``TESTENCE_CLOSE_DEADLINE_S``
+#: overrides it for a slow host.
+_CLOSE_DEADLINE_S = 20.0
 #: Any scheme means the caller addressed a document directly: http(s), file, data,
 #: about. Matching only "http"/"file:" prefixed base_url onto everything else.
 _URL_SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
@@ -111,6 +119,28 @@ _ARIA_ESCAPE = re.compile(r"\\(.)")
 
 def _clip(text: str, limit: int = 80) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _close_deadline() -> float:
+    try:
+        value = float(os.environ.get("TESTENCE_CLOSE_DEADLINE_S", ""))
+    except ValueError:
+        return _CLOSE_DEADLINE_S
+    return value if value > 0 else _CLOSE_DEADLINE_S
+
+
+def _driver_pid(playwright: Any) -> int | None:
+    """PID of the node driver this ``sync_playwright().start()`` spawned.
+
+    Playwright publishes no public handle for it; the transport's process is the
+    only source, so every step is guarded. ``None`` means "unknown", and a close
+    then runs without a deadline, as it did before.
+    """
+    try:
+        pid = playwright._impl_obj._connection._transport._proc.pid
+    except AttributeError:
+        return None
+    return pid if isinstance(pid, int) and pid > 0 else None
 
 
 def _free_tcp_port() -> int:
@@ -375,6 +405,10 @@ class PlaywrightCdpEngine(Engine):
         #: here, not in a profiler. Cleared per test with the other taps.
         self._waits: list[dict[str, Any]] = []
         self._launched_here = False
+        #: The driver this engine started and, when it also launched the browser, the
+        #: browser below it. The only processes ``stop()`` may kill.
+        self._driver_tree: ProcessTree | None = None
+        self.close_deadline_s = _close_deadline()
         # A CDP client normally borrows the launcher's default context. Closing
         # that context from pytest can discard the logged-in session the launcher
         # exists to preserve. The exceptional no-context attach creates one and
@@ -423,6 +457,11 @@ class PlaywrightCdpEngine(Engine):
         with self._timed("driver.start"):
             playwright = sync_playwright().start()
         self._pw = playwright
+        driver = _driver_pid(playwright)
+        if driver is not None:
+            # An attached browser belongs to its launcher: only the driver itself
+            # is ours, never anything it could be connected to.
+            self._driver_tree = ProcessTree(driver, descendants=not self.cdp_url)
         if self.test_id_attribute:
             playwright.selectors.set_test_id_attribute(self.test_id_attribute)
         if self.cdp_url:
@@ -669,22 +708,21 @@ class PlaywrightCdpEngine(Engine):
         if keep_browser:
             # Leave the crime scene intact; only detach our client if we attached.
             if self._pw and not self._launched_here and not self._shares_driver:
-                with suppress(Exception):
-                    self._pw.stop()
+                self._bounded_close("driver.stop", self._pw.stop)
             return
         if self._context and self._owns_context:
             # Ctrl+C can reach Chromium's driver before Python enters cleanup. At
             # that point close() reports a dead transport, but the desired state
             # (the owned context is gone) already holds. Continue best-effort so a
             # dev-browser shutdown never ends in a misleading stack trace.
-            with suppress(Exception), self._measure("context.close"):
-                self._context.close()
+            self._bounded_close("context.close", self._context.close)
         if self._browser and self._launched_here:
-            with suppress(Exception), self._measure("browser.process_close"):
-                self._browser.close()
+            self._bounded_close("browser.process_close", self._browser.close)
         if self._pw and not self._shares_driver:
-            with suppress(Exception), self._measure("driver.stop"):
-                self._pw.stop()
+            self._bounded_close("driver.stop", self._pw.stop)
+        if self._driver_tree is not None and not self._shares_driver:
+            self._driver_tree.close()
+        self._driver_tree = None
         if self._video_dir is not None:
             shutil.rmtree(self._video_dir, ignore_errors=True)
             self._video_dir = None
@@ -692,6 +730,53 @@ class PlaywrightCdpEngine(Engine):
         self._page = self._scope = self._js_scope = None
         self._context = self._browser = self._pw = None
         self._owns_context = self._launched_here = False
+
+    def _bounded_close(self, op: str, action: Callable[[], Any]) -> None:
+        """Run one step of ``stop()`` and, if it outlives the deadline, kill the
+        driver and browser this engine started.
+
+        Playwright's sync API cannot be cancelled or moved to another thread; what
+        does end a call stuck on a wedged driver is the driver going away, after
+        which the call raises and returns. The watchdog therefore kills the recorded
+        process tree and nothing else (an attached browser is never in it) and the
+        wait ledger gets a ``close.deadline_exceeded`` entry naming the step. A step
+        that finishes first cancels the watchdog under a lock, so a late timer never
+        kills a healthy driver that a sibling still uses.
+        """
+        tree = self._driver_tree
+        lock = threading.Lock()
+        state = {"finished": False, "fired": False}
+
+        def expire() -> None:
+            with lock:
+                if state["finished"]:
+                    return
+                state["fired"] = True
+            if tree is not None:
+                with suppress(Exception):
+                    tree.kill()
+
+        timer = threading.Timer(self.close_deadline_s, expire)
+        timer.daemon = True
+        started = time.monotonic()
+        with suppress(Exception), self._measure(op):
+            if tree is not None:
+                timer.start()
+            try:
+                action()
+            finally:
+                with lock:
+                    state["finished"] = True
+                timer.cancel()
+        if state["fired"]:
+            self._waits.append(
+                {
+                    "op": "close.deadline_exceeded",
+                    "detail": op,
+                    "ms": round((time.monotonic() - started) * 1000, 1),
+                    "ok": False,
+                }
+            )
 
     # -- taps --------------------------------------------------------------
 
