@@ -102,7 +102,7 @@ def start_shared_browser(
         base_url=base_url,
         headed=False,
         debug_port=port,
-        browser_channel="chromium",
+        browser_channel=os.environ.get("TESTENCE_BROWSER_CHANNEL", "chromium"),
         api_prefix="/api/",
         user_data_dir=str(runs_root / ".shared-browser-profile"),
         reduce_motion=True,

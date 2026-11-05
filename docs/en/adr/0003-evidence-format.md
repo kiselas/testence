@@ -1,5 +1,7 @@
 # ADR-0003: Own versioned run.jsonl as the source of truth
 
+> Superseded in part by [ADR-0037](0037-ledger-durability-per-test.md): every event is flushed; `fsync` follows `evidence.durability` (per test by default, per event with `step`).
+
 Status: accepted (2026-08-25)
 
 ## Context

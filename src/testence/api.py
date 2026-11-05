@@ -5,6 +5,11 @@ Why not ``requests``/``httpx``: a dependency the framework does not need
 and seeding need — JSON in, JSON out, with the browser's cookies and headers —
 and nothing else.
 
+Connections are kept alive: one per origin in a :class:`ConnectionPool`, so a test's
+calls to one host share a TCP (and TLS) connection instead of opening one each. A
+kept-alive connection the server closed while it sat idle is retried once on a new
+connection; a connection that fails on its first use is an error.
+
 The point is the *sharing*: an oracle must read the API as the same user the UI is
 logged in as, or a divergence it reports is meaningless.
 
@@ -16,8 +21,14 @@ recorded; bodies pass the run's redaction before they are clipped.
 
 from __future__ import annotations
 
+import base64
+import functools
+import http.client
 import json
+import select
+import socket
 import ssl
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -104,20 +115,217 @@ def _origin(url: str) -> tuple[str, str, int]:
     return scheme, _normalized_host(parsed.hostname), port or (443 if scheme == "https" else 80)
 
 
-class _SameOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Follow ordinary redirects only while they remain on the initial origin."""
+#: Redirects followed for one call, as urllib did.
+_MAX_REDIRECTS = 10
+_CONTENT_HEADERS = frozenset({"content-length", "content-type"})
+#: The agent string urllib sent; kept so a server that filters clients sees no change.
+_USER_AGENT = f"Python-urllib/{urllib.request.__version__}"  # type: ignore[attr-defined]
+#: Errors of a kept-alive connection the server closed while it sat idle.
+_STALE = (
+    http.client.RemoteDisconnected,
+    BrokenPipeError,
+    ConnectionResetError,
+    ConnectionAbortedError,
+    ssl.SSLEOFError,
+)
+#: Methods a stale connection may repeat on a new one: sending them twice changes
+#: nothing more than sending them once (RFC 9110, 9.2.2).
+_IDEMPOTENT = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
 
-    def __init__(self, initial_url: str) -> None:
-        super().__init__()
-        self._allowed_origin = _origin(initial_url)
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
-        target = urllib.parse.urljoin(req.full_url, newurl)
-        if _origin(target) != self._allowed_origin:
-            raise UnsafeRequestTarget(
-                f"refusing cross-origin redirect from {req.full_url!r} to {target!r}"
-            )
-        return super().redirect_request(req, fp, code, msg, headers, target)
+def _dropped(connection: http.client.HTTPConnection) -> bool:
+    """Whether an idle connection was closed by the server (or has stray data).
+
+    An idle kept-alive socket has nothing to read; readable means the peer closed it
+    or sent something no request asked for. Either way it must not carry a request.
+    """
+    sock = connection.sock
+    if sock is None:
+        return True
+    try:
+        readable, _, _ = select.select([sock], [], [], 0)
+    except (OSError, ValueError):
+        return True
+    return bool(readable)
+
+
+def _same_origin_redirect(method: str, url: str, status: int, location: str | None) -> str | None:
+    """The method a 3xx answer is followed with, or None to return it as data.
+
+    The policy of urllib's redirect handler, which this client replaced: GET and HEAD
+    follow every redirect; POST follows 301, 302 and 303 as a GET without its body;
+    any other answer, and any other method, goes back to the caller. A redirect to
+    another origin is refused before anything is sent there.
+    """
+    if status not in (301, 302, 303, 307, 308) or not location:
+        return None
+    upper = method.upper()
+    if upper in ("GET", "HEAD"):
+        return upper
+    if upper == "POST" and status in (301, 302, 303):
+        return "GET"
+    return None
+
+
+def _redirect_target(url: str, location: str) -> str:
+    target = urllib.parse.urljoin(url, location.strip())
+    if _origin(target) != _origin(url):
+        raise UnsafeRequestTarget(f"refusing cross-origin redirect from {url!r} to {target!r}")
+    return target
+
+
+@functools.lru_cache(maxsize=None)
+def _cached_tls(verify_tls: bool, ca_bundle: str) -> ssl.SSLContext:
+    """One TLS context per configuration for the process.
+
+    A default context reads the system certificate store; on Windows that costs tens
+    of milliseconds, which urllib paid on every request, plain HTTP included.
+    """
+    return tls_context(verify_tls, ca_bundle) or ssl.create_default_context()
+
+
+def _proxy_for(scheme: str, host: str) -> str:
+    """The proxy urllib would use for this request, read now: the environment (a
+    change between calls is honoured), then the system settings; ``""`` for none."""
+    proxy = urllib.request.getproxies().get(scheme, "")
+    if not proxy:
+        return ""
+    try:
+        if urllib.request.proxy_bypass(host):  # type: ignore[attr-defined]
+            return ""
+    except OSError:
+        pass
+    return proxy if "://" in proxy else f"http://{proxy}"
+
+
+def _proxy_authorization(proxy: str) -> str:
+    parsed = urllib.parse.urlsplit(proxy)
+    user = urllib.parse.unquote(parsed.username or "")
+    password = urllib.parse.unquote(parsed.password or "")
+    return "Basic " + base64.b64encode(f"{user}:{password}".encode()).decode()
+
+
+class ConnectionPool:
+    """Kept-alive HTTP connections: at most one idle connection per origin.
+
+    Thread-safe by checkout: a call takes the idle connection of its origin, or opens
+    one, and puts it back once the answer is read, so two concurrent calls never share
+    a socket. ``close()`` closes the idle connections; the pool stays usable and opens
+    new ones on demand.
+    """
+
+    def __init__(self) -> None:
+        self._idle: dict[tuple[Any, ...], http.client.HTTPConnection] = {}
+        self._lock = threading.Lock()
+        #: Connections this pool opened, for diagnostics and tests.
+        self.opened = 0
+
+    def close(self) -> None:
+        with self._lock:
+            idle, self._idle = list(self._idle.values()), {}
+        for connection in idle:
+            connection.close()
+
+    def __enter__(self) -> ConnectionPool:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+    def _connect(
+        self, scheme: str, host: str, port: int, proxy: str, context: ssl.SSLContext | None
+    ) -> http.client.HTTPConnection:
+        connection: http.client.HTTPConnection
+        if proxy:
+            parsed = urllib.parse.urlsplit(proxy)
+            proxy_host, proxy_port = parsed.hostname or "", parsed.port or 80
+            if scheme == "https":
+                connection = http.client.HTTPSConnection(proxy_host, proxy_port, context=context)
+                tunnel = {}
+                if parsed.username is not None:
+                    tunnel["Proxy-Authorization"] = _proxy_authorization(proxy)
+                connection.set_tunnel(host, port, headers=tunnel)
+            else:
+                connection = http.client.HTTPConnection(proxy_host, proxy_port)
+        elif scheme == "https":
+            connection = http.client.HTTPSConnection(host, port, context=context)
+        else:
+            connection = http.client.HTTPConnection(host, port)
+        self.opened += 1
+        return connection
+
+    def send(
+        self,
+        method: str,
+        url: str,
+        *,
+        data: bytes | None,
+        headers: dict[str, str],
+        timeout_s: float,
+        verify_tls: bool = True,
+        ca_bundle: str = "",
+    ) -> tuple[int, list[tuple[str, str]], bytes]:
+        """One exchange on a kept-alive connection; redirects are the caller's."""
+        parsed = urllib.parse.urlsplit(url)
+        scheme, host, port = _origin(url)
+        hostname = parsed.hostname or host
+        context = _cached_tls(verify_tls, ca_bundle) if scheme == "https" else None
+        proxy = _proxy_for(scheme, hostname)
+        key = (scheme, host, port, verify_tls, ca_bundle, proxy)
+        path = parsed.path or "/"
+        target = urllib.parse.urlunsplit(("", "", path, parsed.query, ""))
+        request_headers = {"User-Agent": _USER_AGENT, **headers}
+        if proxy and scheme == "http":
+            # A plain-HTTP proxy is sent the absolute URL; HTTPS goes through a tunnel.
+            target = urllib.parse.urlunsplit((scheme, parsed.netloc, path, parsed.query, ""))
+            if urllib.parse.urlsplit(proxy).username is not None:
+                request_headers["Proxy-Authorization"] = _proxy_authorization(proxy)
+        with self._lock:
+            connection = self._idle.pop(key, None)
+        if connection is not None and _dropped(connection):
+            connection.close()  # closed while idle: never send a request on it
+            connection = None
+        reused = connection is not None
+        if connection is None:
+            connection = self._connect(scheme, hostname, port, proxy, context)
+        while True:
+            try:
+                connection.timeout = timeout_s
+                if connection.sock is not None:
+                    connection.sock.settimeout(timeout_s)
+                connection.request(method, target, body=data, headers=request_headers)
+                answer = connection.getresponse()
+                body = answer.read()
+            except _STALE:
+                connection.close()
+                if not reused or method.upper() not in _IDEMPOTENT:
+                    # A connection that dropped after the request was written does not
+                    # prove the application never saw it: a POST or PATCH is not sent
+                    # twice behind the test's back.
+                    raise
+                # A kept-alive connection that passed the idle check closed as the
+                # request went out (a keep-alive timer racing it): an idempotent
+                # request goes once more, on a new connection.
+                connection = self._connect(scheme, hostname, port, proxy, context)
+                reused = False
+                continue
+            except BaseException:
+                connection.close()
+                raise
+            break
+        keep: http.client.HTTPConnection | None = None if answer.will_close else connection
+        if keep is not None:
+            with self._lock:
+                if key not in self._idle:
+                    self._idle[key] = keep
+                    keep = None
+        if keep is not None or answer.will_close:
+            connection.close()
+        return answer.status, list(answer.getheaders()), body
+
+
+#: The pool of module-level calls (logins, identity probes) for the process.
+_SHARED_POOL = ConnectionPool()
 
 
 @dataclass
@@ -177,8 +385,14 @@ def http_json(
     timeout_s: float = _DEFAULT_TIMEOUT_S,
     verify_tls: bool = True,
     ca_bundle: str = "",
+    pool: ConnectionPool | None = None,
 ) -> Response:
-    """One request, no session. Building block for the auth strategies."""
+    """One request, no session. Building block for the auth strategies.
+
+    4xx and 5xx answers are data, not exceptions. Redirects are followed only while
+    they stay on the origin of ``url``. Without a ``pool`` the call uses the shared
+    pool of the process.
+    """
     from testence.auth.strategies import parse_set_cookie
 
     data = None
@@ -188,21 +402,44 @@ def http_json(
         request_headers.setdefault("Content-Type", "application/json")
 
     _origin(url)  # reject non-HTTP targets and URL userinfo before opening a socket
-    request = urllib.request.Request(url, data=data, headers=request_headers, method=method)
-    context = tls_context(verify_tls, ca_bundle)
-    handlers: list[Any] = [_SameOriginRedirectHandler(url)]
-    if context is not None:
-        handlers.append(urllib.request.HTTPSHandler(context=context))
-    opener = urllib.request.build_opener(*handlers)
-    try:
-        with opener.open(request, timeout=timeout_s) as raw:
-            response = Response(
-                raw.status, list(raw.headers.items()), raw.read().decode("utf-8", "replace")
+    connections = pool if pool is not None else _SHARED_POOL
+    current_method, current_url = method.upper(), url
+    for _ in range(_MAX_REDIRECTS + 1):
+        try:
+            status, answer_headers, raw = connections.send(
+                current_method,
+                current_url,
+                data=data,
+                headers=request_headers,
+                timeout_s=timeout_s,
+                verify_tls=verify_tls,
+                ca_bundle=ca_bundle,
             )
-    except urllib.error.HTTPError as exc:  # 4xx/5xx are data, not exceptions
-        response = Response(
-            exc.code, list(exc.headers.items()), exc.read().decode("utf-8", "replace")
-        )
+        except socket.timeout as exc:
+            raise TimeoutError(
+                f"{current_method} {current_url}: no answer in {timeout_s} s"
+            ) from exc
+        except (http.client.HTTPException, ssl.SSLError, ConnectionError, OSError) as exc:
+            if isinstance(exc, urllib.error.URLError):
+                raise
+            # urllib reported a connection that failed or broke as URLError; callers
+            # that catch it keep working (the cause stays chained).
+            raise urllib.error.URLError(exc) from exc
+        location = next((v for k, v in answer_headers if k.lower() == "location"), None)
+        follow = _same_origin_redirect(current_method, current_url, status, location)
+        if follow is None or location is None:
+            break
+        current_url = _redirect_target(current_url, location)
+        if follow != current_method:
+            # A POST answered with 301-303 is followed as a GET without its body.
+            data = None
+            request_headers = {
+                k: v for k, v in request_headers.items() if k.lower() not in _CONTENT_HEADERS
+            }
+        current_method = follow
+    else:
+        raise RuntimeError(f"{method} {url}: more than {_MAX_REDIRECTS} redirects")
+    response = Response(status, answer_headers, raw.decode("utf-8", "replace"))
     response.cookies = parse_set_cookie(response.headers)
     return response
 
@@ -232,6 +469,18 @@ class ApiClient:
         self.verify_tls = verify_tls
         self.ca_bundle = ca_bundle
         self.timeout_s = timeout_s
+        #: This client's kept-alive connections; ``close()`` releases them.
+        self.pool = ConnectionPool()
+
+    def close(self) -> None:
+        """Close the client's connections; a later call opens new ones."""
+        self.pool.close()
+
+    def __enter__(self) -> ApiClient:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
 
     @classmethod
     def from_settings(
@@ -268,6 +517,7 @@ class ApiClient:
                 timeout_s=self.timeout_s,
                 verify_tls=self.verify_tls,
                 ca_bundle=self.ca_bundle,
+                pool=self.pool,
             )
         except Exception as exc:
             # A refused connection or a timeout is the call a failed seed most needs

@@ -68,6 +68,14 @@ class FingerprintStore:
             sanitize_text(intent, secrets=self._redact_values, policy=self._policy, limit=500),
         )
 
+    def holds(self, test_id: str, intent: str, target: str) -> bool:
+        """Whether the store has this step's fingerprint, taken for this same target."""
+        entry = self._data.get(self._key(test_id, intent))
+        if not isinstance(entry, dict) or not entry.get("fingerprint"):
+            return False
+        recorded = sanitize_text(target, secrets=self._redact_values, policy=self._policy)
+        return entry.get("target") == recorded
+
     def get(self, test_id: str, intent: str) -> dict[str, Any] | None:
         entry = self._data.get(self._key(test_id, intent))
         # Lifecycle events now use the full pytest nodeid to avoid collisions.

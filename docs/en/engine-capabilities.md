@@ -20,6 +20,39 @@ multiple matches fail unless the author deliberately supplies `Target(..., nth=N
 `fast=True` is an explicit actionability weakening. It is recorded on `step.start` and
 changes an otherwise verified attempt to `unverified` for review.
 
+`ex.expect_settled(target, intent=None, *, timeout_ms=None)` (`browser.dom`) waits
+until the target's `getBoundingClientRect` is the same in two consecutive
+`requestAnimationFrame` frames and the box lies wholly inside the viewport. Use it
+before measuring anything that animates in: a drawer is visible from its first frame,
+so its width read after `expect_visible` is a width of the transition. The frames are
+counted in the page in one round trip; the wait is an `expect_settled` entry of the
+wait ledger. An element that never stops, or stays outside the viewport, fails as an
+assertion naming its last box.
+
+`ex.open(route, intent=None)` (`browser.navigation`) opens a route the fastest correct
+way: when the page already shows the application on `base_url`'s origin (its root has
+rendered something), the route is pushed to the app's own router, as a click on an
+in-app link would; otherwise (the first navigation, another origin, a route outside
+`base_url`, an application not mounted) it is a document load. The client-side path
+needs a router that listens to `popstate` (React Router, Vue Router and most others
+do): if the document does not change within 500 ms of the pushed route, `ex.open`
+loads the route instead. It returns `navigate` or
+`goto`, and the step's `step.end` records it as `navigation`. Client-side navigation
+keeps mounted component state: a case about a first load uses `ex.goto`.
+
+After a document load the engine probes whether the application has painted
+anything (`wait_until_rendered`). Under the DSL the probe waits for the next step: a
+step with a target skips it, because waiting for its own element is the stronger
+readiness signal (`wait_until_rendered(skipped)` in the wait ledger); a step without
+a target (a URL check, a screenshot, an oracle, `ex.native`) runs it first; a probe
+still due when the test ends runs then. An engine used directly, without the DSL,
+probes right after `goto` as before, and a direct engine call that follows a deferred
+probe (outside a DSL step) runs it first.
+
+`ex.reset_storage(keys, intent=None, *, session=False)` (`session`) removes the named
+`localStorage` (or `sessionStorage`) keys and returns how many were set; under
+`page_reuse: module` it clears what a previous test left on the shared page.
+
 Inside `with ex.frame(...)`, locator actions, `eval_js`, and `wait_for_predicate_js`
 share the same active iframe. Leaving the context restores the previous page or nested
 frame scope. Page-level session and network operations remain page-level.
