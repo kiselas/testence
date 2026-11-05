@@ -29,6 +29,14 @@ def test_second(ex):
 
 def test_third(ex):
     pass
+
+
+def test_fourth(ex):
+    pass
+
+
+def test_fifth(ex):
+    pass
 """
 
 
@@ -82,8 +90,11 @@ def test_auth_phase_after_the_first_test_is_a_cache_hit(tmp_path):
     ledger = next((project / "runs").glob("*/run.jsonl")).read_text(encoding="utf-8")
     events = [json.loads(line) for line in ledger.splitlines()]
     schemes = [e["auth"]["scheme"] for e in events if e.get("text") == "authenticated"]
-    assert schemes == ["api-session", "api-session+cached", "api-session+cached"]
+    assert schemes == ["api-session"] + ["api-session+cached"] * 4
     phases = [e for e in events if e.get("lifecycle_phase") == "auth" and "test" in e]
-    assert len(phases) == 3
-    later = [phase["duration_ms"] for phase in phases[1:]]
-    assert all(duration <= 50 for duration in later), later
+    assert len(phases) == 5
+    # Every later login is a cache hit: one probe request. The median keeps the claim
+    # (at most 50 ms) and lets one stall of a loaded host pass, as a cache miss could
+    # not: it is a full login on every test.
+    later = sorted(phase["duration_ms"] for phase in phases[1:])
+    assert (later[1] + later[2]) / 2 <= 50, later

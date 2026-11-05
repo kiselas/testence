@@ -54,7 +54,16 @@ def session(app, tmp_path):
 
 
 def _saved_view(actions: Actions) -> dict:
-    """What the page claims it saved."""
+    """What the page claims it saved, once the page has shown the save.
+
+    The page fills ``#saved`` after it has read the response body, a moment after the
+    response itself; read before that, the view is empty and a drift would be "caught"
+    for the wrong reason.
+    """
+    actions.engine.wait_for_predicate_js(
+        "() => !!(document.getElementById('saved') || {dataset: {}}).dataset.id",
+        timeout_ms=5_000,
+    )
     element = actions.engine.eval_js(
         """() => {
             const el = document.getElementById('saved');
