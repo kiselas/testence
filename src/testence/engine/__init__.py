@@ -17,7 +17,7 @@ from .capabilities import (
     engine_capabilities,
     require_capabilities,
 )
-from .protocol import Engine, NetRecord, Target, dump_net
+from .protocol import Box, Engine, NetRecord, Target, dump_net
 
 #: Registered implementations. A new backend registers a name here and becomes
 #: selectable by configuration, with no change above this layer.
@@ -133,6 +133,7 @@ def _screenshot_masks(settings: Any) -> tuple[Target, ...]:
 
 __all__ = [
     "BACKENDS",
+    "Box",
     "Capability",
     "CAPABILITY_SCHEMA",
     "CapabilityProvider",

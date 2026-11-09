@@ -64,6 +64,32 @@ the operation, required capability and available set. Pre-capability custom engi
 retain the old composite surface as a migration path, but cannot claim conformance
 until they declare their set.
 
+## Readers
+
+A reader returns what the page shows to the test, as one recorded step with the
+target's diagnostics when it fails. It is as strict as a click: a target that matches
+two elements fails and names both. The step records how much it read (`read` on its
+`step.end`: characters, items, a box size), never the value, and leaves the page fit to
+hand to the next test under `page_reuse: module`, which `ex.native` does not.
+
+| Reader | Returns | Waits |
+|---|---|---|
+| `ex.text(target)` | the visible text of one element | for the element |
+| `ex.texts(target, minimum=1)` | the texts of every match, in document order | for `minimum` matches; `0` reads what is there |
+| `ex.count(target)` | how many elements match now | no (use `expect_count` to wait for a number) |
+| `ex.is_visible(target)` | whether the one element is visible now | no |
+| `ex.attribute(target, name)` | the attribute, or `None` | for the element |
+| `ex.box(target, settled=False)` | a `Box` (`x`, `y`, `width`, `height`, `right`, `bottom`, `center`) | for a visible element; `settled=True` also until it stops moving |
+| `ex.boxes(target, minimum=1)` | the boxes of every visible match | for `minimum` matches |
+| `ex.url()` | the current page's address | no |
+| `ex.storage_item(key, session=False)` | one `localStorage` (`sessionStorage`) value, or `None` | no |
+| `ex.read_js(intent, function, arg=None)` | what a JavaScript function returns | no |
+
+`read_js` is for what no other reader expresses, such as a computed style or a value the
+product keeps in a global. The function must only read: anything that acts on the page
+belongs in an action or in `ex.native`, because a page changed by a reader would still
+be handed on. Coordinates are CSS pixels of the page viewport, the ones the pointer uses.
+
 ## Raw Playwright: `ex.native`
 
 When the DSL cannot express an interaction, `ex.native` hands over the Playwright

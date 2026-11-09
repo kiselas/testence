@@ -7,7 +7,16 @@ Testence в стадии alpha: последний выпуск на PyPI — `0
 
 ## Unreleased
 
-Пока ничего.
+### Добавлено
+
+- Читалки: `ex.text`, `ex.texts(minimum=)`, `ex.count`, `ex.is_visible`, `ex.attribute`,
+  `ex.box(settled=)` и `ex.boxes`, `ex.url`, `ex.storage_item` и `ex.read_js` возвращают
+  то, что показывает страница, одним записанным шагом каждая
+  ([возможности engine](engine-capabilities.md#читалки)). Читалка строга, как клик,
+  падает с описанием того, с чем совпала цель, пишет размер прочитанного (`read` в
+  `step.end`), но не значение, и оставляет страницу пригодной для передачи при
+  `page_reuse: module`, чего `ex.native` не делает. `testence.engine.Box` — рамка, которую
+  возвращает читалка.
 
 ## 0.1.0a3 — 2026-11-05
 

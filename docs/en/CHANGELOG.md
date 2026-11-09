@@ -6,7 +6,15 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
 
 ## Unreleased
 
-Nothing yet.
+### Added
+
+- Readers: `ex.text`, `ex.texts(minimum=)`, `ex.count`, `ex.is_visible`, `ex.attribute`,
+  `ex.box(settled=)` and `ex.boxes`, `ex.url`, `ex.storage_item` and `ex.read_js` return
+  what the page shows as one recorded step each ([engine capabilities](engine-capabilities.md#readers)).
+  A reader is strict like a click, fails with what its target matched, records the size
+  of what it read (`read` on `step.end`) and never the value, and leaves the page fit to
+  hand on under `page_reuse: module`, which `ex.native` does not. `testence.engine.Box`
+  is the box a reader returns.
 
 ## 0.1.0a3 — 2026-11-05
 
