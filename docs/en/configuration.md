@@ -441,6 +441,38 @@ synthetic target. An undeclared name and `--testence-reruns` with a control are
 usage errors. A run made with a control never proves product behaviour, and
 `ci evaluate` refuses it as the run under evaluation.
 
+## A deadline per test
+
+```bash
+pytest tests_e2e -q --testence-test-timeout 120     # or TESTENCE_TEST_TIMEOUT=120
+```
+
+```json
+{"test_timeout_s": 120}
+```
+
+```python
+@pytest.mark.testence(timeout_s=300)   # this test's own deadline; 0 turns it off
+def test_deploys_the_infrastructure(ex): ...
+```
+
+The option wins over the environment, the environment over `testence.json`; a marker
+wins over all three. Setup and call share the deadline, teardown gets one of its own.
+A test past it fails, and the process goes on with the next test:
+
+- in Python code (a poll loop, a sleep, a fixture) it is stopped by a
+  `testence.deadline.DeadlineExceeded` raised where it is;
+- inside a browser call that never returns, the driver and browser processes Testence
+  started in this process are killed (never an attached browser), the call raises, and
+  the next test starts a browser again, a reused worker browser included. A Python
+  hang that does not take the exception within 5 seconds (blocked in another C call)
+  gets the same kill.
+
+The report says the deadline passed, in which phase and where the test was, and the
+ledger gets a `test.deadline` event with that stack. Nothing is retried. A deadline is
+a guard against a hang, not a performance budget: set it well above the slowest green
+run, since a test that is merely slow fails the same way.
+
 ## Sharing a page within a module
 
 ```json

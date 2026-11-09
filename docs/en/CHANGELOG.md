@@ -15,6 +15,23 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   of what it read (`read` on `step.end`) and never the value, and leaves the page fit to
   hand on under `page_reuse: module`, which `ex.native` does not. `testence.engine.Box`
   is the box a reader returns.
+- Actions: `ex.double_click`, `ex.right_click`, `ex.click(modifiers=[...])`, `ex.drag_by`
+  (an offset with a real pointer), `ex.drag(html5=True, handle=)` (the HTML5 events one
+  frame apart, for rows outside the viewport and grips), `ex.type` (key by key at the
+  caret), `ex.set_viewport` and `ex.viewport`, `ex.reload`, `ex.set_storage` and
+  `ex.new_page` (a second tab of the same login)
+  ([engine capabilities](engine-capabilities.md#actions-beyond-click-and-fill)). A resized
+  window or a tab from `ex.new_page` keeps the page from being handed on;
+  `ex.switch_page` brings its tab to the front. Skill pack 0.1.28: the author skill
+  reaches for readers and these actions before `ex.native`.
+- A deadline per test: `--testence-test-timeout S`, `TESTENCE_TEST_TIMEOUT`,
+  `test_timeout_s` or `@pytest.mark.testence(timeout_s=)`
+  ([configuration](configuration.md#a-deadline-per-test)). A test past it fails with
+  the phase and where it was, a `test.deadline` event records the stack, and the
+  process goes on: Python code takes `DeadlineExceeded`, a browser call that never
+  returns ends when the processes Testence started are killed, and the next test
+  starts a browser again. Nothing is retried. A killed engine's `stop()` no longer
+  calls into its client.
 
 ## 0.1.0a3 — 2026-11-05
 

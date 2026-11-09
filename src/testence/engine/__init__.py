@@ -40,6 +40,20 @@ def worker_port_offset() -> int:
     return int(match.group()) if match else 0
 
 
+def kill_started_browsers() -> int:
+    """End the driver and browser processes the engines of this process started.
+
+    The last resort of a test deadline (``testence.deadline``); returns how many
+    process trees were killed. Nothing is killed when no engine was ever loaded.
+    """
+    import sys
+
+    module = sys.modules.get("testence.engine.playwright_cdp")
+    if module is None:
+        return 0
+    return int(module.kill_started_engines())
+
+
 def create_engine(settings: Any, backend: str = "playwright-cdp") -> Engine:
     """Build the engine named by ``backend`` from resolved settings."""
     if backend not in BACKENDS:
@@ -148,6 +162,7 @@ __all__ = [
     "create_engine",
     "dump_net",
     "engine_capabilities",
+    "kill_started_browsers",
     "require_capabilities",
     "worker_port_offset",
 ]

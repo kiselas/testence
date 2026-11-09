@@ -90,6 +90,25 @@ product keeps in a global. The function must only read: anything that acts on th
 belongs in an action or in `ex.native`, because a page changed by a reader would still
 be handed on. Coordinates are CSS pixels of the page viewport, the ones the pointer uses.
 
+## Actions beyond click and fill
+
+| Action | What it does |
+|---|---|
+| `ex.double_click(target)`, `ex.right_click(target)` | a double click (open a diagram node, reset a column); a right click (a context menu) |
+| `ex.click(target, modifiers=["Control"])` | a click with keys held: `Alt`, `Control`, `ControlOrMeta`, `Meta`, `Shift` |
+| `ex.drag_by(target, dx, dy=0, steps=8)` | press in the middle, move by an offset in `steps` moves, release: a panel edge, a column border, a slider |
+| `ex.drag(source, destination, html5=True, handle=None)` | the HTML5 drag-and-drop events, one frame apart with one `DataTransfer`, after a mousedown on `handle`: rows outside the viewport, `draggable` that turns on under a grip |
+| `ex.type(target, text, delay_ms=0)` | key by key at the caret: editors, masked inputs, fields that react to each key |
+| `ex.set_viewport(width, height)`, `ex.viewport()` | resize this page's window (`browser.emulation`); read its size |
+| `ex.reload()` | load the current document again; waits for the app to draw, as `goto` does |
+| `ex.set_storage({...}, session=False)` | set `localStorage` (`sessionStorage`) keys; before the first navigation, for every document |
+| `ex.new_page(url=None)` | a second tab of the same login, made current and brought to the front: another client of the same user. Back with `ex.switch_page(0)` or `ex.close_page()` |
+
+Typed text and stored values are not echoed in the ledger. A page whose window was
+resized, or that opened a tab with `ex.new_page`, is not handed to the next test under
+`page_reuse: module`. `ex.switch_page` brings the tab it switches to to the front: a
+background tab may not draw.
+
 ## Raw Playwright: `ex.native`
 
 When the DSL cannot express an interaction, `ex.native` hands over the Playwright

@@ -82,7 +82,14 @@ Before running cases in parallel against one shared target, or marking one
   `expect_checked`, `expect_attribute`, `expect_url`, `expect_settled` (before measuring
   anything that animates in) — and act with `click`, `fill`,
   `press`, `check`/`uncheck`, `hover`, `drag(source, destination)` and
-  `select(..., label=...)`. Group independent
+  `select(..., label=...)`, and beyond them `double_click`, `right_click`,
+  `click(..., modifiers=[...])`, `drag_by` (a panel edge, a column border),
+  `drag(..., html5=True, handle=...)`, `type` (an editor, a masked field), `set_viewport`,
+  `reload`, `set_storage` and `new_page` (a second client of the same login). Read what
+  the page shows with the readers — `text`, `texts`, `count`, `is_visible`, `attribute`,
+  `box(..., settled=True)`, `boxes`, `url`, `storage_item`, `read_js` — and assert on
+  the value in the test: they are strict like a click, keep the page shareable under
+  `page_reuse: module` and never put the value in the ledger. Group independent
   facts of one screen in `with ex.soft(...)`; drive timers with `ex.clock` instead of
   sleeping (`run_for` for a timer that schedules the next one, such as a countdown);
   reach app-opened tabs with `ex.switch_page(url_contains=...)`. A failed step says
