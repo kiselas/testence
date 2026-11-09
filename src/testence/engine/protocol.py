@@ -66,6 +66,41 @@ class Target:
         return " ".join(parts)
 
 
+@dataclass(frozen=True)
+class Box:
+    """Where an element is drawn, in CSS pixels of the page's viewport.
+
+    ``ex.box`` and ``ex.boxes`` return it; the coordinates are the ones a pointer
+    uses, so a box read from an element inside a frame is already in page terms.
+    """
+
+    x: float
+    y: float
+    width: float
+    height: float
+
+    @property
+    def right(self) -> float:
+        return self.x + self.width
+
+    @property
+    def bottom(self) -> float:
+        return self.y + self.height
+
+    @property
+    def center(self) -> tuple[float, float]:
+        return (self.x + self.width / 2, self.y + self.height / 2)
+
+    @classmethod
+    def of(cls, value: dict[str, Any]) -> Box:
+        return cls(
+            x=float(value["x"]),
+            y=float(value["y"]),
+            width=float(value["width"]),
+            height=float(value["height"]),
+        )
+
+
 @dataclass
 class NetRecord:
     """One captured request/response pair (API traffic only, by prefix filter)."""
@@ -322,6 +357,20 @@ class Engine(Protocol):
         ...
 
     def read_text(self, target: Target) -> str: ...
+    def is_visible(self, target: Target) -> bool: ...
+    def read_attribute(self, target: Target, name: str) -> str | None: ...
+    def bounding_box(self, target: Target) -> dict[str, float]:
+        """The box of the one element ``target`` matches, once it is visible."""
+        ...
+
+    def bounding_boxes(self, target: Target) -> list[dict[str, float]]:
+        """The boxes of every element ``target`` matches now, invisible ones omitted."""
+        ...
+
+    def evaluate(self, function: str, arg: Any = None) -> Any:
+        """Call a JavaScript function in the active page or frame with one argument."""
+        ...
+
     def input_value(self, target: Target) -> str:
         """Read one field, including an empty value; duplicate matches must fail."""
         ...

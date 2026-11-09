@@ -242,6 +242,12 @@ _SETTLED_JS = """(element, timeout) => new Promise((resolve) => {
   requestAnimationFrame(frame);
 })"""
 
+
+def _box(rect: Any) -> dict[str, float]:
+    """Playwright's ``FloatRect`` as the plain mapping the protocol returns."""
+    return {key: float(rect[key]) for key in ("x", "y", "width", "height")}
+
+
 _EMULATION_KEYS = frozenset(
     {"device", "locale", "timezone_id", "geolocation", "permissions", "color_scheme", "user_agent"}
 )
@@ -1968,6 +1974,38 @@ class PlaywrightCdpEngine(Engine):
 
     def read_all_texts(self, target: Target) -> list[str]:
         return [text.strip() for text in self._locate(target).all_inner_texts()]
+
+    def is_visible(self, target: Target) -> bool:
+        """Whether the one element ``target`` matches is visible now; no waiting."""
+        with self._timed("is_visible", target.describe()):
+            return bool(self._locate(target).is_visible())
+
+    def read_attribute(self, target: Target, name: str) -> str | None:
+        with self._timed("attribute", f"{target.describe()} [{name}]"):
+            return self._locate(target).get_attribute(name, timeout=self.timeout_ms)
+
+    def bounding_box(self, target: Target) -> dict[str, float]:
+        locator = self._locate(target)
+        with self._timed("box", target.describe()):
+            locator.wait_for(state="visible", timeout=self.timeout_ms)
+            box = locator.bounding_box(timeout=self.timeout_ms)
+        if box is None:
+            raise AssertionError(f"{target.describe()} is not drawn: it has no box")
+        return _box(box)
+
+    def bounding_boxes(self, target: Target) -> list[dict[str, float]]:
+        locator = self._locate(target)
+        boxes: list[dict[str, float]] = []
+        with self._timed("boxes", target.describe()):
+            for index in range(locator.count()):
+                box = locator.nth(index).bounding_box(timeout=self.timeout_ms)
+                if box is not None:
+                    boxes.append(_box(box))
+        return boxes
+
+    def evaluate(self, function: str, arg: Any = None) -> Any:
+        with self._timed("evaluate"):
+            return self._require_js_scope().evaluate(function, arg)
 
     def aria_snapshot(self, target: Target | None = None) -> str:
         """ARIA tree of the page, or of the first element ``target`` matches. Retries

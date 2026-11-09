@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from testence.engine import (
+    Box,
     Capability,
     Engine,
     NetRecord,
@@ -137,6 +138,11 @@ class _EngineOperation:
 
 #: How often a green step's element fingerprint is taken (``evidence.fingerprints``).
 FINGERPRINT_POLICIES = ("every-green", "once")
+
+
+def _check_minimum(reader: str, minimum: Any) -> None:
+    if isinstance(minimum, bool) or not isinstance(minimum, int) or minimum < 0:
+        raise ValueError(f"{reader} minimum must be a non-negative integer")
 
 
 class Actions:
@@ -598,6 +604,143 @@ class Actions:
         with self.step(intent or f"expect {target.describe()} settled", target, check=True):
             require_capabilities(self.engine, "expect_settled", Capability.DOM)
             self._engine_method("expect_settled")(target, timeout_ms=timeout_ms)
+
+    # -- readers ------------------------------------------------------------------
+    #
+    # A reader returns what the page shows to the test, which then asserts on it.
+    # The step adds the read's size to the ledger, not its value: text on a page can
+    # be a secret. (The element's fingerprint, taken after every green step with a
+    # target, keeps its first 80 characters, redacted like all evidence.) Unlike
+    # ``ex.native`` a reader leaves the page fit to hand on to the next test
+    # (``page_reuse: module``).
+
+    def _read(self, **size: Any) -> None:
+        self._annotations[-1]["read"] = size
+
+    def text(self, target: Target, intent: str | None = None) -> str:
+        """The visible text of the one element ``target`` matches, once it exists.
+
+        Two matches fail the step, naming both: a reader is as strict as a click.
+        """
+        with self.step(intent or f"read the text of {target.describe()}", target):
+            require_capabilities(self.engine, "text", Capability.DOM)
+            value = str(self.engine.read_text(target))
+            self._read(chars=len(value))
+            return value
+
+    def texts(self, target: Target, intent: str | None = None, *, minimum: int = 1) -> list[str]:
+        """The texts of every element ``target`` matches, in document order.
+
+        Waits until at least ``minimum`` elements exist, so a list read right after a
+        navigation is not read empty. ``minimum=0`` reads what is there now, which may
+        be nothing.
+        """
+        _check_minimum("texts", minimum)
+        with self.step(
+            intent or f"read the texts of {target.describe()}", target, _absence=minimum == 0
+        ):
+            require_capabilities(self.engine, "texts", Capability.DOM)
+            if minimum:
+                self.engine.wait_for_count(target, minimum)
+            values = [str(value) for value in self.engine.read_all_texts(target)]
+            self._read(items=len(values), chars=sum(len(value) for value in values))
+            return values
+
+    def count(self, target: Target, intent: str | None = None) -> int:
+        """How many elements ``target`` matches now. No waiting: to wait for a
+        number, use ``expect_count``."""
+        with self.step(intent or f"count {target.describe()}", target, _absence=True):
+            require_capabilities(self.engine, "count", Capability.DOM)
+            found = int(self.engine.count(target))
+            self._read(items=found)
+            return found
+
+    def is_visible(self, target: Target, intent: str | None = None) -> bool:
+        """Whether the element is visible now, without waiting for it either way.
+
+        For a branch the product really has (a banner that may or may not be shown);
+        a check that the element appears or goes is ``expect_visible`` or
+        ``expect_hidden``.
+        """
+        with self.step(intent or f"is {target.describe()} visible", target, _absence=True):
+            require_capabilities(self.engine, "is_visible", Capability.DOM)
+            visible = bool(self._engine_method("is_visible")(target))
+            self._read(visible=visible)
+            return visible
+
+    def attribute(self, target: Target, name: str, intent: str | None = None) -> str | None:
+        """The attribute ``name`` of the one element ``target`` matches, or None."""
+        with self.step(intent or f"read [{name}] of {target.describe()}", target):
+            require_capabilities(self.engine, "attribute", Capability.DOM)
+            value = self._engine_method("read_attribute")(target, name)
+            self._read(chars=len(value) if value is not None else None)
+            return None if value is None else str(value)
+
+    def box(self, target: Target, intent: str | None = None, *, settled: bool = False) -> Box:
+        """Where the element is drawn, once it is visible.
+
+        ``settled=True`` first waits until it has stopped moving (``expect_settled``):
+        a panel that slides in has its final width only at the end of the slide.
+        """
+        with self.step(intent or f"measure {target.describe()}", target):
+            require_capabilities(self.engine, "box", Capability.DOM)
+            if settled:
+                self._engine_method("expect_settled")(target, timeout_ms=None)
+            box = Box.of(self._engine_method("bounding_box")(target))
+            self._read(width=round(box.width, 1), height=round(box.height, 1))
+            return box
+
+    def boxes(self, target: Target, intent: str | None = None, *, minimum: int = 1) -> list[Box]:
+        """Where every visible element ``target`` matches is drawn, in document order:
+        the headers of a table, the cards of a board."""
+        _check_minimum("boxes", minimum)
+        with self.step(
+            intent or f"measure every {target.describe()}", target, _absence=minimum == 0
+        ):
+            require_capabilities(self.engine, "boxes", Capability.DOM)
+            if minimum:
+                self.engine.wait_for_count(target, minimum)
+            found = [Box.of(box) for box in self._engine_method("bounding_boxes")(target)]
+            self._read(items=len(found))
+            return found
+
+    def url(self, intent: str | None = None) -> str:
+        """The address of the current page. To wait for one, use ``expect_url``."""
+        with self.step(intent or "read the page address"):
+            require_capabilities(self.engine, "url", Capability.NAVIGATION)
+            return str(self.engine.current_url())
+
+    def storage_item(
+        self, key: str, intent: str | None = None, *, session: bool = False
+    ) -> str | None:
+        """One value of the page's ``localStorage`` (``sessionStorage`` with
+        ``session=True``), or None when it is not set."""
+        area = "sessionStorage" if session else "localStorage"
+        with self.step(intent or f"read {area} {key}"):
+            require_capabilities(self.engine, "storage_item", Capability.SESSION)
+            value = self._engine_method("storage_item")(key, session=session)
+            self._read(chars=len(value) if value is not None else None)
+            return None if value is None else str(value)
+
+    def read_js(self, intent: str, function: str, arg: Any = None) -> Any:
+        """Call a JavaScript function that reads the page, and return its result.
+
+        ``ex.read_js("read the stored widths", "key => JSON.parse(localStorage[key])",
+        "widths")``. For what no reader above expresses: a computed style, a value
+        the product keeps in a global. It is one recorded step and, unlike
+        ``ex.native``, does not stop the page from being handed to the next test:
+        the function must only read. Anything that acts on the page belongs in an
+        action or in ``ex.native``.
+        """
+        if not isinstance(intent, str) or not intent.strip():
+            raise ValueError("ex.read_js needs an intent saying what the function reads")
+        if not isinstance(function, str) or not function.strip():
+            raise ValueError("ex.read_js needs the JavaScript function as a string")
+        with self.step(intent):
+            require_capabilities(self.engine, "read_js", Capability.JAVASCRIPT)
+            result = self._engine_method("evaluate")(function, arg)
+            self._read(type=type(result).__name__)
+            return result
 
     # -- state assertions --------------------------------------------------------
     #
