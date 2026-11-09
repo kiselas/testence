@@ -24,6 +24,14 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   window or a tab from `ex.new_page` keeps the page from being handed on;
   `ex.switch_page` brings its tab to the front. Skill pack 0.1.28: the author skill
   reaches for readers and these actions before `ex.native`.
+- A deadline per test: `--testence-test-timeout S`, `TESTENCE_TEST_TIMEOUT`,
+  `test_timeout_s` or `@pytest.mark.testence(timeout_s=)`
+  ([configuration](configuration.md#a-deadline-per-test)). A test past it fails with
+  the phase and where it was, a `test.deadline` event records the stack, and the
+  process goes on: Python code takes `DeadlineExceeded`, a browser call that never
+  returns ends when the processes Testence started are killed, and the next test
+  starts a browser again. Nothing is retried. A killed engine's `stop()` no longer
+  calls into its client.
 
 ## 0.1.0a3 — 2026-11-05
 

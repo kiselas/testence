@@ -50,6 +50,7 @@ KINDS = frozenset(
         "test.start",
         "test.phase",
         "test.end",
+        "test.deadline",
         "step.start",
         "step.end",
         "test.waits",
