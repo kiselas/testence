@@ -473,6 +473,32 @@ ledger gets a `test.deadline` event with that stack. Nothing is retried. A deadl
 a guard against a hang, not a performance budget: set it well above the slowest green
 run, since a test that is merely slow fails the same way.
 
+## The target's build
+
+```json
+{
+  "target_info": {
+    "path": "/api/info",
+    "fields": {"backend": "/backend/git/commit", "frontend": "/frontend/git/commit"},
+    "timeout_ms": 5000
+  }
+}
+```
+
+A shared environment is rebuilt while suites run against it. Name a read-only
+endpoint that says what the target runs, and Testence reads it without logging in
+once when the run starts and once when it ends (the controller of an xdist run or
+the only process; not for `--collect-only`). `fields` maps a name to a JSON Pointer;
+without it the response is kept, clipped to 4 000 characters. `"target_info":
+"/api/info"` is the short form. A profile may name its own.
+
+Both reads are `target.info` events; the second says `changed: true` when the target
+answered differently. `testence inspect` prints the build and says when it changed,
+the HTML report shows it in its header with a banner for a change, `ci summary` adds a
+`Target` row and a warning, Allure gets `target.<field>` in `environment.properties`
+and JUnit `testence.target.<field>` properties. An endpoint that cannot be read is
+recorded with its error and never fails the run.
+
 ## Sharing a page within a module
 
 ```json

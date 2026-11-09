@@ -516,6 +516,7 @@ def _write_environment(run: LoadedRun, out_dir: Path) -> Path:
         )
     for key, value in (run.fingerprint or {}).items():
         values[f"environment.{key}"] = "" if value is None else str(value)
+    values.update(run.target_properties())
     lines = [f"{key}={_escape(value)}" for key, value in sorted(values.items()) if value != ""]
     return _write_bytes(out_dir / "environment.properties", ("\n".join(lines) + "\n").encode())
 

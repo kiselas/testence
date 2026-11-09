@@ -886,6 +886,13 @@ def main(argv: list[str] | None = None) -> int:
                 f"{' (' + execution + ')' if execution else ''}"
                 f"; assurance: {assurance or 'none recorded'}"
             )
+            target = result.get("target")
+            if target:
+                from .target_info import describe
+
+                print(f"  target: {describe(target['start'] or target['end'])}")
+                if target["changed"]:
+                    print(f"  target changed during the run, now: {describe(target['end'])}")
             for nodeid in result["flaky"]:
                 print(f"  flaky: {nodeid} passed only after a rerun")
             if result.get("control"):

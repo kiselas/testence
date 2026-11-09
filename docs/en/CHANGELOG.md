@@ -32,6 +32,12 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   returns ends when the processes Testence started are killed, and the next test
   starts a browser again. Nothing is retried. A killed engine's `stop()` no longer
   calls into its client.
+- The target's build: `target_info` in `testence.json` names a read-only endpoint, read
+  without logging in when the run starts and when it ends
+  ([configuration](configuration.md#the-targets-build)). `target.info` events carry the
+  named JSON Pointer fields (or the clipped body) and `changed` when the build moved
+  during the run; `inspect`, the HTML report, `ci summary`, Allure's environment and
+  JUnit properties show it. An unreadable endpoint is recorded, never fatal.
 
 ## 0.1.0a3 — 2026-11-05
 

@@ -787,6 +787,13 @@ def inspect_run(run_dir: Path | str) -> dict[str, Any]:
         ],
         "reruns": sum(len(test.reruns) for test in run.tests),
         "flaky": [test.nodeid for test in run.tests if test.flaky],
+        "target": {
+            "start": run.target_start,
+            "end": run.target_end,
+            "changed": run.target_changed,
+        }
+        if run.target_start is not None or run.target_end is not None
+        else None,
         "control": control.to_json() if control else None,
         **({"negative_proof": negative} if control else {}),
     }

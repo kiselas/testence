@@ -102,10 +102,11 @@ const EVENTS = __EVENTS__;
 const esc = s => String(s ?? "").replace(/[&<>"]/g,
   c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const byTest = new Map();
-let runStart = null, runEnd = null;
+let runStart = null, runEnd = null, targetStart = null, targetEnd = null;
 for (const e of EVENTS) {
   if (e.kind === "run.start") runStart = e;
   else if (e.kind === "run.end") runEnd = e;
+  else if (e.kind === "target.info") { if (e.phase === "end") targetEnd = e; else targetStart = e; }
   else if (e.test) {
     const identity = [e.project_id, e.case_id, e.variant_id, e.attempt_id];
     const key = identity.every(Boolean) ? identity.join("|") : e.test;
@@ -113,10 +114,21 @@ for (const e of EVENTS) {
     byTest.get(key).push(e);
   }
 }
+function targetText(record) {
+  if (record.error) return `${record.path}: ${record.error}`;
+  if (record.fields) return Object.entries(record.fields).map(([k, v]) => `${k}=${v ?? "-"}`).join(", ");
+  return String(record.body ?? "").slice(0, 160);
+}
 const fp = runStart?.fingerprint || {};
 document.getElementById("fingerprint").textContent =
   `${runStart?.ts ?? ""} · ${fp.os ?? ""} · python ${fp.python ?? ""}` +
-  (fp.base_url ? ` · ${fp.base_url}` : "");
+  (fp.base_url ? ` · ${fp.base_url}` : "") +
+  (targetStart ? ` · target ${targetText(targetStart)}` : "");
+if (targetEnd?.changed) {
+  const moved = document.getElementById("integrity");
+  moved.hidden = false;
+  moved.textContent = `TARGET CHANGED DURING THE RUN · now ${targetText(targetEnd)}`;
+}
 if (runEnd?.run_status === "incomplete") {
   const issues = (runEnd.integrity_errors || []).map(item =>
     `${item.code}: ${item.error}${item.path ? ` (${item.path})` : ""}`
