@@ -60,6 +60,40 @@ Property names follow the `trcli` and Xray JUnit documentation. `test_id` means 
 TestRail case in `trcli` and a numeric issue id in Xray, so declare only the systems a
 report is meant for.
 
+### Manual cases in Markdown files
+
+A team that keeps its cases in Markdown (the formats `testence plan skeleton` reads:
+a table, or `### N. title` sections) marks a test with the cases it automates and
+names the files in `testence.json`:
+
+```python
+@pytest.mark.testence(tms={"cases": ["SHOP-12/3", "SHOP-12/4"]})
+def test_checkout_charges_once(ex): ...
+```
+
+```json
+{"cases": {"paths": ["cases/*.md", "../qa/cases/*.md"], "key": "^[A-Z][A-Z0-9]*-[0-9]+"}}
+```
+
+A case's id is `<key>/<number>`: `key` is matched at the start of the file name
+(`SHOP-12-checkout.md` gives `SHOP-12`), and a file whose name does not match uses its
+name without the extension. `testence cases` lists every case with its tests and
+outcome:
+
+```bash
+testence cases --project .                                  # from a collection, nothing runs
+testence cases --project . --run runs/r-local --markdown    # outcomes of a run, a table per file
+testence cases --project . --json -- tests_e2e/checkout     # what a collection selects
+```
+
+Each file says how many of its cases are automated; a case with several tests shows
+the worst outcome, one without a test `not_automated`. A `- Priority: High` line under
+a case heading is read as its priority, and a `- Removed by: ...` line takes the case
+out of the counts. The run's target build ([configuration](configuration.md#the-targets-build))
+heads the Markdown. A marker that names a case no file has is listed and the command
+exits 3: an id that points nowhere is a link gone stale. The ids travel in every
+export as `tms.cases`.
+
 ### Attaching your own files
 
 A payload the test built, a server log excerpt or a picture travels with the test's

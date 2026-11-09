@@ -38,6 +38,12 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   named JSON Pointer fields (or the clipped body) and `changed` when the build moved
   during the run; `inspect`, the HTML report, `ci summary`, Allure's environment and
   JUnit properties show it. An unreadable endpoint is recorded, never fatal.
+- Manual cases: `cases` in `testence.json` names Markdown case files, a test names the
+  cases it automates with `tms={"cases": [...]}`, and `testence cases [--run RUN_DIR]
+  [--markdown|--json] [-- PYTEST_ARGS]` lists every case with its tests and outcome, the
+  automated count per file, priorities and removed cases, from a run or from a
+  collection that runs nothing ([reporting](reporting.md#manual-cases-in-markdown-files)).
+  A marker naming a case no file has exits 3.
 
 ## 0.1.0a3 — 2026-11-05
 
