@@ -869,23 +869,29 @@ class Actions:
             self._read(chars=len(value) if value is not None else None)
             return None if value is None else str(value)
 
-    def read_js(self, intent: str, function: str, arg: Any = None) -> Any:
+    def read_js(
+        self, intent: str, function: str, arg: Any = None, *, target: Target | None = None
+    ) -> Any:
         """Call a JavaScript function that reads the page, and return its result.
 
         ``ex.read_js("read the stored widths", "key => JSON.parse(localStorage[key])",
         "widths")``. For what no reader above expresses: a computed style, a value
-        the product keeps in a global. It is one recorded step and, unlike
-        ``ex.native``, does not stop the page from being handed to the next test:
-        the function must only read. Anything that acts on the page belongs in an
-        action or in ``ex.native``.
+        the product keeps in a global. With ``target`` the function is called as
+        ``function(element, arg)`` on the one element it matches, waiting for it like
+        a click. It is one recorded step and, unlike ``ex.native``, does not stop the
+        page from being handed to the next test: the function must only read.
+        Anything that acts on the page belongs in an action or in ``ex.native``.
         """
         if not isinstance(intent, str) or not intent.strip():
             raise ValueError("ex.read_js needs an intent saying what the function reads")
         if not isinstance(function, str) or not function.strip():
             raise ValueError("ex.read_js needs the JavaScript function as a string")
-        with self.step(intent):
+        with self.step(intent, target):
             require_capabilities(self.engine, "read_js", Capability.JAVASCRIPT)
-            result = self._engine_method("evaluate")(function, arg)
+            if target is not None:
+                result = self._engine_method("evaluate_on")(target, function, arg)
+            else:
+                result = self._engine_method("evaluate")(function, arg)
             self._read(type=type(result).__name__)
             return result
 

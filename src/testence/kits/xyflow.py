@@ -8,8 +8,7 @@ id the product gave it. Traps carried here:
   until it has measured it; a click before that lands on nothing. Every action here
   waits for the node to be visible first.
 - **A single click only selects a node.** Products open a node's editor on
-  ``onNodeDoubleClick``; :meth:`Node.open` double-clicks through ``ex.native`` (the
-  DSL has no double click), as one recorded step.
+  ``onNodeDoubleClick``; :meth:`Node.open` double-clicks it (``ex.double_click``).
 - **A node's menu is portalled and unnamed by the node.** The trigger is the node's
   button with ``aria-haspopup``; the open menu is the page's only ``role=menu``.
 """
@@ -57,8 +56,7 @@ class Node:
     def open(self) -> None:
         """Double-click the node (a single click only selects it)."""
         self.wait_drawn()
-        with self.ex.native(f"double-click the node {self.id!r}") as page:
-            page.locator(self._css).dblclick()
+        self.ex.double_click(self.target, intent=f"double-click the node {self.id!r}")
 
     def menu(self, trigger_name: str | None = None) -> react_aria.Menu:
         """The node's menu: the button ``trigger_name``, or its ``aria-haspopup`` button."""

@@ -31,6 +31,7 @@ panel.number_field("VLAN", hint="from 1 to 4094").set(42)
 | `testence.kits.koobiq` | [Koobiq](https://github.com/koobiq/react-components) (`@koobiq/react-components`) |
 | `testence.kits.react_select` | `react-select` 5, одиночный и `isMulti` |
 | `testence.kits.xyflow` | узлы `@xyflow/react` (React Flow 12) |
+| `testence.kits.codemirror` | редакторы CodeMirror 6 |
 
 ## Koobiq и react-aria
 
@@ -46,7 +47,7 @@ panel.number_field("VLAN", hint="from 1 to 4094").set(42)
 
 | Компонент | Адрес | Действия | Зашитая ловушка |
 | --- | --- | --- | --- |
-| `koobiq.select(ex, label)` | кнопка — через `data-slot="form-field"` с этой подписью; список — `role=listbox` с именем подписи | `open`, `choose(value)`, `expect_value(value)`, `option(label)` | Имя кнопки — «подпись значение», и та же подпись называет открытый список: пока он открыт, одна подпись находит два элемента. Значение проверяется по имени кнопки. |
+| `koobiq.select(ex, label, required=None)` | кнопка — через `data-slot="form-field"` с этой подписью; список — `role=listbox` с именем подписи | `open`, `choose(value)`, `expect_value(value)`, `option(label)` | Имя кнопки — «подпись значение», и та же подпись называет открытый список: пока он открыт, одна подпись находит два элемента. Значение проверяется по имени кнопки. У обязательного поля список называется «подпись *»: если `required` не передан, кит один раз читает его из подписи при первом обращении. |
 | `koobiq.text_field(ex, label, required=, hint=)` | `role=textbox` с точным составным именем | `fill`, `expect_value` | Обязательное поле называется `Name *`; подсказка в подписи входит в имя (`VLAN from 1 to 4094`). Имя составляется точно, не ищется подстрокой. |
 | `koobiq.number_field(...)`, `react_aria.number_field(ex, label)` | `role=textbox` | `set(value, shown=)`, `expect_value` | `onChange` срабатывает при уходе фокуса, не при вводе: `set` заполняет и жмёт Tab, затем проверяет показанное значение. |
 | `koobiq.checkbox(ex, label)`, `koobiq.switch(ex, label)` | состояние — `role=checkbox` / `role=switch`; клик — по тексту подписи | `check`, `uncheck`, `toggle`, `expect_checked` | `<input>` обрезан до пикселя внутри `<label>`: клик или `check` по нему ждут проверку попадания, которую выигрывает label. `check` отказывается от уже отмеченного флажка, а не снимает его. |
@@ -55,7 +56,7 @@ panel.number_field("VLAN", hint="from 1 to 4094").set(42)
 | `koobiq.tabs(ex, name)` | `role=tablist`, `role=tab`, `role=tabpanel` с именем вкладки | `select(label)`, `tab`, `panel` | Выбор проверяется по `aria-selected` и панели, а не самим кликом. |
 | `koobiq.tooltip(ex, trigger)` | `role=tooltip` | `open`, `expect_text` | react-aria открывает подсказку по наведению только после того, как `pointermove` выставил модальность «pointer»; первое движение мыши в тесте входит в кнопку раньше, и одиночный hover ничего не открывает. `open` сначала уводит курсор в угол страницы (один шаг `ex.native`). |
 | `koobiq.search(ex, label)` | `role=searchbox` | `submit(text)` | Поиск отправляется только по Enter; ввод сам ничего не отправляет. |
-| `koobiq.dialog(ex, title)`, `koobiq.side_panel(ex, title)` | `role=dialog`, у которого элемент `kbq-dialog-header-` читается как заголовок (XPath) | `wait_open`, `wait_closed`, `close`, `press(name)`, `button`, `field`, `number_field` | У диалогов Koobiq нет доступного имени (шапка — не heading). Оверлеи анимируются 300 мс и остаются в DOM, пока уходят: `wait_open` ждёт `data-transition="entered"`, закрытие ждёт исчезновения элемента. Имя крестика переводится — он находится по структуре. |
+| `koobiq.dialog(ex, title, header=, exact=)`, `koobiq.side_panel(...)`, `koobiq.confirm(...)` | `role=dialog`, у которого элемент `kbq-dialog-header-` читается как заголовок (XPath); `header="any"` — ещё и заголовок или абзац, который продукт рисует сам; `exact=False` — шапка, начинающаяся с заголовка (заголовок и подпись одним текстом) | `wait_open`, `wait_closed`, `close`, `press(name)`, `button`, `field`, `number_field` | У диалогов Koobiq нет доступного имени (шапка — не heading). Оверлеи анимируются 300 мс и остаются в DOM, пока уходят: `wait_open` ждёт `data-transition="entered"`, закрытие ждёт исчезновения элемента. Имя крестика переводится — он находится по структуре. |
 | `koobiq.confirm(ex, title)` | диалог с этим заголовком | `accept(action)`, `cancel(name)` | Кнопка применения несёт глагол («Delete», «Publish»); диалог с другим заголовком не подходит. Кнопка отмены — слово продукта, поэтому `cancel` принимает её имя. |
 | `koobiq.toasts(ex)` | `role=alertdialog` с именем заголовка; подпись — по `aria-describedby` | `read`, `mark`, `expect_new(mark, title, status=)`, `expect_no_new(mark, within_ms=)`; у `Toast` — `expect_caption`, `dismiss` | Заголовки повторяются: тост засчитывается, только если появился после `mark()`, а уходящий — никогда. `ToastProvider` — сама область тостов, детей не рендерит. Отрицание (`expect_no_new`) по построению тратит весь бюджет и закрыто по ошибке: нечитаемая страница или переход во время окна — это не «тостов нет». |
 | `koobiq.badge(ex, text)` | элемент `kbq-badge-` с `data-variant` и этим текстом | `read`, `expect_variant`, `expect_color` | Цвет, который продукт задал в inline-стиле (`style.color`), читается и ожидается в нормализованном браузером виде `rgb(r, g, b)`. |
@@ -66,7 +67,9 @@ panel.number_field("VLAN", hint="from 1 to 4094").set(42)
 
 `react_select.single(ex, label)` и `react_select.multi(ex, label)` находят поле по его
 input-комбобоксу: `aria-label`, `aria-labelledby` или `<label for>` с именем `label`,
-либо `input_id=`, если продукт задаёт `inputId`. Классы `<prefix>__…` есть, только если
+либо `input_id=`, если продукт задаёт `inputId`. Если продукт поставил подпись рядом с
+полем, не связав её: `nearby=True` берёт единственный комбобокс ближайшего контейнера над
+элементом, чей собственный текст — `label`. Классы `<prefix>__…` есть, только если
 продукт задал `classNamePrefix`; если префикс не `react-select`, передайте `prefix=`.
 
 | Часть | Адрес | Действия | Зашитая ловушка |
@@ -81,8 +84,20 @@ input-комбобоксу: `aria-label`, `aria-labelledby` или `<label for>`
 `xyflow.node(ex, node_id, kind=)` адресует `.react-flow__node-<kind>[data-id=<id>]`.
 Узел рисуется с `visibility: hidden`, пока не измерен, поэтому каждое действие сначала
 ждёт, что узел виден. `click` выделяет (`expect_selected`), `open` делает двойной клик
-через `ex.native` (в DSL двойного клика нет), `menu()` и `action(label)` используют кнопку
-узла с `aria-haspopup` или кнопку по имени. `xyflow.nodes(kind)` считает узлы.
+(`ex.double_click`), `menu()` и `action(label)` используют кнопку узла с `aria-haspopup`
+или кнопку по имени. `xyflow.nodes(kind)` считает узлы.
+
+## CodeMirror
+
+`codemirror.editor(ex, within=, nth=, name=)` адресует `.cm-editor`; `content` — его
+`contenteditable` `.cm-content`. `text()` возвращает весь документ из представления
+редактора, которое CodeMirror держит на элементе содержимого (`cmTile`, до 6.4x —
+`cmView`), и только без него — нарисованные строки: CodeMirror рисует строки в окне,
+поэтому нарисованный текст длинного документа — не документ. `set_text(text)` заменяет
+документ одним вводом (`fill`, как вставка) и проверяет его; `type(text)` печатает
+клавиша за клавишей с позиции курсора, и обработчики редактора срабатывают (к
+открывающей скобке добавляется закрывающая); `expect_text(text)` ждёт по кадрам, пока
+документ не станет ровно `text`.
 
 ## Разведка узнаёт компоненты
 

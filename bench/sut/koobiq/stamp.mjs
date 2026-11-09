@@ -5,7 +5,14 @@ import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 
 const SOURCES = ['index.html', 'package.json', 'package-lock.json', 'src/main.tsx', 'vite.config.ts']
-const PACKAGES = ['@koobiq/react-components', 'react-select', '@xyflow/react', 'react', 'react-dom']
+const PACKAGES = [
+  '@koobiq/react-components',
+  'react-select',
+  '@xyflow/react',
+  'react',
+  'react-dom',
+  '@codemirror/view',
+]
 
 const sources = {}
 for (const file of SOURCES) {

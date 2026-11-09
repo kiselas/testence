@@ -31,6 +31,7 @@ Kits ship with Testence; they add no dependency.
 | `testence.kits.koobiq` | [Koobiq](https://github.com/koobiq/react-components) (`@koobiq/react-components`) |
 | `testence.kits.react_select` | `react-select` 5, single and `isMulti` |
 | `testence.kits.xyflow` | `@xyflow/react` (React Flow 12) nodes |
+| `testence.kits.codemirror` | CodeMirror 6 editors |
 
 ## Koobiq and react-aria
 
@@ -45,7 +46,7 @@ the suffix changes between releases.
 
 | Component | Address | Actions | Trap the kit carries |
 | --- | --- | --- | --- |
-| `koobiq.select(ex, label)` | trigger through `data-slot="form-field"` with that label; list `role=listbox` named by the label | `open`, `choose(value)`, `expect_value(value)`, `option(label)` | The trigger's name is "label value", and the label also names the open list: the label alone matches two elements while the list is open. The value is checked through the trigger's name. |
+| `koobiq.select(ex, label, required=None)` | trigger through `data-slot="form-field"` with that label; list `role=listbox` named by the label | `open`, `choose(value)`, `expect_value(value)`, `option(label)` | The trigger's name is "label value", and the label also names the open list: the label alone matches two elements while the list is open. The value is checked through the trigger's name. A required field's list is named "label *": left out, `required` is read from the label once, on first use. |
 | `koobiq.text_field(ex, label, required=, hint=)` | `role=textbox` with the exact composed name | `fill`, `expect_value` | A required field is named `Name *`; a hint in the label joins the name (`VLAN from 1 to 4094`). The name is composed exactly, never matched as a substring. |
 | `koobiq.number_field(...)`, `react_aria.number_field(ex, label)` | `role=textbox` | `set(value, shown=)`, `expect_value` | `onChange` fires on blur, not while typing: `set` fills and presses Tab, then checks what the field shows. |
 | `koobiq.checkbox(ex, label)`, `koobiq.switch(ex, label)` | state: `role=checkbox` / `role=switch`; click: the label text | `check`, `uncheck`, `toggle`, `expect_checked` | The `<input>` is clipped to one pixel inside a `<label>`: clicking or `check`-ing it waits on a hit test the label wins. `check` refuses an already checked box instead of toggling it off. |
@@ -54,7 +55,7 @@ the suffix changes between releases.
 | `koobiq.tabs(ex, name)` | `role=tablist`, `role=tab`, `role=tabpanel` named by its tab | `select(label)`, `tab`, `panel` | Selection is checked by `aria-selected` and the panel, not by the click alone. |
 | `koobiq.tooltip(ex, trigger)` | `role=tooltip` | `open`, `expect_text` | react-aria opens a tooltip on hover only once a `pointermove` has set the "pointer" modality; the first move of a test enters the trigger before that, so a single hover opens nothing. `open` moves the pointer to the page corner first (one `ex.native` step). |
 | `koobiq.search(ex, label)` | `role=searchbox` | `submit(text)` | A search field submits on Enter only; typing alone sends nothing. |
-| `koobiq.dialog(ex, title)`, `koobiq.side_panel(ex, title)` | `role=dialog` whose `kbq-dialog-header-` element reads the title (XPath) | `wait_open`, `wait_closed`, `close`, `press(name)`, `button`, `field`, `number_field` | Koobiq dialogs have no accessible name (the header is not a heading). Overlays animate for 300 ms and stay mounted while leaving: `wait_open` waits for `data-transition="entered"`, closing waits until the element is gone. The close button's name is translated; it is found by structure. |
+| `koobiq.dialog(ex, title, header=, exact=)`, `koobiq.side_panel(...)`, `koobiq.confirm(...)` | `role=dialog` whose `kbq-dialog-header-` element reads the title (XPath); `header="any"` also a heading or paragraph the product draws itself; `exact=False` a header that starts with the title (title and caption in one text) | `wait_open`, `wait_closed`, `close`, `press(name)`, `button`, `field`, `number_field` | Koobiq dialogs have no accessible name (the header is not a heading). Overlays animate for 300 ms and stay mounted while leaving: `wait_open` waits for `data-transition="entered"`, closing waits until the element is gone. The close button's name is translated; it is found by structure. |
 | `koobiq.confirm(ex, title)` | the dialog with that title | `accept(action)`, `cancel(name)` | The action button carries the verb ("Delete", "Publish"); a dialog with another title never matches. The dismissing button is the product's word, so `cancel` takes its name. |
 | `koobiq.toasts(ex)` | `role=alertdialog` named by the title; caption by `aria-describedby` | `read`, `mark`, `expect_new(mark, title, status=)`, `expect_no_new(mark, within_ms=)`; a `Toast` has `expect_caption`, `dismiss` | Titles repeat: a toast counts only if it appeared after `mark()`, and one already leaving never counts. `ToastProvider` is the region itself and renders no children. A negative (`expect_no_new`) costs its whole budget by construction and fails closed: a page that cannot be read, or that navigated during the window, is not "no toast". |
 | `koobiq.badge(ex, text)` | `kbq-badge-` element with `data-variant` and that text | `read`, `expect_variant`, `expect_color` | The colour a product sets inline (`style.color`) is read and waited on as the browser normalizes it, `rgb(r, g, b)`. |
@@ -65,7 +66,9 @@ the suffix changes between releases.
 
 `react_select.single(ex, label)` and `react_select.multi(ex, label)` find the field by
 its combobox input: `aria-label`, `aria-labelledby` or `<label for>` naming it
-`label`, or `input_id=` when the product sets `inputId`. The `<prefix>__…` classes exist
+`label`, or `input_id=` when the product sets `inputId`. A product that put the label
+next to the field without associating it: `nearby=True` takes the one combobox of the
+nearest container above the element whose own text is `label`. The `<prefix>__…` classes exist
 only when the product sets `classNamePrefix`; pass `prefix=` if it is not
 `react-select`.
 
@@ -81,8 +84,19 @@ only when the product sets `classNamePrefix`; pass `prefix=` if it is not
 `xyflow.node(ex, node_id, kind=)` addresses `.react-flow__node-<kind>[data-id=<id>]`.
 Nodes are drawn with `visibility: hidden` until measured, so every action waits for
 the node to be visible first. `click` selects (`expect_selected`), `open` double-clicks
-through `ex.native` (the DSL has no double click), `menu()` and `action(label)` use the
-node's `aria-haspopup` button or a named one. `xyflow.nodes(kind)` counts nodes.
+(`ex.double_click`), `menu()` and `action(label)` use the node's `aria-haspopup` button
+or a named one. `xyflow.nodes(kind)` counts nodes.
+
+## CodeMirror
+
+`codemirror.editor(ex, within=, nth=, name=)` addresses `.cm-editor`; `content` is its
+`contenteditable` `.cm-content`. `text()` returns the whole document from the editor's
+own view, which CodeMirror keeps on the content element (`cmTile`, `cmView` before 6.4x),
+and only without it the drawn lines: CodeMirror draws the lines in view, so the drawn
+text of a long document is not the document. `set_text(text)` replaces the document in
+one input (`fill`, as a paste) and checks it; `type(text)` types key by key at the caret,
+so the editor's handlers apply (an opening bracket gets its closing one);
+`expect_text(text)` waits frame by frame until the document is exactly `text`.
 
 ## Discovery recognizes components
 

@@ -167,6 +167,10 @@ _SCRIPT = r"""(limit, perKind) => {
              node_kind: type ? type.slice('react-flow__node-'.length) : null,
              text: squash(node.innerText).slice(0, 80)});
     }
+
+    const editors = [...document.querySelectorAll('.cm-editor')];
+    editors.forEach((editor, index) => add({kind: 'codemirror.editor', name: '',
+        index, count: editors.length}));
     return out;
 }"""
 
@@ -175,6 +179,7 @@ _MODULES = {
     "react_aria": "from testence.kits import react_aria",
     "react_select": "from testence.kits import react_select",
     "xyflow": "from testence.kits import xyflow",
+    "codemirror": "from testence.kits import codemirror",
 }
 _KINDS = frozenset(
     {
@@ -200,6 +205,7 @@ _KINDS = frozenset(
         "react_aria.menu",
         "react_aria.listbox",
         "xyflow.node",
+        "codemirror.editor",
     }
 )
 
@@ -238,6 +244,11 @@ def python(item: dict[str, Any]) -> str:
         return f"Target('role', {role!r})"
     if kind == "koobiq.toasts":
         return "koobiq.toasts(ex)"
+    if kind == "codemirror.editor":
+        index, count = item.get("index"), item.get("count")
+        if type(index) is int and type(count) is int and count > 1:
+            return f"codemirror.editor(ex, nth={index})"
+        return "codemirror.editor(ex)"
     if not name and isinstance(item.get("css"), str) and type(item.get("nth")) is int:
         # The kit factories take a name and this component has none: address it by
         # position, usable now, to be replaced once the product names it.

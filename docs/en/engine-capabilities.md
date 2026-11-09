@@ -83,7 +83,7 @@ hand to the next test under `page_reuse: module`, which `ex.native` does not.
 | `ex.boxes(target, minimum=1)` | the boxes of every visible match | for `minimum` matches |
 | `ex.url()` | the current page's address | no |
 | `ex.storage_item(key, session=False)` | one `localStorage` (`sessionStorage`) value, or `None` | no |
-| `ex.read_js(intent, function, arg=None)` | what a JavaScript function returns | no |
+| `ex.read_js(intent, function, arg=None, target=None)` | what a JavaScript function returns; with `target`, `function(element, arg)` on its one element | for the element, when there is a target |
 
 `read_js` is for what no other reader expresses, such as a computed style or a value the
 product keeps in a global. The function must only read: anything that acts on the page

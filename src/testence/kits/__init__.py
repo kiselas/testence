@@ -9,10 +9,11 @@ its behaviour); a project adapter knows its own routes, screens and data. See
 - :mod:`testence.kits.koobiq`: Koobiq (``@koobiq/react-components``).
 - :mod:`testence.kits.react_select`: ``react-select``, single and ``isMulti``.
 - :mod:`testence.kits.xyflow`: ``@xyflow/react`` (React Flow) nodes.
+- :mod:`testence.kits.codemirror`: CodeMirror 6 editors.
 """
 
 from __future__ import annotations
 
-from testence.kits import koobiq, react_aria, react_select, xyflow
+from testence.kits import codemirror, koobiq, react_aria, react_select, xyflow
 
-__all__ = ["koobiq", "react_aria", "react_select", "xyflow"]
+__all__ = ["codemirror", "koobiq", "react_aria", "react_select", "xyflow"]

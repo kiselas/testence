@@ -84,7 +84,7 @@ Adapter может реализовать `CapabilityProvider`, `LifecycleEngine
 | `ex.boxes(target, minimum=1)` | рамки всех видимых совпадений | `minimum` совпадений |
 | `ex.url()` | адрес текущей страницы | нет |
 | `ex.storage_item(key, session=False)` | одно значение `localStorage` (`sessionStorage`) или `None` | нет |
-| `ex.read_js(intent, function, arg=None)` | результат функции JavaScript | нет |
+| `ex.read_js(intent, function, arg=None, target=None)` | результат функции JavaScript; с `target` — `function(element, arg)` на его единственном элементе | элемента, если есть цель |
 
 `read_js` — для того, чего не выражает ни одна читалка: вычисленный стиль, значение,
 которое продукт держит в глобальной переменной. Функция только читает: всё, что меняет

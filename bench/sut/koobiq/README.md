@@ -1,7 +1,7 @@
 # Koobiq conformance stand
 
 One page built with the **real** packages the kits address, at exact versions
-(`package.json`): `@koobiq/react-components`, `react-select` and `@xyflow/react` on
+(`package.json`): `@koobiq/react-components`, `react-select`, `@xyflow/react` and `codemirror` on
 React 19. Nothing on it is a hand-made copy of their DOM. Each control writes what it
 did to the event log (`#log`), so a conformance test checks what the component reported,
 not only what it drew.
@@ -20,6 +20,10 @@ not only what it drew.
 | Modal "Delete «router-two»" | `koobiq.confirm` | accept and cancel |
 | Toasts | `koobiq.toasts` | success and error, repeated titles, dismissal |
 | React Flow nodes | `xyflow` | selection, double-click, node menu |
+| Select "Color" (required) | `koobiq.select` | a list named "Color *" |
+| Modals "Agent token created", "Publish «tpl-one»?" | `koobiq.dialog(header="any")`, `koobiq.confirm(exact=False)` | a title the product draws itself, a header with a caption |
+| react-select "Owner" | `react_select.single(nearby=True)` | a label not associated with its input |
+| CodeMirror 6 editor (`#schema`) | `codemirror` | the document, a replacement, typing at the caret |
 
 `?locale=ru-RU` renders Koobiq's own labels in Russian; the locale-sensitive tests run
 in both languages.

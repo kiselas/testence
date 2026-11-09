@@ -10,7 +10,7 @@ from testence.config import Settings
 from testence.discovery import snapshot
 from testence.engine import Target
 from testence.engine.playwright_cdp import PlaywrightCdpEngine
-from testence.kits import koobiq, react_aria, react_select, recognize, xyflow
+from testence.kits import codemirror, koobiq, react_aria, react_select, recognize, xyflow
 
 from .kit_stand import open_stand, stand, stand_engine  # noqa: F401
 
@@ -149,6 +149,8 @@ def test_every_line_on_the_stand_addresses_a_real_component(stand_engine, tmp_pa
         'react_select.multi(ex, "Targets")',
         'react_select.single(ex, "Zone")',
         'xyflow.node(ex, "h1", kind="host")',
+        'koobiq.select(ex, "Color", required=True)',
+        "codemirror.editor(ex)",
     } <= lines
     namespace = {
         "ex": ex,
@@ -156,6 +158,7 @@ def test_every_line_on_the_stand_addresses_a_real_component(stand_engine, tmp_pa
         "react_aria": react_aria,
         "react_select": react_select,
         "xyflow": xyflow,
+        "codemirror": codemirror,
         "Target": Target,
     }
     for item in found:

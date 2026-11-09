@@ -44,6 +44,14 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   automated count per file, priorities and removed cases, from a run or from a
   collection that runs nothing ([reporting](reporting.md#manual-cases-in-markdown-files)).
   A marker naming a case no file has exits 3.
+- Kits ([kits](kits.md)): `koobiq.dialog`, `side_panel` and `confirm` take `header="any"`
+  for a title the product draws itself (a heading or a paragraph) and `exact=False` for a
+  header holding the title and a caption; `koobiq.select` reads `required` from its label
+  when it is not given; `react_select.single/multi(nearby=True)` find a field by the text
+  next to it; `testence.kits.codemirror` reads, replaces and types into CodeMirror 6
+  editors, and discovery recognizes them; `xyflow.node().open()` double-clicks without
+  `ex.native`. `ex.read_js(..., target=)` calls the function on one element. The kit
+  stand has each of them; the Koobiq 0.38.0 receipt was redone on the new stand.
 
 ## 0.1.0a3 — 2026-11-05
 
