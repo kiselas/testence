@@ -32,6 +32,18 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   returns ends when the processes Testence started are killed, and the next test
   starts a browser again. Nothing is retried. A killed engine's `stop()` no longer
   calls into its client.
+- The target's build: `target_info` in `testence.json` names a read-only endpoint, read
+  without logging in when the run starts and when it ends
+  ([configuration](configuration.md#the-targets-build)). `target.info` events carry the
+  named JSON Pointer fields (or the clipped body) and `changed` when the build moved
+  during the run; `inspect`, the HTML report, `ci summary`, Allure's environment and
+  JUnit properties show it. An unreadable endpoint is recorded, never fatal.
+- Manual cases: `cases` in `testence.json` names Markdown case files, a test names the
+  cases it automates with `tms={"cases": [...]}`, and `testence cases [--run RUN_DIR]
+  [--markdown|--json] [-- PYTEST_ARGS]` lists every case with its tests and outcome, the
+  automated count per file, priorities and removed cases, from a run or from a
+  collection that runs nothing ([reporting](reporting.md#manual-cases-in-markdown-files)).
+  A marker naming a case no file has exits 3.
 
 ## 0.1.0a3 — 2026-11-05
 

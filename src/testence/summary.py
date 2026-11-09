@@ -39,6 +39,10 @@ def _listed(items: list[str]) -> list[str]:
     return shown
 
 
+def _cell(text: str) -> str:
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
 def render_summary(run_dir: Path | str, negative_runs: Iterable[Path | str] = ()) -> str:
     """Markdown for one run directory, optionally checked against negative runs."""
     return summarize(_load(run_dir), [_load(path) for path in negative_runs])
@@ -93,7 +97,19 @@ def summarize(run: LoadedRun, negatives: list[LoadedRun]) -> str:
         lines.append(f"| Flaky tests (passed only after a rerun) | {len(flaky)} |")
         if run.integrity_errors:
             lines.append(f"| Integrity errors | {len(run.integrity_errors)} |")
+        if run.target_start is not None:
+            from testence.target_info import describe
+
+            lines.append(f"| Target | {_cell(describe(run.target_start))} |")
         lines.append("")
+        if run.target_changed:
+            from testence.target_info import describe
+
+            lines += [
+                "**Warning:** the target changed during the run; results may mix two "
+                f"builds. At the end: {_cell(describe(run.target_end))}.",
+                "",
+            ]
         if not_verified:
             lines += ["**Not verified:**", *_listed(not_verified), ""]
         if proof is not None:

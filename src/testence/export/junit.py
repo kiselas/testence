@@ -62,6 +62,7 @@ def export(run: LoadedRun, out_dir: Path) -> list[Path]:
                 ("testence.project_id", run.project_id),
                 ("testence.version", run.testence_version),
                 ("testence.run_status", run.run_status),
+                *((f"testence.{key}", value) for key, value in run.target_properties().items()),
             ],
         )
         for test in tests:

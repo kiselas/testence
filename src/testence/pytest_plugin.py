@@ -911,6 +911,9 @@ class _LifecycleState:
     selected: int | None = None
     #: Attempts recorded as reruns; they are not counted among the outcomes.
     reruns: int = 0
+    #: ``target_info`` of the settings and what its first read answered.
+    target_spec: Any = None
+    target_start: dict[str, Any] | None = None
 
 
 _LIFECYCLE_KEY = pytest.StashKey[_LifecycleState]()
@@ -1006,6 +1009,12 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
         raise pytest.UsageError(f"invalid Testence control: {exc}") from exc
     _page_reuse(settings)  # a typo stops the session before any test runs
     _session_deadline(config, settings)
+    from testence import target_info
+
+    try:
+        target_spec = target_info.parse_spec(settings.extra.get("target_info"))
+    except ValueError as exc:
+        raise pytest.UsageError(f"invalid Testence settings: {exc}") from exc
     try:
         redaction_policy = settings.redaction_policy()
         redact_values = settings.redaction_values()
@@ -1046,6 +1055,12 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
             **settings.describe(),
         },
     )
+    target_start: dict[str, Any] | None = None
+    # Read once for the run: by the controller of an xdist run or the only process,
+    # never by a worker, and not for a collection that runs nothing.
+    if target_spec is not None and not writer.worker and not config.option.collectonly:
+        target_start = target_info.read(target_spec, settings)
+        writer.emit("target.info", phase="start", **target_start)
     writer.emit("collection.start")
     return _LifecycleState(
         settings=settings,
@@ -1058,6 +1073,8 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
             status: 0 for status in ("passed", "failed", "broken", "skipped", "aborted", "not_run")
         },
         attempts={},
+        target_spec=target_spec if target_start is not None else None,
+        target_start=target_start,
     )
 
 
@@ -1632,6 +1649,12 @@ def _close_lifecycle(state: _LifecycleState, exitstatus: int | pytest.ExitCode) 
         # A case that never reached its protocol (-x, --maxfail, an interrupt) has
         # no test.end, so the summary must count it here to add up.
         state.counts["not_run"] = max(0, state.selected - len(state.finished))
+    if state.target_spec is not None:
+        from testence import target_info
+
+        end = target_info.read(state.target_spec, state.settings)
+        moved = target_info.changed(state.target_start, end)
+        state.writer.emit("target.info", phase="end", changed=moved, **end)
     state.writer.emit(
         "run.end",
         duration_ms=round((time.perf_counter() - state.started_at) * 1000, 1),

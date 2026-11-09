@@ -202,11 +202,34 @@ class LoadedRun:
     integrity_errors: list[dict[str, str]] = field(default_factory=list)
     #: Allure test plan entries that matched no collected test (``testplan.unresolved``).
     testplan_unresolved: list[dict[str, str]] = field(default_factory=list)
+    #: What ``target_info`` answered when the run started and ended (``target.info``).
+    target_start: dict[str, Any] | None = None
+    target_end: dict[str, Any] | None = None
     tests: list[Test] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
     run_dir: Path = Path()
     redaction_policy: RedactionPolicy = DEFAULT_POLICY
     attachments: str = "full"
+
+    @property
+    def target_changed(self) -> bool:
+        """The target answered differently at the end of the run than at its start."""
+        return bool(self.target_end and self.target_end.get("changed"))
+
+    def target_properties(self) -> dict[str, str]:
+        """``target.<field>`` (or ``target.body``) of the first read, for a report's
+        environment; ``target.changed`` when the build moved during the run."""
+        values: dict[str, str] = {}
+        record = self.target_start or {}
+        if "error" in record:
+            values["target.error"] = str(record["error"])
+        for name, value in (record.get("fields") or {}).items():
+            values[f"target.{name}"] = "" if value is None else str(value)
+        if "body" in record:
+            values["target.body"] = str(record["body"])
+        if self.target_changed:
+            values["target.changed"] = "true"
+        return values
 
     @property
     def passed(self) -> int:
@@ -336,6 +359,17 @@ class LoadedRun:
                 if doc.get("allure_parameters") in ("values", "digest"):
                     run.allure_parameters = str(doc["allure_parameters"])
                 run.start = run.start or parse_ts(doc.get("ts"))
+                continue
+            if kind == "target.info":
+                record: dict[str, Any] = {
+                    key: doc[key]
+                    for key in ("path", "status", "fields", "body", "error", "changed")
+                    if key in doc
+                }
+                if doc.get("phase") == "end":
+                    run.target_end = record
+                else:
+                    run.target_start = record
                 continue
             if kind == "run.end":
                 run.stop = parse_ts(doc.get("ts"))
