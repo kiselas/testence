@@ -180,6 +180,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--testence-test-timeout",
+        default=None,
+        metavar="SECONDS",
+        help="fail a test that runs longer, with the stack where it hung; the process "
+        "lives (env TESTENCE_TEST_TIMEOUT, testence.json test_timeout_s, marker timeout_s)",
+    )
+    group.addoption(
         "--testence-full-trace",
         action="store_true",
         default=_as_bool(os.environ.get(FULL_TRACE_ENV, "")),
@@ -214,9 +221,9 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "testence(plan, claims, case_id, allure_id, title, description, severity, labels, "
-        "links, tms, anonymous, fresh_page): bind a test to a PlanSpec case and/or "
-        "describe it for reports; anonymous=True runs ex without logging in; "
-        "fresh_page=True opts out of page_reuse: module",
+        "links, tms, anonymous, fresh_page, timeout_s): bind a test to a PlanSpec case "
+        "and/or describe it for reports; anonymous=True runs ex without logging in; "
+        "fresh_page=True opts out of page_reuse: module; timeout_s is the test's deadline",
     )
     reruns = rerun_count(config)
     if reruns and config.getoption("--testence-control"):
@@ -403,7 +410,7 @@ _TMS_PATTERNS = {
 _CONTRACT_FIELDS = frozenset({"plan", "claims", "case_id"})
 #: How the test runs: ``anonymous=True`` keeps ``ex`` from logging in;
 #: ``fresh_page=True`` gives it a page of its own under ``page_reuse: module``.
-_SESSION_FIELDS = frozenset({"anonymous", "fresh_page"})
+_SESSION_FIELDS = frozenset({"anonymous", "fresh_page", "timeout_s"})
 
 
 @dataclass(frozen=True)
@@ -540,6 +547,8 @@ def _resolve_tms(raw: Any) -> tuple[tuple[str, tuple[str, ...]], ...]:
 
 
 _METADATA_KEY = pytest.StashKey[_TestMetadata]()
+_WATCH_KEY = pytest.StashKey[Any]()
+_EXPIRED_KEY = pytest.StashKey[list[Any]]()
 _CONTRACT_KEY = pytest.StashKey[_TestContract | None]()
 _IDENTITY_KEY = pytest.StashKey[dict[str, Any]]()
 _TESTPLAN_NOOP_KEY = pytest.StashKey[bool]()
@@ -806,6 +815,8 @@ def _code_hash(path: Any) -> str:
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
+    if call.when == "call" or call.when == "teardown" or call.excinfo is not None:
+        _stop_watch(item)
     # Before the report renders the failure: it should start at the test, not under
     # a screen of Testence and Playwright frames whose message the step repeats.
     hidden = 0
@@ -813,6 +824,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]):
         hidden = shorten(call.excinfo)
     outcome = yield
     report = outcome.get_result()
+    _apply_expiry(item, report, call)
     if hidden and report.failed and hasattr(report.longrepr, "addsection"):
         report.longrepr.addsection("testence", f"{hidden} {FULL_TRACE_HINT}")
     item.stash.setdefault(_REPORTS_KEY, {})[report.when] = report  # type: ignore[misc]
@@ -993,6 +1005,7 @@ def _new_lifecycle(config: pytest.Config) -> _LifecycleState:
     except ControlError as exc:
         raise pytest.UsageError(f"invalid Testence control: {exc}") from exc
     _page_reuse(settings)  # a typo stops the session before any test runs
+    _session_deadline(config, settings)
     try:
         redaction_policy = settings.redaction_policy()
         redact_values = settings.redaction_values()
@@ -1843,6 +1856,13 @@ def testence_engine(
         return
     if reuse:
         owner = request.getfixturevalue("_testence_browser_owner")
+        if getattr(owner, "deadline_killed", False):
+            # A test deadline killed the worker's browser: start it again, once.
+            with _lifecycle_phase(
+                testence_writer, _test_id(request.node), "browser.worker_restart"
+            ):
+                owner.stop()
+                owner.start()
         with _lifecycle_phase(testence_writer, _test_id(request.node), "context.fresh"):
             engine = owner.sibling()
         mode = "reused"
@@ -1933,6 +1953,106 @@ def _close_engine(
     with _lifecycle_phase(writer, test_id, phase):
         engine.stop(keep_browser=keep_browser)
     _engine_phase_notes(writer, test_id, engine, phase, start=mark)
+
+
+def _session_deadline(config: pytest.Config, settings: Settings | None) -> float | None:
+    """The deadline of every test: the option, then the environment, then the setting."""
+    from testence.deadline import TIMEOUT_ENV, parse_timeout
+
+    try:
+        option = config.getoption("--testence-test-timeout", default=None)
+        if option not in (None, ""):
+            return parse_timeout(option, "--testence-test-timeout")
+        if os.environ.get(TIMEOUT_ENV):
+            return parse_timeout(os.environ[TIMEOUT_ENV], TIMEOUT_ENV)
+        if settings is not None:
+            return parse_timeout(settings.extra.get("test_timeout_s"), "test_timeout_s")
+    except ValueError as exc:
+        raise pytest.UsageError(str(exc)) from exc
+    return None
+
+
+def _test_deadline(item: pytest.Item) -> float | None:
+    from testence.deadline import parse_timeout
+
+    marker = item.get_closest_marker("testence")
+    if marker is not None and "timeout_s" in marker.kwargs:
+        try:
+            return parse_timeout(marker.kwargs["timeout_s"], "@pytest.mark.testence timeout_s")
+        except ValueError as exc:
+            raise ContractError(str(exc)) from exc
+    state = item.config.stash.get(_LIFECYCLE_KEY, None)
+    return _session_deadline(item.config, state.settings if state is not None else None)
+
+
+def _start_watch(item: pytest.Item, phase: str) -> None:
+    from testence.deadline import Watchdog
+    from testence.engine import kill_started_browsers
+
+    deadline = _test_deadline(item)
+    if deadline is not None:
+        item.stash[_WATCH_KEY] = Watchdog(deadline, phase, kill=kill_started_browsers)
+
+
+def _stop_watch(item: pytest.Item) -> None:
+    """Stop the running watch and keep what it saw for the phase's report."""
+    from testence.deadline import DeadlineExceeded
+
+    watch = item.stash.get(_WATCH_KEY, None)
+    if watch is None:
+        return
+    while True:
+        try:
+            expiry = watch.stop()
+            break
+        except DeadlineExceeded:
+            # Scheduled before the watch stopped and delivered here: already handled.
+            continue
+    del item.stash[_WATCH_KEY]
+    if expiry is not None:
+        item.stash.setdefault(_EXPIRED_KEY, []).append(expiry)
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_setup(item: pytest.Item):
+    _start_watch(item, "setup")
+    yield
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_call(item: pytest.Item):
+    watch = item.stash.get(_WATCH_KEY, None)
+    if watch is not None:
+        watch.phase = "call"
+    yield
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None):
+    _stop_watch(item)
+    _start_watch(item, "teardown")
+    yield
+
+
+def _apply_expiry(item: pytest.Item, report: pytest.TestReport, call: Any) -> None:
+    """A phase whose deadline passed fails, saying where the test was."""
+    expired = [e for e in item.stash.get(_EXPIRED_KEY, []) if e.phase == report.when]
+    if not expired:
+        return
+    expiry = expired[-1]
+    if expiry.in_driver and getattr(call, "excinfo", None) is not None:
+        expiry.use_traceback(call.excinfo.tb)
+    message = expiry.message()
+    if report.passed:
+        report.outcome = "failed"
+        report.longrepr = f"DeadlineExceeded: {message}"
+    elif hasattr(report.longrepr, "addsection"):
+        report.longrepr.addsection("testence deadline", message)  # type: ignore[union-attr]
+    else:
+        report.longrepr = f"{report.longrepr}\n\nDeadlineExceeded: {message}"
+    state = item.config.stash.get(_LIFECYCLE_KEY, None)
+    if state is not None and not state.closed:
+        state.writer.emit("test.deadline", test=_test_id(item), **expiry.to_json())
 
 
 def _page_reuse(settings: Settings) -> str:

@@ -21,6 +21,7 @@ import socket
 import tempfile
 import threading
 import time
+import weakref
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from pathlib import Path
@@ -280,6 +281,34 @@ _HTML5_DRAG_JS = """async (source, [destination, handle]) => {
   await frame();
 }"""
 
+#: Engines of this process that started a driver or a browser, so a test deadline
+#: can end a call stuck in one (``testence.deadline``).
+_STARTED: weakref.WeakSet[PlaywrightCdpEngine] = weakref.WeakSet()
+
+
+def kill_started_engines() -> int:
+    """Kill the driver and browser processes of every engine this process started.
+
+    Only for a test past its deadline whose thread is stuck inside a driver call: the
+    call raises once its driver is gone. An attached browser is not in any tree. An
+    engine killed this way is marked ``deadline_killed`` and must be started again.
+    """
+    killed = 0
+    for engine in list(_STARTED):
+        tree = engine._driver_tree
+        if tree is None or engine._shares_driver:
+            continue
+        with suppress(Exception):
+            tree.kill()
+            killed += 1
+        engine.deadline_killed = True
+        if engine._pw is not None:
+            # Siblings share this driver: they must not call into it either.
+            with suppress(Exception):
+                engine._pw._testence_killed = True  # type: ignore[attr-defined]
+    return killed
+
+
 #: The modifier keys a click may hold, as Playwright names them.
 _MODIFIERS = frozenset({"Alt", "Control", "ControlOrMeta", "Meta", "Shift"})
 
@@ -450,6 +479,8 @@ class PlaywrightCdpEngine(Engine):
         #: browser below it. The only processes ``stop()`` may kill.
         self._driver_tree: ProcessTree | None = None
         self.close_deadline_s = _close_deadline()
+        #: Set when a test deadline killed this engine's processes; start() clears it.
+        self.deadline_killed = False
         # A CDP client normally borrows the launcher's default context. Closing
         # that context from pytest can discard the logged-in session the launcher
         # exists to preserve. The exceptional no-context attach creates one and
@@ -477,6 +508,7 @@ class PlaywrightCdpEngine(Engine):
         # Keep ownership correct if an embedding application deliberately reuses
         # one engine object for more than one start/stop cycle.
         self._launched_here = False
+        self.deadline_killed = False
         self._owns_context = False
         try:
             self._open_session()
@@ -503,6 +535,7 @@ class PlaywrightCdpEngine(Engine):
             # An attached browser belongs to its launcher: only the driver itself
             # is ours, never anything it could be connected to.
             self._driver_tree = ProcessTree(driver, descendants=not self.cdp_url)
+            _STARTED.add(self)
         if self.test_id_attribute:
             playwright.selectors.set_test_id_attribute(self.test_id_attribute)
         if self.cdp_url:
@@ -746,6 +779,14 @@ class PlaywrightCdpEngine(Engine):
         self._close_native_routes()
         self._native_mock_observer = None
         self._ws_gate_observer = None
+        if self.deadline_killed or getattr(self._pw, "_testence_killed", False):
+            # A test deadline killed the driver: closing a context or a browser
+            # through its client may never return. Only the client itself is ended
+            # (its event loop would otherwise keep the next start from running).
+            if self._pw is not None and not self._shares_driver:
+                self._bounded_close("driver.stop", self._pw.stop)
+            self._forget()
+            return
         if keep_browser:
             # Leave the crime scene intact; only detach our client if we attached.
             if self._pw and not self._launched_here and not self._shares_driver:
@@ -761,9 +802,14 @@ class PlaywrightCdpEngine(Engine):
             self._bounded_close("browser.process_close", self._browser.close)
         if self._pw and not self._shares_driver:
             self._bounded_close("driver.stop", self._pw.stop)
+        self._forget()
+
+    def _forget(self) -> None:
+        """Drop every reference to the browser after it was closed or killed."""
         if self._driver_tree is not None and not self._shares_driver:
             self._driver_tree.close()
         self._driver_tree = None
+        _STARTED.discard(self)
         if self._video_dir is not None:
             shutil.rmtree(self._video_dir, ignore_errors=True)
             self._video_dir = None
