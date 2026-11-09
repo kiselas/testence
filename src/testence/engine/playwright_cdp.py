@@ -248,6 +248,41 @@ def _box(rect: Any) -> dict[str, float]:
     return {key: float(rect[key]) for key in ("x", "y", "width", "height")}
 
 
+#: html5_drag, in the page: the drag events of one gesture share one DataTransfer,
+#: and each waits for the next animation frame so a React list re-renders between
+#: them, as it does under a hand. ``draggable`` that a product sets only after a
+#: mousedown on a handle is covered by pressing the handle first.
+_HTML5_DRAG_JS = """async (source, [destination, handle]) => {
+  const frame = () => new Promise((done) => {
+    requestAnimationFrame(() => done());
+    setTimeout(done, 50);
+  });
+  const data = new DataTransfer();
+  const point = (element) => {
+    const r = element.getBoundingClientRect();
+    return {clientX: r.x + r.width / 2, clientY: r.y + r.height / 2};
+  };
+  const mouse = (element, type) => element.dispatchEvent(new MouseEvent(type,
+    {bubbles: true, cancelable: true, ...point(element)}));
+  const drag = (element, type) => element.dispatchEvent(new DragEvent(type,
+    {bubbles: true, cancelable: true, dataTransfer: data, ...point(element)}));
+  mouse(handle || source, "mousedown");
+  await frame();
+  drag(source, "dragstart");
+  await frame();
+  drag(destination, "dragenter");
+  drag(destination, "dragover");
+  await frame();
+  drag(destination, "drop");
+  await frame();
+  drag(source, "dragend");
+  mouse(handle || source, "mouseup");
+  await frame();
+}"""
+
+#: The modifier keys a click may hold, as Playwright names them.
+_MODIFIERS = frozenset({"Alt", "Control", "ControlOrMeta", "Meta", "Shift"})
+
 _EMULATION_KEYS = frozenset(
     {"device", "locale", "timezone_id", "geolocation", "permissions", "color_scheme", "user_agent"}
 )
@@ -1223,6 +1258,117 @@ class PlaywrightCdpEngine(Engine):
         with self._timed("check" if checked else "uncheck", target.describe()):
             self._locate(target).set_checked(checked)
 
+    def click_with(
+        self,
+        target: Target,
+        *,
+        button: str = "left",
+        click_count: int = 1,
+        modifiers: tuple[str, ...] = (),
+    ) -> None:
+        unknown = set(modifiers) - _MODIFIERS
+        if unknown:
+            raise ValueError(f"unknown modifier {sorted(unknown)[0]!r}; use {sorted(_MODIFIERS)}")
+        if button not in ("left", "right", "middle"):
+            raise ValueError("button must be left, right or middle")
+        held = "+".join(modifiers)
+        detail = f"{target.describe()} {button} x{click_count}{' ' + held if held else ''}"
+        locator = self._locate(target)
+        with self._timed("click_with", detail):
+            if click_count == 2 and button == "left":
+                locator.dblclick(modifiers=list(modifiers))  # type: ignore[arg-type]
+            else:
+                locator.click(
+                    button=button,  # type: ignore[arg-type]
+                    click_count=click_count,
+                    modifiers=list(modifiers),  # type: ignore[arg-type]
+                )
+
+    def drag_by(self, target: Target, dx: float, dy: float, *, steps: int = 8) -> None:
+        """Drag by an offset with a real pointer: the edge of a resizable panel, the
+        border of a table column, a slider's thumb. ``steps`` intermediate moves let
+        a product that tracks ``pointermove`` follow the drag."""
+        locator = self._locate(target)
+        page = self._require_page()
+        with self._timed("drag_by", f"{target.describe()} by {dx:+.0f},{dy:+.0f}"):
+            locator.scroll_into_view_if_needed(timeout=self.timeout_ms)
+            box = locator.bounding_box(timeout=self.timeout_ms)
+            if box is None:
+                raise AssertionError(f"{target.describe()} is not drawn: nothing to press on")
+            x = box["x"] + box["width"] / 2
+            y = box["y"] + box["height"] / 2
+            page.mouse.move(x, y)
+            page.mouse.down()
+            page.mouse.move(x + dx, y + dy, steps=max(1, int(steps)))
+            page.mouse.up()
+
+    def html5_drag(
+        self, source: Target, destination: Target, *, handle: Target | None = None
+    ) -> None:
+        """HTML5 drag-and-drop by its events, for rows a pointer cannot reach (outside
+        the viewport, where a drag does not scroll) and for ``draggable`` that a
+        product turns on only after a mousedown on a handle."""
+        detail = f"{source.describe()} -> {destination.describe()}"
+        source_locator = self._locate(source)
+        with self._timed("html5_drag", detail):
+            to = self._locate(destination).element_handle(timeout=self.timeout_ms)
+            grip = (
+                self._locate(handle).element_handle(timeout=self.timeout_ms)
+                if handle is not None
+                else None
+            )
+            try:
+                source_locator.evaluate(_HTML5_DRAG_JS, [to, grip], timeout=self.timeout_ms)
+            finally:
+                to.dispose()
+                if grip is not None:
+                    grip.dispose()
+
+    def type_text(self, target: Target, text: str, *, delay_ms: int = 0) -> None:
+        """Type key by key at the caret, as a person does: editors and masked
+        inputs that ignore a whole-value ``fill``."""
+        with self._timed("type", target.describe()):
+            self._locate(target).press_sequentially(text, delay=max(0, int(delay_ms)))
+
+    def set_viewport(self, width: int, height: int) -> None:
+        """Resize this page's viewport; the page is then not handed on."""
+        self._sticky.add("viewport")
+        with self._timed("set_viewport", f"{width}x{height}"):
+            self._require_page().set_viewport_size({"width": int(width), "height": int(height)})
+
+    def viewport_size(self) -> dict[str, int]:
+        size = self._require_page().viewport_size
+        if size is None:
+            size = self._require_page().evaluate(
+                "() => ({width: window.innerWidth, height: window.innerHeight})"
+            )
+        return {"width": int(size["width"]), "height": int(size["height"])}
+
+    def reload(self) -> None:
+        """Load the current document again, with the render probe of a ``goto``."""
+        with self._timed("reload", self._require_page().url):
+            self._require_page().reload(wait_until="domcontentloaded")
+        if self.defer_render_probe:
+            self._render_due = True
+        else:
+            self.wait_until_rendered()
+
+    def new_page(self, url: str | None = None) -> None:
+        """A second tab of this context: the same login, its own document, history and
+        sockets, the other client a case about two windows needs. It becomes the
+        current page and is brought to the front, since a background tab may not
+        render. The page is then not handed on."""
+        if self._context is None:
+            raise RuntimeError("engine not started")
+        self._sticky.add("new_page")
+        with self._timed("new_page", url or ""):
+            page = self._context.new_page()
+        self._page = self._scope = self._js_scope = page
+        self._attach_taps(page)
+        page.bring_to_front()
+        if url:
+            self.goto(url)
+
     def press(self, key: str) -> None:
         self._require_page().keyboard.press(key)
 
@@ -1269,6 +1415,11 @@ class PlaywrightCdpEngine(Engine):
         # Without this the new page records no network, console or websocket
         # evidence, and a pack for a second tab looks like nothing ever happened.
         self._attach_taps(self._page)
+        if len(pages) > 1:
+            # A background tab may skip animation frames and never finish drawing
+            # (React Flow nodes stay hidden until measured).
+            with suppress(Exception):
+                self._page.bring_to_front()
 
     def page_count(self) -> int:
         if self._context is None:

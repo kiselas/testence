@@ -414,13 +414,30 @@ class Actions:
             self._annotations[-1]["navigation"] = path
             return path
 
-    def click(self, target: Target, intent: str | None = None, *, fast: bool = False) -> None:
+    def click(
+        self,
+        target: Target,
+        intent: str | None = None,
+        *,
+        fast: bool = False,
+        modifiers: list[str] | tuple[str, ...] | None = None,
+    ) -> None:
         """Click. ``fast=True`` drops the actionability checks — see Engine.click.
 
         Worth it in a loop over rows that a readiness wait has already proved are
         rendered; never worth it on the first interaction with a screen, where the
         checks are the only thing that reports an overlay swallowing the click.
+        ``modifiers=["Control"]`` holds keys during the click (``Alt``, ``Control``,
+        ``ControlOrMeta``, ``Meta``, ``Shift``): a second row of a selection.
         """
+        if modifiers:
+            if fast:
+                raise ValueError("click takes fast= or modifiers=, not both")
+            held = "+".join(modifiers)
+            self._click_with(
+                target, intent or f"{held}+click {target.describe()}", modifiers=tuple(modifiers)
+            )
+            return
         weakening = ("fast-actionability",) if fast else ()
         operation = self._operation("click")
         with self.step(
@@ -431,6 +448,46 @@ class Actions:
         ):
             require_capabilities(self.engine, "click", Capability.DOM)
             operation.invoke(self.engine.click, target, fast=fast)
+
+    def _click_with(
+        self,
+        target: Target,
+        intent: str,
+        *,
+        button: str = "left",
+        click_count: int = 1,
+        modifiers: tuple[str, ...] = (),
+    ) -> None:
+        operation = self._operation("click_with")
+        with self.step(intent, target, _operation=operation):
+            require_capabilities(self.engine, "click", Capability.DOM)
+            operation.invoke(
+                self._engine_method("click_with"),
+                target,
+                button=button,
+                click_count=click_count,
+                modifiers=modifiers,
+            )
+
+    def double_click(self, target: Target, intent: str | None = None) -> None:
+        """Double-click: open a node of a diagram, select a word, reset a column."""
+        self._click_with(target, intent or f"double-click {target.describe()}", click_count=2)
+
+    def right_click(self, target: Target, intent: str | None = None) -> None:
+        """Click with the right button, which opens a context menu."""
+        self._click_with(target, intent or f"right-click {target.describe()}", button="right")
+
+    def type(
+        self, target: Target, text: str, intent: str | None = None, *, delay_ms: int = 0
+    ) -> None:
+        """Type ``text`` key by key at the caret, after what the field holds.
+
+        For what a whole-value ``fill`` does not reach: a code editor, a masked
+        input, a field that reacts to each key. The text is not echoed in the ledger.
+        """
+        with self.step(intent or f"type into {target.describe()}", target):
+            require_capabilities(self.engine, "type", Capability.DOM, Capability.KEYBOARD)
+            self._engine_method("type_text")(target, text, delay_ms=delay_ms)
 
     def fill(
         self, target: Target, value: str, intent: str | None = None, *, fast: bool = False
@@ -506,13 +563,52 @@ class Actions:
             require_capabilities(self.engine, "hover", Capability.DOM)
             self._engine_method("hover")(target)
 
-    def drag(self, source: Target, destination: Target, intent: str | None = None) -> None:
+    def drag(
+        self,
+        source: Target,
+        destination: Target,
+        intent: str | None = None,
+        *,
+        html5: bool = False,
+        handle: Target | None = None,
+    ) -> None:
         """Drag ``source`` onto ``destination``: a sortable list, a kanban card, a
-        drop zone. The step's fingerprint is the source's, the element that moves."""
+        drop zone. The step's fingerprint is the source's, the element that moves.
+
+        A real pointer drags by default. ``html5=True`` dispatches the HTML5
+        drag-and-drop events instead, one frame apart and with one ``DataTransfer``:
+        for rows outside the viewport, which a pointer drag does not scroll to, and
+        for a ``draggable`` that turns on only after a mousedown on ``handle``.
+        """
+        if handle is not None and not html5:
+            raise ValueError("drag handle= needs html5=True")
         described = f"drag {source.describe()} to {destination.describe()}"
         with self.step(intent or described, source, destination=destination):
             require_capabilities(self.engine, "drag", Capability.DOM)
-            self._engine_method("drag")(source, destination)
+            if html5:
+                self._engine_method("html5_drag")(source, destination, handle=handle)
+            else:
+                self._engine_method("drag")(source, destination)
+
+    def drag_by(
+        self,
+        target: Target,
+        dx: float,
+        dy: float = 0,
+        intent: str | None = None,
+        *,
+        steps: int = 8,
+    ) -> None:
+        """Press in the middle of ``target``, move by ``dx``/``dy`` CSS pixels and
+        release: the edge of a resizable panel, a column border, a slider.
+
+        Read the result with ``ex.box`` afterwards; the drag itself asserts nothing.
+        """
+        if isinstance(steps, bool) or not isinstance(steps, int) or steps < 1:
+            raise ValueError("drag_by steps must be a positive integer")
+        with self.step(intent or f"drag {target.describe()} by {dx:+g}, {dy:+g}", target):
+            require_capabilities(self.engine, "drag_by", Capability.DOM)
+            self._engine_method("drag_by")(target, float(dx), float(dy), steps=steps)
 
     def expect_text(
         self, target: Target, text: str, intent: str | None = None, *, exact: bool = True
@@ -593,6 +689,57 @@ class Actions:
         with self.step(intent or f"reset {area} {', '.join(names)}"):
             require_capabilities(self.engine, "reset_storage", Capability.SESSION)
             return int(self._engine_method("remove_storage_items")(names, session=session))
+
+    def set_storage(
+        self, items: dict[str, str], intent: str | None = None, *, session: bool = False
+    ) -> None:
+        """Set keys of the page's ``localStorage`` (``sessionStorage`` with
+        ``session=True``): a saved filter, column widths, a language. Values are not
+        echoed in the ledger. Before the first navigation the values are written for
+        every document the page loads."""
+        if not items or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in items.items()
+        ):
+            raise ValueError("set_storage takes a non-empty mapping of strings to strings")
+        area = "sessionStorage" if session else "localStorage"
+        with self.step(intent or f"set {area} {', '.join(items)}"):
+            require_capabilities(self.engine, "set_storage", Capability.SESSION)
+            for key, value in items.items():
+                self.engine.set_storage_item(key, value, session=session)
+
+    def set_viewport(self, width: int, height: int, intent: str | None = None) -> None:
+        """Resize the page's viewport for this test: a narrow window, a scrollbar case.
+
+        The page is then not handed to the next test (``page_reuse: module``)."""
+        for value in (width, height):
+            if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 4096:
+                raise ValueError("set_viewport takes integer width and height in 1..4096")
+        with self.step(intent or f"set the window to {width}x{height}"):
+            require_capabilities(self.engine, "set_viewport", Capability.EMULATION)
+            self._engine_method("set_viewport")(width, height)
+
+    def viewport(self, intent: str | None = None) -> tuple[int, int]:
+        """The page's viewport as ``(width, height)``."""
+        with self.step(intent or "read the window size"):
+            require_capabilities(self.engine, "viewport", Capability.EMULATION)
+            size = self._engine_method("viewport_size")()
+            return int(size["width"]), int(size["height"])
+
+    def reload(self, intent: str | None = None) -> None:
+        """Load the current page again: what survives a refresh (stored widths, a
+        draft, a session). Waits for the application to draw, as ``goto`` does."""
+        with self.step(intent or "reload the page"):
+            require_capabilities(self.engine, "reload", Capability.NAVIGATION)
+            self._engine_method("reload")()
+
+    def new_page(self, url: str | None = None, intent: str | None = None) -> None:
+        """Open a second tab of the same login and continue on it: another client of
+        the same user, with its own document, history and sockets (a case about two
+        windows). ``url`` is opened in it like ``goto``. Return with
+        ``ex.switch_page(0)`` or ``ex.close_page()``. The page is then not handed on."""
+        with self.step(intent or f"open a new tab{' at ' + url if url else ''}"):
+            require_capabilities(self.engine, "new_page", Capability.POPUPS)
+            self._engine_method("new_page")(url)
 
     def expect_settled(
         self, target: Target, intent: str | None = None, *, timeout_ms: int | None = None
