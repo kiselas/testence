@@ -565,6 +565,19 @@ def main(argv: list[str] | None = None) -> int:
     p_inspect.add_argument("run_dir", type=Path, help="run directory, for example runs/r-123")
     p_inspect.add_argument("--json", dest="json_output", action="store_true")
 
+    p_cases = sub.add_parser(
+        "cases", help="manual cases against the tests that mark them and a run's outcomes"
+    )
+    p_cases.add_argument(
+        "--run", dest="run_dir", type=Path, help="a run directory; without it, a collection"
+    )
+    p_cases.add_argument("--project", type=Path, default=Path("."))
+    p_cases.add_argument("--json", dest="json_output", action="store_true")
+    p_cases.add_argument("--markdown", action="store_true", help="tables per case file")
+    p_cases.add_argument(
+        "pytest_args", nargs=argparse.REMAINDER, help="after --, what the collection selects"
+    )
+
     p_oracle = sub.add_parser("oracle", help="find the API check a finished run implies")
     oracle_sub = p_oracle.add_subparsers(dest="oracle_command", required=True)
     p_oracle_suggest = oracle_sub.add_parser(
@@ -669,6 +682,11 @@ def main(argv: list[str] | None = None) -> int:
             "testence ci summary runs/r-local --negative-run runs/r-drop-save",
         ],
         p_inspect: ["testence inspect runs/r-local", "testence inspect runs/r-local --json"],
+        p_cases: [
+            "testence cases --project .",
+            "testence cases --project . --run runs/r-local --markdown",
+            "testence cases --project . --json -- tests_e2e/checkout",
+        ],
         p_inventory: [
             "testence inventory runs/r-local",
             "testence inventory runs/r-local --out docs/inventory --json",
@@ -905,6 +923,51 @@ def main(argv: list[str] | None = None) -> int:
             for pack in result["packs"]:
                 print(f"  pack: {Path(args.run_dir) / pack}")
         return 0
+
+    if args.command == "cases":
+        from .cases import (
+            CasesError,
+            load_cases,
+            parse_config,
+            render_markdown,
+            render_text,
+            report,
+            tests_from_collection,
+            tests_from_run,
+        )
+        from .config import Settings
+
+        project = Path(args.project)
+        try:
+            config = parse_config(Settings.load(project).extra.get("cases"))
+            if config is None:
+                raise CasesError(
+                    'testence.json has no "cases": name the case files, e.g. '
+                    '{"cases": {"paths": ["cases/*.md"]}}'
+                )
+            cases, problems = load_cases(config, project)
+            target = None
+            if args.run_dir is not None:
+                tests, target = tests_from_run(Path(args.run_dir))
+                source = str(args.run_dir)
+            else:
+                extra = list(args.pytest_args)
+                if extra and extra[0] == "--":
+                    extra = extra[1:]
+                tests = tests_from_collection(project, extra)
+                source = "collection"
+        except (CasesError, OSError, ValueError) as exc:
+            print(f"cases failed: {exc}", file=sys.stderr)
+            return 2
+        result = report(cases, tests, problems=problems, target=target, source=source)
+        if args.json_output:
+            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        elif args.markdown:
+            print(render_markdown(result))
+        else:
+            print(render_text(result))
+        # A marker naming a case no file has is a link gone stale: exit 3.
+        return 3 if result["unknown"] else 0
 
     if args.command == "oracle" and args.oracle_command == "suggest":
         from .oracle_suggest import render, suggest_run
