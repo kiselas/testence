@@ -41,7 +41,7 @@ PAGE = """<!doctype html>
   const node = document.getElementById('node');
   node.addEventListener('dblclick', () => { said.textContent = 'opened'; });
   node.addEventListener('contextmenu', (e) => { e.preventDefault(); said.textContent = 'menu'; });
-  node.addEventListener('click', (e) => { if (e.ctrlKey) said.textContent = 'added'; });
+  node.addEventListener('click', (e) => { if (e.shiftKey) said.textContent = 'added'; });
   const panel = document.getElementById('panel');
   let from = null;
   document.getElementById('edge').addEventListener('mousedown', (e) => { from = e.clientX; });
@@ -121,7 +121,8 @@ def test_double_and_right_click_and_a_held_key(ex: Actions) -> None:
     ex.expect_text(SAID, "opened")
     ex.right_click(NODE)
     ex.expect_text(SAID, "menu")
-    ex.click(NODE, modifiers=["Control"])
+    # Shift, not Control: on macOS a Control-click is a right click.
+    ex.click(NODE, modifiers=["Shift"])
     ex.expect_text(SAID, "added")
 
 
