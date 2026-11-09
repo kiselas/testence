@@ -229,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
             "Start here: doctor, init, run, inspect, report.\n"
             "Authoring: status, debug, explore, plan, seed, inventory, capabilities, watch, "
             "bench, demo, agent.\n"
-            "Results: export, metrics, verdict, repair, quality, ci, delivery.\n"
+            "Results: export, timing, cases, metrics, verdict, repair, quality, ci, delivery.\n"
             "Testence maintainers only: corpus, release.\n"
             "\n"
             "Exit codes: 0 success, 1 unexpected failure, 2 invalid input or "
@@ -245,6 +245,14 @@ def main(argv: list[str] | None = None) -> int:
     p_metrics = sub.add_parser("metrics", help="aggregate metrics.json from run dirs")
     p_metrics.add_argument("run_dirs", nargs="+", type=Path)
     p_metrics.add_argument("-o", "--out", type=Path, default=Path("metrics.json"))
+
+    p_timing = sub.add_parser(
+        "timing", help="where a run's time went: setup, call, teardown, API calls, waits"
+    )
+    p_timing.add_argument("run_dir", type=Path, help="run directory, for example runs/r-123")
+    p_timing.add_argument("other", nargs="?", type=Path, help="a second run to compare with")
+    p_timing.add_argument("--top", type=int, default=15, help="tests to list (default 15)")
+    p_timing.add_argument("--json", dest="json_output", action="store_true")
 
     p_report = sub.add_parser("report", help="render a self-contained HTML report")
     p_report.add_argument("run_dir", type=Path, help="run directory to render")
@@ -682,6 +690,7 @@ def main(argv: list[str] | None = None) -> int:
             "testence ci summary runs/r-local --negative-run runs/r-drop-save",
         ],
         p_inspect: ["testence inspect runs/r-local", "testence inspect runs/r-local --json"],
+        p_timing: ["testence timing runs/r-local", "testence timing runs/r-before runs/r-after"],
         p_cases: [
             "testence cases --project .",
             "testence cases --project . --run runs/r-local --markdown",
@@ -722,6 +731,22 @@ def main(argv: list[str] | None = None) -> int:
         _subparser.epilog = "examples:\n" + "\n".join(f"  {line}" for line in _lines)
 
     args = parser.parse_args(argv)
+
+    if args.command == "timing":
+        from . import timing
+
+        try:
+            document = timing.load(args.run_dir)
+            if args.other is not None:
+                document = timing.compare(document, timing.load(args.other))
+        except (OSError, ValueError) as exc:
+            print(f"timing failed: {exc}", file=sys.stderr)
+            return 2
+        if args.json_output:
+            print(json.dumps(document, ensure_ascii=False, separators=(",", ":")))
+        else:
+            print(timing.render(document, top=max(1, args.top)))
+        return 0
 
     if args.command == "metrics":
         try:

@@ -52,6 +52,11 @@ guaranteed, and a breaking change comes with migration notes ([upgrading](upgrad
   editors, and discovery recognizes them; `xyflow.node().open()` double-clicks without
   `ex.native`. `ex.read_js(..., target=)` calls the function on one element. The kit
   stand has each of them; the Koobiq 0.38.0 receipt was redone on the new stand.
+- `testence timing RUN_DIR [OTHER] [--json]`: setup, call and teardown summed and per
+  test, the test's API calls and the waits for the page, the slowest tests first; with a
+  second run, the change test by test. A GitLab CI template next to the GitHub Actions
+  one ([CI](ci.md#gitlab-ci)), and a [reference on one page](reference.md) of every step,
+  fixture, marker option, pytest option, setting and command, checked against the code.
 
 ## 0.1.0a3 — 2026-11-05
 
