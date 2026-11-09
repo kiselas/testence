@@ -69,6 +69,78 @@ jobs:
 - GitLab CI and other runners need the same four commands: `pip install testence`,
   `python -m playwright install --with-deps chromium`, `testence run`, `testence export`.
 
+## GitLab CI
+
+The same steps for GitLab: [`docs/examples/gitlab-ci.yml`](../examples/gitlab-ci.yml).
+
+```yaml
+# Copy to .gitlab-ci.yml in your project; `testence init` writes the rest.
+# The jobs share one target, so `resource_group` keeps two pipelines from running
+# against it at the same time; set TESTENCE_PROFILE per environment.
+
+stages: [check, test]
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PLAYWRIGHT_BROWSERS_PATH: "$CI_PROJECT_DIR/.cache/ms-playwright"
+  TESTENCE_RUN_ID: "ci-$CI_PIPELINE_ID-$CI_JOB_ID"
+
+default:
+  image: python:3.12-slim
+  cache:
+    key: testence-deps
+    paths: [.cache/pip, .cache/ms-playwright]
+  before_script:
+    - python -m pip install testence
+    - python -m playwright install --with-deps chromium
+
+# Tests collect: imports, fixtures, markers. No target needed.
+collect:
+  stage: check
+  before_script:
+    - python -m pip install testence
+  script:
+    - python -m pytest --collect-only -q
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+e2e:
+  stage: test
+  resource_group: target-$TESTENCE_PROFILE
+  timeout: 2h
+  script:
+    # TESTENCE_USER / TESTENCE_PASSWORD (or your profile's variables) come from masked
+    # CI/CD variables. A deadline per test keeps one hang from stopping the job.
+    - testence doctor --target
+    - testence run --project . --run-id "$TESTENCE_RUN_ID" -- -q -n 4 --testence-test-timeout 600 || status=$?
+    - testence export "runs/$TESTENCE_RUN_ID" --to junit -o junit || true
+    - testence report "runs/$TESTENCE_RUN_ID" || true
+    - testence ci summary "runs/$TESTENCE_RUN_ID" > summary.md || true
+    - testence timing "runs/$TESTENCE_RUN_ID" || true
+    - exit ${status:-0}
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths: [runs/, junit/, summary.md]
+    reports:
+      junit: junit/junit.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+```
+
+- `resource_group: target-$TESTENCE_PROFILE` lets one pipeline at a time use a shared
+  target; a job that would start a second waits.
+- Credentials come from masked CI/CD variables, named as the profile's `user_var` and
+  `password_var` (or `TESTENCE_USER` and `TESTENCE_PASSWORD`).
+- `--testence-test-timeout` fails a test that hangs and lets the job go on; nothing is
+  retried. `testence timing` prints where the job's time went.
+- The JUnit report appears in the merge request's test view; `runs/` with every
+  failure pack and `report.html` stays as an artifact.
+- For Allure TestOps, add `--testence-allure-results "runs/$TESTENCE_RUN_ID/allure-results"`
+  and run it under `allurectl watch` ([reporting](reporting.md#uploading-results-to-allure-testops)).
+
 ## Requiring proof that tests can fail
 
 `ci evaluate --quality-mode assurance` (the default) requires every test to be
