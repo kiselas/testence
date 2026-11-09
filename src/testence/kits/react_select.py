@@ -31,6 +31,19 @@ from testence.engine import Target
 from testence.kits import _support
 
 _INPUTS = """(spec) => {
+    if (spec.nearby) {
+        // The visible text next to the field: the comboboxes of the nearest
+        // container above the element whose own (first) text is the label.
+        const found = new Set();
+        for (const element of document.querySelectorAll('body *')) {
+            const first = [...element.childNodes].find(node => node.nodeType === 3);
+            if (!first || first.textContent.replace(/\\s+/g, ' ').trim() !== spec.label) continue;
+            let up = element.parentElement;
+            while (up && !up.querySelector('input[role="combobox"]')) up = up.parentElement;
+            if (up) up.querySelectorAll('input[role="combobox"]').forEach(input => found.add(input));
+        }
+        return [...found];
+    }
     const named = input => {
         if (spec.inputId) return input.id === spec.inputId;
         const text = el => (el ? el.textContent : '').replace(/\\s+/g, ' ').trim();
@@ -128,10 +141,17 @@ class ReactSelect:
     control: Target
     #: The open menu (inside the field, or portalled to ``<body>``).
     menu: Target
+    #: Found by the visible text next to it, not by an associated label.
+    nearby: bool = False
 
     @property
     def _spec(self) -> dict[str, Any]:
-        return {"label": self.label, "inputId": self.input_id, "prefix": self.prefix}
+        return {
+            "label": self.label,
+            "inputId": self.input_id,
+            "prefix": self.prefix,
+            "nearby": self.nearby,
+        }
 
     def option(self, label: str) -> Target:
         return Target("role", "option", name=label, within=self.menu)
@@ -259,8 +279,20 @@ class ReactSelect:
         )
 
 
-def _build(ex: Any, label: str, multi: bool, prefix: str, input_id: str | None) -> ReactSelect:
+def _build(
+    ex: Any, label: str, multi: bool, prefix: str, input_id: str | None, nearby: bool = False
+) -> ReactSelect:
     lit = _support.xpath_literal(label)
+    if nearby and input_id is not None:
+        raise ValueError("react_select takes input_id= or nearby=True, not both")
+    if nearby:
+        # The label is text the product put next to the field without associating
+        # it: the field is the one combobox of the nearest container holding both.
+        field_xpath = (
+            f"//*[normalize-space(text())={lit}]"
+            "/ancestor::*[.//input[@role='combobox']][1]//input[@role='combobox']"
+        )
+        return _assemble(ex, label, multi, prefix, None, field_xpath, nearby=True)
     if input_id is not None:
         named = f"@id={_support.xpath_literal(input_id)}"
         field_input = Target("css", f"input[id={_support.css_string(input_id)}]")
@@ -271,12 +303,31 @@ def _build(ex: Any, label: str, multi: bool, prefix: str, input_id: str | None) 
         )
         field_input = Target("role", "combobox", name=label)
     field_xpath = f"//input[@role='combobox'][{named}]"
-    control = f"xpath=//*[{_cls(prefix + '__control')}][.{field_xpath}]"
+    return _assemble(ex, label, multi, prefix, input_id, field_xpath, field_input=field_input)
+
+
+def _assemble(
+    ex: Any,
+    label: str,
+    multi: bool,
+    prefix: str,
+    input_id: str | None,
+    field_xpath: str,
+    *,
+    field_input: Target | None = None,
+    nearby: bool = False,
+) -> ReactSelect:
+    if nearby:
+        field_input = Target("css", f"xpath=({field_xpath})")
+        control = f"xpath=({field_xpath})/ancestor::*[{_cls(prefix + '__control')}][1]"
+    else:
+        control = f"xpath=//*[{_cls(prefix + '__control')}][.{field_xpath}]"
+    assert field_input is not None
     # The open input names its list (aria-controls), inline or portalled
     # (menuPortalTarget): the menu is the one around that list, never another field's.
     menu = Target(
         "css",
-        f"xpath=//*[{_cls(prefix + '__menu')}][.//*[@id={field_xpath}/@aria-controls]]",
+        f"xpath=//*[{_cls(prefix + '__menu')}][.//*[@id=({field_xpath})/@aria-controls]]",
     )
     return ReactSelect(
         ex,
@@ -287,21 +338,38 @@ def _build(ex: Any, label: str, multi: bool, prefix: str, input_id: str | None) 
         input=field_input,
         control=Target("css", control),
         menu=menu,
+        nearby=nearby,
     )
 
 
 def single(
-    ex: Any, label: str, *, prefix: str = "react-select", input_id: str | None = None
+    ex: Any,
+    label: str,
+    *,
+    prefix: str = "react-select",
+    input_id: str | None = None,
+    nearby: bool = False,
 ) -> ReactSelect:
-    """A single-value react-select whose combobox is named ``label``."""
-    return _build(ex, label, False, prefix, input_id)
+    """A single-value react-select whose combobox is named ``label``.
+
+    ``nearby=True`` finds it by visible text next to it instead, for a product that
+    did not associate its label with the input: the field is the one combobox of the
+    nearest container that holds that text.
+    """
+    return _build(ex, label, False, prefix, input_id, nearby)
 
 
 def multi(
-    ex: Any, label: str, *, prefix: str = "react-select", input_id: str | None = None
+    ex: Any,
+    label: str,
+    *,
+    prefix: str = "react-select",
+    input_id: str | None = None,
+    nearby: bool = False,
 ) -> ReactSelect:
-    """An ``isMulti`` react-select whose combobox is named ``label``."""
-    return _build(ex, label, True, prefix, input_id)
+    """An ``isMulti`` react-select whose combobox is named ``label`` (``nearby``: see
+    :func:`single`)."""
+    return _build(ex, label, True, prefix, input_id, nearby)
 
 
 __all__ = ["ReactSelect", "multi", "single"]

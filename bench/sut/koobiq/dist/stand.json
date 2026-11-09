@@ -1,9 +1,9 @@
 {
   "sources": {
     "index.html": "dd88b3278421dff455962e0677a4f3dd99dd7a94d3376e77343f6e06d82533c7",
-    "package.json": "4740d68f90ba1d07805ef86d451a9c3618ad31b064f2e9fb8a2c8b332523e1cb",
-    "package-lock.json": "876e730a31b0eef894883b4bf83a2decae29e3c97cc1e794052980f2b03190c0",
-    "src/main.tsx": "c10138570c86e33a41ee03320bde31cf49147b7b1a9c6c01ce391068f468b465",
+    "package.json": "44a84c613ac0c006e522e8161cbe781a48d11400abd65ee25dcb712c127fff2c",
+    "package-lock.json": "2ca0c29ad4288c51ad48f83618a77f37291cc5c43b7db60d9cdf1313fcba6efc",
+    "src/main.tsx": "faab550fb0fd1d6b6896981e778bf90c4c08bd30d0598d239d9fd7183469a3df",
     "vite.config.ts": "9546b184276f1c78e272fdf0add15d05070c378a73fa9c2c84b4e25e61b6977c"
   },
   "packages": {
@@ -11,6 +11,7 @@
     "react-select": "5.10.2",
     "@xyflow/react": "12.12.1",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "@codemirror/view": "6.43.15"
   }
 }

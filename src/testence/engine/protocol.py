@@ -400,6 +400,10 @@ class Engine(Protocol):
         """Call a JavaScript function in the active page or frame with one argument."""
         ...
 
+    def evaluate_on(self, target: Target, function: str, arg: Any = None) -> Any:
+        """Call ``function(element, arg)`` on the one element ``target`` matches."""
+        ...
+
     def input_value(self, target: Target) -> str:
         """Read one field, including an empty value; duplicate matches must fail."""
         ...

@@ -136,15 +136,53 @@ def search(ex: Any, label: str, *, within: Target | None = None) -> react_aria.S
     return search_field(ex, label, within=within)
 
 
+_REQUIRED_JS = """(xpath) => {
+    const found = document.evaluate(xpath, document, null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+    return found ? /\\*/.test(found.textContent || "") : null;
+}"""
+
+
 @dataclass(frozen=True)
 class Select:
-    """A Koobiq ``Select``: a ``div role=button`` and a portalled ``listbox``."""
+    """A Koobiq ``Select``: a ``div role=button`` and a portalled ``listbox``.
+
+    A required select names its list "label *". ``required=None`` (the default) reads
+    the field's label once, on first use, instead of making the author guess.
+    """
 
     ex: Any = field(repr=False, compare=False)
     label: str
-    name: str
     trigger: Target
-    list: react_aria.Listbox
+    required: bool | None = None
+    _label_xpath: str = field(default="", repr=False, compare=False)
+    _known: dict[str, bool] = field(default_factory=dict, repr=False, compare=False)
+
+    @property
+    def name(self) -> str:
+        """The accessible name of the list: the label, with " *" when required."""
+        required = self.required
+        if required is None:
+            if "required" not in self._known:
+                seen = _support.read(
+                    self.ex,
+                    f"read whether the select {self.label!r} is required",
+                    _REQUIRED_JS,
+                    self._label_xpath,
+                    target=self.trigger,
+                )
+                if seen is None:
+                    raise AssertionError(
+                        f"no Koobiq select is labelled {self.label!r} on the page "
+                        "(its label is the form field's data-slot=form-field-label)"
+                    )
+                self._known["required"] = bool(seen)
+            required = self._known["required"]
+        return _label_name(self.label, required=required)
+
+    @property
+    def list(self) -> react_aria.Listbox:
+        return react_aria.listbox(self.ex, self.name)
 
     def option(self, label: str) -> Target:
         return self.list.option(label)
@@ -167,19 +205,23 @@ class Select:
         self.ex.expect_visible(self.shows(value), intent=f"{self.label!r} shows {value!r}")
 
 
-def select(ex: Any, label: str, *, required: bool = False) -> Select:
-    """The Koobiq ``Select`` whose label reads ``label`` (without the " *")."""
+def select(ex: Any, label: str, *, required: bool | None = None) -> Select:
+    """The Koobiq ``Select`` whose label reads ``label`` (without the " *").
+
+    ``required`` says whether the field is required, which changes its list's name;
+    left out, the kit reads it from the label once, on first use.
+    """
     lit = _support.xpath_literal(label)
     # The label text, with the required asterisk and the non-breaking space before
     # it removed: translate() maps U+00A0 to a space and deletes "*".
     text = 'normalize-space(translate(., "\u00a0*", " "))'
+    label_xpath = f'//*[@data-slot="form-field"]/*[@data-slot="form-field-label"][{text}={lit}]'
     trigger = Target(
         "css",
         f'xpath=//*[@data-slot="form-field"][*[@data-slot="form-field-label"][{text}={lit}]]'
         '//*[@data-slot="select-value"]',
     )
-    name = _label_name(label, required=required)
-    return Select(ex, label, name, trigger, react_aria.listbox(ex, name))
+    return Select(ex, label, trigger, required, label_xpath)
 
 
 # -- overlays --------------------------------------------------------------------
@@ -261,21 +303,44 @@ class Dialog:
             self.wait_closed()
 
 
-def _dialog_xpath(title: str, container: str | None = None) -> str:
-    header = f"[.//*[{_HEADER}][normalize-space(.)={_support.xpath_literal(title)}]]"
+#: Where a dialog's title may stand: Koobiq's header element (the default), or any
+#: heading or paragraph of the dialog when the product draws its own title.
+DIALOG_HEADERS = ("koobiq", "any")
+_OWN_TITLE = (
+    "self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6 "
+    "or self::p or @role='heading'"
+)
+
+
+def _dialog_xpath(
+    title: str, container: str | None = None, *, header: str = "koobiq", exact: bool = True
+) -> str:
+    if header not in DIALOG_HEADERS:
+        raise ValueError(f"header must be one of {', '.join(DIALOG_HEADERS)}")
+    lit = _support.xpath_literal(title)
+    reads = f"normalize-space(.)={lit}" if exact else f"starts-with(normalize-space(.), {lit})"
+    where = _HEADER if header == "koobiq" else f"{_HEADER} or {_OWN_TITLE}"
+    found = f"[.//*[{where}][{reads}]]"
     if container:
-        return f"xpath=//*[{_token(container)}]//*[@role='dialog']{header}"
-    return f"xpath=//*[@role='dialog']{header}"
+        return f"xpath=//*[{_token(container)}]//*[@role='dialog']{found}"
+    return f"xpath=//*[@role='dialog']{found}"
 
 
-def dialog(ex: Any, title: str) -> Dialog:
-    """Any Koobiq dialog (``Modal``, ``SidePanel``) whose header reads ``title``."""
-    return Dialog(ex, title, Target("css", _dialog_xpath(title)))
+def dialog(ex: Any, title: str, *, header: str = "koobiq", exact: bool = True) -> Dialog:
+    """Any Koobiq dialog (``Modal``, ``SidePanel``) whose header reads ``title``.
+
+    ``header="any"`` also finds a dialog whose product draws its own title, a heading
+    or a paragraph instead of Koobiq's header. ``exact=False`` matches a title the
+    header text starts with, for a header that holds the title and a caption.
+    """
+    return Dialog(ex, title, Target("css", _dialog_xpath(title, header=header, exact=exact)))
 
 
-def side_panel(ex: Any, title: str) -> Dialog:
-    """A Koobiq ``SidePanel`` whose header reads ``title``."""
-    return Dialog(ex, title, Target("css", _dialog_xpath(title, "kbq-sidepanel-")), "side panel")
+def side_panel(ex: Any, title: str, *, header: str = "koobiq", exact: bool = True) -> Dialog:
+    """A Koobiq ``SidePanel`` whose header reads ``title`` (``header``, ``exact``: see
+    :func:`dialog`)."""
+    xpath = _dialog_xpath(title, "kbq-sidepanel-", header=header, exact=exact)
+    return Dialog(ex, title, Target("css", xpath), "side panel")
 
 
 @dataclass(frozen=True)
@@ -301,8 +366,9 @@ class Confirm:
         self.dialog.press(name)
 
 
-def confirm(ex: Any, title: str) -> Confirm:
-    return Confirm(dialog(ex, title))
+def confirm(ex: Any, title: str, *, header: str = "koobiq", exact: bool = True) -> Confirm:
+    """A confirmation by its title (``header``, ``exact``: see :func:`dialog`)."""
+    return Confirm(dialog(ex, title, header=header, exact=exact))
 
 
 # -- toasts ----------------------------------------------------------------------

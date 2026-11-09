@@ -2204,6 +2204,10 @@ class PlaywrightCdpEngine(Engine):
         with self._timed("evaluate"):
             return self._require_js_scope().evaluate(function, arg)
 
+    def evaluate_on(self, target: Target, function: str, arg: Any = None) -> Any:
+        with self._timed("evaluate_on", target.describe()):
+            return self._locate(target).evaluate(function, arg, timeout=self.timeout_ms)
+
     def aria_snapshot(self, target: Target | None = None) -> str:
         """ARIA tree of the page, or of the first element ``target`` matches. Retries
         the page once after giving a still-rendering app a moment: a blank snapshot

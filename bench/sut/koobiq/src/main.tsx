@@ -9,7 +9,7 @@
 import '@koobiq/design-tokens/web/css-tokens.css'
 import '@koobiq/react-components/style.css'
 
-import { StrictMode, useCallback, useMemo, useState } from 'react'
+import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   Badge,
@@ -43,6 +43,7 @@ import {
   useNodesState,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { EditorView, basicSetup } from 'codemirror'
 
 type Entry = { at: number; text: string }
 
@@ -126,6 +127,19 @@ function Selects() {
           log(`zone: ${value ? value.value : '-'}`)
         }}
       />
+      {/* A label the product did not associate with its input: no for, no aria. */}
+      <div className="field">
+        <span className="field-label">Owner</span>
+        <ReactSelect<Option, false>
+          className="react-select"
+          classNamePrefix="react-select"
+          options={[
+            { value: 'ops', label: 'Operations' },
+            { value: 'dev', label: 'Development' },
+          ]}
+          onChange={(value) => log(`owner: ${value ? value.value : '-'}`)}
+        />
+      </div>
     </section>
   )
 }
@@ -194,9 +208,46 @@ function Panel() {
   const [name, setName] = useState('')
   const [vlan, setVlan] = useState<number>(100)
   const [confirm, setConfirm] = useState(false)
+  const [token, setToken] = useState(false)
+  const [publish, setPublish] = useState(false)
   return (
     <section aria-label="Overlays" className="block">
       <h2>Overlays</h2>
+      <Button onPress={() => setToken(true)}>Create token</Button>
+      <Button onPress={() => setPublish(true)}>Publish template</Button>
+      {/* The product draws its own title: a paragraph in the body, no Koobiq header. */}
+      <Modal isOpen={token} onOpenChange={setToken} size="small">
+        <Modal.Body>
+          <p className="token-title">Agent token created</p>
+          <p>Copy it now: it is shown once.</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            onPress={() => {
+              log('token: done')
+              setToken(false)
+            }}
+          >
+            Done
+          </Button>
+        </Modal.Footer>
+      </Modal>
+      {/* Title and caption in one header: its text starts with the title. */}
+      <Modal isOpen={publish} onOpenChange={setPublish} size="small">
+        <Modal.Header>
+          Publish «tpl-one»? <small>Everyone will see it.</small>
+        </Modal.Header>
+        <Modal.Footer>
+          <Button
+            onPress={() => {
+              log('publish: yes')
+              setPublish(false)
+            }}
+          >
+            Publish
+          </Button>
+        </Modal.Footer>
+      </Modal>
       <Button onPress={() => setOpen(true)}>Open panel</Button>
       <Button variant="error-solid" onPress={() => setConfirm(true)}>
         Delete item
@@ -294,6 +345,17 @@ function Controls() {
         <Select.Item key="fast">Fast</Select.Item>
         <Select.Item key="safe">Safe</Select.Item>
         <Select.Item key="off">Off</Select.Item>
+      </Select>
+      <Select
+        label="Color"
+        isRequired
+        placeholder="Choose a color"
+        onSelectionChange={(keys: unknown) =>
+          log(`color: ${[...(keys as Iterable<unknown>)].map(String).join(',') || '-'}`)
+        }
+      >
+        <Select.Item key="red">Red</Select.Item>
+        <Select.Item key="green">Green</Select.Item>
       </Select>
       <SearchInput
         label="Search routers"
@@ -414,6 +476,32 @@ function Flow() {
   )
 }
 
+// ---- code editor --------------------------------------------------------------
+
+function Editor() {
+  const host = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!host.current) return
+    const view = new EditorView({
+      doc: '{\n  "name": "router"\n}',
+      extensions: [
+        basicSetup,
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) log(`schema: ${JSON.stringify(update.state.doc.toString())}`)
+        }),
+      ],
+      parent: host.current,
+    })
+    return () => view.destroy()
+  }, [])
+  return (
+    <section aria-label="Code editor" className="block">
+      <h2>Code editor</h2>
+      <div id="schema" ref={host} />
+    </section>
+  )
+}
+
 // ---- page -------------------------------------------------------------------
 
 function Log() {
@@ -447,6 +535,7 @@ function App() {
           <Panel />
           <Toasts />
           <Flow />
+          <Editor />
           <Log />
       </main>
     </Provider>
